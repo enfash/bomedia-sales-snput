@@ -1,101 +1,326 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Zap, LayoutDashboard, RefreshCw, Receipt, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useSyncStore } from "@/lib/store";
+import { DashboardMetrics } from "@/components/dashboard-metrics";
+import { SalesExpenseChart, ExpenseCategorizationChart, OutstandingDebtChart } from "@/components/dashboard-charts";
+import {
+  format,
+  subDays,
+  isWithinInterval,
+  parseISO,
+  eachDayOfInterval,
+  isSameDay,
+} from "date-fns";
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+const parseAmount = (val: any): number => {
+  if (val === undefined || val === null) return 0;
+  const str = val.toString().replace(/[₦,\s]/g, "");
+  return parseFloat(str) || 0;
+};
+
+const parseSheetDate = (dateStr: any): Date | null => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+type Row = Record<string, string>;
+
+export default function DashboardPage() {
+  const { pendingQueue, cachedSales, cachedExpenses, setCachedData } = useSyncStore();
+  
+  const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
+  const [expensesData, setExpensesData] = useState<Row[]>(cachedExpenses || []);
+  const [loading, setLoading] = useState(cachedSales.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else if (salesData.length === 0) setLoading(true);
+
+    try {
+      const [salesRes, expensesRes] = await Promise.all([
+        fetch("/api/sales"),
+        fetch("/api/expenses"),
+      ]);
+      const salesJson = await salesRes.json();
+      const expensesJson = await expensesRes.json();
+      
+      const newSales = salesJson.data ?? [];
+      const newExpenses = expensesJson.data ?? [];
+
+      setSalesData(newSales);
+      setExpensesData(newExpenses);
+      setCachedData(newSales, newExpenses);
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    // Auto-refresh when coming back online
+    const handleOnline = () => {
+      console.log("Back online, refreshing dashboard...");
+      fetchData(true);
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, []);
+
+  // ── Data assembly ──────────────────────────────────────────────────────────
+  const pendingSales: Row[] = pendingQueue
+    .filter((item) => item.type === "sale")
+    .map((item) => {
+      const v = item.data;
+      return {
+        DATE: v[0],
+        "AMOUNT (₦)": "0",
+        "INITIAL PAYMENT (₦)": v[14] || "0",
+        "AMOUNT DIFFERENCES": "0",
+        "PAYMENT STATUS": v[19] || "Unpaid",
+        "CLIENT NAME": v[1],
+        __isPending: "true",
+      };
+    });
+
+  const pendingExpenses: Row[] = pendingQueue
+    .filter((item) => item.type === "expense")
+    .map((item) => ({ ...item.data, __isPending: "true" }));
+
+  const allSales = [...pendingSales, ...salesData];
+  const allExpenses = [...pendingExpenses, ...expensesData];
+
+  // ── Time windows ───────────────────────────────────────────────────────────
+  const now = new Date();
+  const thirtyDaysAgo = subDays(now, 30);
+  const sixtyDaysAgo = subDays(now, 60);
+
+  const filterByInterval = (data: Row[], start: Date, end: Date) =>
+    data.filter((row) => {
+      const d = parseSheetDate(row.DATE || row.Date);
+      return d ? isWithinInterval(d, { start, end }) : false;
+    });
+
+  const currentSales = filterByInterval(allSales, thirtyDaysAgo, now);
+  const prevSales = filterByInterval(allSales, sixtyDaysAgo, thirtyDaysAgo);
+  const currentExpenses = filterByInterval(allExpenses, thirtyDaysAgo, now);
+  const prevExpenses = filterByInterval(allExpenses, sixtyDaysAgo, thirtyDaysAgo);
+
+  const sumKey = (data: Row[], keys: string[]) =>
+    data.reduce((acc, r) => {
+      const key = keys.find((k) => r[k] !== undefined);
+      return acc + (key ? parseAmount(r[key]) : 0);
+    }, 0);
+
+  // ── Metric values ──────────────────────────────────────────────────────────
+  const totalSalesVal = sumKey(currentSales, ["AMOUNT (₦)", "Amount (₦)"]);
+  const prevSalesVal = sumKey(prevSales, ["AMOUNT (₦)", "Amount (₦)"]);
+  const totalExpensesVal = sumKey(currentExpenses, ["Amount (₦)", "AMOUNT", "Amount"]);
+  const prevExpensesVal = sumKey(prevExpenses, ["Amount (₦)", "AMOUNT", "Amount"]);
+  const netProfitVal = totalSalesVal - totalExpensesVal;
+  const prevProfitVal = prevSalesVal - prevExpensesVal;
+
+  // ── Outstanding debt ───────────────────────────────────────────────────────
+  const debtRows = allSales.filter((r) => {
+    const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
+    return balance > 0;
+  });
+
+  const outstandingDebtTotal = debtRows.reduce(
+    (sum, r) => sum + parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
+    0
+  );
+
+  const unpaidCount = debtRows.length;
+
+  // Group by client name, sum balances, take top 7
+  const debtByClient: Record<string, number> = {};
+  debtRows.forEach((r) => {
+    const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
+    const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
+    debtByClient[client] = (debtByClient[client] || 0) + balance;
+  });
+
+  const outstandingDebtChart = Object.entries(debtByClient)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 7)
+    .map(([name, balance]) => ({
+      name: name.length > 14 ? name.slice(0, 13) + "…" : name,
+      balance,
+    }));
+
+  // ── Chart data ─────────────────────────────────────────────────────────────
+  const last30Days = eachDayOfInterval({ start: thirtyDaysAgo, end: now });
+  const chartData = last30Days.map((day) => {
+    const daySales = allSales.filter((r) => {
+      const d = parseSheetDate(r.DATE || r.Date);
+      return d ? isSameDay(d, day) : false;
+    });
+    const dayExpenses = allExpenses.filter((r) => {
+      const d = parseSheetDate(r.DATE || r.Date);
+      return d ? isSameDay(d, day) : false;
+    });
+    return {
+      date: format(day, "MMM dd"),
+      sales: sumKey(daySales, ["AMOUNT (₦)", "Amount (₦)"]),
+      expenses: sumKey(dayExpenses, ["Amount (₦)", "AMOUNT", "Amount"]),
+    };
+  });
+
+  // ── Expense categories ─────────────────────────────────────────────────────
+  const categories: Record<string, number> = {};
+  allExpenses.forEach((r) => {
+    const cat = r.CATEGORY || r.Category || "Other";
+    const amount = parseAmount(r["Amount (₦)"] || r.AMOUNT || r.Amount);
+    categories[cat] = (categories[cat] || 0) + amount;
+  });
+  const categoryData = Object.entries(categories)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, value]) => ({ name, value, color: "" }));
+
+  const calculateChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? "100%" : "0%";
+    return `${Math.abs(Math.round(((current - previous) / previous) * 100))}%`;
+  };
+
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500 font-medium">Loading Dashboard...</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-8 space-y-6 bg-[#f8fafc] min-h-screen pb-24">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <LayoutDashboard className="w-5 h-5 text-indigo-600" />
+            <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">
+              Analytics Dashboard
+            </h1>
+            {refreshing && (
+              <span className="flex items-center gap-1.5 text-[9px] font-black text-indigo-500 uppercase tracking-wider bg-indigo-50 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 ml-2">
+                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                Updating...
+              </span>
+            )}
+          </div>
+          <p className="text-gray-400 text-xs font-medium">
+            Here's what's happening with your business — last 30 days.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchData(true)}
+          disabled={refreshing}
+          className="w-full md:w-auto bg-white border-gray-200 text-gray-700 shadow-sm rounded-xl h-10 px-5 text-xs font-bold"
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <RefreshCw className={`w-3.5 h-3.5 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Updating..." : "Refresh"}
+        </Button>
+      </div>
+
+      {/* Metrics Row — 4 cards */}
+      <DashboardMetrics
+        totalSales={totalSalesVal}
+        totalExpenses={totalExpensesVal}
+        netProfit={netProfitVal}
+        outstandingDebt={outstandingDebtTotal}
+        unpaidCount={unpaidCount}
+        salesChange={calculateChange(totalSalesVal, prevSalesVal)}
+        expensesChange={calculateChange(totalExpensesVal, prevExpensesVal)}
+        profitChange={calculateChange(netProfitVal, prevProfitVal)}
+        isSalesUp={totalSalesVal >= prevSalesVal}
+        isExpensesDown={totalExpensesVal <= prevExpensesVal}
+        isProfitUp={netProfitVal >= prevProfitVal}
+      />
+
+      {/* AI Banner */}
+      {/* Quick Actions / AI Banner */}
+      <div
+        className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg"
+        style={{
+          background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+          boxShadow: "0 8px 24px rgba(79,70,229,0.3)",
+        }}
+      >
+        <div className="flex items-center gap-4">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+          >
+            <Zap className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-black text-base leading-tight">Quick Actions</h2>
+            <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.8)" }}>
+              Say: <em className="not-italic font-semibold">"Logged ₦12k sale..."</em> — Fast mobile entry.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <Link href="/new-entry" className="flex-1 md:flex-none">
+            <Button
+              className="w-full text-xs font-black rounded-xl h-10 px-4 transition-all hover:scale-105"
+              style={{ backgroundColor: "white", color: "#4f46e5" }}
+            >
+              <Zap className="w-3 h-3 mr-2" />
+              AI Entry
+            </Button>
+          </Link>
+          <Link href="/expenses" className="flex-1 md:flex-none">
+            <Button
+              variant="outline"
+              className="w-full text-xs font-black rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+            >
+              <Receipt className="w-3 h-3 mr-2" />
+              Log Expense
+            </Button>
+          </Link>
+          <Link href="/records" className="flex-1 md:flex-none">
+            <Button
+              variant="outline"
+              className="w-full text-xs font-black rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+            >
+              <BarChart3 className="w-3 h-3 mr-2" />
+              Records
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Charts — Row 1: Sales vs Expenses + Expense Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2">
+          <SalesExpenseChart data={chartData} />
+        </div>
+        <div className="lg:col-span-1">
+          <ExpenseCategorizationChart data={categoryData} total={totalExpensesVal} />
+        </div>
+      </div>
+
+      {/* Charts — Row 2: Outstanding Debt (full width) */}
+      <OutstandingDebtChart data={outstandingDebtChart} />
     </div>
   );
 }

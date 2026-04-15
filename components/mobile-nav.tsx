@@ -1,0 +1,133 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useSyncStore } from "@/lib/store";
+
+const navItems = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/new-entry", label: "New Sale", icon: PlusCircle },
+  { href: "/expenses", label: "Log Expense", icon: Receipt },
+  { href: "/records", label: "Records", icon: BarChart3 },
+];
+
+export function MobileNav() {
+  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const { pendingQueue, syncStatus } = useSyncStore();
+
+  // Close nav when path changes
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
+
+  // Prevent scrolling when nav is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [isOpen]);
+
+  return (
+    <>
+      {/* Mobile Header */}
+      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 text-white flex items-center justify-between px-4 z-50 border-b border-gray-800">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-sm">
+            B
+          </div>
+          <span className="font-bold text-sm tracking-tight">BOMedia</span>
+          {pendingQueue.length > 0 && (
+            <span className="ml-2 flex items-center gap-1 text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/30">
+              <RefreshCw className={cn("w-2 h-2", syncStatus === 'syncing' && "animate-spin")} />
+              {pendingQueue.length}
+            </span>
+          )}
+        </div>
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => setIsOpen(!isOpen)}
+          className="text-white hover:bg-gray-800 h-10 w-10"
+        >
+          {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </Button>
+      </header>
+
+      {/* Spacer to prevent content from hiding behind fixed header */}
+      <div className="md:hidden h-16 w-full" />
+
+      {/* Mobile Nav Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] md:hidden animation-in fade-in transition-all duration-200"
+          onClick={() => setIsOpen(false)}
+        >
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-[280px] bg-gray-900 p-6 shadow-2xl flex flex-col animation-in slide-in-from-left duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-xl text-white">
+                B
+              </div>
+              <div>
+                <p className="font-bold text-base leading-tight">BOMedia</p>
+                <p className="text-xs text-gray-400">Sales & Expenses</p>
+              </div>
+            </div>
+
+            <nav className="flex-1 space-y-2">
+              {navItems.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-all transition-all duration-200",
+                      active
+                        ? "bg-indigo-600 text-white shadow-lg scale-[1.02]"
+                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                    )}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="mt-auto space-y-4">
+              {/* Sync Status for Mobile */}
+              <div className="p-4 bg-gray-800/40 rounded-xl border border-gray-700/50">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sync Queue</span>
+                  {syncStatus === 'syncing' ? (
+                    <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+                  ) : pendingQueue.length > 0 ? (
+                    <CloudOff className="w-3 h-3 text-orange-400" />
+                  ) : (
+                    <Cloud className="w-3 h-3 text-green-400" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-300">{pendingQueue.length} items waiting for network</p>
+              </div>
+
+              <div className="pt-6 border-t border-gray-800 text-center">
+                <p className="text-xs text-gray-500 font-medium">BOMedia Management System</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
