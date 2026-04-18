@@ -134,6 +134,7 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
                   size="sm" 
                   variant="secondary"
                   onClick={() => {
+                    if (!record.contact) return;
                     const balance = (record.balance || 0).toLocaleString();
                     const message = `Hello *${record.client}*, this is a payment reminder from *BOMedia*.\n\nRegarding your order: *${record.description}*\nOutstanding Balance: *₦${balance}*\n\nKindly make payment to our designated bank account.\n\nThank you for your business!`;
                     const encoded = encodeURIComponent(message);
