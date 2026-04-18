@@ -29,7 +29,7 @@ export function SyncManager() {
         try {
           const endpoint = item.type === 'sale' ? '/api/sales' : '/api/expenses';
           const payload = item.type === 'sale' 
-            ? { values: item.data, type: "array" } 
+            ? { ...item.data, type: "array" } 
             : item.data;
 
           const res = await fetch(endpoint, {

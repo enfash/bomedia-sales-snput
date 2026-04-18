@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { NamePrompt } from "@/components/name-prompt";
 import { Toaster } from "@/components/ui/sonner";
+import { cookies } from "next/headers";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { SyncManager } from "@/components/sync-manager";
 import { PWAManager } from "@/components/pwa-manager";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "BOMedia Sales & Expenses",
@@ -21,37 +23,49 @@ export const metadata: Metadata = {
   },
 };
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = cookies();
+  const isAdmin = cookieStore.has("admin_session");
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#4f46e5" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body className="antialiased bg-gray-50">
-        <PWAManager />
-        <NamePrompt />
-        <SyncManager />
-        <div className="flex min-h-screen">
-          {/* Desktop Sidebar */}
-          <Sidebar />
-          
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Mobile Header & Nav */}
-            <MobileNav />
+      <body className="antialiased min-h-screen" suppressHydrationWarning>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <PWAManager />
+          <NamePrompt isAdmin={isAdmin} />
+          <SyncManager />
+          <div className="flex min-h-screen bg-gray-50 dark:bg-black transition-colors duration-300">
+            {/* Desktop Sidebar */}
+            <Sidebar isAdmin={isAdmin} />
             
-            <main className="flex-1 md:ml-60 min-h-screen overflow-x-hidden">
-              <div className="w-full max-w-[2000px] mx-auto p-0 transition-all duration-300">
-                {children}
-              </div>
-            </main>
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Mobile Header & Nav */}
+              <MobileNav isAdmin={isAdmin} />
+              
+              <main className="flex-1 md:ml-60 min-h-screen overflow-x-hidden">
+                <div className="w-full max-w-[2000px] mx-auto p-0">
+                  {children}
+                </div>
+              </main>
+            </div>
           </div>
-        </div>
-        <Toaster richColors position="top-right" closeButton />
+          <Toaster richColors position="top-right" closeButton />
+        </ThemeProvider>
       </body>
     </html>
   );

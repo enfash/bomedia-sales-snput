@@ -13,7 +13,7 @@ interface MetricCardProps {
   subLabel?: string;
 }
 
-function MetricCard({
+export function MetricCard({
   title,
   value,
   change,

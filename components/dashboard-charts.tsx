@@ -46,7 +46,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[280px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -82,7 +82,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
                   fontSize: "12px",
                   fontWeight: "bold",
                 }}
-                formatter={(value: number) => [`₦${value.toLocaleString()}`, undefined]}
+                formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
                 labelStyle={{ fontWeight: "bold", marginBottom: "4px", color: "#1e293b" }}
               />
               <Area type="monotone" dataKey="sales" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" name="Sales" />
@@ -116,7 +116,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[280px] w-full relative">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <PieChart>
               <Pie
                 data={data}
@@ -139,7 +139,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
                   boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                   fontSize: "12px",
                 }}
-                formatter={(value: number) => [`₦${value.toLocaleString()}`, undefined]}
+                formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
               />
               <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: "700" }} />
             </PieChart>
@@ -148,6 +148,55 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
           <div className="absolute inset-x-0 pointer-events-none" style={{ top: "38%" }}>
             <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Total</p>
             <p className="text-center text-base font-black text-gray-900 leading-tight">₦{total.toLocaleString()}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Material Sales Donut Chart ────────────────────────────────────────────
+export function MaterialSalesChart({ data, total }: { data: CategoryData[]; total: number }) {
+  return (
+    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-bold text-gray-900">Material Distribution</CardTitle>
+        <CardDescription className="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Today's Jobs</CardDescription>
+      </CardHeader>
+      <CardContent className="px-2 pb-4">
+        <div className="h-[280px] w-full relative">
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="45%"
+                innerRadius={65}
+                outerRadius={90}
+                paddingAngle={4}
+                dataKey="value"
+              >
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={0} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  borderRadius: "12px",
+                  border: "none",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                  fontSize: "12px",
+                }}
+                formatter={(value: any) => [Number(value).toLocaleString(), "Jobs"]}
+              />
+              <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: "700" }} />
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Center Label */}
+          <div className="absolute inset-x-0 pointer-events-none" style={{ top: "38%" }}>
+            <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Total</p>
+            <p className="text-center text-base font-black text-gray-900 leading-tight">{total.toLocaleString()} Jobs</p>
           </div>
         </div>
       </CardContent>
@@ -191,7 +240,7 @@ export function OutstandingDebtChart({ data }: { data: DebtData[] }) {
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[240px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <BarChart
               data={data}
               layout="vertical"
@@ -222,7 +271,7 @@ export function OutstandingDebtChart({ data }: { data: DebtData[] }) {
                   boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                   fontSize: "12px",
                 }}
-                formatter={(value: number) => [`₦${value.toLocaleString()}`, "Balance"]}
+                formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Balance"]}
                 labelStyle={{ fontWeight: "bold", color: "#1e293b" }}
               />
               <Bar dataKey="balance" fill="#f43f5e" radius={[0, 6, 6, 0]} name="Balance" />

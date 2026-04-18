@@ -3,22 +3,44 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
+import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-  { href: "/expenses", label: "Log Expense", icon: Receipt },
-  { href: "/records", label: "Records", icon: BarChart3 },
+  { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+  { href: "/cashier/records", label: "Records", icon: BarChart3 },
 ];
 
-export function MobileNav() {
+interface MobileNavProps {
+  isAdmin?: boolean;
+}
+
+export function MobileNav({ isAdmin = false }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const { pendingQueue, syncStatus } = useSyncStore();
+
+  const handleLogout = async () => {
+    const userName = localStorage.getItem("userName");
+    localStorage.removeItem("userName");
+    
+    // Attempt to free the session if applicable
+    if (userName) {
+      await fetch("/api/cashiers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: userName, status: "Offline" }),
+      }).catch(() => {});
+    }
+
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/";
+  };
 
   // Close nav when path changes
   useEffect(() => {
@@ -33,6 +55,23 @@ export function MobileNav() {
       document.body.style.overflow = "unset";
     }
   }, [isOpen]);
+
+  if (pathname === "/bom03/login" || pathname === "/") return null;
+
+  const currentNavItems = pathname.startsWith("/cashier") || !isAdmin
+    ? [
+        { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
+        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/cashier/records", label: "Records", icon: BarChart3 },
+      ]
+    : [
+        { href: "/bom03", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
+        { href: "/bom03/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/bom03/records", label: "Records", icon: BarChart3 },
+        { href: "/bom03/staff", label: "Staff Manager", icon: Users },
+      ];
 
   return (
     <>
@@ -51,14 +90,17 @@ export function MobileNav() {
           )}
         </div>
         
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setIsOpen(!isOpen)}
-          className="text-white hover:bg-gray-800 h-10 w-10"
-        >
-          {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsOpen(!isOpen)}
+            className="text-white hover:bg-gray-800 h-10 w-10 shrink-0"
+          >
+            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </Button>
+        </div>
       </header>
 
       {/* Spacer to prevent content from hiding behind fixed header */}
@@ -85,7 +127,7 @@ export function MobileNav() {
             </div>
 
             <nav className="flex-1 space-y-2">
-              {navItems.map(({ href, label, icon: Icon }) => {
+              {currentNavItems.map(({ href, label, icon: Icon }) => {
                 const active = pathname === href;
                 return (
                   <Link
@@ -121,8 +163,16 @@ export function MobileNav() {
                 <p className="text-xs text-gray-300">{pendingQueue.length} items waiting for network</p>
               </div>
 
-              <div className="pt-6 border-t border-gray-800 text-center">
-                <p className="text-xs text-gray-500 font-medium">BOMedia Management System</p>
+              <div className="pt-6 border-t border-gray-800 text-center space-y-4">
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 justify-start" 
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-5 h-5 mr-3" />
+                  Log Out
+                </Button>
+                <p className="text-xs text-gray-600 font-medium">BOMedia Management System</p>
               </div>
             </div>
           </div>

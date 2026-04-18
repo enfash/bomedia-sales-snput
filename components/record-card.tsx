@@ -36,7 +36,7 @@ export function RecordCard({ date, client, description, amount, status, isPendin
         </div>
         <div className="text-right">
           <span className="text-[9px] font-black uppercase text-rose-400 block leading-none mb-1 tracking-wider">Difference</span>
-          <span className="text-sm font-black text-rose-600 leading-none">{record?.type === "Sale" ? `₦${record.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+          <span className="text-sm font-black text-rose-600 leading-none">{record?.type === "Sale" ? `₦${(record.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
         </div>
       </div>
       

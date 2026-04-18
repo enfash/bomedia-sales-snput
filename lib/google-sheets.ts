@@ -17,3 +17,31 @@ export async function getDoc() {
   await doc.loadInfo();
   return doc;
 }
+
+/**
+ * Ensures that a sheet has a header row.
+ * If the sheet is empty, it will be initialized with the provided defaultHeaders.
+ */
+export async function ensureHeaders(sheet: any, requiredHeaders: string[]) {
+  try {
+    await sheet.loadHeaderRow();
+    const existingHeaders = sheet.headerValues;
+    const missingHeaders = requiredHeaders.filter(h => !existingHeaders.includes(h));
+    
+    if (missingHeaders.length > 0) {
+      // If some headers are missing, we append them to the existing sheet
+      await sheet.setHeaderRow([...existingHeaders, ...missingHeaders]);
+    }
+    return true;
+  } catch (error: any) {
+    const msg = error.message.toLowerCase();
+    
+    // This specific error happens when the sheet is completely empty or has corrupt headers
+    if (msg.includes("no values in the header row") || msg.includes("duplicate header")) {
+      console.log(`[GoogleSheets] Resetting headers for ${sheet.title} due to: ${error.message}`);
+      await sheet.setHeaderRow(requiredHeaders);
+      return true;
+    }
+    throw error;
+  }
+}

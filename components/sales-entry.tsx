@@ -9,8 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Package, Check, ChevronsUpDown } from "lucide-react";
 import { useSyncStore } from "@/lib/store";
+import { 
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export function SalesEntry() {
   const [nlText, setNlText] = useState("");
@@ -34,20 +48,40 @@ export function SalesEntry() {
     jobStatus: "Pending",
     dimensionUnit: "ft", // default to feet
   });
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [openInv, setOpenInv] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/inventory")
+      .then(res => res.json())
+      .then(json => {
+        if (json.data) setInventory(json.data);
+      })
+      .catch(err => console.error("Failed to fetch inventory for selection", err));
+  }, []);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rollSizeTouched, setRollSizeTouched] = useState(false);
 
   // Sync default cost when material changes
   useEffect(() => {
-    if (formData.material === "SAV") {
-      setFormData(prev => ({ ...prev, costPerSqft: "200" }));
-      // If an invalid roll size for SAV is set, reset to empty
-      if (formData.rollSize && !["3", "4", "5"].includes(formData.rollSize)) {
-        setFormData(prev => ({ ...prev, rollSize: "" }));
-      }
-    } else {
-      setFormData(prev => ({ ...prev, costPerSqft: "180" }));
+    const prices: Record<string, string> = {
+      "Flex": "180",
+      "SAV": "200",
+      "Window Graphics": "500",
+      "Clear Sticker": "350",
+      "Blockout": "180",
+      "Reflective": "180",
+      "Mesh": "180"
+    };
+    
+    if (prices[formData.material]) {
+      setFormData(prev => ({ ...prev, costPerSqft: prices[formData.material] }));
+    }
+    
+    // SAV Roll size logic
+    if (formData.material === "SAV" && formData.rollSize && !["3", "4", "5"].includes(formData.rollSize)) {
+      setFormData(prev => ({ ...prev, rollSize: "" }));
     }
   }, [formData.material]);
 
@@ -58,6 +92,11 @@ export function SalesEntry() {
     const rawSize = w * h;
     return formData.dimensionUnit === "in" ? rawSize / 144 : rawSize;
   }, [formData.actualWidth, formData.actualHeight, formData.dimensionUnit]);
+
+  const totalJobArea = useMemo(() => {
+    const q = parseInt(formData.qty) || 0;
+    return calculatedSize * q;
+  }, [calculatedSize, formData.qty]);
 
   const unitCostVal = useMemo(() => {
     const rate = parseFloat(formData.costPerSqft) || 0;
@@ -152,8 +191,11 @@ export function SalesEntry() {
     ];
 
     try {
-      // Use the offline sync store
-      useSyncStore.getState().addPendingEntry('sale', rowArray);
+      // Pass both the values array AND the totalArea metadata
+      useSyncStore.getState().addPendingEntry('sale', {
+        values: rowArray,
+        totalArea: totalJobArea
+      });
       
       toast.success("Saved locally! Syncing with Google Sheets in background...");
       setShowConfirmModal(false);
@@ -225,7 +267,56 @@ export function SalesEntry() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="md:col-span-2 space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Job Description</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Job Description</Label>
+                    {inventory.length > 0 && (
+                      <Popover open={openInv} onOpenChange={setOpenInv}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[9px] font-black uppercase text-indigo-600 hover:bg-indigo-50 flex items-center gap-1"
+                          >
+                            <Package className="w-3 h-3" />
+                            Use Inventory
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0 rounded-xl" align="end">
+                          <Command>
+                            <CommandInput placeholder="Search inventory..." className="h-9" />
+                            <CommandList>
+                              <CommandEmpty>No item found.</CommandEmpty>
+                              <CommandGroup>
+                                {inventory.map((item) => (
+                                  <CommandItem
+                                    key={item["Item Name"]}
+                                    onSelect={() => {
+                                      setFormData({
+                                        ...formData,
+                                        jobDescription: item["Item Name"],
+                                        costPerSqft: item["Price"]?.toString() || formData.costPerSqft
+                                      });
+                                      setOpenInv(false);
+                                      toast.info(`Selected ${item["Item Name"]}`);
+                                    }}
+                                    className="font-bold text-xs"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        formData.jobDescription === item["Item Name"] ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {item["Item Name"]} (₦{parseFloat(item.Price).toLocaleString()})
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                   <Input placeholder="3x Large Format Banners for Event" value={formData.jobDescription} onChange={e => setFormData({...formData, jobDescription: e.target.value})} className="h-12 rounded-xl border-gray-200 focus:ring-indigo-500" />
                 </div>
                 <div className="space-y-1.5">

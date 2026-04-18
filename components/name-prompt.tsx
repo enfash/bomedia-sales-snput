@@ -9,56 +9,130 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePathname } from "next/navigation";
+import { Input } from "@/components/ui/input";
 
-export function NamePrompt() {
+type Cashier = {
+  Name: string;
+  Status: string;
+};
+
+export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
+    if (isAdmin) {
+      localStorage.setItem("userName", "Elijah");
+      setOpen(false);
+      return;
+    }
+
     const storedName = localStorage.getItem("userName");
-    if (!storedName) {
+    
+    // Check if the current user needs to log in
+    if (storedName && (storedName.toLowerCase() === "elijah" || storedName.toLowerCase() === "admin") && !isAdmin) {
+      localStorage.removeItem("userName");
+      setOpen(true);
+    } else if (!storedName) {
       setOpen(true);
     }
-  }, []);
+  }, [isAdmin]);
 
-  const handleSave = () => {
-    if (name.trim()) {
-      localStorage.setItem("userName", name.trim());
-      setOpen(false);
+  const handleSave = async () => {
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setError("Please enter your name");
+      return;
+    }
+
+    setIsSaving(true);
+    setError("");
+    
+    try {
+      // Fetch authorized cashiers on demand
+      const fetchRes = await fetch("/api/cashiers");
+      const { data } = await fetchRes.json();
+      const currentCashiers: Cashier[] = data || [];
+
+      const selectedCashier = currentCashiers.find(c => c.Name.toLowerCase() === cleanName.toLowerCase());
+      
+      if (!selectedCashier) {
+        setError("Not an authorized cashier. Ask admin to add your name.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (selectedCashier.Status === "Online") {
+        setError(`"${selectedCashier.Name}" is currently logged in elsewhere.`);
+        setIsSaving(false);
+        return;
+      }
+
+      const res = await fetch("/api/cashiers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: selectedCashier.Name, status: "Online" }),
+      });
+
+      if (res.ok) {
+        localStorage.setItem("userName", selectedCashier.Name);
+        setOpen(false);
+        setError("");
+      } else {
+        const resData = await res.json();
+        setError(resData.error || "Failed to log in");
+      }
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
+  if (pathname === "/bom03/login" || pathname === "/") return null;
+
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-xl">👋 Welcome to BOMedia</DialogTitle>
           <DialogDescription>
-            Enter your name below. It will be saved as the <strong>"Logged By"</strong> field on every entry you make.
+            Enter your assigned name to continue to the cashier portal.
           </DialogDescription>
         </DialogHeader>
-        <div className="mt-2 space-y-3">
-          <div className="space-y-1">
+        <div className="mt-2 space-y-4">
+          <div className="space-y-2">
             <Label htmlFor="user-name">Your Name</Label>
+            
             <Input
               id="user-name"
-              placeholder="e.g. Elijah or Admin"
+              placeholder="e.g. John or Sarah"
               value={name}
               autoFocus
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError("");
+              }}
+              className={error ? "border-red-500 focus-visible:ring-red-500" : ""}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSave();
               }}
+              disabled={isSaving}
             />
+            
+            {error && <p className="text-xs text-red-500 font-medium mt-1">{error}</p>}
           </div>
           <Button
-            className="w-full"
+            className="w-full bg-indigo-600 hover:bg-indigo-700"
             onClick={handleSave}
-            disabled={!name.trim()}
+            disabled={!name || isSaving}
           >
-            Get Started
+            {isSaving ? "Logging in..." : "Get Started"}
           </Button>
         </div>
       </DialogContent>

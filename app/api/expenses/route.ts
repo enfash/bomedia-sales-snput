@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getDoc } from '@/lib/google-sheets';
+import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 
 const SHEET_TITLE = 'Expenses';
+const EXPENSES_HEADERS = ['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION', 'PAID TO', 'PAYMENT METHOD', 'RECEIPT URL', 'Logged By'];
 
 export async function GET() {
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
+    await ensureHeaders(sheet, EXPENSES_HEADERS);
     const rows = await sheet.getRows();
     const data = rows.map(row => row.toObject());
     return NextResponse.json({ data });
@@ -21,6 +23,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
+    await ensureHeaders(sheet, EXPENSES_HEADERS);
     await sheet.addRow(body);
     return NextResponse.json({ success: true });
   } catch (error: any) {

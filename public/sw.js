@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bomedia-cache-v1';
+const CACHE_NAME = 'bomedia-cache-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -34,14 +34,24 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only process GET requests; ignore POST, PUT, DELETE, etc.
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Only process HTTP/HTTPS requests (ignore chrome-extension://, etc.)
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
   // If it's an API GET request, use Network First and update cache
-  if (event.request.url.includes('/api/') && event.request.method === 'GET') {
+  if (event.request.url.includes('/api/')) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
           }
           return response;
         })
@@ -50,16 +60,42 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Otherwise, use Stale While Revalidate for assets
+  // For Next.js static assets, use Network First to avoid stale/404 issues during dev/build transitions
+  if (event.request.url.includes('/_next/static/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Otherwise, use Stale While Revalidate for other assets
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, networkResponse.clone());
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          // Only cache successful external/internal responses
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // Return the cached response if fetch fails
+          return cachedResponse;
         });
-        return networkResponse;
-      });
-      return response || fetchPromise;
+      
+      return cachedResponse || fetchPromise;
     })
   );
 });

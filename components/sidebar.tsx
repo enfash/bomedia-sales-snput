@@ -3,18 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
+import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-  { href: "/expenses", label: "Log Expense", icon: Receipt },
-  { href: "/records", label: "Records", icon: BarChart3 },
+  { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+  { href: "/cashier/records", label: "Records", icon: BarChart3 },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isAdmin?: boolean;
+}
+
+export function Sidebar({ isAdmin = false }: SidebarProps) {
   const pathname = usePathname();
   const [userName, setUserName] = useState("");
   const { pendingQueue, syncStatus, lastSyncTime } = useSyncStore();
@@ -23,22 +28,59 @@ export function Sidebar() {
     setUserName(localStorage.getItem("userName") || "Staff");
   }, []);
 
+  const handleLogout = async () => {
+    const userName = localStorage.getItem("userName");
+    localStorage.removeItem("userName");
+    
+    // Attempt to free the session if applicable
+    if (userName) {
+      await fetch("/api/cashiers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: userName, status: "Offline" }),
+      }).catch(() => {});
+    }
+
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/";
+  };
+
+  if (pathname === "/bom03/login" || pathname === "/") return null;
+
+  const currentNavItems = pathname.startsWith("/cashier") || !isAdmin
+    ? [
+        { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
+        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/cashier/records", label: "Records", icon: BarChart3 },
+      ]
+    : [
+        { href: "/bom03", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
+        { href: "/bom03/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/bom03/records", label: "Records", icon: BarChart3 },
+        { href: "/bom03/staff", label: "Staff Manager", icon: Users },
+      ];
+
   return (
     <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-60 bg-gray-900 text-white flex flex-col shadow-xl">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-700/60">
-        <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-lg shrink-0">
-          B
+      <div className="flex items-center justify-between px-5 py-5 border-b border-gray-700/60">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-lg shrink-0">
+            B
+          </div>
+          <div>
+            <p className="font-bold text-sm leading-tight">BOMedia</p>
+            <p className="text-xs text-gray-400 leading-tight">Sales & Expenses</p>
+          </div>
         </div>
-        <div>
-          <p className="font-bold text-sm leading-tight">BOMedia</p>
-          <p className="text-xs text-gray-400 leading-tight">Sales & Expenses</p>
-        </div>
+        <ThemeToggle />
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {currentNavItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
@@ -86,14 +128,23 @@ export function Sidebar() {
       {/* User badge */}
       {userName && (
         <div className="px-4 py-4 border-t border-gray-700/60">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shrink-0">
-              {userName[0]?.toUpperCase()}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shrink-0">
+                {userName[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white truncate">{userName}</p>
+                <p className="text-[10px] text-gray-400 font-medium">{isAdmin ? "Admin" : "Cashier"}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">{userName}</p>
-              <p className="text-xs text-gray-400">Logged in</p>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              title="Log out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

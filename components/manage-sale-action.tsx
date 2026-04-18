@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,7 @@ export interface UnifiedRecord {
   date: string;
   type: "Sale" | "Expense";
   client: string;
+  contact?: string;
   description: string;
   amount: number;
   status: RecordStatus;
@@ -124,9 +125,29 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
           <DialogTitle className="text-xl font-black">Manage Sale Record</DialogTitle>
           <div className="flex justify-between items-end mt-1">
             <p className="text-indigo-100 text-xs font-medium opacity-80">Update payments and job progress for {record.client}</p>
-            <div className="text-right">
+            <div className="text-right flex flex-col items-end">
               <p className="text-[10px] uppercase font-black text-indigo-200 leading-none mb-0.5">Current Balance</p>
               <p className="text-sm font-black text-white leading-none">₦{(record.balance || 0).toLocaleString()}</p>
+              
+              {(record.balance || 0) > 0 && record.contact && (
+                <Button 
+                  size="sm" 
+                  variant="secondary"
+                  onClick={() => {
+                    const balance = (record.balance || 0).toLocaleString();
+                    const message = `Hello *${record.client}*, this is a payment reminder from *BOMedia*.\n\nRegarding your order: *${record.description}*\nOutstanding Balance: *₦${balance}*\n\nKindly make payment to our designated bank account.\n\nThank you for your business!`;
+                    const encoded = encodeURIComponent(message);
+                    const phone = record.contact.replace(/\D/g, '');
+                    // Ensure Nigerian prefix if it looks like a local number
+                    const formattedPhone = phone.startsWith('0') ? '234' + phone.substring(1) : phone;
+                    window.open(`https://wa.me/${formattedPhone}?text=${encoded}`, '_blank');
+                  }}
+                  className="mt-2 h-7 px-2 rounded-lg bg-white/20 hover:bg-white/30 border-none text-[10px] font-black uppercase text-white tracking-wider flex items-center gap-1.5"
+                >
+                  <MessageCircle className="w-3 h-3" />
+                  WhatsApp Reminder
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>
