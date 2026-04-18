@@ -63,9 +63,9 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       ];
 
   return (
-    <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-60 bg-gray-900 text-white flex flex-col shadow-xl">
+    <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-60 bg-gray-900 dark:bg-zinc-950 text-white flex flex-col shadow-xl transition-colors duration-500">
       {/* Logo */}
-      <div className="flex items-center justify-between px-5 py-5 border-b border-gray-700/60">
+      <div className="flex items-center justify-between px-5 py-5 border-b border-gray-700/60 dark:border-zinc-800/50">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-lg shrink-0">
             B
@@ -90,7 +90,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                 active
                   ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  : "text-gray-300 hover:bg-gray-800 dark:hover:bg-zinc-900/50 hover:text-white"
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -101,7 +101,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       </nav>
 
       {/* Sync Status Section */}
-      <div className="px-4 py-4 border-t border-gray-700/60 bg-gray-800/20">
+      <div className="px-4 py-4 border-t border-gray-700/60 dark:border-zinc-800/50 bg-gray-800/20 dark:bg-zinc-900/20">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sync Status</span>
           {syncStatus === 'syncing' ? (
@@ -127,7 +127,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
       {/* User badge */}
       {userName && (
-        <div className="px-4 py-4 border-t border-gray-700/60">
+        <div className="px-4 py-4 border-t border-gray-700/60 dark:border-zinc-800/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shrink-0">
@@ -140,7 +140,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
             </div>
             <button
               onClick={handleLogout}
-              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 transition-colors"
               title="Log out"
             >
               <LogOut className="w-4 h-4" />

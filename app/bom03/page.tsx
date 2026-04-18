@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { Zap, LayoutDashboard, RefreshCw, Receipt, BarChart3, Package } from "lucide-react";
+import { Zap, LayoutDashboard, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
@@ -15,6 +15,7 @@ import {
   eachDayOfInterval,
   isSameDay,
 } from "date-fns";
+import { toast } from "sonner";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -37,6 +38,12 @@ export default function DashboardPage() {
   const [expensesData, setExpensesData] = useState<Row[]>(cachedExpenses || []);
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  
+  // Notification refs to track 'new' entries
+  const lastSalesIndex = useRef<number>(0);
+  const lastExpensesIndex = useRef<number>(0);
+  const isInitialLoad = useRef<boolean>(true);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -56,6 +63,56 @@ export default function DashboardPage() {
       setSalesData(newSales);
       setExpensesData(newExpenses);
       setCachedData(newSales, newExpenses);
+
+      // Handle notifications
+      if (isInitialLoad.current) {
+        // Set initial baseline
+        lastSalesIndex.current = Math.max(0, ...newSales.map((r: any) => r._rowIndex || 0));
+        lastExpensesIndex.current = Math.max(0, ...newExpenses.map((r: any) => r._rowIndex || 0));
+        isInitialLoad.current = false;
+      } else {
+        let hasNewActivity = false;
+
+        // Check for new sales
+        const freshSales = newSales.filter((r: any) => (r._rowIndex || 0) > lastSalesIndex.current);
+        if (freshSales.length > 0) hasNewActivity = true;
+        freshSales.forEach((sale: any) => {
+          const amount = parseAmount(sale["AMOUNT (₦)"] || sale["Amount (₦)"]);
+          const client = sale["CLIENT NAME"] || sale["Client Name"] || "New Client";
+          const cashier = sale["LOGGED BY"] || sale["Logged By"] || "Cashier";
+          toast.success(`New Sale: ₦${amount.toLocaleString()} - ${client}`, {
+            description: `Logged by ${cashier}`,
+            duration: 5000,
+          });
+        });
+
+        // Check for new expenses
+        const freshExpenses = newExpenses.filter((r: any) => (r._rowIndex || 0) > lastExpensesIndex.current);
+        if (freshExpenses.length > 0) hasNewActivity = true;
+        freshExpenses.forEach((expense: any) => {
+          const amount = parseAmount(expense["Amount (₦)"] || expense.AMOUNT || expense.Amount);
+          const category = expense.CATEGORY || expense.Category || "Other";
+          const cashier = expense["LOGGED BY"] || expense["Logged By"] || "Cashier";
+          toast.info(`New Expense: ₦${amount.toLocaleString()} (${category})`, {
+            description: `Logged by ${cashier}`,
+            duration: 5000,
+          });
+        });
+
+        // Play sound if new activity and not muted
+        if (hasNewActivity && !isMuted) {
+          const audio = new Audio("/notification.mp3");
+          audio.play().catch(e => console.error("Sound play blocked:", e));
+        }
+
+        // Update indices
+        if (newSales.length > 0) {
+          lastSalesIndex.current = Math.max(lastSalesIndex.current, ...newSales.map((r: any) => r._rowIndex || 0));
+        }
+        if (newExpenses.length > 0) {
+          lastExpensesIndex.current = Math.max(lastExpensesIndex.current, ...newExpenses.map((r: any) => r._rowIndex || 0));
+        }
+      }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -74,7 +131,16 @@ export default function DashboardPage() {
     };
 
     window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
+    
+    // Polling Interval (30 seconds)
+    const pollInterval = setInterval(() => {
+      fetchData(true);
+    }, 30000);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // ── Data assembly ──────────────────────────────────────────────────────────
@@ -207,17 +273,38 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-[#f8fafc] min-h-screen pb-24">
+    <div className="p-4 md:p-8 space-y-6 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <LayoutDashboard className="w-5 h-5 text-indigo-600" />
-            <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">
+            <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
               Analytics Dashboard
             </h1>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsMuted(!isMuted)}
+              className="h-7 px-2 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 dark:bg-zinc-900/50"
+            >
+              {isMuted ? (
+                <VolumeX className="w-3.5 h-3.5 mr-1" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 mr-1" />
+              )}
+              <span className="text-[10px] font-bold uppercase tracking-tight">
+                {isMuted ? "Muted" : "Sound On"}
+              </span>
+            </Button>
+
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[9px] font-black text-indigo-500 uppercase tracking-wider bg-indigo-50 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 ml-2">
+              <span className="flex items-center gap-1.5 text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800 ml-2">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                 Updating...
               </span>
@@ -232,7 +319,7 @@ export default function DashboardPage() {
           size="sm"
           onClick={() => fetchData(true)}
           disabled={refreshing}
-          className="w-full md:w-auto bg-white border-gray-200 text-gray-700 shadow-sm rounded-xl h-10 px-5 text-xs font-bold"
+          className="w-full md:w-auto bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300 shadow-sm rounded-xl h-10 px-5 text-xs font-bold"
         >
           <RefreshCw className={`w-3.5 h-3.5 mr-2 ${refreshing ? "animate-spin" : ""}`} />
           {refreshing ? "Updating..." : "Refresh"}

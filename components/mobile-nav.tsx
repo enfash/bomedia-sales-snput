@@ -76,7 +76,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
   return (
     <>
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 text-white flex items-center justify-between px-4 z-50 border-b border-gray-800">
+      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 dark:bg-zinc-950 text-white flex items-center justify-between px-4 z-50 border-b border-gray-800 dark:border-zinc-800 transition-colors duration-500">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-sm">
             B
@@ -96,7 +96,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
             variant="ghost" 
             size="icon" 
             onClick={() => setIsOpen(!isOpen)}
-            className="text-white hover:bg-gray-800 h-10 w-10 shrink-0"
+            className="text-white hover:bg-gray-800 dark:hover:bg-zinc-900 h-10 w-10 shrink-0"
           >
             {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </Button>
@@ -113,7 +113,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
           onClick={() => setIsOpen(false)}
         >
           <div 
-            className="absolute left-0 top-0 bottom-0 w-[280px] bg-gray-900 p-6 shadow-2xl flex flex-col animation-in slide-in-from-left duration-300"
+            className="absolute left-0 top-0 bottom-0 w-[280px] bg-gray-900 dark:bg-zinc-950 p-6 shadow-2xl flex flex-col animation-in slide-in-from-left duration-300 transition-colors duration-500"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-8">
@@ -137,7 +137,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                       "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-all transition-all duration-200",
                       active
                         ? "bg-indigo-600 text-white shadow-lg scale-[1.02]"
-                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                        : "text-gray-300 hover:bg-gray-800 dark:hover:bg-zinc-900 hover:text-white"
                     )}
                   >
                     <Icon className="w-5 h-5 shrink-0" />
@@ -149,7 +149,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
             <div className="mt-auto space-y-4">
               {/* Sync Status for Mobile */}
-              <div className="p-4 bg-gray-800/40 rounded-xl border border-gray-700/50">
+              <div className="p-4 bg-gray-800/40 dark:bg-zinc-900/40 rounded-xl border border-gray-700/50 dark:border-zinc-800/50">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sync Queue</span>
                   {syncStatus === 'syncing' ? (
@@ -166,7 +166,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
               <div className="pt-6 border-t border-gray-800 text-center space-y-4">
                 <Button 
                   variant="ghost" 
-                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 justify-start" 
+                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 justify-start" 
                   onClick={handleLogout}
                 >
                   <LogOut className="w-5 h-5 mr-3" />

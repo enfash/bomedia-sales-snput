@@ -50,13 +50,13 @@ type Row = Record<string, string>;
 
 function StatusBadge({ status }: { status: RecordStatus }) {
   const map: Record<RecordStatus, string> = {
-    Settled: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none",
-    "Part-payment": "bg-amber-100 text-amber-700 hover:bg-amber-100 border-none",
-    "In Progress": "bg-blue-100 text-blue-700 hover:bg-blue-100 border-none",
-    Syncing: "bg-indigo-100 text-indigo-700 animate-pulse hover:bg-indigo-100 border-none",
+    Settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border-none",
+    "Part-payment": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 border-none",
+    "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 border-none",
+    Syncing: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 animate-pulse hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border-none",
   };
   return (
-    <Badge className={`px-2 py-0 rounded-full font-bold text-[10px] ${map[status] || "bg-gray-100 text-gray-600"}`}>
+    <Badge className={`px-2 py-0 rounded-full font-bold text-[10px] ${map[status] || "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"}`}>
       {status}
     </Badge>
   );
@@ -290,27 +290,27 @@ export default function RecordsPage() {
     }, 0);
 
   return (
-    <div className="p-3 md:p-8 bg-[#f8fafc] min-h-screen pb-32">
+    <div className="p-3 md:p-8 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black text-[#4f46e5]">Financial Records & History</h1>
+            <h1 className="text-3xl font-black text-[#4f46e5] dark:text-indigo-400">Financial Records & History</h1>
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[10px] font-black text-indigo-500 uppercase tracking-wider bg-indigo-50 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100">
+              <span className="flex items-center gap-1.5 text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                 Syncing...
               </span>
             )}
           </div>
-          <p className="text-gray-500 text-sm mt-1">Comprehensive view of your sales, expenses, and financial status.</p>
+          <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">Comprehensive view of your sales, expenses, and financial status.</p>
         </div>
         <Button 
           variant="outline" 
           size="sm" 
           onClick={fetchData} 
           disabled={loading || refreshing} 
-          className="w-full md:w-auto bg-white border-gray-200 text-gray-700 shadow-sm rounded-xl h-11 px-6 font-bold"
+          className="w-full md:w-auto bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300 shadow-sm rounded-xl h-11 px-6 font-bold hover:bg-gray-50 dark:hover:bg-zinc-800"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${(loading || refreshing) ? "animate-spin" : ""}`} />
           {loading ? "Loading..." : refreshing ? "Updating..." : "Refresh"}
@@ -320,22 +320,22 @@ export default function RecordsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { title: "Total Sales", val: totalSales, trend: last30Sales, color: "border-indigo-500", icon: ArrowUpRight, iconColor: "text-indigo-600 bg-indigo-50" },
-          { title: "Total Expenses", val: totalExpenses, trend: last30Expenses, color: "border-purple-500", icon: Wallet, iconColor: "text-purple-600 bg-purple-50" },
-          { title: "Net Profit", val: netProfit, color: "border-emerald-500", icon: TrendingUp, iconColor: "text-emerald-600 bg-emerald-50" },
-          { title: "Outstanding Debt", val: outstandingDebt, color: "border-rose-500", icon: ArrowDownRight, iconColor: "text-rose-600 bg-rose-50" },
+          { title: "Total Sales", val: totalSales, trend: last30Sales, color: "border-indigo-500", icon: ArrowUpRight, iconColor: "text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-900/30" },
+          { title: "Total Expenses", val: totalExpenses, trend: last30Expenses, color: "border-purple-500", icon: Wallet, iconColor: "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/30" },
+          { title: "Net Profit", val: netProfit, color: "border-emerald-500", icon: TrendingUp, iconColor: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
+          { title: "Outstanding Debt", val: outstandingDebt, color: "border-rose-500", icon: ArrowDownRight, iconColor: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
         ].map((card, idx) => (
-          <Card key={idx} className={`bg-white border-none border-l-4 shadow-sm ${card.color} hover:shadow-md transition-shadow`}>
+          <Card key={idx} className={`bg-white dark:bg-zinc-900 border-none border-l-4 shadow-sm ${card.color} hover:shadow-md transition-shadow`}>
             <CardHeader className="p-4 pb-0 flex flex-row items-center justify-between">
-              <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{card.title}</CardTitle>
+              <CardTitle className="text-[10px] font-black text-muted-foreground dark:text-zinc-500 uppercase tracking-wider">{card.title}</CardTitle>
               <div className={`p-1.5 rounded-lg ${card.iconColor}`}>
                 <card.icon className="w-4 h-4" />
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-2">
-              <p className="text-2xl font-black text-gray-900">₦{card.val.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-black text-gray-900 dark:text-white">₦{card.val.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
               {card.trend !== undefined && (
-                <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
                   Last 30 Days: <span className="opacity-70">+₦{card.trend.toLocaleString()}</span>
                 </p>
               )}
@@ -347,9 +347,9 @@ export default function RecordsPage() {
       {/* Filter & Sort Bar */}
       <div className="flex flex-col lg:flex-row gap-4 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
           <Input
-            className="pl-10 h-11 bg-white border-gray-100 rounded-xl shadow-sm focus:ring-indigo-500"
+            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-indigo-500 dark:text-zinc-100 dark:placeholder:text-zinc-600"
             placeholder="Search by client, job, or date..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -358,7 +358,7 @@ export default function RecordsPage() {
         
         {/* Sort Controls */}
         <div className="flex gap-2 items-center">
-          <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800">
             {[
               { id: 'date', label: 'Date' },
               { id: 'name', label: 'Name' },
@@ -368,8 +368,8 @@ export default function RecordsPage() {
                 key={option.id}
                 onClick={() => setSortBy(option.id as any)}
                 className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${sortBy === option.id
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-gray-400 hover:text-gray-700"
+                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+                    : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
               >
                 {option.label}
@@ -380,22 +380,22 @@ export default function RecordsPage() {
             variant="outline"
             size="icon"
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="h-11 w-11 rounded-xl border-gray-100 bg-white shadow-sm flex items-center justify-center transition-all hover:bg-gray-50"
+            className="h-11 w-11 rounded-xl border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center justify-center transition-all hover:bg-gray-50 dark:hover:bg-zinc-800"
             title={sortOrder === 'asc' ? "Ascending" : "Descending"}
           >
-            <ArrowUpDown className={`w-4 h-4 text-indigo-600 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+            <ArrowUpDown className={`w-4 h-4 text-indigo-600 dark:text-indigo-400 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
           </Button>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
-          <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800">
             {["All", "Sales", "Expenses", "Pending"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
                 className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${activeTab === tab
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-gray-400 hover:text-gray-700"
+                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+                    : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
               >
                 {tab}
@@ -406,39 +406,39 @@ export default function RecordsPage() {
       </div>
 
       {/* Desktop Table View */}
-      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-50 overflow-hidden">
+      <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-50 dark:border-zinc-800 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-none">
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 py-4">Date</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400">Type</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400">Client/Payee</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400">Description</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 text-right">Amount</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 text-right">Difference</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 text-center">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400">Logged By</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 text-center">Actions</TableHead>
+            <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 border-none">
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 py-4">Date</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Type</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Client/Payee</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Description</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-right">Amount</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-right">Difference</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Status</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Logged By</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && paginated.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400 italic">Finding records...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400 dark:text-zinc-500 italic">Finding records...</TableCell></TableRow>
             ) : paginated.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400">No records found matching your search.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400 dark:text-zinc-500">No records found matching your search.</TableCell></TableRow>
             ) : (
                 paginated.map((r) => (
-                <TableRow key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                  <TableCell className="text-xs font-bold text-gray-600">{r.date}</TableCell>
-                  <TableCell className="text-xs font-medium text-gray-500">{r.type}</TableCell>
-                  <TableCell className="text-sm font-bold text-gray-800">{r.client}</TableCell>
-                  <TableCell className="text-xs text-gray-500 max-w-[200px] truncate">{r.description}</TableCell>
-                  <TableCell className="text-sm font-black text-gray-900 text-right">₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-sm font-bold text-rose-600 text-right">
+                <TableRow key={r.id} className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 transition-colors">
+                  <TableCell className="text-xs font-bold text-gray-600 dark:text-zinc-400">{r.date}</TableCell>
+                  <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-500">{r.type}</TableCell>
+                  <TableCell className="text-sm font-bold text-gray-800 dark:text-zinc-100">{r.client}</TableCell>
+                  <TableCell className="text-xs text-gray-500 dark:text-zinc-400 max-w-[200px] truncate">{r.description}</TableCell>
+                  <TableCell className="text-sm font-black text-gray-900 dark:text-white text-right">₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-sm font-bold text-rose-600 dark:text-rose-400 text-right">
                     {r.type === "Sale" ? `₦${(r.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
                   </TableCell>
                   <TableCell className="text-center"><StatusBadge status={r.status} /></TableCell>
-                  <TableCell className="text-xs font-medium text-gray-500">{r.loggedBy}</TableCell>
+                  <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-400">{r.loggedBy}</TableCell>
                   <TableCell className="text-center">
                     <ManageSaleAction record={r} onUpdate={fetchData} />
                   </TableCell>
@@ -475,9 +475,9 @@ export default function RecordsPage() {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100/50">
-          <p className="text-xs font-bold text-gray-500">
-            Page <span className="text-indigo-600">{currentPage}</span> of {totalPages} 
+        <div className="mt-8 flex items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-zinc-800">
+          <p className="text-xs font-bold text-gray-500 dark:text-zinc-400">
+            Page <span className="text-indigo-600 dark:text-indigo-400">{currentPage}</span> of {totalPages} 
             <span className="ml-2 opacity-50">({sorted.length} records)</span>
           </p>
           <div className="flex gap-2">
@@ -486,7 +486,7 @@ export default function RecordsPage() {
               size="sm"
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 font-black text-gray-600 bg-white"
+              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 font-black text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800"
             >
               <ArrowLeft className="w-3.5 h-3.5 mr-2" />
               Back
@@ -496,7 +496,7 @@ export default function RecordsPage() {
               size="sm"
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 font-black text-gray-600 bg-white"
+              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 font-black text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800"
             >
               Next
               <ArrowRight className="w-3.5 h-3.5 ml-2" />

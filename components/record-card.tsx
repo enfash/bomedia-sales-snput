@@ -21,46 +21,46 @@ interface RecordCardProps {
 
 export function RecordCard({ date, client, description, amount, status, isPending, record, onUpdate }: RecordCardProps) {
   const statusColors: Record<RecordStatus, string> = {
-    Settled: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100",
-    "Part-payment": "bg-amber-100 text-amber-700 hover:bg-amber-100",
-    "In Progress": "bg-blue-100 text-blue-700 hover:bg-blue-100",
-    Syncing: "bg-indigo-100 text-indigo-700 animate-pulse hover:bg-indigo-100",
+    Settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40",
+    "Part-payment": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40",
+    "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40",
+    Syncing: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 animate-pulse hover:bg-indigo-100 dark:hover:bg-indigo-900/40",
   };
 
   return (
-    <div className={`p-4 bg-white border rounded-xl shadow-sm mb-3 ${isPending ? "border-indigo-200 bg-indigo-50/10" : "border-gray-100"}`}>
-      <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-50">
+    <div className={`p-4 bg-white dark:bg-zinc-900 border rounded-xl shadow-sm mb-3 transition-colors duration-500 ${isPending ? "border-indigo-200 dark:border-indigo-900 bg-indigo-50/10 dark:bg-indigo-900/10" : "border-gray-100 dark:border-zinc-800"}`}>
+      <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-50 dark:border-zinc-800/80">
         <div>
-          <span className="text-xs font-bold text-gray-500 block leading-none mb-1">{date}</span>
-          <span className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Amount: {amount}</span>
+          <span className="text-xs font-bold text-gray-500 dark:text-zinc-500 block leading-none mb-1">{date}</span>
+          <span className="text-[9px] font-black uppercase text-indigo-500 dark:text-indigo-400 tracking-wider">Amount: {amount}</span>
         </div>
         <div className="text-right">
-          <span className="text-[9px] font-black uppercase text-rose-400 block leading-none mb-1 tracking-wider">Difference</span>
-          <span className="text-sm font-black text-rose-600 leading-none">{record?.type === "Sale" ? `₦${(record.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+          <span className="text-[9px] font-black uppercase text-rose-400 dark:text-rose-500 block leading-none mb-1 tracking-wider">Difference</span>
+          <span className="text-sm font-black text-rose-600 dark:text-rose-400 leading-none">{record?.type === "Sale" ? `₦${(record.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
         </div>
       </div>
       
       <div className="flex justify-between items-end">
         <div className="space-y-1">
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight leading-none mb-0.5">Client/Payee</p>
-            <p className="text-sm font-bold text-gray-800">{client}</p>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-tight leading-none mb-0.5">Client/Payee</p>
+            <p className="text-sm font-bold text-gray-800 dark:text-zinc-100">{client}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">
-              <span className="font-medium">Description:</span> {description}
+            <p className="text-xs text-gray-500 dark:text-zinc-400">
+              <span className="font-medium text-gray-600 dark:text-zinc-300">Description:</span> {description}
             </p>
           </div>
         </div>
         
         <div className="flex flex-col items-end gap-2">
-          <Badge className={`text-[10px] px-2 py-0 rounded-full font-bold ${statusColors[status] || "bg-gray-100 text-gray-600"}`}>
+          <Badge className={`text-[10px] px-2 py-0 rounded-full font-bold border-none ${statusColors[status] || "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"}`}>
             {status}
           </Badge>
           {record && onUpdate ? (
             <ManageSaleAction record={record} onUpdate={onUpdate} variant="button" />
           ) : (
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 dark:text-zinc-600">
                <MoreHorizontal className="w-4 h-4" />
             </Button>
           )}

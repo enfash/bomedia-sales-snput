@@ -142,53 +142,53 @@ export function ExpenseEntry() {
   return (
     <>
       <div className="w-full max-w-2xl mx-auto p-2 md:p-4">
-        <Card className="border-indigo-100 shadow-sm overflow-hidden">
-          <CardHeader className="bg-indigo-50/50 border-b border-indigo-100 p-4">
-            <CardTitle className="text-indigo-900 text-lg">Expense Entry</CardTitle>
-            <CardDescription className="text-xs">Record expenditures to the Expenses sheet.</CardDescription>
+        <Card className="border-indigo-100 dark:border-zinc-800 shadow-sm overflow-hidden dark:bg-zinc-900 transition-colors">
+          <CardHeader className="bg-indigo-50/50 dark:bg-zinc-800/50 border-b border-indigo-100 dark:border-zinc-800 p-4">
+            <CardTitle className="text-indigo-900 dark:text-indigo-400 text-lg font-black">Expense Entry</CardTitle>
+            <CardDescription className="text-xs dark:text-zinc-500 font-medium">Record expenditures to the Expenses sheet.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 px-4">
             <div className="space-y-1">
-              <Label htmlFor="exp-date" className="text-xs font-semibold text-gray-700">Date</Label>
+              <Label htmlFor="exp-date" className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500">Date</Label>
               <Input
                 id="exp-date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="border-indigo-100"
+                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="exp-amount" className="text-xs font-semibold text-gray-700">Amount (₦)</Label>
+              <Label htmlFor="exp-amount" className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500">Amount (₦)</Label>
               <Input
                 id="exp-amount"
                 type="number"
-                placeholder="e.g. 15000"
+                placeholder="0.00"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                className="border-indigo-100"
+                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-300 dark:placeholder:text-zinc-700 font-bold"
               />
             </div>
             <div className="space-y-1 flex flex-col">
-              <Label htmlFor="exp-category" className="text-xs font-semibold text-gray-700">Category</Label>
+              <Label htmlFor="exp-category" className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500">Category</Label>
               <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger render={
+                <PopoverTrigger asChild>
                   <Button
                     id="exp-category"
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="justify-between border-indigo-100 font-normal h-10 px-3 bg-white hover:bg-white"
+                    className="justify-between rounded-xl border-indigo-100 dark:border-zinc-800 font-bold h-10 px-3 bg-white dark:bg-zinc-950 hover:bg-white dark:hover:bg-zinc-900 transition-all text-sm"
                   >
-                    <span className={formData.category ? "text-gray-900" : "text-gray-400"}>
+                    <span className={formData.category ? "text-gray-900 dark:text-zinc-100" : "text-gray-400 dark:text-zinc-600"}>
                       {formData.category || "Select category..."}
                     </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
-                } />
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search category..." />
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 dark:bg-zinc-950 dark:border-zinc-800 rounded-xl overflow-hidden shadow-2xl" align="start">
+                  <Command className="dark:bg-zinc-950">
+                    <CommandInput placeholder="Search category..." className="dark:text-zinc-100" />
                     <CommandList>
                       <CommandEmpty>No category found.</CommandEmpty>
                       <CommandGroup>
@@ -200,12 +200,12 @@ export function ExpenseEntry() {
                               setFormData({ ...formData, category: currentValue });
                               setOpen(false);
                             }}
-                            className="flex items-center justify-between"
+                            className="flex items-center justify-between font-bold dark:text-zinc-300 dark:aria-selected:bg-zinc-900 dark:aria-selected:text-white"
                           >
                             <span>{cat}</span>
                             <Check
                               className={cn(
-                                "h-4 w-4 text-indigo-600",
+                                "h-4 w-4 text-indigo-600 dark:text-indigo-400",
                                 formData.category === cat ? "opacity-100" : "opacity-0"
                               )}
                             />
@@ -218,44 +218,44 @@ export function ExpenseEntry() {
               </Popover>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="exp-method" className="text-xs font-semibold text-gray-700">Method</Label>
+              <Label htmlFor="exp-method" className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500">Method</Label>
               <Select
                 value={formData.paymentMethod}
                 onValueChange={(val: string) => setFormData({ ...formData, paymentMethod: val })}
               >
-                <SelectTrigger id="exp-method" className="border-indigo-100">
+                <SelectTrigger id="exp-method" className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 font-bold">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="POS">POS</SelectItem>
+                <SelectContent className="dark:bg-zinc-950 dark:border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
+                  <SelectItem value="Cash" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white">Cash</SelectItem>
+                  <SelectItem value="Bank Transfer" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white">Bank Transfer</SelectItem>
+                  <SelectItem value="POS" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white">POS</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="exp-paidto" className="text-xs font-semibold text-gray-700">Paid To</Label>
+              <Label htmlFor="exp-paidto" className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500">Paid To</Label>
               <Input
                 id="exp-paidto"
                 placeholder="Vendor/Person"
                 value={formData.paidTo}
                 onChange={(e) => setFormData({ ...formData, paidTo: e.target.value })}
-                className="border-indigo-100"
+                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-300 dark:placeholder:text-zinc-700 font-bold"
               />
             </div>
             <div className="space-y-1 md:col-span-2">
-              <Label htmlFor="exp-desc" className="text-xs font-semibold text-gray-700">Description</Label>
+              <Label htmlFor="exp-desc" className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500">Description</Label>
               <Input
                 id="exp-desc"
                 placeholder="Reason for expense"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="border-indigo-100"
+                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-300 dark:placeholder:text-zinc-700 font-bold"
               />
             </div>
             
             <div className="space-y-1 md:col-span-2">
-              <Label htmlFor="exp-photo" className="text-xs font-semibold text-gray-700">Receipt Photo (Optional)</Label>
+              <Label htmlFor="exp-photo" className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500">Receipt Photo (Optional)</Label>
               <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                   <Input
@@ -269,7 +269,9 @@ export function ExpenseEntry() {
                   />
                   <div className={cn(
                     "flex items-center justify-center gap-2 border-2 border-dashed rounded-xl p-3 transition-colors",
-                    formData.receiptUrl ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                    formData.receiptUrl 
+                      ? "bg-green-50 dark:bg-emerald-950/20 border-green-200 dark:border-emerald-900/30 text-green-700 dark:text-emerald-400" 
+                      : "bg-gray-50 dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-900"
                   )}>
                     {isUploading ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -296,38 +298,38 @@ export function ExpenseEntry() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="p-4 border-t bg-gray-50/50">
-            <Button onClick={handleReview} className="w-full bg-indigo-600 hover:bg-indigo-700 py-6 text-base font-bold rounded-xl shadow-lg shadow-indigo-100">Review & Save</Button>
+          <CardFooter className="p-4 border-t dark:border-white/5 bg-gray-50/50 dark:bg-zinc-900/50">
+            <Button onClick={handleReview} className="w-full bg-indigo-600 hover:bg-indigo-700 py-6 text-base font-bold rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none">Review & Save</Button>
           </CardFooter>
         </Card>
       </div>
 
       <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-        <DialogContent className="max-w-[calc(100%-2rem)] w-full rounded-2xl p-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="text-xl font-bold text-indigo-900">Confirm Expense</DialogTitle>
-            <DialogDescription className="text-xs">Review before pushing to Google Sheets.</DialogDescription>
+        <DialogContent className="max-w-[calc(100%-2rem)] w-full rounded-2xl p-0 overflow-hidden bg-white dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 shadow-2xl">
+          <DialogHeader className="p-4 border-b dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50">
+            <DialogTitle className="text-xl font-black text-indigo-900 dark:text-indigo-400">Confirm Expense</DialogTitle>
+            <DialogDescription className="text-xs dark:text-zinc-500 font-medium">Review before pushing to Google Sheets.</DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm bg-gray-50 p-4 rounded-xl border border-gray-100">
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Date</span><span>{formData.date}</span></div>
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Category</span><span>{formData.category}</span></div>
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Method</span><span>{formData.paymentMethod}</span></div>
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Amount</span><span className="font-bold text-red-600">₦{Number(formData.amount).toLocaleString()}</span></div>
-              <div className="col-span-2"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Paid To</span><span>{formData.paidTo || "—"}</span></div>
-              <div className="col-span-2 border-t pt-2 mt-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Description</span><span>{formData.description}</span></div>
+            <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm bg-gray-50 dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
+              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Date</span><span className="dark:text-zinc-200 font-bold">{formData.date}</span></div>
+              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Category</span><span className="dark:text-zinc-200 font-bold">{formData.category}</span></div>
+              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Method</span><span className="dark:text-zinc-200 font-bold">{formData.paymentMethod}</span></div>
+              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Amount</span><span className="font-black text-lg text-red-600 dark:text-rose-400">₦{Number(formData.amount).toLocaleString()}</span></div>
+              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Paid To</span><span className="dark:text-zinc-200 font-bold">{formData.paidTo || "—"}</span></div>
+              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Description</span><span className="dark:text-zinc-300 font-medium leading-relaxed">{formData.description}</span></div>
               {formData.receiptUrl && (
                 <div className="col-span-2 border-t pt-2 mt-1 text-center">
-                  <span className="text-[10px] text-gray-400 uppercase font-bold block mb-1">Receipt Preview</span>
+                  <span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-1">Receipt Preview</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={formData.receiptUrl} alt="Receipt" className="max-h-40 mx-auto rounded-lg shadow-sm border" />
+                  <img src={formData.receiptUrl} alt="Receipt" className="max-h-40 mx-auto rounded-lg shadow-sm border dark:border-zinc-800" />
                 </div>
               )}
             </div>
           </div>
-          <DialogFooter className="p-4 bg-gray-50 border-t flex flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm">Edit</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-12 text-sm font-bold">
+          <DialogFooter className="p-4 bg-gray-50 dark:bg-zinc-900 border-t dark:border-white/5 flex flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">Edit</Button>
+            <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-12 text-sm font-bold shadow-lg shadow-indigo-100 dark:shadow-none">
               Confirm Save
             </Button>
           </DialogFooter>

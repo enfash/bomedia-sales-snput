@@ -200,16 +200,26 @@ export function SalesEntry() {
       toast.success("Saved locally! Syncing with Google Sheets in background...");
       setShowConfirmModal(false);
       
-      // Reset non-persistent fields
-      setFormData(prev => ({
-        ...prev,
+      // Reset ALL fields to default after saving
+      setFormData({
+        date: new Date().toISOString().split("T")[0],
         clientName: "",
         jobDescription: "",
         contact: "",
+        material: "Flex",
+        costPerSqft: "180",
         actualWidth: "",
         actualHeight: "",
+        rollSize: "",
+        qty: "1",
         initialPayment: "0",
-      }));
+        additionalPayment1: "",
+        additionalPayment2: "",
+        jobStatus: "Pending",
+        dimensionUnit: "ft",
+      });
+      setNlText("");
+      setRollSizeTouched(false);
     } catch(err) {
       toast.error("Error saving locally.");
     }
@@ -219,16 +229,16 @@ export function SalesEntry() {
     <div className="w-full max-w-5xl mx-auto pb-24">
       <Tabs defaultValue="manual" className="w-full">
         <div className="flex justify-center mb-10">
-          <TabsList className="bg-gray-100/80 p-1 rounded-full border border-gray-200 shadow-sm">
+          <TabsList className="bg-gray-100/80 dark:bg-zinc-800/80 p-1 rounded-full border border-gray-200 dark:border-zinc-700 shadow-sm">
             <TabsTrigger 
               value="manual" 
-              className="px-8 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+              className="px-8 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white dark:data-[state=active]:text-white data-[state=active]:shadow-md dark:text-zinc-400"
             >
               Manual
             </TabsTrigger>
             <TabsTrigger 
               value="ai" 
-              className="px-8 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+              className="px-8 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white dark:data-[state=active]:text-white data-[state=active]:shadow-md dark:text-zinc-400"
             >
               AI Log
             </TabsTrigger>
@@ -236,34 +246,34 @@ export function SalesEntry() {
         </div>
         
         <TabsContent value="manual" className="space-y-6">
-          <div className="bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-hidden p-6 md:p-8">
+          <div className="bg-white dark:bg-zinc-900/50 border border-gray-100 dark:border-white/5 rounded-[2rem] shadow-sm overflow-hidden p-6 md:p-8 transition-colors">
             {/* Section 1: Client Info */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-gray-900">Client Info</h3>
-                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300" /></div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">Client Info</h3>
+                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300 dark:text-zinc-600" /></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Date</Label>
-                  <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="h-12 rounded-xl border-gray-200 focus:ring-indigo-500" />
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Date</Label>
+                  <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-indigo-500" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Client Name</Label>
-                  <Input placeholder="Sarah Jones" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="h-12 rounded-xl border-gray-200 focus:ring-indigo-500" />
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Client Name</Label>
+                  <Input placeholder="Sarah Jones" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-indigo-500" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Contact Information</Label>
-                  <Input placeholder="sarah.jones@email.com" value={formData.contact} onChange={e => setFormData({...formData, contact: e.target.value})} className="h-12 rounded-xl border-gray-200 focus:ring-indigo-500" />
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Contact Information</Label>
+                  <Input placeholder="sarah.jones@email.com" value={formData.contact} onChange={e => setFormData({...formData, contact: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-indigo-500" />
                 </div>
               </div>
             </div>
 
             {/* Section 2: Job Details */}
-            <div className="mb-8 pt-8 border-t border-gray-100">
+            <div className="mb-8 pt-8 border-t border-gray-100 dark:border-white/5">
                <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-gray-900">Job Details</h3>
-                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300" /></div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">Job Details</h3>
+                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300 dark:text-zinc-600" /></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="md:col-span-2 space-y-1.5">
@@ -275,14 +285,14 @@ export function SalesEntry() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-[9px] font-black uppercase text-indigo-600 hover:bg-indigo-50 flex items-center gap-1"
+                            className="h-6 px-2 text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 flex items-center gap-1"
                           >
                             <Package className="w-3 h-3" />
                             Use Inventory
                           </Button>
                         } />
-                        <PopoverContent className="w-[300px] p-0 rounded-xl" align="end">
-                          <Command>
+                        <PopoverContent className="w-[300px] p-0 rounded-xl bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800" align="end">
+                          <Command className="dark:bg-zinc-950">
                             <CommandInput placeholder="Search inventory..." className="h-9" />
                             <CommandList>
                               <CommandEmpty>No item found.</CommandEmpty>
@@ -299,7 +309,7 @@ export function SalesEntry() {
                                       setOpenInv(false);
                                       toast.info(`Selected ${item["Item Name"]}`);
                                     }}
-                                    className="font-bold text-xs"
+                                    className="font-bold text-xs dark:hover:bg-zinc-900 cursor-pointer"
                                   >
                                     <Check
                                       className={cn(
@@ -317,13 +327,13 @@ export function SalesEntry() {
                       </Popover>
                     )}
                   </div>
-                  <Input placeholder="3x Large Format Banners for Event" value={formData.jobDescription} onChange={e => setFormData({...formData, jobDescription: e.target.value})} className="h-12 rounded-xl border-gray-200 focus:ring-indigo-500" />
+                  <Input placeholder="3x Large Format Banners for Event" value={formData.jobDescription} onChange={e => setFormData({...formData, jobDescription: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-indigo-500" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Material</Label>
                   <Select value={formData.material} onValueChange={(val: string) => setFormData({...formData, material: val})}>
-                    <SelectTrigger className="h-12 rounded-xl border-gray-200"><SelectValue /></SelectTrigger>
-                    <SelectContent className="rounded-xl">
+                    <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
                       <SelectItem value="Flex">Flex Banner</SelectItem>
                       <SelectItem value="SAV">SAV (Sticker)</SelectItem>
                     </SelectContent>
@@ -331,31 +341,31 @@ export function SalesEntry() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Quantity</Label>
-                  <Input type="number" min="1" value={formData.qty} onChange={e => setFormData({...formData, qty: e.target.value})} className="h-12 rounded-xl border-gray-200" />
+                  <Input type="number" min="1" value={formData.qty} onChange={e => setFormData({...formData, qty: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950" />
                 </div>
               </div>
             </div>
 
             {/* Section 3: Pricing & Dimensions */}
-            <div className="pt-8 border-t border-gray-100">
+            <div className="pt-8 border-t border-gray-100 dark:border-white/5">
                <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-gray-900">Pricing & Dimensions</h3>
-                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300" /></div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">Pricing & Dimensions</h3>
+                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300 dark:text-zinc-600" /></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-8">
                 <div className="md:col-span-2 space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Actual Size (Width x Height)</Label>
-                    <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+                    <div className="flex bg-gray-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-800">
                       <button 
                         onClick={() => setFormData({...formData, dimensionUnit: 'ft'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${formData.dimensionUnit === 'ft' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${formData.dimensionUnit === 'ft' ? 'bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300'}`}
                       >
                         FEET
                       </button>
                       <button 
                         onClick={() => setFormData({...formData, dimensionUnit: 'in'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${formData.dimensionUnit === 'in' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${formData.dimensionUnit === 'in' ? 'bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300'}`}
                       >
                         INCHES
                       </button>
@@ -363,12 +373,12 @@ export function SalesEntry() {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="relative flex-1">
-                       <Input type="number" placeholder={formData.dimensionUnit === 'ft' ? "5" : "20"} value={formData.actualWidth} onChange={e => setFormData({...formData, actualWidth: e.target.value})} className="h-12 rounded-xl border-gray-200 pr-10" />
+                       <Input type="number" placeholder={formData.dimensionUnit === 'ft' ? "5" : "20"} value={formData.actualWidth} onChange={e => setFormData({...formData, actualWidth: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10" />
                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-400 uppercase">{formData.dimensionUnit}</span>
                     </div>
                     <span className="text-gray-400 font-bold text-lg">×</span>
                     <div className="relative flex-1">
-                       <Input type="number" placeholder={formData.dimensionUnit === 'ft' ? "3" : "15"} value={formData.actualHeight} onChange={e => setFormData({...formData, actualHeight: e.target.value})} className="h-12 rounded-xl border-gray-200 pr-10" />
+                       <Input type="number" placeholder={formData.dimensionUnit === 'ft' ? "3" : "15"} value={formData.actualHeight} onChange={e => setFormData({...formData, actualHeight: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10" />
                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-400 uppercase">{formData.dimensionUnit}</span>
                     </div>
                   </div>
@@ -385,10 +395,10 @@ export function SalesEntry() {
                       setRollSizeTouched(true);
                     }}
                   >
-                    <SelectTrigger className={`h-12 rounded-xl ${rollSizeTouched && !formData.rollSize ? 'border-rose-400 ring-1 ring-rose-400' : 'border-gray-200'}`}>
+                    <SelectTrigger className={`h-12 rounded-xl transition-all ${rollSizeTouched && !formData.rollSize ? 'border-rose-400 ring-1 ring-rose-400' : 'border-gray-200 dark:border-zinc-800 dark:bg-zinc-950'}`}>
                       <SelectValue placeholder="Select roll size..." />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl">
+                    <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
                       <SelectItem value="3">3 FT Roll</SelectItem>
                       <SelectItem value="4">4 FT Roll</SelectItem>
                       <SelectItem value="5">5 FT Roll</SelectItem>
@@ -408,19 +418,19 @@ export function SalesEntry() {
 
                 <div className="md:col-span-2 space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Initial Payment (₦)</Label>
-                  <Input type="number" placeholder="5000" value={formData.initialPayment} onChange={e => setFormData({...formData, initialPayment: e.target.value})} className="h-12 rounded-xl border-gray-200" />
+                  <Input type="number" placeholder="5000" value={formData.initialPayment} onChange={e => setFormData({...formData, initialPayment: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950" />
                 </div>
 
                 <div className="md:col-span-2 space-y-1.5 relative">
                   <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Cost Per SQFT (₦)</Label>
-                  <Input type="number" value={formData.costPerSqft} onChange={e => setFormData({...formData, costPerSqft: e.target.value})} className="h-12 rounded-xl border-gray-200" />
-                  <div className="absolute top-0 right-0 text-[8px] font-black uppercase text-gray-300 tracking-tighter invisible md:visible">
+                  <Input type="number" value={formData.costPerSqft} onChange={e => setFormData({...formData, costPerSqft: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950" />
+                  <div className="absolute top-0 right-0 text-[8px] font-black uppercase text-gray-300 dark:text-zinc-600 tracking-tighter invisible md:visible">
                     Standard Rates: Flex: 180 | SAV: 200
                   </div>
                 </div>
 
                 {/* Purple Calculated Bar */}
-                <div className="md:col-span-4 mt-4 p-5 bg-[#4f46e5] rounded-2xl shadow-lg shadow-indigo-200/50 flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
+                <div className="md:col-span-4 mt-4 p-5 bg-[#4f46e5] rounded-2xl shadow-lg shadow-indigo-200/50 dark:shadow-none flex flex-wrap md:flex-nowrap justify-between items-center gap-4">
                    <div className="flex-1 min-w-[100px] text-center md:text-left">
                       <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1 leading-none">Total Area:</p>
                       <p className="text-lg font-black text-white leading-none">{calculatedSize} sqft</p>
@@ -443,8 +453,8 @@ export function SalesEntry() {
                    <div className="flex-1 space-y-1.5">
                       <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Job Status</Label>
                       <Select value={formData.jobStatus} onValueChange={(val: string) => setFormData({...formData, jobStatus: val})}>
-                        <SelectTrigger className="h-12 rounded-xl border-gray-200 w-full md:w-[240px] shadow-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-xl">
+                        <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 w-full md:w-[240px] shadow-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
                           <SelectItem value="Pending">Pending</SelectItem>
                           <SelectItem value="In Progress">In Progress</SelectItem>
                           <SelectItem value="Completed">Completed</SelectItem>
@@ -461,8 +471,8 @@ export function SalesEntry() {
                         }}
                         className={`w-full md:w-[320px] h-14 text-white font-black text-lg rounded-2xl shadow-xl transition-all ${
                           !formData.rollSize
-                            ? 'bg-gray-300 cursor-not-allowed shadow-gray-100'
-                            : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 hover:scale-[1.02]'
+                            ? 'bg-gray-300 dark:bg-zinc-800 cursor-not-allowed shadow-none'
+                            : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 dark:shadow-none hover:scale-[1.02]'
                         }`}
                       >
                         Review & Save
@@ -475,24 +485,24 @@ export function SalesEntry() {
         </TabsContent>
         
         <TabsContent value="ai">
-          <div className="bg-white border border-gray-100 rounded-[2rem] shadow-sm p-6 md:p-10">
+          <div className="bg-white dark:bg-zinc-900/50 border border-gray-100 dark:border-white/5 rounded-[2rem] shadow-sm p-6 md:p-10 transition-colors">
             <div className="mb-8">
-              <h3 className="text-2xl font-black text-gray-900 mb-2">AI Natural Language Entry</h3>
-              <p className="text-gray-500">Describe the print job in plain English and Gemini will fill the form for you.</p>
+              <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">AI Natural Language Entry</h3>
+              <p className="text-gray-500 dark:text-zinc-400">Describe the print job in plain English and Gemini will fill the form for you.</p>
             </div>
             <div className="mb-6">
               <textarea 
-                className="w-full p-6 bg-gray-50 border border-gray-100 rounded-3xl min-h-[220px] focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all text-xl placeholder:text-gray-300 font-medium" 
+                className="w-full p-6 bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 rounded-3xl min-h-[220px] focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/5 focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-xl placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium" 
                 placeholder="e.g. John Doe ordered 3 flex banners sized 7x5ft on a 5ft roll, paid ₦5,000 initially..."
                 value={nlText}
                 onChange={e => setNlText(e.target.value)}
               />
-              <p className="mt-3 text-sm text-gray-400 font-medium px-2">Include material, rolls, dimensions, and customer name for best results.</p>
+              <p className="mt-3 text-sm text-gray-400 dark:text-zinc-500 font-medium px-2">Include material, rolls, dimensions, and customer name for best results.</p>
             </div>
             <Button 
               disabled={isParsing || !nlText} 
               onClick={handleNlSubmit}
-              className="w-full h-16 bg-[#4f46e5] hover:bg-indigo-700 text-white font-black text-xl rounded-2xl shadow-xl shadow-indigo-100"
+              className="w-full h-16 bg-[#4f46e5] hover:bg-indigo-700 text-white font-black text-xl rounded-2xl shadow-xl shadow-indigo-100 dark:shadow-none"
             >
               {isParsing ? "Understanding your request..." : "Extract Data & Fill Form"}
             </Button>
@@ -501,42 +511,42 @@ export function SalesEntry() {
       </Tabs>
 
       <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-        <DialogContent className="max-w-2xl bg-white rounded-2xl p-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="text-xl font-bold text-indigo-900">Confirm Entry</DialogTitle>
-            <DialogDescription className="text-xs">
+        <DialogContent className="max-w-2xl bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 rounded-2xl p-0 overflow-hidden shadow-2xl">
+          <DialogHeader className="p-4 border-b dark:border-zinc-800">
+            <DialogTitle className="text-xl font-bold text-indigo-900 dark:text-indigo-400">Confirm Entry</DialogTitle>
+            <DialogDescription className="text-xs dark:text-zinc-500">
               This will update Columns A through V in your Google Sheet.
             </DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm bg-gray-50 p-4 rounded-xl border border-gray-100">
-               <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Client:</span> <span className="text-sm font-semibold text-gray-900 truncate block">{formData.clientName || 'N/A'}</span></div>
-               <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Material:</span> <span className="text-sm font-semibold text-gray-900">{formData.material}</span></div>
-               <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Dimensions:</span> <span className="text-sm font-semibold text-gray-900">{formData.actualWidth}{formData.dimensionUnit} × {formData.actualHeight}{formData.dimensionUnit}</span></div>
-               <div className="col-span-1"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Roll:</span> <span className="text-sm font-semibold text-indigo-600">{formData.rollSize}FT</span></div>
-               <div className="col-span-2"><span className="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Formula:</span> <code className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded whitespace-nowrap">={formData.actualWidth}*{formData.actualHeight}{formData.dimensionUnit === 'in' ? '/144' : ''}</code></div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm bg-gray-50 dark:bg-zinc-900 p-4 rounded-xl border border-gray-100 dark:border-white/5">
+               <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-0.5">Client:</span> <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">{formData.clientName || 'N/A'}</span></div>
+               <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-0.5">Material:</span> <span className="text-sm font-semibold text-gray-900 dark:text-white">{formData.material}</span></div>
+               <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-0.5">Dimensions:</span> <span className="text-sm font-semibold text-gray-900 dark:text-white">{formData.actualWidth}{formData.dimensionUnit} × {formData.actualHeight}{formData.dimensionUnit}</span></div>
+               <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-0.5">Roll:</span> <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{formData.rollSize}FT</span></div>
+               <div className="col-span-2"><span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-0.5">Formula:</span> <code className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded whitespace-nowrap">={formData.actualWidth}*{formData.actualHeight}{formData.dimensionUnit === 'in' ? '/144' : ''}</code></div>
             </div>
 
-            <div className="flex flex-col gap-1 border-b pb-2">
+            <div className="flex flex-col gap-1 border-b dark:border-zinc-800 pb-2">
                <div className="flex justify-between items-center text-xs">
-                 <span className="text-gray-500">Rate: ₦{formData.costPerSqft}</span>
-                 <span className="text-gray-500">Qty: {formData.qty}</span>
+                 <span className="text-gray-500 dark:text-zinc-500">Rate: ₦{formData.costPerSqft}</span>
+                 <span className="text-gray-500 dark:text-zinc-500">Qty: {formData.qty}</span>
                </div>
-               <div className="flex justify-between items-center text-lg font-black text-indigo-900">
+               <div className="flex justify-between items-center text-lg font-black text-indigo-900 dark:text-white">
                  <span>Total Amount</span>
                  <span>₦{totalAmount.toLocaleString()}</span>
                </div>
             </div>
             
-            <div className="p-3 bg-orange-50 border border-orange-100 rounded-lg">
-               <div className="flex justify-between items-center text-xs font-bold text-orange-800">
+            <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-lg">
+               <div className="flex justify-between items-center text-xs font-bold text-orange-800 dark:text-orange-300">
                  <span>Payments Logged</span>
                  <span>₦{parseFloat(formData.initialPayment).toLocaleString()}</span>
                </div>
             </div>
           </div>
-          <DialogFooter className="p-4 bg-gray-50 border-t flex flex-row gap-2">
-             <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm font-semibold">Back</Button>
+          <DialogFooter className="p-4 bg-gray-50 dark:bg-zinc-900/50 border-t dark:border-zinc-800 flex flex-row gap-2">
+             <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm font-semibold dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">Back</Button>
              <Button 
                 onClick={handleSaveToSheets} 
                 className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-12 text-sm font-bold shadow-sm"

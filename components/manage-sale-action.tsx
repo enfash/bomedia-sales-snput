@@ -111,16 +111,16 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {variant === "icon" ? (
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         ) : (
-          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wider border-indigo-100 text-indigo-600 hover:bg-indigo-50">
+          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wider border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
             Manage
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-md bg-white rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 overflow-hidden border-none shadow-2xl dark:shadow-none">
         <DialogHeader className="p-6 bg-indigo-600 text-white">
           <DialogTitle className="text-xl font-black">Manage Sale Record</DialogTitle>
           <div className="flex justify-between items-end mt-1">
@@ -154,72 +154,72 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
         </DialogHeader>
         
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100">
+          <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
              <div>
-                <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider mb-2 block">Total Amount</Label>
-                <p className="text-lg font-black text-gray-900">₦{record.amount.toLocaleString()}</p>
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-2 block">Total Amount</Label>
+                <p className="text-lg font-black text-gray-900 dark:text-white">₦{record.amount.toLocaleString()}</p>
              </div>
              <div>
-                <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider mb-2 block">Current Status</Label>
-                <p className="text-xs font-bold text-indigo-600">{record.status}</p>
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-2 block">Current Status</Label>
+                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{record.status}</p>
              </div>
           </div>
 
           <div className="space-y-4">
              {showAddl1 && (
                <div className="space-y-1.5">
-                 <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Additional Payment 1 (₦)</Label>
+                 <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Additional Payment 1 (₦)</Label>
                  <Input 
                    type="number" 
                    placeholder="Enter amount" 
                    value={addl1} 
                    onChange={e => setAddl1(e.target.value)}
-                   className="h-12 rounded-xl border-gray-200 focus:ring-indigo-500 font-bold"
+                   className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-indigo-500 font-bold"
                  />
                </div>
              )}
 
              {showAddl2 && (
                <div className="space-y-1.5">
-                 <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Additional Payment 2 (₦)</Label>
+                 <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Additional Payment 2 (₦)</Label>
                  <Input 
                    type="number" 
                    placeholder="Enter amount" 
                    value={addl2} 
                    onChange={e => setAddl2(e.target.value)}
-                   className="h-12 rounded-xl border-gray-200 focus:ring-indigo-500 font-bold"
+                   className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-indigo-500 font-bold"
                  />
                </div>
              )}
 
              {(!showAddl1 && !showAddl2) && (
-                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                   <p className="text-xs font-bold text-emerald-700">Both additional payment slots have been filled for this record.</p>
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                   <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Both additional payment slots have been filled for this record.</p>
                 </div>
              )}
 
              <div className="space-y-1.5">
-               <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Job Status</Label>
+               <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Job Status</Label>
                <Select value={status} onValueChange={setStatus}>
-                 <SelectTrigger className="h-12 rounded-xl border-gray-200 font-bold shadow-sm">
+                 <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold shadow-sm">
                    <SelectValue placeholder="Select status" />
                  </SelectTrigger>
-                 <SelectContent className="rounded-xl border-gray-100 shadow-xl z-[100]" position="popper" sideOffset={5}>
-                   <SelectItem value="Pending" className="font-bold">Pending</SelectItem>
-                   <SelectItem value="In Progress" className="font-bold">In Progress</SelectItem>
-                   <SelectItem value="Completed" className="font-bold">Completed</SelectItem>
+                 <SelectContent className="rounded-xl border-gray-100 dark:border-zinc-800 dark:bg-zinc-900 shadow-xl z-[100]" position="popper" sideOffset={5}>
+                   <SelectItem value="Pending" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800">Pending</SelectItem>
+                   <SelectItem value="In Progress" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800">In Progress</SelectItem>
+                   <SelectItem value="Completed" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800">Completed</SelectItem>
                  </SelectContent>
                </Select>
              </div>
           </div>
         </div>
 
-        <DialogFooter className="p-6 bg-gray-50 flex gap-3">
-          <Button variant="outline" onClick={() => setIsOpen(false)} className="flex-1 h-12 rounded-xl font-bold">Cancel</Button>
+        <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800">
+          <Button variant="outline" onClick={() => setIsOpen(false)} className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">Cancel</Button>
           <Button 
             disabled={isSubmitting} 
             onClick={handleUpdate}
-            className="flex-1 h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black shadow-lg shadow-indigo-100"
+            className="flex-1 h-12 rounded-xl bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white font-black shadow-lg shadow-indigo-100 dark:shadow-none"
           >
             {isSubmitting ? "Updating..." : "Save Changes"}
           </Button>
