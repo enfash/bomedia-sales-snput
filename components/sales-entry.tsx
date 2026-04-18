@@ -271,7 +271,7 @@ export function SalesEntry() {
                     <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Job Description</Label>
                     {inventory.length > 0 && (
                       <Popover open={openInv} onOpenChange={setOpenInv}>
-                        <PopoverTrigger asChild>
+                        <PopoverTrigger render={
                           <Button
                             variant="ghost"
                             size="sm"
@@ -280,7 +280,7 @@ export function SalesEntry() {
                             <Package className="w-3 h-3" />
                             Use Inventory
                           </Button>
-                        </PopoverTrigger>
+                        } />
                         <PopoverContent className="w-[300px] p-0 rounded-xl" align="end">
                           <Command>
                             <CommandInput placeholder="Search inventory..." className="h-9" />

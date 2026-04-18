@@ -319,6 +319,7 @@ export function ExpenseEntry() {
               {formData.receiptUrl && (
                 <div className="col-span-2 border-t pt-2 mt-1 text-center">
                   <span className="text-[10px] text-gray-400 uppercase font-bold block mb-1">Receipt Preview</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={formData.receiptUrl} alt="Receipt" className="max-h-40 mx-auto rounded-lg shadow-sm border" />
                 </div>
               )}
