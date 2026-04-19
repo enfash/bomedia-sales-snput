@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
 import { SalesExpenseChart, ExpenseCategorizationChart, OutstandingDebtChart } from "@/components/dashboard-charts";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   format,
   subDays,
-  isWithinInterval,
-  parseISO,
+  startOfDay,
   eachDayOfInterval,
   isSameDay,
+  isWithinInterval,
 } from "date-fns";
 import { toast } from "sonner";
 
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [timeRange, setTimeRange] = useState<"today" | "7d" | "30d">("30d");
   
   // Notification refs to track 'new' entries
   const lastSalesIndex = useRef<number>(0);
@@ -166,10 +168,22 @@ export default function DashboardPage() {
   const allSales = [...pendingSales, ...salesData];
   const allExpenses = [...pendingExpenses, ...expensesData];
 
-  // ── Time windows ───────────────────────────────────────────────────────────
   const now = new Date();
-  const thirtyDaysAgo = subDays(now, 30);
-  const sixtyDaysAgo = subDays(now, 60);
+
+  // ── Dynamic Time Windows ───────────────────────────────────────────────────
+  let startDate: Date;
+  let prevStartDate: Date;
+
+  if (timeRange === "today") {
+    startDate = startOfDay(now);
+    prevStartDate = startOfDay(subDays(now, 1));
+  } else if (timeRange === "7d") {
+    startDate = subDays(now, 7);
+    prevStartDate = subDays(now, 14);
+  } else {
+    startDate = subDays(now, 30);
+    prevStartDate = subDays(now, 60);
+  }
 
   const filterByInterval = (data: Row[], start: Date, end: Date) =>
     data.filter((row) => {
@@ -177,10 +191,10 @@ export default function DashboardPage() {
       return d ? isWithinInterval(d, { start, end }) : false;
     });
 
-  const currentSales = filterByInterval(allSales, thirtyDaysAgo, now);
-  const prevSales = filterByInterval(allSales, sixtyDaysAgo, thirtyDaysAgo);
-  const currentExpenses = filterByInterval(allExpenses, thirtyDaysAgo, now);
-  const prevExpenses = filterByInterval(allExpenses, sixtyDaysAgo, thirtyDaysAgo);
+  const currentSales = filterByInterval(allSales, startDate, now);
+  const prevSales = filterByInterval(allSales, prevStartDate, startDate);
+  const currentExpenses = filterByInterval(allExpenses, startDate, now);
+  const prevExpenses = filterByInterval(allExpenses, prevStartDate, startDate);
 
   const sumKey = (data: Row[], keys: string[]) =>
     data.reduce((acc, r) => {
@@ -226,8 +240,8 @@ export default function DashboardPage() {
     }));
 
   // ── Chart data ─────────────────────────────────────────────────────────────
-  const last30Days = eachDayOfInterval({ start: thirtyDaysAgo, end: now });
-  const chartData = last30Days.map((day) => {
+  const rangeInterval = eachDayOfInterval({ start: startDate, end: now });
+  const chartData = rangeInterval.map((day) => {
     const daySales = allSales.filter((r) => {
       const d = parseSheetDate(r.DATE || r.Date);
       return d ? isSameDay(d, day) : false;
@@ -237,7 +251,7 @@ export default function DashboardPage() {
       return d ? isSameDay(d, day) : false;
     });
     return {
-      date: format(day, "MMM dd"),
+      date: format(day, timeRange === "today" ? "HH:00" : "MMM dd"),
       sales: sumKey(daySales, ["AMOUNT (₦)", "Amount (₦)"]),
       expenses: sumKey(dayExpenses, ["Amount (₦)", "AMOUNT", "Amount"]),
     };
@@ -282,6 +296,19 @@ export default function DashboardPage() {
             <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
               Analytics Dashboard
             </h1>
+            
+            <Tabs 
+              value={timeRange} 
+              onValueChange={(val: any) => setTimeRange(val)}
+              className="hidden md:flex bg-gray-100 dark:bg-zinc-900/80 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-800 ml-4"
+            >
+              <TabsList className="bg-transparent border-none p-0 h-auto">
+                <TabsTrigger value="today" className="text-[10px] font-black uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">Today</TabsTrigger>
+                <TabsTrigger value="7d" className="text-[10px] font-black uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">7D</TabsTrigger>
+                <TabsTrigger value="30d" className="text-[10px] font-black uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">30D</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
@@ -311,7 +338,7 @@ export default function DashboardPage() {
             )}
           </div>
           <p className="text-gray-400 text-xs font-medium">
-            Here's what's happening with your business — last 30 days.
+            Here's what's happening with your business — <span className="text-indigo-600 dark:text-indigo-400 font-bold">{timeRange === 'today' ? 'Today' : timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days'}</span>.
           </p>
         </div>
         <Button
@@ -324,6 +351,21 @@ export default function DashboardPage() {
           <RefreshCw className={`w-3.5 h-3.5 mr-2 ${refreshing ? "animate-spin" : ""}`} />
           {refreshing ? "Updating..." : "Refresh"}
         </Button>
+      </div>
+
+      {/* Mobile Time Range Selector */}
+      <div className="md:hidden flex justify-center mt-2">
+        <Tabs 
+          value={timeRange} 
+          onValueChange={(val: any) => setTimeRange(val)}
+          className="w-full bg-gray-100 dark:bg-zinc-900/80 p-0.5 rounded-xl border border-gray-200 dark:border-zinc-800"
+        >
+          <TabsList className="bg-transparent border-none p-0 h-10 w-full">
+            <TabsTrigger value="today" className="flex-1 text-[10px] font-black uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">Today</TabsTrigger>
+            <TabsTrigger value="7d" className="flex-1 text-[10px] font-black uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">7D</TabsTrigger>
+            <TabsTrigger value="30d" className="flex-1 text-[10px] font-black uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">30D</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Metrics Row — 4 cards */}
