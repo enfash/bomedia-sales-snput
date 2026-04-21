@@ -2,13 +2,27 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Zap, Store, ShieldAlert, BadgeInfo, AlertCircle, ShoppingBag } from "lucide-react";
+import {
+  Zap,
+  Store,
+  ShieldAlert,
+  BadgeInfo,
+  AlertCircle,
+  ShoppingBag,
+  RefreshCw,
+  Star,
+  ArrowUpRight,
+  Sparkles,
+  Receipt,
+  BarChart3
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSyncStore } from "@/lib/store";
 import { MetricCard } from "@/components/dashboard-metrics";
 import { MaterialSalesChart, OutstandingDebtChart } from "@/components/dashboard-charts";
-import { RefreshCw } from "lucide-react";
 import { isSameDay, subDays, isWithinInterval } from "date-fns";
+import { TodayBanner } from "@/components/today-banner";
+import { FloatingSaleActionButton } from "@/components/floating-sale-fab";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -26,7 +40,7 @@ type Row = Record<string, string>;
 
 export default function CashierDashboardPage() {
   const { pendingQueue, cachedSales, setCachedData, cachedExpenses } = useSyncStore();
-  
+
   const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -137,6 +151,7 @@ export default function CashierDashboardPage() {
   // ── Material categories ─────────────────────────────────────────────────────
   const materials: Record<string, number> = {};
   let totalJobs = 0;
+  let totalRevenue = 0;
   todaySales.forEach((r) => {
     const mat = r["Material"] || r["MATERIAL"] || r["JOB DESCRIPTION"] || r["Job Description"] || "Other";
     let group = "Other";
@@ -148,6 +163,10 @@ export default function CashierDashboardPage() {
 
     materials[group] = (materials[group] || 0) + 1;
     totalJobs++;
+
+    // Calculate revenue
+    const price = parseFloat(String(r["Total Amount"] || r["TOTAL AMOUNT"] || r["Amount Paid"] || 0).replace(/[^0-9.]/g, ''));
+    if (!isNaN(price)) totalRevenue += price;
   });
 
   const materialData = Object.entries(materials)
@@ -159,7 +178,7 @@ export default function CashierDashboardPage() {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-500 font-medium">Loading Cashier View...</p>
         </div>
       </div>
@@ -167,17 +186,23 @@ export default function CashierDashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
+    <div className="p-4 md:p-8 space-y-6 bg-[#fffcf5] dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
+      <TodayBanner jobCount={totalJobs} revenue={totalRevenue} />
+      <FloatingSaleActionButton />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Store className="w-5 h-5 text-indigo-600" />
-            <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-              Cashier Dashboard
+          <div className="flex items-center gap-2.5 mb-1">
+            <Store className="w-5 h-5 text-amber-600" />
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Cashier Portal
             </h1>
+            <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-[10px] font-bold uppercase tracking-wider border border-amber-200 dark:border-amber-800/40">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Cashier
+            </span>
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800 ml-2">
+              <span className="flex items-center gap-1.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full animate-pulse border border-amber-100 dark:border-amber-800 ml-1">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                 Updating...
               </span>
@@ -199,46 +224,54 @@ export default function CashierDashboardPage() {
         </Button>
       </div>
 
-      {/* Quick Actions / AI Banner */}
       <div
-        className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg"
-        style={{
-          background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
-          boxShadow: "0 8px 24px rgba(79,70,229,0.3)",
-        }}
+        className="rounded-[2rem] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl bg-amber-600 dark:bg-amber-600 bg-gradient-to-br from-amber-500 to-amber-600 text-white transition-all duration-500"
+        style={{ boxShadow: "0 20px 50px hsla(38, 100%, 50%, 0.30)" }}
       >
-        <div className="flex items-center gap-4">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-          >
-            <Zap className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-5">
+          <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
+            <Zap className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="font-black text-base leading-tight">Quick Actions</h2>
-            <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.8)" }}>
-              Say: <em className="not-italic font-semibold">"Logged ₦12k sale..."</em> — Fast mobile entry.
+            <h2 className="font-black text-xl md:text-2xl text-white leading-tight tracking-tight">Quick Actions</h2>
+            <p className="text-sm md:text-base mt-1 text-white/90 font-medium">
+              Say: <em className="not-italic font-bold text-white">"Logged ₦12k sale..."</em> — Fast mobile entry.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <Link href="/new-entry" className="flex-1 md:flex-none">
+        <div className="grid grid-cols-2 lg:flex items-center gap-3 w-full md:w-auto">
+          <Link href="/new-entry" className="col-span-1">
             <Button
-              className="w-full text-xs font-black rounded-xl h-10 px-4 transition-all hover:scale-105 shadow-md shadow-white/10"
-              style={{ backgroundColor: "white", color: "#4f46e5" }}
+              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white text-amber-600 hover:bg-white/90 shadow-lg shadow-white/10 border-none"
             >
-              <Zap className="w-3 h-3 mr-2" />
-              AI Entry
+              <Sparkles className="w-3.5 h-3.5 mr-2" />
+              AI ENTRY
             </Button>
           </Link>
-          <Link href="/new-entry" className="flex-1 md:flex-none">
+          <Link href="/new-entry" className="col-span-1">
             <Button
               variant="outline"
-              className="w-full text-xs font-black rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+              className="w-full text-[11px] font-bold rounded-2xl h-12 px-5 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-[1.02] active:scale-95"
             >
-              <ShoppingBag className="w-3 h-3 mr-2" />
-              Log Sale
+              <ShoppingBag className="w-3.5 h-3.5 mr-2" />
+              NEW SALE
+            </Button>
+          </Link>
+          <Link href="/cashier/expenses" className="col-span-1">
+            <Button
+              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
+            >
+              <Receipt className="w-3.5 h-3.5 mr-2" />
+              EXPENSE
+            </Button>
+          </Link>
+          <Link href="/bom03/records" className="col-span-1">
+            <Button
+              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
+            >
+              <BarChart3 className="w-3.5 h-3.5 mr-2" />
+              RECORDS
             </Button>
           </Link>
         </div>
@@ -250,24 +283,20 @@ export default function CashierDashboardPage() {
           title="Today's Sales"
           value={dailyTotalSalesVal}
           icon={ShoppingBag}
-          accent="#4f46e5"
-          accentLight="#eef2ff"
+          variant="hero"
           subLabel={`${todaySales.length} total logged today`}
         />
         <MetricCard
-          title="Daily Outstanding Debt"
+          title="Daily Debt"
           value={dailyOutstandingDebt}
           icon={AlertCircle}
-          accent="#f59e0b"
-          accentLight="#fef3c7"
           subLabel={`From today's jobs`}
         />
         <MetricCard
-          title="Weekly Outstanding Debt"
+          title="Weekly Debt"
           value={weeklyOutstandingDebt}
           icon={ShieldAlert}
-          accent="#f43f5e"
-          accentLight="#fff1f2"
+          variant="alert"
           subLabel={`Over the last 7 days`}
         />
       </div>

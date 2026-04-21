@@ -155,7 +155,7 @@ export function ExpenseEntry() {
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
               />
             </div>
             <div className="space-y-1">
@@ -166,7 +166,7 @@ export function ExpenseEntry() {
                 placeholder="0.00"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-300 dark:placeholder:text-zinc-700 font-bold"
+                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 font-bold"
               />
             </div>
             <div className="space-y-1 flex flex-col">
@@ -240,7 +240,7 @@ export function ExpenseEntry() {
                 placeholder="Vendor/Person"
                 value={formData.paidTo}
                 onChange={(e) => setFormData({ ...formData, paidTo: e.target.value })}
-                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-300 dark:placeholder:text-zinc-700 font-bold"
+                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 font-bold"
               />
             </div>
             <div className="space-y-1 md:col-span-2">
@@ -250,7 +250,7 @@ export function ExpenseEntry() {
                 placeholder="Reason for expense"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="rounded-xl border-indigo-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-300 dark:placeholder:text-zinc-700 font-bold"
+                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 font-bold"
               />
             </div>
             
@@ -299,7 +299,7 @@ export function ExpenseEntry() {
             </div>
           </CardContent>
           <CardFooter className="p-4 border-t dark:border-white/5 bg-gray-50/50 dark:bg-zinc-900/50">
-            <Button onClick={handleReview} className="w-full bg-indigo-600 hover:bg-indigo-700 py-6 text-base font-bold rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none">Review & Save</Button>
+            <Button onClick={handleReview} className="w-full bg-primary hover:bg-primary/95 text-primary-foreground py-6 text-base font-bold rounded-xl shadow-lg shadow-primary/20 dark:shadow-none transition-all active:scale-[0.98]">Review & Save</Button>
           </CardFooter>
         </Card>
       </div>
@@ -312,15 +312,15 @@ export function ExpenseEntry() {
           </DialogHeader>
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm bg-gray-50 dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Date</span><span className="dark:text-zinc-200 font-bold">{formData.date}</span></div>
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Category</span><span className="dark:text-zinc-200 font-bold">{formData.category}</span></div>
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Method</span><span className="dark:text-zinc-200 font-bold">{formData.paymentMethod}</span></div>
-              <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Amount</span><span className="font-black text-lg text-red-600 dark:text-rose-400">₦{Number(formData.amount).toLocaleString()}</span></div>
-              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Paid To</span><span className="dark:text-zinc-200 font-bold">{formData.paidTo || "—"}</span></div>
-              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1"><span className="text-[10px] text-gray-400 dark:text-zinc-600 uppercase font-bold block mb-0.5 tracking-wider">Description</span><span className="dark:text-zinc-300 font-medium leading-relaxed">{formData.description}</span></div>
+              <div className="col-span-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">Date</span><span className="dark:text-zinc-200 font-bold">{formData.date}</span></div>
+              <div className="col-span-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">Category</span><span className="dark:text-zinc-200 font-bold">{formData.category}</span></div>
+              <div className="col-span-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">Method</span><span className="dark:text-zinc-200 font-bold">{formData.paymentMethod}</span></div>
+              <div className="col-span-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">Amount</span><span className="font-black text-lg text-red-600 dark:text-rose-400">₦{Number(formData.amount).toLocaleString()}</span></div>
+              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">Paid To</span><span className="dark:text-zinc-200 font-bold">{formData.paidTo || "—"}</span></div>
+              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">Description</span><span className="dark:text-zinc-300 font-medium leading-relaxed">{formData.description}</span></div>
               {formData.receiptUrl && (
                 <div className="col-span-2 border-t pt-2 mt-1 text-center">
-                  <span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-1">Receipt Preview</span>
+                  <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-1">Receipt Preview</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={formData.receiptUrl} alt="Receipt" className="max-h-40 mx-auto rounded-lg shadow-sm border dark:border-zinc-800" />
                 </div>
@@ -329,7 +329,7 @@ export function ExpenseEntry() {
           </div>
           <DialogFooter className="p-4 bg-gray-50 dark:bg-zinc-900 border-t dark:border-white/5 flex flex-row gap-2">
             <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">Edit</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-indigo-600 hover:bg-indigo-700 h-12 text-sm font-bold shadow-lg shadow-indigo-100 dark:shadow-none">
+            <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-sm font-bold shadow-lg shadow-primary/20 dark:shadow-none">
               Confirm Save
             </Button>
           </DialogFooter>

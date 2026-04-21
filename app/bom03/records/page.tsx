@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ArrowUpDown
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ import { RecordCard, type RecordStatus } from "@/components/record-card";
 import { subDays, isWithinInterval, parseISO } from "date-fns";
 import { ManageSaleAction, type UnifiedRecord } from "@/components/manage-sale-action";
 import { format } from "date-fns";
+import { MaterialBadge } from "@/components/material-badge";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -155,6 +157,7 @@ export default function RecordsPage() {
       additionalPayment1: parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]),
       additionalPayment2: parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]),
       jobStatus: r["JOB STATUS"] || r["Job Status"] || "Pending",
+      material: r["Material"] || r["MATERIAL"] || r["material"] || "",
       balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
       raw: r
     };
@@ -176,6 +179,7 @@ export default function RecordsPage() {
       isPending,
       rowIndex: r._rowIndex ? parseInt(r._rowIndex.toString()) : undefined,
       timestamp,
+      material: r.CATEGORY || r.Category || "",
       raw: r
     };
   };
@@ -295,15 +299,15 @@ export default function RecordsPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black text-[#4f46e5] dark:text-indigo-400">Financial Records & History</h1>
+            <h1 className="text-3xl font-black text-[#4f46e5] dark:text-indigo-400">Financial Records</h1>
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                 Syncing...
               </span>
             )}
           </div>
-          <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">Comprehensive view of your sales, expenses, and financial status.</p>
+          <p className="text-gray-500 dark:text-zinc-400 text-xs font-medium mt-1">Comprehensive view of your sales, expenses, and financial status.</p>
         </div>
         <Button 
           variant="outline" 
@@ -367,9 +371,9 @@ export default function RecordsPage() {
               <button
                 key={option.id}
                 onClick={() => setSortBy(option.id as any)}
-                className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${sortBy === option.id
-                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
-                    : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${sortBy === option.id
+                    ? "bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-foreground"
+                    : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
               >
                 {option.label}
@@ -393,9 +397,9 @@ export default function RecordsPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${activeTab === tab
-                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
-                    : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === tab
+                    ? "bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-foreground"
+                    : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
               >
                 {tab}
@@ -410,15 +414,16 @@ export default function RecordsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 border-none">
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 py-4">Date</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Type</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Client/Payee</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Description</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-right">Amount</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-right">Difference</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Logged By</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Actions</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 py-4">Date</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500">Type</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500">Client/Payee</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500">Description</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-right">Amount</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-right">Difference</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-center">Status</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500">Logged By</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500">Material</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -439,6 +444,11 @@ export default function RecordsPage() {
                   </TableCell>
                   <TableCell className="text-center"><StatusBadge status={r.status} /></TableCell>
                   <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-400">{r.loggedBy}</TableCell>
+                  <TableCell className="text-center">
+                    {r.type === "Sale" && r.material && (
+                      <MaterialBadge material={r.material} />
+                    )}
+                  </TableCell>
                   <TableCell className="text-center">
                     <ManageSaleAction record={r} onUpdate={fetchData} />
                   </TableCell>
@@ -476,9 +486,9 @@ export default function RecordsPage() {
       {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="mt-8 flex items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-zinc-800">
-          <p className="text-xs font-bold text-gray-500 dark:text-zinc-400">
-            Page <span className="text-indigo-600 dark:text-indigo-400">{currentPage}</span> of {totalPages} 
-            <span className="ml-2 opacity-50">({sorted.length} records)</span>
+          <p className="text-xs font-bold text-gray-600 dark:text-zinc-400">
+            Page <span className="text-primary dark:text-indigo-400">{currentPage}</span> of {totalPages} 
+            <span className="ml-2 opacity-60">({sorted.length} records)</span>
           </p>
           <div className="flex gap-2">
             <Button

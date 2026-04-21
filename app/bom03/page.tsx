@@ -4,10 +4,14 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Zap, LayoutDashboard, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
 import { SalesExpenseChart, ExpenseCategorizationChart, OutstandingDebtChart } from "@/components/dashboard-charts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TodayBanner } from "@/components/today-banner";
+import { Logo } from "@/components/logo";
+
 import {
   format,
   subDays,
@@ -239,6 +243,16 @@ export default function DashboardPage() {
       balance,
     }));
 
+  // ── Today at a glance (Static window for banner) ───────────────────────────
+  const startOfToday = startOfDay(now);
+  const todaySalesItems = allSales.filter(r => {
+    const d = parseSheetDate(r.DATE || r.Date);
+    return d ? isSameDay(d, startOfToday) : false;
+  });
+  const todayJobCount = todaySalesItems.length;
+  const todayRevenue = sumKey(todaySalesItems, ["AMOUNT (₦)", "Amount (₦)"]);
+
+
   // ── Chart data ─────────────────────────────────────────────────────────────
   const rangeInterval = eachDayOfInterval({ start: startDate, end: now });
   const chartData = rangeInterval.map((day) => {
@@ -288,37 +302,41 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-6 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
+      <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} />
+      
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <LayoutDashboard className="w-5 h-5 text-indigo-600" />
+            <div className="h-10 w-10 md:hidden flex items-center justify-center bg-primary rounded-xl mb-2">
+              <Logo showText={false} className="text-primary-foreground" />
+            </div>
             <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-              Analytics Dashboard
+              Dashboard
             </h1>
             
             <Tabs 
               value={timeRange} 
               onValueChange={(val: any) => setTimeRange(val)}
-              className="hidden md:flex bg-gray-100 dark:bg-zinc-900/80 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-800 ml-4"
+              className="hidden md:flex bg-muted p-0.5 rounded-lg border ml-4"
             >
               <TabsList className="bg-transparent border-none p-0 h-auto">
-                <TabsTrigger value="today" className="text-[10px] font-black uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">Today</TabsTrigger>
-                <TabsTrigger value="7d" className="text-[10px] font-black uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">7D</TabsTrigger>
-                <TabsTrigger value="30d" className="text-[10px] font-black uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">30D</TabsTrigger>
+                <TabsTrigger value="today" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">Today</TabsTrigger>
+                <TabsTrigger value="7d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">7D</TabsTrigger>
+                <TabsTrigger value="30d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">30D</TabsTrigger>
               </TabsList>
             </Tabs>
 
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
+              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
             </div>
 
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsMuted(!isMuted)}
-              className="h-7 px-2 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 dark:bg-zinc-900/50"
+              className="h-7 px-2 border-border text-muted-foreground hover:text-foreground bg-card"
             >
               {isMuted ? (
                 <VolumeX className="w-3.5 h-3.5 mr-1" />
@@ -331,7 +349,7 @@ export default function DashboardPage() {
             </Button>
 
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800 ml-2">
+              <span className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800 ml-2">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                 Updating...
               </span>
@@ -346,10 +364,10 @@ export default function DashboardPage() {
           size="sm"
           onClick={() => fetchData(true)}
           disabled={refreshing}
-          className="w-full md:w-auto bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300 shadow-sm rounded-xl h-10 px-5 text-xs font-bold"
+          className="w-full md:w-auto bg-card border-border text-foreground shadow-sm rounded-xl h-11 px-5 text-xs font-bold"
         >
-          <RefreshCw className={`w-3.5 h-3.5 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "Updating..." : "Refresh"}
+          <RefreshCw className={cn("w-3.5 h-3.5 mr-2", refreshing && "animate-spin")} />
+          {refreshing ? "Updating..." : "Force Refresh"}
         </Button>
       </div>
 
@@ -361,9 +379,9 @@ export default function DashboardPage() {
           className="w-full bg-gray-100 dark:bg-zinc-900/80 p-0.5 rounded-xl border border-gray-200 dark:border-zinc-800"
         >
           <TabsList className="bg-transparent border-none p-0 h-10 w-full">
-            <TabsTrigger value="today" className="flex-1 text-[10px] font-black uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">Today</TabsTrigger>
-            <TabsTrigger value="7d" className="flex-1 text-[10px] font-black uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">7D</TabsTrigger>
-            <TabsTrigger value="30d" className="flex-1 text-[10px] font-black uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">30D</TabsTrigger>
+            <TabsTrigger value="today" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">Today</TabsTrigger>
+            <TabsTrigger value="7d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">7D</TabsTrigger>
+            <TabsTrigger value="30d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">30D</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -381,6 +399,7 @@ export default function DashboardPage() {
         isSalesUp={totalSalesVal >= prevSalesVal}
         isExpensesDown={totalExpensesVal <= prevExpensesVal}
         isProfitUp={netProfitVal >= prevProfitVal}
+        sparkData={chartData.slice(-7).map(d => d.sales)}
       />
 
       {/* Inventory Alerts & Shortcuts */}
@@ -391,8 +410,8 @@ export default function DashboardPage() {
               <Package className="w-6 h-6 text-amber-600" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-0.5">Inventory Status</p>
-              <h3 className="text-sm font-black text-gray-900 dark:text-gray-100">Check Stock Levels</h3>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-0.5">Inventory Status</p>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Check Stock Levels</h3>
               <p className="text-[10px] text-gray-400 font-bold">Manage items & categories</p>
             </div>
           </div>
@@ -400,12 +419,12 @@ export default function DashboardPage() {
         <div className="md:col-span-2 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl p-4 flex items-center justify-between border border-indigo-100/50 dark:border-indigo-900/20">
           <div className="flex gap-4">
             <div className="text-center">
-              <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Total Sales</p>
+              <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Total Sales</p>
               <p className="text-sm font-black text-indigo-600">₦{totalSalesVal.toLocaleString()}</p>
             </div>
             <div className="w-px h-8 bg-indigo-100 dark:bg-indigo-900/40 self-center" />
             <div className="text-center">
-              <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Exp. Ratio</p>
+              <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Exp. Ratio</p>
               <p className="text-sm font-black text-indigo-600">
                 {totalSalesVal > 0 ? ((totalExpensesVal / totalSalesVal) * 100).toFixed(1) : "0"}%
               </p>
@@ -422,11 +441,8 @@ export default function DashboardPage() {
       {/* AI Banner */}
       {/* Quick Actions / AI Banner */}
       <div
-        className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg"
-        style={{
-          background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
-          boxShadow: "0 8px 24px rgba(79,70,229,0.3)",
-        }}
+        className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg bg-indigo-600 dark:bg-indigo-700 bg-gradient-to-br from-indigo-600 to-indigo-700"
+        style={{ boxShadow: "0 8px 24px rgba(79, 70, 229, 0.4)" }}
       >
         <div className="flex items-center gap-4">
           <div
@@ -436,7 +452,7 @@ export default function DashboardPage() {
             <Zap className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="font-black text-base leading-tight">Quick Actions</h2>
+            <h2 className="font-bold text-base leading-tight">Quick Actions</h2>
             <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.8)" }}>
               Say: <em className="not-italic font-semibold">"Logged ₦12k sale..."</em> — Fast mobile entry.
             </p>
@@ -446,7 +462,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Link href="/new-entry" className="flex-1 md:flex-none">
             <Button
-              className="w-full text-xs font-black rounded-xl h-10 px-4 transition-all hover:scale-105"
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 transition-all hover:scale-105"
               style={{ backgroundColor: "white", color: "#4f46e5" }}
             >
               <Zap className="w-3 h-3 mr-2" />
@@ -456,7 +472,7 @@ export default function DashboardPage() {
           <Link href="/bom03/expenses" className="flex-1 md:flex-none">
             <Button
               variant="outline"
-              className="w-full text-xs font-black rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
             >
               <Receipt className="w-3 h-3 mr-2" />
               Log Expense
@@ -465,7 +481,7 @@ export default function DashboardPage() {
           <Link href="/bom03/records" className="flex-1 md:flex-none">
             <Button
               variant="outline"
-              className="w-full text-xs font-black rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
             >
               <BarChart3 className="w-3 h-3 mr-2" />
               Records

@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
+    --background: 0 0% 100%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -13,86 +13,135 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Indigo primary */
+    /* Admin Indigo */
     --primary: 243 75% 59%;
     --primary-foreground: 0 0% 100%;
+    /* RGB values for use in box-shadow */
+    --primary-rgb: 79, 70, 229;
 
     --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 220 14% 95%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
     --accent: 243 75% 96%;
     --accent-foreground: 243 75% 40%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 214.3 32% 91%;
+    --input: 214.3 32% 91%;
     --ring: 243 75% 59%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Status Colors */
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+  }
+
+  /* Cashier Amber Theme */
+  .theme-amber {
+    --primary: 38 92% 50%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 38 92% 96%;
+    --accent-foreground: 38 92% 35%;
+    --ring: 38 92% 50%;
+    --primary-rgb: 245, 158, 11;
   }
 
   .dark {
-    --background: 222 47% 4%;
+    --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 6%;
+    --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 5%;
+    --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
     --primary: 243 75% 59%;
-    --primary-foreground: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 222 47% 12%;
+    --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 222 47% 10%;
+    --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 243 75% 15%;
-    --accent-foreground: 243 75% 70%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 222 47% 15%;
-    --input: 222 47% 15%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
     --ring: 243 75% 59%;
+  }
+
+  .dark.theme-amber {
+    --primary: 38 92% 50%;
+    --primary-foreground: 210 40% 98%;
+    --accent: 38 92% 15%;
+    --accent-foreground: 38 92% 80%;
+    --primary-rgb: 245, 158, 11;
   }
 }
 
 @layer base {
-  *,
-  *::before,
-  *::after {
-    border-color: hsl(var(--border));
-    font-family: inherit;
+  * {
+    @apply border-border;
   }
-
+  
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground antialiased font-medium;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 
-  /* Ensure form elements always inherit font — browsers override these by default */
-  input,
-  button,
-  select,
-  textarea,
-  optgroup,
-  option {
-    font-family: inherit;
-    font-size: inherit;
-    font-weight: inherit;
-    line-height: inherit;
+  /* Typography scale — font-black reserved for key metrics & h1 only */
+  h1, .h1 {
+    @apply text-4xl font-black tracking-tight;
   }
+
+  h2, .h2 {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  h3, .h3 {
+    @apply text-lg font-bold;
+  }
+
+  label, .label {
+    @apply text-sm font-semibold text-muted-foreground;
+  }
+
+  /* Touch targets — all interactive elements minimum 44px */
+  button, a, select, input {
+    @apply min-h-[44px];
+  }
+}
+
+@layer components {
+  .metric-hero {
+    @apply col-span-full md:col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/10 to-transparent border-primary/20;
+  }
+
+  @keyframes pulse-border {
+    0% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); }
+    70% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  }
+
+  .animate-pulse-debt {
+    animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    @apply border-2;
+  }
+}
+
+/* Custom Utilities */
+.glass {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 dark:bg-black/80 dark:border-white/10;
 }

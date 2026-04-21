@@ -7,6 +7,8 @@ import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, Refre
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
+import { Logo } from "./logo";
+
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -65,16 +67,8 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
   return (
     <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-60 bg-gray-900 dark:bg-zinc-950 text-white flex flex-col shadow-xl transition-colors duration-500">
       {/* Logo */}
-      <div className="flex items-center justify-between px-5 py-5 border-b border-gray-700/60 dark:border-zinc-800/50">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-lg shrink-0">
-            B
-          </div>
-          <div>
-            <p className="font-bold text-sm leading-tight">BOMedia</p>
-            <p className="text-xs text-gray-400 leading-tight">Sales & Expenses</p>
-          </div>
-        </div>
+      <div className="flex items-center justify-between px-5 py-6 border-b border-gray-700/60 dark:border-zinc-800/50">
+        <Logo className="text-white" />
         <ThemeToggle />
       </div>
 
@@ -89,8 +83,8 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                 active
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-gray-300 hover:bg-gray-800 dark:hover:bg-zinc-900/50 hover:text-white"
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                  : "text-gray-300 hover:bg-white/5 hover:text-white"
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />

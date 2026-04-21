@@ -14,8 +14,13 @@ const serviceAccountAuth = new JWT({
 const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID || '', serviceAccountAuth);
 
 export async function getDoc() {
-  await doc.loadInfo();
-  return doc;
+  try {
+    await doc.loadInfo();
+    return doc;
+  } catch (error: any) {
+    console.error("Google Sheets getDoc Error:", error);
+    throw error;
+  }
 }
 
 /**

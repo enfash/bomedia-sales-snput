@@ -41,6 +41,7 @@ export interface UnifiedRecord {
   additionalPayment1?: number;
   additionalPayment2?: number;
   jobStatus?: string;
+  material?: string;
   balance?: number;
   raw: Row;
 }
@@ -115,18 +116,22 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         ) : (
-          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wider border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wider border-border dark:border-indigo-900 text-primary dark:text-indigo-400 hover:bg-primary/5 dark:hover:bg-indigo-900/20"
+          >
             Manage
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 overflow-hidden border-none shadow-2xl dark:shadow-none">
-        <DialogHeader className="p-6 bg-indigo-600 text-white">
+        <DialogHeader className="p-6 bg-primary text-primary-foreground">
           <DialogTitle className="text-xl font-black">Manage Sale Record</DialogTitle>
           <div className="flex justify-between items-end mt-1">
-            <p className="text-indigo-100 text-xs font-medium opacity-80">Update payments and job progress for {record.client}</p>
+            <p className="text-white/80 text-xs font-medium">Update payments and job progress for {record.client}</p>
             <div className="text-right flex flex-col items-end">
-              <p className="text-[10px] uppercase font-black text-indigo-200 leading-none mb-0.5">Current Balance</p>
+              <p className="text-[10px] uppercase font-black text-white/60 leading-none mb-0.5">Current Balance</p>
               <p className="text-sm font-black text-white leading-none">₦{(record.balance || 0).toLocaleString()}</p>
               
               {(record.balance || 0) > 0 && record.contact && (
@@ -156,38 +161,38 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
              <div>
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-2 block">Total Amount</Label>
+                <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">Total Amount</Label>
                 <p className="text-lg font-black text-gray-900 dark:text-white">₦{record.amount.toLocaleString()}</p>
              </div>
              <div>
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-2 block">Current Status</Label>
-                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{record.status}</p>
+                <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">Current Status</Label>
+                <p className="text-xs font-bold text-primary dark:text-indigo-400">{record.status}</p>
              </div>
           </div>
 
           <div className="space-y-4">
              {showAddl1 && (
                <div className="space-y-1.5">
-                 <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Additional Payment 1 (₦)</Label>
+                 <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">Additional Payment 1 (₦)</Label>
                  <Input 
                    type="number" 
                    placeholder="Enter amount" 
                    value={addl1} 
                    onChange={e => setAddl1(e.target.value)}
-                   className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-indigo-500 font-bold"
+                   className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
                  />
                </div>
              )}
 
              {showAddl2 && (
                <div className="space-y-1.5">
-                 <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Additional Payment 2 (₦)</Label>
+                 <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">Additional Payment 2 (₦)</Label>
                  <Input 
                    type="number" 
                    placeholder="Enter amount" 
                    value={addl2} 
                    onChange={e => setAddl2(e.target.value)}
-                   className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-indigo-500 font-bold"
+                   className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
                  />
                </div>
              )}
@@ -199,9 +204,9 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
              )}
 
              <div className="space-y-1.5">
-               <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Job Status</Label>
+               <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">Job Status</Label>
                <Select value={status} onValueChange={setStatus}>
-                 <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold shadow-sm">
+                 <SelectTrigger className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold shadow-sm">
                    <SelectValue placeholder="Select status" />
                  </SelectTrigger>
                  <SelectContent className="rounded-xl border-gray-100 dark:border-zinc-800 dark:bg-zinc-900 shadow-xl z-[100]" position="popper" sideOffset={5}>
@@ -219,7 +224,7 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
           <Button 
             disabled={isSubmitting} 
             onClick={handleUpdate}
-            className="flex-1 h-12 rounded-xl bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white font-black shadow-lg shadow-indigo-100 dark:shadow-none"
+            className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-all active:scale-[0.98]"
           >
             {isSubmitting ? "Updating..." : "Save Changes"}
           </Button>

@@ -100,8 +100,8 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="text-xl">👋 Welcome to BOMedia</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-xl font-bold text-foreground">👋 Welcome to BOMedia</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             Enter your assigned name to continue to the cashier portal.
           </DialogDescription>
         </DialogHeader>
@@ -128,7 +128,7 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
             {error && <p className="text-xs text-red-500 font-medium mt-1">{error}</p>}
           </div>
           <Button
-            className="w-full bg-indigo-600 hover:bg-indigo-700"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
             onClick={handleSave}
             disabled={!name || isSaving}
           >

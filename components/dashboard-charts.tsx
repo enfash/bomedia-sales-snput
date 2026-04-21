@@ -16,6 +16,7 @@ import {
   Bar,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Inbox, BarChart3, PieChart as PieIcon } from "lucide-react";
 
 interface SalesExpenseData {
   date: string;
@@ -34,76 +35,105 @@ interface DebtData {
   balance: number;
 }
 
-const CHART_COLORS = ["#6366f1", "#a855f7", "#10b981", "#f59e0b", "#64748b", "#06b6d4"];
+const CHART_COLORS = ["hsl(var(--primary))", "hsl(243 75% 75%)", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--muted-foreground))", "hsl(190 90% 50%)"];
+
+function EmptyState({ icon: Icon, title, description }: { icon: any, title: string, description: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full w-full py-12 text-center animate-in fade-in zoom-in duration-500">
+      <div className="relative mb-4">
+        <div className="absolute inset-0 bg-primary/5 rounded-full blur-2xl h-20 w-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+        <div className="bg-muted h-16 w-16 rounded-2xl flex items-center justify-center border border-border shadow-sm">
+          <Icon className="h-8 w-8 text-muted-foreground" />
+        </div>
+      </div>
+      <h3 className="text-sm font-black text-foreground mb-1">{title}</h3>
+      <p className="text-[11px] text-muted-foreground font-medium max-w-[180px] leading-relaxed">
+        {description}
+      </p>
+    </div>
+  );
+}
+
 
 // ─── Sales vs Expenses Area Chart ──────────────────────────────────────────
 export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
+  const hasData = data.some(d => d.sales > 0 || d.expenses > 0);
+
   return (
-    <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-hidden rounded-2xl border border-transparent dark:border-white/5 transition-colors">
+    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-bold text-gray-900 dark:text-white">Sales vs Expenses</CardTitle>
-        <CardDescription className="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Last 30 Days</CardDescription>
+        <CardTitle className="text-base font-black text-foreground">Sales vs Expenses</CardTitle>
+        <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-black">Daily Performance Trend</CardDescription>
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[280px] w-full">
-          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-            <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4f8" className="stroke-gray-100 dark:stroke-zinc-800" />
-              <XAxis
-                dataKey="date"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
-                className="[&_.recharts-cartesian-axis-tick-value]:dark:fill-zinc-500"
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
-                className="[&_.recharts-cartesian-axis-tick-value]:dark:fill-zinc-500"
-                tickFormatter={(val) => `₦${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
-                width={50}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--popover)",
-                  borderRadius: "12px",
-                  border: "1px solid var(--border)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                  fontSize: "12px",
-                  padding: "8px 12px",
-                }}
-                itemStyle={{ fontWeight: "800" }}
-                formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
-                labelStyle={{ fontWeight: "900", marginBottom: "4px", color: "var(--foreground)" }}
-              />
-              <Area type="monotone" dataKey="sales" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" name="Sales" />
-              <Area type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExpenses)" name="Expenses" />
-            </AreaChart>
-          </ResponsiveContainer>
+          {!hasData ? (
+            <EmptyState 
+              icon={BarChart3} 
+              title="No Activity Detected" 
+              description="New sales or expenses will populate this trend automatically."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+                  tickFormatter={(val) => `₦${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
+                  width={50}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    borderRadius: "14px",
+                    border: "1px solid hsl(var(--border))",
+                    boxShadow: "0 10px 30px -10px rgba(0,0,0,0.15)",
+                    fontSize: "12px",
+                    padding: "12px",
+                  }}
+                  cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  itemStyle={{ fontWeight: "900" }}
+                  formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
+                  labelStyle={{ fontWeight: "900", marginBottom: "6px", color: "hsl(var(--foreground))" }}
+                />
+                <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" name="Sales" />
+                <Area type="monotone" dataKey="expenses" stroke="hsl(var(--destructive))" strokeWidth={3} fillOpacity={1} fill="url(#colorExpenses)" name="Expenses" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
-        {/* Custom Legend */}
-        <div className="flex items-center justify-center gap-6 mt-2">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-1.5 rounded-full bg-indigo-500 inline-block" />
-            <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Sales</span>
+        
+        {hasData && (
+          <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-border">
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-1 rounded-full bg-primary inline-block" />
+              <span className="text-[10px] font-black text-muted-foreground uppercase">Sales</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-1 rounded-full bg-destructive inline-block" />
+              <span className="text-[10px] font-black text-muted-foreground uppercase">Expenses</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-1.5 rounded-full bg-rose-500 inline-block" />
-            <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Expenses</span>
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -111,47 +141,58 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
 
 // ─── Expense Categorization Donut Chart ────────────────────────────────────
 export function ExpenseCategorizationChart({ data, total }: { data: CategoryData[]; total: number }) {
+  const hasData = total > 0;
+
   return (
-    <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-hidden rounded-2xl border border-transparent dark:border-white/5 transition-colors">
+    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-bold text-gray-900 dark:text-white">Expense Breakdown</CardTitle>
-        <CardDescription className="text-[11px] text-gray-400 uppercase tracking-wider font-bold">By Category</CardDescription>
+        <CardTitle className="text-base font-black text-foreground">Expense Breakdown</CardTitle>
+        <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-black">Category Split</CardDescription>
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[280px] w-full relative">
-          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="45%"
-                innerRadius={65}
-                outerRadius={90}
-                paddingAngle={4}
-                dataKey="value"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={0} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--popover)",
-                  borderRadius: "12px",
-                  border: "1px solid var(--border)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                  fontSize: "12px",
-                }}
-                formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
-              />
-              <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: "700" }} />
-            </PieChart>
-          </ResponsiveContainer>
-          {/* Center Label */}
-          <div className="absolute inset-x-0 pointer-events-none" style={{ top: "38%" }}>
-            <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Total</p>
-            <p className="text-center text-base font-black text-gray-900 dark:text-white leading-tight">₦{total.toLocaleString()}</p>
-          </div>
+          {!hasData ? (
+            <EmptyState 
+              icon={PieIcon} 
+              title="No Expenses Logged" 
+              description="Detailed category split will appear once expenses are added."
+            />
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={65}
+                    outerRadius={90}
+                    paddingAngle={6}
+                    dataKey="value"
+                    strokeWidth={0}
+                  >
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      borderRadius: "14px",
+                      border: "1px solid hsl(var(--border))",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
+                  />
+                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "10px", fontWeight: "900", textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-x-0 pointer-events-none" style={{ top: "35%" }}>
+                <p className="text-center text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Total Exp.</p>
+                <p className="text-center text-lg font-black text-foreground leading-tight">₦{total.toLocaleString()}</p>
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -160,47 +201,58 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
 
 // ─── Material Sales Donut Chart ────────────────────────────────────────────
 export function MaterialSalesChart({ data, total }: { data: CategoryData[]; total: number }) {
+  const hasData = total > 0;
+
   return (
-    <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-hidden rounded-2xl border border-transparent dark:border-white/5 transition-colors">
+    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-bold text-gray-900 dark:text-white">Material Distribution</CardTitle>
-        <CardDescription className="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Today&apos;s Jobs</CardDescription>
+        <CardTitle className="text-base font-bold text-foreground">Material Distribution</CardTitle>
+        <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-bold">Workload Breakdown</CardDescription>
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[280px] w-full relative">
-          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="45%"
-                innerRadius={65}
-                outerRadius={90}
-                paddingAngle={4}
-                dataKey="value"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={0} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--popover)",
-                  borderRadius: "12px",
-                  border: "1px solid var(--border)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                  fontSize: "12px",
-                }}
-                formatter={(value: any) => [Number(value).toLocaleString(), "Jobs"]}
-              />
-              <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: "700" }} />
-            </PieChart>
-          </ResponsiveContainer>
-          {/* Center Label */}
-          <div className="absolute inset-x-0 pointer-events-none" style={{ top: "38%" }}>
-            <p className="text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Total</p>
-            <p className="text-center text-base font-black text-gray-900 dark:text-white leading-tight">{total.toLocaleString()} Jobs</p>
-          </div>
+          {!hasData ? (
+            <EmptyState 
+              icon={BarChart3} 
+              title="No Materials Logged" 
+              description="Material distribution will populate as jobs are recorded."
+            />
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <PieChart>
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={65}
+                    outerRadius={90}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={0} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      borderRadius: "14px",
+                      border: "1px solid hsl(var(--border))",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: any) => [Number(value).toLocaleString(), "Jobs"]}
+                  />
+                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "10px", fontWeight: "900", textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center Label */}
+              <div className="absolute inset-x-0 pointer-events-none" style={{ top: "35%" }}>
+                <p className="text-center text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Total Jobs</p>
+                <p className="text-center text-lg font-black text-foreground leading-tight">{total.toLocaleString()}</p>
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -209,79 +261,69 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
 
 // ─── Outstanding Debt Bar Chart ─────────────────────────────────────────────
 export function OutstandingDebtChart({ data }: { data: DebtData[] }) {
-  if (!data || data.length === 0) {
-    return (
-      <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-hidden rounded-2xl border border-transparent dark:border-white/5 transition-colors">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-bold text-gray-900 dark:text-white">Outstanding Debt</CardTitle>
-          <CardDescription className="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Clients with Unpaid Balances</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center h-40">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">✅</span>
-            </div>
-            <p className="text-sm font-bold text-gray-500 dark:text-gray-400">All balances cleared!</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const hasData = data && data.length > 0;
 
   return (
-    <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-hidden rounded-2xl border border-transparent dark:border-white/5 transition-colors">
+    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-base font-bold text-gray-900 dark:text-white">Outstanding Debt</CardTitle>
-            <CardDescription className="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Top Clients with Unpaid Balances</CardDescription>
+            <CardTitle className="text-base font-bold text-foreground">Outstanding Debt</CardTitle>
+            <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-bold">Top Clients with Unpaid Balances</CardDescription>
           </div>
-          <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-[11px] font-black px-3 py-1 rounded-full border border-rose-100 dark:border-rose-900/30">
-            {data.length} client{data.length !== 1 ? "s" : ""}
-          </div>
+          {hasData && (
+            <div className="bg-destructive/10 text-destructive text-[10px] font-black px-3 py-1 rounded-full border border-destructive/20 uppercase tracking-wider">
+              {data.length} client{data.length !== 1 ? "s" : ""}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[240px] w-full">
-          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 0, right: 24, left: 8, bottom: 0 }}
-              barCategoryGap="30%"
-            >
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f4f8" className="stroke-gray-100 dark:stroke-zinc-800" />
-              <XAxis
-                type="number"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
-                className="[&_.recharts-cartesian-axis-tick-value]:dark:fill-zinc-500"
-                tickFormatter={(val) => `₦${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#475569", fontWeight: 700 }}
-                className="[&_.recharts-cartesian-axis-tick-value]:dark:fill-zinc-400"
-                width={90}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--popover)",
-                  borderRadius: "12px",
-                  border: "1px solid var(--border)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                  fontSize: "12px",
-                }}
-                formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Balance"]}
-                labelStyle={{ fontWeight: "bold", color: "var(--foreground)" }}
-              />
-              <Bar dataKey="balance" fill="#f43f5e" radius={[0, 6, 6, 0]} name="Balance" />
-            </BarChart>
-          </ResponsiveContainer>
+          {!hasData ? (
+            <EmptyState 
+              icon={Inbox} 
+              title="All Balances Cleared" 
+              description="No outstanding debt found in the current records. Excellent work!"
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <BarChart
+                data={data}
+                layout="vertical"
+                margin={{ top: 0, right: 24, left: 8, bottom: 0 }}
+                barCategoryGap="30%"
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" opacity={0.5} />
+                <XAxis
+                  type="number"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+                  tickFormatter={(val) => `₦${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "hsl(var(--foreground))", fontWeight: 700 }}
+                  width={90}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    borderRadius: "14px",
+                    border: "1px solid hsl(var(--border))",
+                    fontSize: "12px",
+                  }}
+                  formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Balance"]}
+                  labelStyle={{ fontWeight: "900", marginBottom: "6px", color: "hsl(var(--foreground))" }}
+                />
+                <Bar dataKey="balance" fill="hsl(var(--destructive))" radius={[0, 6, 6, 0]} name="Balance" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </CardContent>
     </Card>

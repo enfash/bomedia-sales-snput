@@ -8,6 +8,8 @@ import { MobileNav } from "@/components/mobile-nav";
 import { SyncManager } from "@/components/sync-manager";
 import { PWAManager } from "@/components/pwa-manager";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeWrapper } from "@/components/theme-wrapper";
+import { BottomNav } from "@/components/bottom-nav";
 
 export const metadata: Metadata = {
   title: "BOMedia Sales & Expenses",
@@ -24,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -49,7 +51,7 @@ export default function RootLayout({
           <PWAManager />
           <NamePrompt isAdmin={isAdmin} />
           <SyncManager />
-          <div className="flex min-h-screen bg-gray-50 dark:bg-zinc-950 transition-colors duration-500">
+          <ThemeWrapper>
             {/* Desktop Sidebar */}
             <Sidebar isAdmin={isAdmin} />
             
@@ -62,8 +64,10 @@ export default function RootLayout({
                   {children}
                 </div>
               </main>
+              
+              <BottomNav />
             </div>
-          </div>
+          </ThemeWrapper>
           <Toaster richColors position="top-right" closeButton />
         </ThemeProvider>
       </body>

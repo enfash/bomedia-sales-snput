@@ -1,6 +1,39 @@
 "use client";
 
 import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+
+// Inline micro-sparkline rendered as SVG — no extra dependencies
+function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: string }) {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const w = 100;
+  const h = 32;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * h;
+    return `${x},${y}`;
+  });
+  const polyline = pts.join(" ");
+  // Fill path: close below
+  const fill = `M${pts[0]} L${pts.join(" L")} L${w},${h} L0,${h} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-8 overflow-visible" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={fill} fill="url(#spark-fill)" />
+      <polyline points={polyline} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 interface MetricCardProps {
   title: string;
@@ -8,9 +41,9 @@ interface MetricCardProps {
   change?: string;
   isPositive?: boolean;
   icon: React.ElementType;
-  accent: string;       // hex color
-  accentLight: string;  // hex light version
+  variant?: 'default' | 'hero' | 'alert';
   subLabel?: string;
+  sparkData?: number[];
 }
 
 export function MetricCard({
@@ -19,47 +52,93 @@ export function MetricCard({
   change,
   isPositive,
   icon: Icon,
-  accent,
-  accentLight,
+  variant = 'default',
   subLabel,
+  sparkData,
 }: MetricCardProps) {
+  const isHero = variant === 'hero';
+  const isAlert = variant === 'alert' && value > 0;
+
   return (
     <div
-      className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm p-5 hover:shadow-md transition-all duration-200 flex flex-col gap-3 border border-transparent dark:border-white/5"
-      style={{ borderTop: `4px solid ${accent}` }}
+      className={cn(
+        "relative overflow-hidden bg-card rounded-2xl shadow-sm border border-border p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
+        isHero && "metric-hero border-primary/20 bg-primary/[0.03]",
+        isAlert && "animate-pulse-debt border-destructive/50 ring-2 ring-destructive/20"
+      )}
     >
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{title}</p>
+      {/* Background Decor for Hero */}
+      {isHero && (
+        <div className="absolute -right-4 -top-4 h-28 w-28 rounded-full bg-primary/5 blur-2xl" />
+      )}
+
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</p>
+          {isAlert && (
+            <motion.div 
+              animate={{ opacity: [1, 0.3, 1] }}
+              transition={{ repeat: Infinity, duration: 1.2 }}
+              className="h-2 w-2 rounded-full bg-destructive shadow-sm shadow-destructive/50"
+            />
+          )}
+        </div>
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center dark:!bg-zinc-800"
-          style={{ backgroundColor: accentLight }}
+          className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+            isHero ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
+              : isAlert ? "bg-destructive/10 text-destructive"
+              : "bg-muted text-foreground"
+          )}
         >
-          <Icon className="w-4 h-4 dark:!text-white" style={{ color: accent }} />
+          <Icon className="w-5 h-5" />
         </div>
       </div>
 
-      <div>
-        <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">
+      <div className="space-y-1">
+        <p className={cn(
+          "font-black tracking-tight text-foreground leading-none",
+          isHero ? "text-4xl" : "text-2xl"
+        )}>
           ₦{value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
         </p>
-        {subLabel && (
-          <p className="text-[11px] text-gray-400 mt-1 font-medium">{subLabel}</p>
+        {(subLabel || (isHero && change)) && (
+          <div className="flex items-center gap-2 mt-2">
+            {subLabel && (
+              <p className="text-xs text-muted-foreground font-semibold">{subLabel}</p>
+            )}
+            {isHero && change && (
+              <div className={cn(
+                "flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                isPositive 
+                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
+                  : "bg-destructive/10 text-destructive border-destructive/20"
+              )}>
+                {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {change}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {change && (
-        <div className="flex items-center gap-1.5">
-          {isPositive ? (
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/30">
-              <TrendingUp className="w-3 h-3" />
-              {change} vs last month
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 text-xs font-bold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full border border-rose-100 dark:border-rose-800/30">
-              <TrendingDown className="w-3 h-3" />
-              {change} vs last month
-            </div>
-          )}
+      {/* Sparkline for hero card */}
+      {isHero && sparkData && sparkData.length >= 2 && (
+        <div className="mt-3 opacity-60">
+          <Sparkline data={sparkData} color="hsl(var(--primary))" />
+        </div>
+      )}
+
+      {!isHero && change && (
+        <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase">Performance</span>
+          <div className={cn(
+            "flex items-center gap-1 text-xs font-bold",
+            isPositive ? "text-emerald-600" : "text-destructive"
+          )}>
+            {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {change}
+          </div>
         </div>
       )}
     </div>
@@ -78,6 +157,7 @@ interface DashboardMetricsProps {
   isSalesUp: boolean;
   isExpensesDown: boolean;
   isProfitUp: boolean;
+  sparkData?: number[];
 }
 
 export function DashboardMetrics({
@@ -92,43 +172,45 @@ export function DashboardMetrics({
   isSalesUp,
   isExpensesDown,
   isProfitUp,
+  sparkData,
 }: DashboardMetricsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Hero Card — Spans 2 columns on desktop */}
+      <div className="lg:col-span-2">
+        <MetricCard
+          variant="hero"
+          title="Total Sales"
+          value={totalSales}
+          change={salesChange}
+          isPositive={isSalesUp}
+          icon={ShoppingBag}
+          sparkData={sparkData}
+        />
+      </div>
+      
       <MetricCard
-        title="Total Sales"
-        value={totalSales}
-        change={salesChange}
-        isPositive={isSalesUp}
-        icon={ShoppingBag}
-        accent="#4f46e5"
-        accentLight="#eef2ff"
-      />
-      <MetricCard
-        title="Total Expenses"
+        title="Expenses"
         value={totalExpenses}
         change={expensesChange}
         isPositive={isExpensesDown}
         icon={DollarSign}
-        accent="#9333ea"
-        accentLight="#f5f3ff"
       />
+      
       <MetricCard
         title="Net Profit"
         value={netProfit}
         change={profitChange}
         isPositive={isProfitUp}
         icon={BarChart2}
-        accent="#10b981"
-        accentLight="#ecfdf5"
       />
+      
       <MetricCard
+        variant="alert"
         title="Outstanding Debt"
         value={outstandingDebt}
         icon={AlertCircle}
-        accent="#f43f5e"
-        accentLight="#fff1f2"
-        subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid client${unpaidCount !== 1 ? "s" : ""}` : "All cleared"}
+        subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
       />
     </div>
   );
