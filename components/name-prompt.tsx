@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   Dialog,
   DialogContent,
@@ -97,7 +97,7 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
   if (pathname === "/bom03/login" || pathname === "/") return null;
 
   return (
-    <>
+    <Fragment>
       {open && <div className="fixed inset-0 z-[150] bg-background" />}
       <Dialog open={open} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
@@ -139,6 +139,6 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
         </div>
       </DialogContent>
     </Dialog>
-    </>
+    </Fragment>
   );
 }

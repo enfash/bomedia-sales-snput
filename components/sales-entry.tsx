@@ -654,6 +654,7 @@ export function SalesEntry() {
               <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mb-8" />
               <div className="space-y-6">
                 <div>
+                  <Drawer.Title className="sr-only">Price Breakdown</Drawer.Title>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Wallet className="w-5 h-5 text-primary" />
                     Price Breakdown
