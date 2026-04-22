@@ -62,8 +62,8 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden bg-card rounded-2xl shadow-sm border border-border p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
-        isHero && "metric-hero border-primary/20 bg-primary/[0.03]",
+        "relative overflow-hidden h-full bg-card rounded-2xl shadow-sm border border-border p-3 sm:p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col justify-between",
+        isHero && "metric-hero border-primary/20 bg-primary/[0.03] p-5",
         isAlert && "animate-pulse-debt border-destructive/50 ring-2 ring-destructive/20"
       )}
     >
@@ -72,40 +72,40 @@ export function MetricCard({
         <div className="absolute -right-4 -top-4 h-28 w-28 rounded-full bg-primary/5 blur-2xl" />
       )}
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</p>
+      <div className="flex items-center justify-between mb-2 sm:mb-4 gap-1">
+        <div className="flex items-center gap-1.5">
+          <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-muted-foreground line-clamp-1">{title}</p>
           {isAlert && (
             <motion.div 
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ repeat: Infinity, duration: 1.2 }}
-              className="h-2 w-2 rounded-full bg-destructive shadow-sm shadow-destructive/50"
+              className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-destructive shadow-sm shadow-destructive/50 shrink-0"
             />
           )}
         </div>
         <div
           className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-            isHero ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
-              : isAlert ? "bg-destructive/10 text-destructive"
-              : "bg-muted text-foreground"
+            "rounded-xl flex items-center justify-center transition-colors shrink-0",
+            isHero ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 w-10 h-10" 
+              : isAlert ? "bg-destructive/10 text-destructive w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
+              : "bg-muted text-foreground w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
           )}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
         </div>
       </div>
 
       <div className="space-y-1">
         <p className={cn(
-          "font-black tracking-tight text-foreground leading-none",
-          isHero ? "text-4xl" : "text-2xl"
+          "font-black tracking-tight text-foreground leading-none truncate",
+          isHero ? "text-3xl sm:text-4xl" : "text-sm sm:text-xl lg:text-2xl"
         )}>
           ₦{value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
         </p>
         {(subLabel || (isHero && change)) && (
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-1 sm:mt-2">
             {subLabel && (
-              <p className="text-xs text-muted-foreground font-semibold">{subLabel}</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground font-semibold truncate">{subLabel}</p>
             )}
             {isHero && change && (
               <div className={cn(
@@ -130,13 +130,13 @@ export function MetricCard({
       )}
 
       {!isHero && change && (
-        <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase">Performance</span>
+        <div className="mt-2 sm:mt-4 pt-2 sm:pt-4 border-t border-border flex items-center justify-between">
+          <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase hidden sm:inline-block">Performance</span>
           <div className={cn(
-            "flex items-center gap-1 text-xs font-bold",
+            "flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-xs font-bold",
             isPositive ? "text-emerald-600" : "text-destructive"
           )}>
-            {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {isPositive ? <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : <TrendingDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
             {change}
           </div>
         </div>
@@ -175,9 +175,9 @@ export function DashboardMetrics({
   sparkData,
 }: DashboardMetricsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      {/* Hero Card — Spans 2 columns on desktop */}
-      <div className="lg:col-span-2">
+    <div className="grid grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+      {/* Hero Card — Spans 3 columns on mobile to fill width, 2 columns on desktop */}
+      <div className="col-span-3 lg:col-span-2">
         <MetricCard
           variant="hero"
           title="Total Sales"
@@ -189,29 +189,35 @@ export function DashboardMetrics({
         />
       </div>
       
-      <MetricCard
-        title="Expenses"
-        value={totalExpenses}
-        change={expensesChange}
-        isPositive={isExpensesDown}
-        icon={DollarSign}
-      />
+      <div className="col-span-1">
+        <MetricCard
+          title="Expenses"
+          value={totalExpenses}
+          change={expensesChange}
+          isPositive={isExpensesDown}
+          icon={DollarSign}
+        />
+      </div>
       
-      <MetricCard
-        title="Net Profit"
-        value={netProfit}
-        change={profitChange}
-        isPositive={isProfitUp}
-        icon={BarChart2}
-      />
+      <div className="col-span-1">
+        <MetricCard
+          title="Net Profit"
+          value={netProfit}
+          change={profitChange}
+          isPositive={isProfitUp}
+          icon={BarChart2}
+        />
+      </div>
       
-      <MetricCard
-        variant="alert"
-        title="Outstanding Debt"
-        value={outstandingDebt}
-        icon={AlertCircle}
-        subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
-      />
+      <div className="col-span-1">
+        <MetricCard
+          variant="alert"
+          title="Outstanding Debt"
+          value={outstandingDebt}
+          icon={AlertCircle}
+          subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
+        />
+      </div>
     </div>
   );
 }

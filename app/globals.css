@@ -13,43 +13,50 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Admin Indigo */
-    --primary: 243 75% 59%;
+    /* BOMedia Brand Blue — #2e388d */
+    --primary: 234 51% 37%;
     --primary-foreground: 0 0% 100%;
-    /* RGB values for use in box-shadow */
-    --primary-rgb: 79, 70, 229;
+    /* RGB values for box-shadow */
+    --primary-rgb: 46, 56, 141;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 234 40% 96%;
+    --secondary-foreground: 234 51% 30%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 234 20% 96%;
+    --muted-foreground: 234 15% 46%;
 
-    --accent: 243 75% 96%;
-    --accent-foreground: 243 75% 40%;
+    /* Accent — a soft brand tint */
+    --accent: 234 60% 96%;
+    --accent-foreground: 234 51% 30%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 32% 91%;
-    --input: 214.3 32% 91%;
-    --ring: 243 75% 59%;
+    --border: 234 20% 90%;
+    --input: 234 20% 90%;
+    --ring: 234 51% 37%;
 
     --radius: 0.75rem;
 
     /* Status Colors */
     --success: 142 71% 45%;
-    --warning: 38 92% 50%;
+    --warning: 24 94% 50%;
   }
 
-  /* Cashier Amber Theme */
+  /* Cashier Orange Theme — unchanged */
   .theme-amber {
-    --primary: 38 92% 50%;
+    --primary: 24 94% 50%;
     --primary-foreground: 0 0% 100%;
-    --accent: 38 92% 96%;
-    --accent-foreground: 38 92% 35%;
-    --ring: 38 92% 50%;
-    --primary-rgb: 245, 158, 11;
+    --accent: 24 94% 96%;
+    --accent-foreground: 24 94% 35%;
+    --ring: 24 94% 50%;
+    --primary-rgb: 249, 115, 22;
+    --secondary: 24 40% 96%;
+    --secondary-foreground: 24 60% 30%;
+    --muted: 24 20% 96%;
+    --muted-foreground: 24 15% 46%;
+    --border: 24 20% 90%;
+    --input: 24 20% 90%;
   }
 
   .dark {
@@ -62,32 +69,40 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 243 75% 59%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Brand blue — lightened for dark bg legibility */
+    --primary: 234 65% 65%;
+    --primary-foreground: 234 51% 10%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 234 30% 17%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 234 20% 17%;
+    --muted-foreground: 234 15% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 234 30% 17%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 243 75% 59%;
+    --border: 234 20% 17%;
+    --input: 234 20% 17%;
+    --ring: 234 65% 65%;
   }
 
   .dark.theme-amber {
-    --primary: 38 92% 50%;
+    --primary: 24 94% 50%;
     --primary-foreground: 210 40% 98%;
-    --accent: 38 92% 15%;
-    --accent-foreground: 38 92% 80%;
-    --primary-rgb: 245, 158, 11;
+    --accent: 24 94% 15%;
+    --accent-foreground: 24 94% 80%;
+    --primary-rgb: 249, 115, 22;
+    --secondary: 24 30% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 24 20% 17%;
+    --muted-foreground: 24 15% 65%;
+    --border: 24 20% 17%;
+    --input: 24 20% 17%;
+    --ring: 24 94% 50%;
   }
 }
 

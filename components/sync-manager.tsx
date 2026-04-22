@@ -5,7 +5,7 @@ import { useSyncStore } from "@/lib/store";
 import { toast } from "sonner";
 
 export function SyncManager() {
-  const { pendingQueue, syncStatus, setSyncStatus, removeEntry, setLastSyncTime } = useSyncStore();
+  const { pendingQueue, syncStatus, setSyncStatus, removeEntry, setLastSyncTime, updateEntryRetry } = useSyncStore();
   const isSyncingRef = useRef(false);
 
   useEffect(() => {
@@ -18,10 +18,24 @@ export function SyncManager() {
       isSyncingRef.current = true;
       setSyncStatus('syncing');
 
-      console.log(`Starting sync for ${pendingQueue.length} items...`);
+      const now = Date.now();
+      // Only sync items that are not currently backing off
+      const itemsToSync = pendingQueue.filter(item => {
+        if (!item.retryCount || !item.lastRetryAt) return true;
+        // Exponential backoff: 5s, 10s, 20s, 40s...
+        const backoffDelay = Math.pow(2, item.retryCount - 1) * 5000;
+        return now - item.lastRetryAt >= backoffDelay;
+      });
 
-      // Copy the queue to avoid issues if items are added during sync
-      const itemsToSync = [...pendingQueue];
+      if (itemsToSync.length === 0) {
+        // All items are currently backing off
+        isSyncingRef.current = false;
+        setSyncStatus('error', 'Sync pending (waiting for retry backoff)');
+        return;
+      }
+
+      console.log(`Starting sync for ${itemsToSync.length} items...`);
+
       let successCount = 0;
       let errorCount = 0;
 
@@ -48,8 +62,8 @@ export function SyncManager() {
         } catch (err) {
           console.error(`Failed to sync item ${item.id}:`, err);
           errorCount++;
-          // We don't stop the whole loop, just continue to next item
-          // But we mark the overall status as error if any failed
+          const newRetryCount = (item.retryCount || 0) + 1;
+          updateEntryRetry(item.id, newRetryCount, Date.now());
         }
       }
 

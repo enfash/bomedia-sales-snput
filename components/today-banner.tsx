@@ -1,64 +1,101 @@
 "use client";
 
 import { useSyncStore } from "@/lib/store";
-import { Package, Banknote, RefreshCw, Clock } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TodayBannerProps {
   jobCount: number;
   revenue: number;
+  salesCount?: number;
   className?: string;
 }
 
-export function TodayBanner({ jobCount, revenue, className }: TodayBannerProps) {
+export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayBannerProps) {
   const { pendingQueue, syncStatus } = useSyncStore();
 
+  const isSyncing = syncStatus === "syncing";
+  const hasPending = pendingQueue.length > 0;
+
+  const dateLabel = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  });
+
   return (
-    <div className={cn(
-      "glass sticky top-0 z-30 flex items-center justify-between px-6 py-3 mb-6 -mx-4 md:-mx-8 border-b shadow-sm overflow-x-auto whitespace-nowrap",
-      className
-    )}>
-      <div className="flex items-center gap-8">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Clock className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider opacity-70">Today at a glance</p>
-            <p className="text-sm font-bold">{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' })}</p>
-          </div>
+    <div className={cn("mb-6", className)}>
+      {/* Heading Row */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-0.5">
+            {dateLabel}
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-none">
+            Today at a glance
+          </h2>
         </div>
 
-        <div className="h-8 w-px bg-border flex-shrink-0" />
-
-        <div className="flex items-center gap-3">
-          <Package className="w-4 h-4 text-muted-foreground" />
-          <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Jobs</p>
-            <p className="text-sm font-bold">{jobCount}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Banknote className="w-4 h-4 text-muted-foreground" />
-          <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Revenue</p>
-            <p className="text-sm font-bold">₦{revenue.toLocaleString()}</p>
-          </div>
+        {/* LIVE / Sync badge */}
+        <div
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-colors",
+            isSyncing
+              ? "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800"
+              : hasPending
+              ? "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800"
+              : "bg-primary/10 text-primary border-primary/20"
+          )}
+        >
+          {isSyncing ? (
+            <RefreshCw className="w-3 h-3 animate-spin" />
+          ) : (
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                hasPending ? "bg-orange-500 animate-pulse" : "bg-primary"
+              )}
+            />
+          )}
+          {isSyncing
+            ? "Syncing"
+            : hasPending
+            ? `${pendingQueue.length} pending`
+            : "Live"}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 bg-muted/50 px-3 py-1.5 rounded-full border">
-        {syncStatus === 'syncing' ? (
-          <RefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
-        ) : pendingQueue.length > 0 ? (
-          <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-        ) : (
-          <div className="h-2 w-2 rounded-full bg-green-500" />
-        )}
-        <span className="text-[11px] font-semibold">
-          {pendingQueue.length > 0 ? `${pendingQueue.length} items pending` : 'System Synchronized'}
-        </span>
+      {/* Stat Tiles */}
+      <div className="grid grid-cols-3 gap-3">
+        {/* Sales */}
+        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Sales
+          </p>
+          <p className="text-2xl sm:text-3xl font-black text-foreground leading-none">
+            {salesCount ?? jobCount}
+          </p>
+        </div>
+
+        {/* Jobs */}
+        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Jobs
+          </p>
+          <p className="text-2xl sm:text-3xl font-black text-foreground leading-none">
+            {String(jobCount).padStart(2, "0")}
+          </p>
+        </div>
+
+        {/* Revenue */}
+        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Revenue
+          </p>
+          <p className="text-lg sm:text-xl font-black text-foreground leading-none truncate">
+            ₦{revenue >= 1000 ? `${(revenue / 1000).toFixed(1)}k` : revenue.toLocaleString()}
+          </p>
+        </div>
       </div>
     </div>
   );

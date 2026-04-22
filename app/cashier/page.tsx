@@ -4,14 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Zap,
-  Store,
   ShieldAlert,
-  BadgeInfo,
   AlertCircle,
   ShoppingBag,
   RefreshCw,
-  Star,
-  ArrowUpRight,
   Sparkles,
   Receipt,
   BarChart3
@@ -164,9 +160,9 @@ export default function CashierDashboardPage() {
     materials[group] = (materials[group] || 0) + 1;
     totalJobs++;
 
-    // Calculate revenue
-    const price = parseFloat(String(r["Total Amount"] || r["TOTAL AMOUNT"] || r["Amount Paid"] || 0).replace(/[^0-9.]/g, ''));
-    if (!isNaN(price)) totalRevenue += price;
+    // Calculate revenue — use the same column keys as all other metrics
+    const price = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"] || "0");
+    totalRevenue += price;
   });
 
   const materialData = Object.entries(materials)
@@ -178,7 +174,7 @@ export default function CashierDashboardPage() {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-500 font-medium">Loading Cashier View...</p>
         </div>
       </div>
@@ -186,47 +182,13 @@ export default function CashierDashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-[#fffcf5] dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
-      <TodayBanner jobCount={totalJobs} revenue={totalRevenue} />
+    <div className="p-4 md:p-8 space-y-6 bg-orange-50/20 dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
+      <TodayBanner jobCount={totalJobs} revenue={totalRevenue} salesCount={todaySales.length} />
       <FloatingSaleActionButton />
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Store className="w-5 h-5 text-amber-600" />
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Cashier Portal
-            </h1>
-            <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-[10px] font-bold uppercase tracking-wider border border-amber-200 dark:border-amber-800/40">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-              Cashier
-            </span>
-            {refreshing && (
-              <span className="flex items-center gap-1.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full animate-pulse border border-amber-100 dark:border-amber-800 ml-1">
-                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                Updating...
-              </span>
-            )}
-          </div>
-          <p className="text-gray-400 text-xs font-medium">
-            Daily activity and operations overview.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-          className="w-full md:w-auto bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300 shadow-sm rounded-xl h-10 px-5 text-xs font-bold"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "Updating..." : "Refresh"}
-        </Button>
-      </div>
 
       <div
-        className="rounded-[2rem] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl bg-amber-600 dark:bg-amber-600 bg-gradient-to-br from-amber-500 to-amber-600 text-white transition-all duration-500"
-        style={{ boxShadow: "0 20px 50px hsla(38, 100%, 50%, 0.30)" }}
+        className="rounded-[2rem] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl bg-orange-600 dark:bg-orange-600 bg-gradient-to-br from-orange-500 to-orange-600 text-white transition-all duration-500"
+        style={{ boxShadow: "0 20px 50px hsla(24, 100%, 50%, 0.30)" }}
       >
         <div className="flex items-center gap-5">
           <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
@@ -243,7 +205,7 @@ export default function CashierDashboardPage() {
         <div className="grid grid-cols-2 lg:flex items-center gap-3 w-full md:w-auto">
           <Link href="/new-entry" className="col-span-1">
             <Button
-              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white text-amber-600 hover:bg-white/90 shadow-lg shadow-white/10 border-none"
+              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white text-orange-600 hover:bg-white/90 shadow-lg shadow-white/10 border-none"
             >
               <Sparkles className="w-3.5 h-3.5 mr-2" />
               AI ENTRY
@@ -278,14 +240,16 @@ export default function CashierDashboardPage() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard
-          title="Today's Sales"
-          value={dailyTotalSalesVal}
-          icon={ShoppingBag}
-          variant="hero"
-          subLabel={`${todaySales.length} total logged today`}
-        />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="col-span-2 md:col-span-1">
+          <MetricCard
+            title="Today's Sales"
+            value={dailyTotalSalesVal}
+            icon={ShoppingBag}
+            variant="hero"
+            subLabel={`${todaySales.length} total logged today`}
+          />
+        </div>
         <MetricCard
           title="Daily Debt"
           value={dailyOutstandingDebt}

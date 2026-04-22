@@ -35,6 +35,7 @@ import { subDays, isWithinInterval, parseISO } from "date-fns";
 import { ManageSaleAction, type UnifiedRecord } from "@/components/manage-sale-action";
 import { format } from "date-fns";
 import { MaterialBadge } from "@/components/material-badge";
+import { WhatsAppReminder } from "@/components/whatsapp-reminder";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -55,7 +56,7 @@ function StatusBadge({ status }: { status: RecordStatus }) {
     Settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border-none",
     "Part-payment": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 border-none",
     "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 border-none",
-    Syncing: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 animate-pulse hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border-none",
+    Syncing: "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 animate-pulse hover:bg-brand-100 dark:hover:bg-brand-900/40 border-none",
   };
   return (
     <Badge className={`px-2 py-0 rounded-full font-bold text-[10px] ${map[status] || "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"}`}>
@@ -156,7 +157,7 @@ export default function RecordsPage() {
       timestamp,
       additionalPayment1: parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]),
       additionalPayment2: parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]),
-      jobStatus: r["JOB STATUS"] || r["Job Status"] || "Pending",
+      jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
       material: r["Material"] || r["MATERIAL"] || r["material"] || "",
       balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
       raw: r
@@ -196,7 +197,7 @@ export default function RecordsPage() {
       "AMOUNT (₦)": "0", // Formula not parsable
       "INITIAL PAYMENT (₦)": v[14],
       "PAYMENT STATUS": v[19],
-      "JOB STATUS": v[20] || "Pending",
+      "JOB STATUS": v[20] || "Quoted",
       "Logged By": v[21],
       "ADDITIONAL PAYMENT 1": "0",
       "ADDITIONAL PAYMENT 2": "0",
@@ -294,14 +295,14 @@ export default function RecordsPage() {
     }, 0);
 
   return (
-    <div className="p-3 md:p-8 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
+    <div className="p-3 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black text-[#4f46e5] dark:text-indigo-400">Financial Records</h1>
+            <h1 className="text-3xl font-black text-primary dark:text-brand-300">Financial Records</h1>
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-brand-600 dark:text-brand-300 uppercase tracking-wider bg-brand-50 dark:bg-brand-900/20 px-2 py-0.5 rounded-full animate-pulse border border-brand-100 dark:border-brand-800">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                 Syncing...
               </span>
@@ -324,8 +325,8 @@ export default function RecordsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { title: "Total Sales", val: totalSales, trend: last30Sales, color: "border-indigo-500", icon: ArrowUpRight, iconColor: "text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-900/30" },
-          { title: "Total Expenses", val: totalExpenses, trend: last30Expenses, color: "border-purple-500", icon: Wallet, iconColor: "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/30" },
+          { title: "Total Sales", val: totalSales, trend: last30Sales, color: "border-brand-500", icon: ArrowUpRight, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
+          { title: "Total Expenses", val: totalExpenses, trend: last30Expenses, color: "border-brand-500", icon: Wallet, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
           { title: "Net Profit", val: netProfit, color: "border-emerald-500", icon: TrendingUp, iconColor: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
           { title: "Outstanding Debt", val: outstandingDebt, color: "border-rose-500", icon: ArrowDownRight, iconColor: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
         ].map((card, idx) => (
@@ -353,7 +354,7 @@ export default function RecordsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
           <Input
-            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-indigo-500 dark:text-zinc-100 dark:placeholder:text-zinc-600"
+            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-brand-500 dark:text-zinc-100 dark:placeholder:text-zinc-600"
             placeholder="Search by client, job, or date..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -387,7 +388,7 @@ export default function RecordsPage() {
             className="h-11 w-11 rounded-xl border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center justify-center transition-all hover:bg-gray-50 dark:hover:bg-zinc-800"
             title={sortOrder === 'asc' ? "Ascending" : "Descending"}
           >
-            <ArrowUpDown className={`w-4 h-4 text-indigo-600 dark:text-indigo-400 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+            <ArrowUpDown className={`w-4 h-4 text-brand-700 dark:text-brand-400 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
           </Button>
         </div>
 
@@ -450,7 +451,18 @@ export default function RecordsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    <ManageSaleAction record={r} onUpdate={fetchData} />
+                    <div className="flex items-center justify-center gap-1">
+                      {r.type === "Sale" && (
+                        <WhatsAppReminder
+                          clientName={r.client}
+                          contact={r.contact || ""}
+                          balance={r.balance || 0}
+                          jobDescription={r.description}
+                          variant="icon"
+                        />
+                      )}
+                      <ManageSaleAction record={r} onUpdate={fetchData} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -487,7 +499,7 @@ export default function RecordsPage() {
       {totalPages > 1 && (
         <div className="mt-8 flex items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-zinc-800">
           <p className="text-xs font-bold text-gray-600 dark:text-zinc-400">
-            Page <span className="text-primary dark:text-indigo-400">{currentPage}</span> of {totalPages} 
+            Page <span className="text-primary dark:text-brand-300">{currentPage}</span> of {totalPages} 
             <span className="ml-2 opacity-60">({sorted.length} records)</span>
           </p>
           <div className="flex gap-2">

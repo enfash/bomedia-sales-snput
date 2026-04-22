@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users } from "lucide-react";
+import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
@@ -64,15 +64,18 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
     ? [
         { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
         { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/cashier/board", label: "Job Board", icon: KanbanSquare },
         { href: "/cashier/records", label: "Records", icon: BarChart3 },
+        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
       ]
     : [
-        { href: "/bom03", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-        { href: "/bom03/expenses", label: "Log Expense", icon: Receipt },
-        { href: "/bom03/records", label: "Records", icon: BarChart3 },
-        { href: "/bom03/staff", label: "Staff Manager", icon: Users },
+        { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
+        { href: "/new-entry",       label: "New Sale",     icon: PlusCircle },
+        { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
+        { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
+        { href: "/bom03/expenses",  label: "Log Expense",  icon: Receipt },
+        { href: "/bom03/inventory", label: "Inventory",    icon: Package },
+        { href: "/bom03/staff",     label: "Staff Manager", icon: Users },
       ];
 
   return (
@@ -147,7 +150,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sync Queue</span>
                   {syncStatus === 'syncing' ? (
-                    <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+                    <RefreshCw className="w-3 h-3 text-primary animate-spin" />
                   ) : pendingQueue.length > 0 ? (
                     <CloudOff className="w-3 h-3 text-orange-400" />
                   ) : (

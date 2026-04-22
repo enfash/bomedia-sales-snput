@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { MoreHorizontal, MessageCircle } from "lucide-react";
+import { useState, useMemo } from "react";
+import { usePathname } from "next/navigation";
+import { useMediaQuery } from "@/lib/useMediaQuery";
+import { MoreHorizontal, MessageCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Drawer } from "vaul";
 import {
   Dialog,
   DialogContent,
@@ -22,8 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RecordStatus } from "@/components/record-card";
-
-type Row = Record<string, string>;
 
 export interface UnifiedRecord {
   id: string;
@@ -43,7 +44,7 @@ export interface UnifiedRecord {
   jobStatus?: string;
   material?: string;
   balance?: number;
-  raw: Row;
+  raw: Record<string, string>;
 }
 
 interface ManageSaleActionProps {
@@ -52,17 +53,38 @@ interface ManageSaleActionProps {
   variant?: "icon" | "button";
 }
 
-export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageSaleActionProps) {
+export function ManageSaleAction({
+  record,
+  onUpdate,
+  variant = "icon",
+}: ManageSaleActionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addl1, setAddl1] = useState("");
   const [addl2, setAddl2] = useState("");
-  const [status, setStatus] = useState(record?.jobStatus ?? "Pending");
+  const [status, setStatus] = useState(record?.jobStatus ?? "Quoted");
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const pathname = usePathname();
 
-  if (!record || record.type === "Expense" || record.isPending) {
+  const isLocked = useMemo(() => {
+    if (!pathname?.includes('/cashier')) return false;
+    // Check if record is older than 24 hours
+    // Parse record.date (usually MM/DD/YYYY or similar depending on sheet format)
+    const recordDate = new Date(record.date).getTime();
+    if (isNaN(recordDate)) return false; // If date parsing fails, default to allowing
+    return (Date.now() - recordDate) > 24 * 60 * 60 * 1000;
+  }, [pathname, record.date]);
+
+  if (!record || record.type === "Expense" || record.isPending || isLocked) {
     return variant === "icon" ? (
-      <Button variant="ghost" size="icon" disabled className="h-8 w-8 text-gray-200">
-        <MoreHorizontal className="w-4 h-4" />
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled
+        className="h-8 w-8 text-gray-200"
+        title={isLocked ? "Cannot edit records older than 24 hours" : ""}
+      >
+        {isLocked ? <Lock className="w-3 h-3" /> : <MoreHorizontal className="w-4 h-4" />}
       </Button>
     ) : null;
   }
@@ -70,7 +92,6 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
   const handleUpdate = async () => {
     setIsSubmitting(true);
     try {
-      // Only send the payment field that was actually filled in
       const payload: Record<string, any> = {
         rowIndex: record.rowIndex,
         jobStatus: status,
@@ -103,133 +124,282 @@ export function ManageSaleAction({ record, onUpdate, variant = "icon" }: ManageS
     }
   };
 
-  // Show Col Q slot if no additional payment 1 has been recorded yet
-  const showAddl1 = !record.additionalPayment1 || record.additionalPayment1 === 0;
-  // Show Col R slot only if payment 1 is filled but payment 2 is not
-  const showAddl2 = (record.additionalPayment1 ?? 0) > 0 && (!record.additionalPayment2 || record.additionalPayment2 === 0);
+  const showAddl1 =
+    !record.additionalPayment1 || record.additionalPayment1 === 0;
+  const showAddl2 =
+    (record.additionalPayment1 ?? 0) > 0 &&
+    (!record.additionalPayment2 || record.additionalPayment2 === 0);
+
+  const triggerButton =
+    variant === "icon" ? (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-primary hover:text-primary/80 hover:bg-primary/10"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </Button>
+    ) : (
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wider border-border dark:border-primary/30 text-primary dark:text-primary/90 hover:bg-primary/5 dark:hover:bg-primary/10"
+      >
+        Manage
+      </Button>
+    );
+
+  const contentProps = {
+    record,
+    showAddl1,
+    showAddl2,
+    addl1,
+    setAddl1,
+    addl2,
+    setAddl2,
+    status,
+    setStatus,
+    isSubmitting,
+    handleUpdate,
+    setIsOpen,
+  };
+
+  if (isMobile) {
+    return (
+      <Drawer.Root open={isOpen} onOpenChange={setIsOpen}>
+        <Drawer.Trigger asChild>{triggerButton}</Drawer.Trigger>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 animate-in fade-in" />
+          <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] mt-24 fixed bottom-0 left-0 right-0 z-50 p-6 outline-none shadow-2xl border-t dark:border-zinc-800">
+            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mb-6" />
+            <ContentBody {...contentProps} />
+            <ContentFooter {...contentProps} drawer />
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {variant === "icon" ? (
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
-        ) : (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wider border-border dark:border-indigo-900 text-primary dark:text-indigo-400 hover:bg-primary/5 dark:hover:bg-indigo-900/20"
-          >
-            Manage
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger asChild>{triggerButton}</DialogTrigger>
       <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 overflow-hidden border-none shadow-2xl dark:shadow-none">
-        <DialogHeader className="p-6 bg-primary text-primary-foreground">
-          <DialogTitle className="text-xl font-black">Manage Sale Record</DialogTitle>
-          <div className="flex justify-between items-end mt-1">
-            <p className="text-white/80 text-xs font-medium">Update payments and job progress for {record.client}</p>
-            <div className="text-right flex flex-col items-end">
-              <p className="text-[10px] uppercase font-black text-white/60 leading-none mb-0.5">Current Balance</p>
-              <p className="text-sm font-black text-white leading-none">₦{(record.balance || 0).toLocaleString()}</p>
-              
-              {(record.balance || 0) > 0 && record.contact && (
-                <Button 
-                  size="sm" 
-                  variant="secondary"
-                  onClick={() => {
-                    if (!record.contact) return;
-                    const balance = (record.balance || 0).toLocaleString();
-                    const message = `Hello *${record.client}*, this is a payment reminder from *BOMedia*.\n\nRegarding your order: *${record.description}*\nOutstanding Balance: *₦${balance}*\n\nKindly make payment to our designated bank account.\n\nThank you for your business!`;
-                    const encoded = encodeURIComponent(message);
-                    const phone = record.contact.replace(/\D/g, '');
-                    // Ensure Nigerian prefix if it looks like a local number
-                    const formattedPhone = phone.startsWith('0') ? '234' + phone.substring(1) : phone;
-                    window.open(`https://wa.me/${formattedPhone}?text=${encoded}`, '_blank');
-                  }}
-                  className="mt-2 h-7 px-2 rounded-lg bg-white/20 hover:bg-white/30 border-none text-[10px] font-black uppercase text-white tracking-wider flex items-center gap-1.5"
-                >
-                  <MessageCircle className="w-3 h-3" />
-                  WhatsApp Reminder
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogHeader>
-        
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
-             <div>
-                <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">Total Amount</Label>
-                <p className="text-lg font-black text-gray-900 dark:text-white">₦{record.amount.toLocaleString()}</p>
-             </div>
-             <div>
-                <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">Current Status</Label>
-                <p className="text-xs font-bold text-primary dark:text-indigo-400">{record.status}</p>
-             </div>
-          </div>
-
-          <div className="space-y-4">
-             {showAddl1 && (
-               <div className="space-y-1.5">
-                 <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">Additional Payment 1 (₦)</Label>
-                 <Input 
-                   type="number" 
-                   placeholder="Enter amount" 
-                   value={addl1} 
-                   onChange={e => setAddl1(e.target.value)}
-                   className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
-                 />
-               </div>
-             )}
-
-             {showAddl2 && (
-               <div className="space-y-1.5">
-                 <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">Additional Payment 2 (₦)</Label>
-                 <Input 
-                   type="number" 
-                   placeholder="Enter amount" 
-                   value={addl2} 
-                   onChange={e => setAddl2(e.target.value)}
-                   className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
-                 />
-               </div>
-             )}
-
-             {(!showAddl1 && !showAddl2) && (
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-                   <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Both additional payment slots have been filled for this record.</p>
-                </div>
-             )}
-
-             <div className="space-y-1.5">
-               <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">Job Status</Label>
-               <Select value={status} onValueChange={setStatus}>
-                 <SelectTrigger className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold shadow-sm">
-                   <SelectValue placeholder="Select status" />
-                 </SelectTrigger>
-                 <SelectContent className="rounded-xl border-gray-100 dark:border-zinc-800 dark:bg-zinc-900 shadow-xl z-[100]" position="popper" sideOffset={5}>
-                   <SelectItem value="Pending" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800">Pending</SelectItem>
-                   <SelectItem value="In Progress" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800">In Progress</SelectItem>
-                   <SelectItem value="Completed" className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800">Completed</SelectItem>
-                 </SelectContent>
-               </Select>
-             </div>
-          </div>
-        </div>
-
-        <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800">
-          <Button variant="outline" onClick={() => setIsOpen(false)} className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">Cancel</Button>
-          <Button 
-            disabled={isSubmitting} 
-            onClick={handleUpdate}
-            className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-all active:scale-[0.98]"
-          >
-            {isSubmitting ? "Updating..." : "Save Changes"}
-          </Button>
-        </DialogFooter>
+        <HeaderContent {...contentProps} />
+        <ContentBody {...contentProps} />
+        <ContentFooter {...contentProps} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function HeaderContent({ record }: any) {
+  return (
+    <DialogHeader className="p-6 bg-primary text-primary-foreground">
+      <DialogTitle className="text-xl font-black">
+        Manage Sale Record
+      </DialogTitle>
+      <div className="flex justify-between items-end mt-1">
+        <p className="text-white/80 text-xs font-medium">
+          Update payments and job progress for {record.client}
+        </p>
+        <div className="text-right flex flex-col items-end">
+          <p className="text-[10px] uppercase font-black text-white/60 leading-none mb-0.5">
+            Current Balance
+          </p>
+          <p className="text-sm font-black text-white leading-none">
+            ₦{(record.balance || 0).toLocaleString()}
+          </p>
+
+          {(record.balance || 0) > 0 && record.contact && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                if (!record.contact) return;
+                const balance = (record.balance || 0).toLocaleString();
+                const message = `Hello *${record.client}*, this is a payment reminder from *BOMedia*.\n\nRegarding your order: *${record.description}*\nOutstanding Balance: *₦${balance}*\n\nKindly make payment to our designated bank account.\n\nThank you for your business!`;
+                const encoded = encodeURIComponent(message);
+                const phone = record.contact.replace(/\D/g, "");
+                const formattedPhone = phone.startsWith("0")
+                  ? "234" + phone.substring(1)
+                  : phone;
+                window.open(
+                  `https://wa.me/${formattedPhone}?text=${encoded}`,
+                  "_blank",
+                );
+              }}
+              className="mt-2 h-7 px-2 rounded-lg bg-white/20 hover:bg-white/30 border-none text-[10px] font-black uppercase text-white tracking-wider flex items-center gap-1.5"
+            >
+              <MessageCircle className="w-3 h-3" />
+              WhatsApp Reminder
+            </Button>
+          )}
+        </div>
+      </div>
+    </DialogHeader>
+  );
+}
+
+function ContentBody({
+  record,
+  showAddl1,
+  showAddl2,
+  addl1,
+  setAddl1,
+  addl2,
+  setAddl2,
+  status,
+  setStatus,
+}: any) {
+  return (
+    <div className="p-6 space-y-6">
+      <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
+        <div>
+          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">
+            Total Amount
+          </Label>
+          <p className="text-lg font-black text-gray-900 dark:text-white">
+            ₦{record.amount.toLocaleString()}
+          </p>
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">
+            Current Status
+          </Label>
+          <p className="text-xs font-bold text-primary">
+            {record.status}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {showAddl1 && (
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+              Additional Payment 1 (₦)
+            </Label>
+            <Input
+              type="number"
+              placeholder="Enter amount"
+              value={addl1}
+              onChange={(e) => setAddl1(e.target.value)}
+              className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
+            />
+          </div>
+        )}
+
+        {showAddl2 && (
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+              Additional Payment 2 (₦)
+            </Label>
+            <Input
+              type="number"
+              placeholder="Enter amount"
+              value={addl2}
+              onChange={(e) => setAddl2(e.target.value)}
+              className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
+            />
+          </div>
+        )}
+
+        {!showAddl1 && !showAddl2 && (
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              All payment slots have been filled.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+            Job Status
+          </Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold shadow-sm">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent
+              className="rounded-xl border-gray-100 dark:border-zinc-800 dark:bg-zinc-900 shadow-xl z-[100]"
+              position="popper"
+              sideOffset={5}
+            >
+              <SelectItem
+                value="Quoted"
+                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
+              >
+                Quoted
+              </SelectItem>
+              <SelectItem
+                value="Printing"
+                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
+              >
+                Printing
+              </SelectItem>
+              <SelectItem
+                value="Finishing"
+                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
+              >
+                Finishing
+              </SelectItem>
+              <SelectItem
+                value="Ready"
+                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
+              >
+                Ready
+              </SelectItem>
+              <SelectItem
+                value="Delivered"
+                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
+              >
+                Delivered
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContentFooter({ isSubmitting, handleUpdate, setIsOpen, drawer }: any) {
+  if (drawer) {
+    return (
+      <div className="flex flex-col gap-3 mt-8">
+        <Button
+          disabled={isSubmitting}
+          onClick={handleUpdate}
+          className="w-full h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-all active:scale-[0.98]"
+        >
+          {isSubmitting ? "Updating..." : "Save Changes"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setIsOpen(false)}
+          className="w-full h-12 rounded-xl font-bold dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400"
+        >
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800">
+      <Button
+        variant="outline"
+        onClick={() => setIsOpen(false)}
+        className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400"
+      >
+        Cancel
+      </Button>
+      <Button
+        disabled={isSubmitting}
+        onClick={handleUpdate}
+        className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-all active:scale-[0.98]"
+      >
+        {isSubmitting ? "Updating..." : "Save Changes"}
+      </Button>
+    </DialogFooter>
   );
 }

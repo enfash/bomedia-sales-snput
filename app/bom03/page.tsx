@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { Zap, LayoutDashboard, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX } from "lucide-react";
+import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
@@ -10,7 +10,6 @@ import { DashboardMetrics } from "@/components/dashboard-metrics";
 import { SalesExpenseChart, ExpenseCategorizationChart, OutstandingDebtChart } from "@/components/dashboard-charts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TodayBanner } from "@/components/today-banner";
-import { Logo } from "@/components/logo";
 
 import {
   format,
@@ -293,7 +292,7 @@ export default function DashboardPage() {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-4 border-brand-700 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-500 font-medium">Loading Dashboard...</p>
         </div>
       </div>
@@ -301,89 +300,58 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
-      <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} />
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="h-10 w-10 md:hidden flex items-center justify-center bg-primary rounded-xl mb-2">
-              <Logo showText={false} className="text-primary-foreground" />
-            </div>
-            <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-              Dashboard
-            </h1>
-            
-            <Tabs 
-              value={timeRange} 
-              onValueChange={(val: any) => setTimeRange(val)}
-              className="hidden md:flex bg-muted p-0.5 rounded-lg border ml-4"
-            >
-              <TabsList className="bg-transparent border-none p-0 h-auto">
-                <TabsTrigger value="today" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">Today</TabsTrigger>
-                <TabsTrigger value="7d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">7D</TabsTrigger>
-                <TabsTrigger value="30d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white">30D</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsMuted(!isMuted)}
-              className="h-7 px-2 border-border text-muted-foreground hover:text-foreground bg-card"
-            >
-              {isMuted ? (
-                <VolumeX className="w-3.5 h-3.5 mr-1" />
-              ) : (
-                <Volume2 className="w-3.5 h-3.5 mr-1" />
-              )}
-              <span className="text-[10px] font-bold uppercase tracking-tight">
-                {isMuted ? "Muted" : "Sound On"}
-              </span>
-            </Button>
-
-            {refreshing && (
-              <span className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800 ml-2">
-                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                Updating...
-              </span>
-            )}
-          </div>
-          <p className="text-gray-400 text-xs font-medium">
-            Here's what's happening with your business — <span className="text-indigo-600 dark:text-indigo-400 font-bold">{timeRange === 'today' ? 'Today' : timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days'}</span>.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-          className="w-full md:w-auto bg-card border-border text-foreground shadow-sm rounded-xl h-11 px-5 text-xs font-bold"
-        >
-          <RefreshCw className={cn("w-3.5 h-3.5 mr-2", refreshing && "animate-spin")} />
-          {refreshing ? "Updating..." : "Force Refresh"}
-        </Button>
-      </div>
+    <div className="p-4 md:p-8 space-y-6 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
+      <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} salesCount={todayJobCount} />
 
       {/* Mobile Time Range Selector */}
-      <div className="md:hidden flex justify-center mt-2">
+      <div className="md:hidden flex justify-center">
         <Tabs 
           value={timeRange} 
           onValueChange={(val: any) => setTimeRange(val)}
           className="w-full bg-gray-100 dark:bg-zinc-900/80 p-0.5 rounded-xl border border-gray-200 dark:border-zinc-800"
         >
           <TabsList className="bg-transparent border-none p-0 h-10 w-full">
-            <TabsTrigger value="today" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">Today</TabsTrigger>
-            <TabsTrigger value="7d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">7D</TabsTrigger>
-            <TabsTrigger value="30d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-indigo-600 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-white h-9">30D</TabsTrigger>
+            <TabsTrigger value="today" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9">Today</TabsTrigger>
+            <TabsTrigger value="7d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9">7D</TabsTrigger>
+            <TabsTrigger value="30d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9">30D</TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+
+      {/* Desktop Time Range + Controls */}
+      <div className="hidden md:flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Tabs 
+            value={timeRange} 
+            onValueChange={(val: any) => setTimeRange(val)}
+            className="bg-muted p-0.5 rounded-lg border"
+          >
+            <TabsList className="bg-transparent border-none p-0 h-auto">
+              <TabsTrigger value="today" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white">Today</TabsTrigger>
+              <TabsTrigger value="7d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white">7D</TabsTrigger>
+              <TabsTrigger value="30d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white">30D</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsMuted(!isMuted)}
+            className="h-8 px-2 border-border text-muted-foreground hover:text-foreground bg-card"
+          >
+            {isMuted ? <VolumeX className="w-3.5 h-3.5 mr-1" /> : <Volume2 className="w-3.5 h-3.5 mr-1" />}
+            <span className="text-[10px] font-bold uppercase tracking-tight">{isMuted ? "Muted" : "Sound On"}</span>
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchData(true)}
+          disabled={refreshing}
+          className="bg-card border-border text-foreground shadow-sm rounded-xl h-9 px-4 text-xs font-bold"
+        >
+          <RefreshCw className={cn("w-3.5 h-3.5 mr-2", refreshing && "animate-spin")} />
+          {refreshing ? "Updating..." : "Refresh"}
+        </Button>
       </div>
 
       {/* Metrics Row — 4 cards */}
@@ -416,16 +384,16 @@ export default function DashboardPage() {
             </div>
           </div>
         </Link>
-        <div className="md:col-span-2 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl p-4 flex items-center justify-between border border-indigo-100/50 dark:border-indigo-900/20">
+        <div className="md:col-span-2 bg-brand-50 dark:bg-brand-950/30 rounded-2xl p-4 flex items-center justify-between border border-brand-100 dark:border-brand-900/20">
           <div className="flex gap-4">
             <div className="text-center">
               <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Total Sales</p>
-              <p className="text-sm font-black text-indigo-600">₦{totalSalesVal.toLocaleString()}</p>
+              <p className="text-sm font-black text-brand-700 dark:text-brand-300">₦{totalSalesVal.toLocaleString()}</p>
             </div>
-            <div className="w-px h-8 bg-indigo-100 dark:bg-indigo-900/40 self-center" />
+            <div className="w-px h-8 bg-brand-100 dark:bg-brand-900/40 self-center" />
             <div className="text-center">
               <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Exp. Ratio</p>
-              <p className="text-sm font-black text-indigo-600">
+              <p className="text-sm font-black text-brand-700 dark:text-brand-300">
                 {totalSalesVal > 0 ? ((totalExpensesVal / totalSalesVal) * 100).toFixed(1) : "0"}%
               </p>
             </div>
@@ -441,8 +409,8 @@ export default function DashboardPage() {
       {/* AI Banner */}
       {/* Quick Actions / AI Banner */}
       <div
-        className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg bg-indigo-600 dark:bg-indigo-700 bg-gradient-to-br from-indigo-600 to-indigo-700"
-        style={{ boxShadow: "0 8px 24px rgba(79, 70, 229, 0.4)" }}
+        className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg bg-brand-700 bg-gradient-to-br from-brand-600 to-brand-800"
+        style={{ boxShadow: "0 8px 24px rgba(46, 56, 141, 0.4)" }}
       >
         <div className="flex items-center gap-4">
           <div
@@ -463,7 +431,7 @@ export default function DashboardPage() {
           <Link href="/new-entry" className="flex-1 md:flex-none">
             <Button
               className="w-full text-xs font-bold rounded-xl h-10 px-4 transition-all hover:scale-105"
-              style={{ backgroundColor: "white", color: "#4f46e5" }}
+              style={{ backgroundColor: "white", color: "#2e388d" }}
             >
               <Zap className="w-3 h-3 mr-2" />
               AI Entry

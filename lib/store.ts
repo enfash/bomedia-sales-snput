@@ -7,6 +7,8 @@ export type QueueItem = {
   type: 'sale' | 'expense';
   data: any; // The payload as an array (for sales) or object (for expenses)
   timestamp: number;
+  retryCount?: number;
+  lastRetryAt?: number;
 };
 
 interface SyncState {
@@ -26,6 +28,7 @@ interface SyncState {
   cachedSales: any[];
   cachedExpenses: any[];
   setCachedData: (sales: any[], expenses: any[]) => void;
+  updateEntryRetry: (id: string, retryCount: number, lastRetryAt: number) => void;
 }
 
 export const useSyncStore = create<SyncState>()(
@@ -62,6 +65,12 @@ export const useSyncStore = create<SyncState>()(
       setLastSyncTime: (time) => set({ lastSyncTime: time }),
       
       clearQueue: () => set({ pendingQueue: [] }),
+
+      updateEntryRetry: (id, retryCount, lastRetryAt) => set((state) => ({
+        pendingQueue: state.pendingQueue.map(item => 
+          item.id === id ? { ...item, retryCount, lastRetryAt } : item
+        )
+      })),
 
       setCachedData: (sales, expenses) => set({
         cachedSales: sales,

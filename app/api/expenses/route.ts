@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 
+export const dynamic = 'force-dynamic';
+
 const SHEET_TITLE = 'Expenses';
 const EXPENSES_HEADERS = ['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION', 'PAID TO', 'PAYMENT METHOD', 'RECEIPT URL', 'Logged By'];
 

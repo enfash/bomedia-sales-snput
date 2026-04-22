@@ -9,8 +9,10 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={cn(
-      "flex min-h-screen bg-gray-50 dark:bg-zinc-950 transition-colors duration-500",
-      isCashier && "theme-amber"
+      "flex min-h-screen transition-colors duration-500",
+      isCashier
+        ? "theme-amber bg-orange-50/40 dark:bg-zinc-950"
+        : "bg-slate-50 dark:bg-zinc-950"
     )}>
       {children}
     </div>

@@ -97,9 +97,11 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
   if (pathname === "/bom03/login" || pathname === "/") return null;
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-        <DialogHeader>
+    <>
+      {open && <div className="fixed inset-0 z-[150] bg-background" />}
+      <Dialog open={open} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogHeader>
           <DialogTitle className="text-xl font-bold text-foreground">👋 Welcome to BOMedia</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Enter your assigned name to continue to the cashier portal.
@@ -137,5 +139,6 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

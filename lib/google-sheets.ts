@@ -14,13 +14,27 @@ const serviceAccountAuth = new JWT({
 const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID || '', serviceAccountAuth);
 
 export async function getDoc() {
-  try {
-    await doc.loadInfo();
-    return doc;
-  } catch (error: any) {
-    console.error("Google Sheets getDoc Error:", error);
-    throw error;
+  const maxRetries = 3;
+  let attempt = 0;
+
+  while (attempt < maxRetries) {
+    try {
+      await doc.loadInfo();
+      return doc;
+    } catch (error: any) {
+      attempt++;
+      console.error(`Google Sheets getDoc Error (Attempt ${attempt}/${maxRetries}):`, error.message || error);
+      
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+      
+      // Wait before retrying (exponential backoff: 1s, 2s)
+      await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+    }
   }
+  
+  throw new Error("Failed to load Google Sheets document after maximum retries.");
 }
 
 /**

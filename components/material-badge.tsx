@@ -18,7 +18,7 @@ export function MaterialBadge({ material, className }: MaterialBadgeProps) {
     }
     if (normalized.includes("sav")) {
       // SAV = purple
-      return "bg-purple-100/80 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/30";
+      return "bg-brand-100/80 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border-brand-200 dark:border-brand-800/30";
     }
     if (normalized.includes("blockout")) {
       // Blockout = gray
@@ -28,7 +28,7 @@ export function MaterialBadge({ material, className }: MaterialBadgeProps) {
       return "bg-rose-100/80 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800/30";
     }
     if (normalized.includes("mesh")) {
-      return "bg-indigo-100/80 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/30";
+      return "bg-brand-100/80 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border-brand-200 dark:border-brand-800/30";
     }
     if (normalized.includes("window") || normalized.includes("owv")) {
       return "bg-cyan-100/80 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/30";

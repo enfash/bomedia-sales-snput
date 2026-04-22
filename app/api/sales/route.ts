@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
+
+export const dynamic = 'force-dynamic';
 
 const SHEET_TITLE = 'Sales';
 const SALES_HEADERS = [
@@ -50,6 +53,23 @@ export async function PATCH(request: Request) {
     
     if (!row) {
       return NextResponse.json({ error: "Record not found" }, { status: 404 });
+    }
+
+    // Role-based Access Control: Cashiers cannot edit records older than 24 hours
+    const cookieStore = cookies();
+    const isAdmin = cookieStore.get('admin_session');
+    
+    if (!isAdmin) {
+      const recordDateStr = row.get('DATE') || row.get('Date');
+      if (recordDateStr) {
+        const recordDate = new Date(recordDateStr).getTime();
+        if (!isNaN(recordDate)) {
+          const ageInMs = Date.now() - recordDate;
+          if (ageInMs > 24 * 60 * 60 * 1000) {
+            return NextResponse.json({ error: "Cashiers cannot edit records older than 24 hours" }, { status: 403 });
+          }
+        }
+      }
     }
 
     // Update fields if provided

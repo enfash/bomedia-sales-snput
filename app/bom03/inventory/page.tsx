@@ -180,9 +180,9 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen bg-[#f8fafc] dark:bg-zinc-950">
+      <div className="p-8 flex items-center justify-center min-h-screen bg-slate-50/80 dark:bg-zinc-950">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin mx-auto mb-4" />
+          <RefreshCw className="w-8 h-8 text-brand-700 dark:text-brand-400 animate-spin mx-auto mb-4" />
           <p className="text-gray-500 dark:text-zinc-400 font-bold uppercase tracking-widest text-xs">Loading Inventory...</p>
         </div>
       </div>
@@ -190,26 +190,26 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
+    <div className="p-4 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Inventory Management</h1>
-            {refreshing && <RefreshCw className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-spin" />}
+            {refreshing && <RefreshCw className="w-4 h-4 text-brand-600 dark:text-brand-400 animate-spin" />}
           </div>
           <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">Track square footage and manage roll stock.</p>
         </div>
         
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl h-12 px-6 shadow-lg shadow-indigo-100 flex items-center gap-2">
+            <Button className="bg-brand-700 hover:bg-brand-800 text-white font-black rounded-xl h-12 px-6 shadow-lg shadow-brand-700/20 flex items-center gap-2">
               <Plus className="w-5 h-5" />
               Add New Roll / Material
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-            <DialogHeader className="p-6 bg-indigo-600 dark:bg-indigo-700 text-white">
+            <DialogHeader className="p-6 bg-brand-700 dark:bg-brand-800 text-white">
               <DialogTitle className="text-xl font-black">Add Inventory Roll</DialogTitle>
             </DialogHeader>
             <div className="p-6 space-y-4">
@@ -228,18 +228,18 @@ export default function InventoryPage() {
                 </div>
               </div>
               
-              <div className="p-4 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-2xl space-y-3 border border-indigo-100 dark:border-indigo-800/50">
-                <p className="text-[10px] font-black text-indigo-400 dark:text-indigo-300 uppercase tracking-widest border-b border-indigo-100 dark:border-indigo-800/50 pb-1 mb-2">Roll Measurements</p>
+              <div className="p-4 bg-brand-50/50 dark:bg-brand-900/20 rounded-2xl space-y-3 border border-brand-100 dark:border-brand-800/50">
+                <p className="text-[10px] font-black text-brand-500 dark:text-brand-300 uppercase tracking-widest border-b border-brand-100 dark:border-brand-800/50 pb-1 mb-2">Roll Measurements</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-400">Width (Feet)</Label>
-                    <Input type="number" placeholder="e.g. 4" value={newItem.rollWidth} onChange={e => setNewItem({...newItem, rollWidth: e.target.value})} className="rounded-xl border-indigo-100 dark:bg-zinc-800 dark:border-indigo-900/30" />
+                    <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Width (Feet)</Label>
+                    <Input type="number" placeholder="e.g. 4" value={newItem.rollWidth} onChange={e => setNewItem({...newItem, rollWidth: e.target.value})} className="rounded-xl border-brand-100 dark:bg-zinc-800 dark:border-brand-900/30" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-400">Length ({newItem.lengthUnit === 'm' ? 'Meters' : 'Feet'})</Label>
+                    <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Length ({newItem.lengthUnit === 'm' ? 'Meters' : 'Feet'})</Label>
                     <div className="flex gap-1">
-                      <Input type="number" placeholder="e.g. 50" value={newItem.rollLength} onChange={e => setNewItem({...newItem, rollLength: e.target.value})} className="rounded-xl border-indigo-100 dark:bg-zinc-800 dark:border-indigo-900/30" />
-                      <Button variant="ghost" size="sm" onClick={() => setNewItem({...newItem, lengthUnit: newItem.lengthUnit === 'm' ? 'ft' : 'm'})} className="px-2 text-[8px] font-black h-10 border border-indigo-100 dark:border-indigo-900/30 uppercase bg-white dark:bg-zinc-800 dark:text-zinc-300">
+                      <Input type="number" placeholder="e.g. 50" value={newItem.rollLength} onChange={e => setNewItem({...newItem, rollLength: e.target.value})} className="rounded-xl border-brand-100 dark:bg-zinc-800 dark:border-brand-900/30" />
+                      <Button variant="ghost" size="sm" onClick={() => setNewItem({...newItem, lengthUnit: newItem.lengthUnit === 'm' ? 'ft' : 'm'})} className="px-2 text-[8px] font-black h-10 border border-brand-100 dark:border-brand-900/30 uppercase bg-white dark:bg-zinc-800 dark:text-zinc-300">
                         {newItem.lengthUnit}
                       </Button>
                     </div>
@@ -250,7 +250,7 @@ export default function InventoryPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500">Selling Price (₦/sqft)</Label>
-                  <Input type="number" placeholder="e.g. 200" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} className="rounded-xl font-bold text-indigo-600 dark:text-indigo-400 dark:bg-zinc-800 dark:border-zinc-700" />
+                  <Input type="number" placeholder="e.g. 200" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} className="rounded-xl font-bold text-brand-700 dark:text-brand-400 dark:bg-zinc-800 dark:border-zinc-700" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500">Total Buy Cost (₦)</Label>
@@ -260,7 +260,7 @@ export default function InventoryPage() {
             </div>
             <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-800/50 flex gap-3 border-t dark:border-zinc-800">
               <Button variant="outline" onClick={() => setIsAddOpen(false)} className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
-              <Button onClick={handleAddItem} className="flex-1 h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black">Add & Calculate Area</Button>
+              <Button onClick={handleAddItem} className="flex-1 h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black">Add &amp; Calculate Area</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -349,7 +349,7 @@ export default function InventoryPage() {
                     <TableCell>
                       <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-600">{item["Waste Factor"]}%</span>
                     </TableCell>
-                    <TableCell className="text-right font-black text-indigo-600 dark:text-indigo-400">₦{parseFloat(item.Price.toString()).toLocaleString()}/sqft</TableCell>
+                    <TableCell className="text-right font-black text-brand-700 dark:text-brand-400">₦{parseFloat(item.Price.toString()).toLocaleString()}/sqft</TableCell>
                     <TableCell className="text-center font-black text-gray-900 dark:text-white">{stock.toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center">
@@ -392,7 +392,7 @@ export default function InventoryPage() {
           </div>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setAdjustItem(null)} className="flex-1 rounded-xl h-11 font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
-            <Button onClick={handleManualAdjustment} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl h-11">Apply Change</Button>
+            <Button onClick={handleManualAdjustment} className="flex-1 bg-brand-700 hover:bg-brand-800 text-white font-black rounded-xl h-11">Apply Change</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

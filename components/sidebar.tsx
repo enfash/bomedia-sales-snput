@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
@@ -53,14 +53,16 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
     ? [
         { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
         { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/cashier/board", label: "Job Board", icon: KanbanSquare },
         { href: "/cashier/records", label: "Records", icon: BarChart3 },
+        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
       ]
     : [
         { href: "/bom03", label: "Dashboard", icon: LayoutDashboard },
         { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-        { href: "/bom03/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/bom03/board", label: "Job Board", icon: KanbanSquare },
         { href: "/bom03/records", label: "Records", icon: BarChart3 },
+        { href: "/bom03/expenses", label: "Log Expense", icon: Receipt },
         { href: "/bom03/staff", label: "Staff Manager", icon: Users },
       ];
 
@@ -99,7 +101,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sync Status</span>
           {syncStatus === 'syncing' ? (
-            <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+            <RefreshCw className="w-3 h-3 text-primary animate-spin" />
           ) : pendingQueue.length > 0 ? (
             <CloudOff className="w-3 h-3 text-orange-400" />
           ) : (
@@ -124,7 +126,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         <div className="px-4 py-4 border-t border-gray-700/60 dark:border-zinc-800/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shrink-0">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold shrink-0">
                 {userName[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">

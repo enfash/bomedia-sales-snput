@@ -112,7 +112,7 @@ export default function StaffManagerPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-black flex items-center gap-3 text-gray-900 dark:text-white">
-            <div className="bg-indigo-100 dark:bg-indigo-900/40 p-2 text-indigo-600 dark:text-indigo-400 rounded-lg">
+            <div className="bg-brand-100 dark:bg-brand-900/40 p-2 text-brand-700 dark:text-brand-400 rounded-lg">
               <Users className="w-6 h-6" />
             </div>
             Staff Manager
@@ -128,7 +128,7 @@ export default function StaffManagerPage() {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2 shadow-sm font-medium">
+              <Button className="bg-brand-700 hover:bg-brand-800 gap-2 shadow-sm font-medium">
                 <UserPlus className="w-4 h-4" />
                 Add Cashier
               </Button>
@@ -155,7 +155,7 @@ export default function StaffManagerPage() {
                   </p>
                 </div>
                 <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={isAdding} className="bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto">
+                  <Button type="submit" disabled={isAdding} className="bg-brand-700 hover:bg-brand-800 w-full sm:w-auto">
                     {isAdding ? "Adding..." : "Add User"}
                   </Button>
                 </div>
@@ -168,7 +168,7 @@ export default function StaffManagerPage() {
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
         {loading && cashiers.length === 0 ? (
           <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-            <RefreshCw className="w-8 h-8 animate-spin mb-4 text-indigo-400 dark:text-indigo-500" />
+            <RefreshCw className="w-8 h-8 animate-spin mb-4 text-brand-400 dark:text-brand-500" />
             Loading cashiers...
           </div>
         ) : cashiers.length === 0 ? (
@@ -178,7 +178,7 @@ export default function StaffManagerPage() {
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No cashiers configured</h3>
             <p className="text-gray-500 dark:text-zinc-400 text-sm max-w-md mx-auto">Create allowed names here. Only these names will be able to log into the `/cashier` portal.</p>
-            <Button onClick={() => setDialogOpen(true)} variant="outline" className="mt-6 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
+            <Button onClick={() => setDialogOpen(true)} variant="outline" className="mt-6 border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-400 bg-brand-50/50 dark:bg-brand-900/20 hover:bg-brand-50 dark:hover:bg-brand-900/30">
               Add First Cashier
             </Button>
           </div>
@@ -195,7 +195,7 @@ export default function StaffManagerPage() {
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-zinc-800/50">
                 {cashiers.map((cashier, idx) => (
-                  <tr key={idx} className="hover:bg-indigo-50/30 dark:hover:bg-zinc-800/30 transition-colors">
+                  <tr key={idx} className="hover:bg-brand-50/30 dark:hover:bg-zinc-800/30 transition-colors">
                     <td className="px-6 py-4 font-bold text-gray-900 dark:text-zinc-100">{cashier.Name}</td>
                     <td className="px-6 py-4">
                       {cashier.Status === 'Online' ? (

@@ -79,7 +79,7 @@ function RollCard({
     >
       <div className={cn(
         "w-full flex items-center justify-center mb-3",
-        selected ? "text-indigo-600" : "text-gray-300 dark:text-zinc-700"
+        selected ? "text-primary" : "text-gray-300 dark:text-zinc-700"
       )}>
         {/* Visual Roll Icon */}
         <div className="relative flex flex-col items-center">
@@ -124,7 +124,7 @@ export function SalesEntry() {
     initialPayment: "0",
     additionalPayment1: "",
     additionalPayment2: "",
-    jobStatus: "Pending",
+    jobStatus: "Quoted",
     dimensionUnit: "ft", // default to feet
   });
   const [inventory, setInventory] = useState<any[]>([]);
@@ -294,7 +294,7 @@ export function SalesEntry() {
         initialPayment: "0",
         additionalPayment1: "",
         additionalPayment2: "",
-        jobStatus: "Pending",
+        jobStatus: "Quoted",
         dimensionUnit: "ft",
       });
       setNlText("");
@@ -390,7 +390,7 @@ export function SalesEntry() {
                                       setOpenInv(false);
                                       toast.info(`Selected ${item["Item Name"]}`);
                                     }}
-                                    className="font-bold text-xs dark:hover:bg-zinc-900 cursor-pointer"
+                                    className="font-bold text-xs data-[selected=true]:bg-primary/10 dark:data-[selected=true]:bg-zinc-800 dark:data-[selected=true]:text-white cursor-pointer"
                                   >
                                     <Check
                                       className={cn(
@@ -576,9 +576,11 @@ export function SalesEntry() {
                       <Select value={formData.jobStatus} onValueChange={(val: string) => setFormData({...formData, jobStatus: val})}>
                         <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 w-full md:w-[240px] shadow-sm"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Completed">Completed</SelectItem>
+                          <SelectItem value="Quoted">Quoted</SelectItem>
+                          <SelectItem value="Printing">Printing</SelectItem>
+                          <SelectItem value="Finishing">Finishing</SelectItem>
+                          <SelectItem value="Ready">Ready</SelectItem>
+                          <SelectItem value="Delivered">Delivered</SelectItem>
                         </SelectContent>
                       </Select>
                    </div>
@@ -613,7 +615,7 @@ export function SalesEntry() {
             </div>
             <div className="mb-6">
               <textarea 
-                className="w-full p-6 bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 rounded-3xl min-h-[220px] focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/5 focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-xl placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium" 
+                className="w-full p-6 bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 rounded-3xl min-h-[220px] focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary/5 focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-xl placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium" 
                 placeholder="e.g. John Doe ordered 3 flex banners sized 7x5ft on a 5ft roll, paid ₦5,000 initially..."
                 value={nlText}
                 onChange={e => setNlText(e.target.value)}
@@ -727,8 +729,8 @@ export function SalesEntry() {
                </div>
             </div>
             
-            <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-lg">
-               <div className="flex justify-between items-center text-xs font-bold text-orange-800 dark:text-orange-300">
+            <div className="p-3 bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg">
+               <div className="flex justify-between items-center text-xs font-bold text-primary dark:text-primary/90">
                  <span>Payments Logged</span>
                  <span>₦{parseFloat(formData.initialPayment).toLocaleString()}</span>
                </div>

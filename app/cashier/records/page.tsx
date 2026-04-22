@@ -23,6 +23,7 @@ import { useSyncStore } from "@/lib/store";
 import { RecordCard, type RecordStatus } from "@/components/record-card";
 import { isSameDay, format } from "date-fns";
 import { ManageSaleAction, type UnifiedRecord } from "@/components/manage-sale-action";
+import { WhatsAppReminder } from "@/components/whatsapp-reminder";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -41,9 +42,9 @@ type Row = Record<string, string>;
 function StatusBadge({ status }: { status: RecordStatus }) {
   const map: Record<RecordStatus, string> = {
     Settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border-none",
-    "Part-payment": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 border-none",
+    "Part-payment": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40 border-none",
     "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 border-none",
-    Syncing: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 animate-pulse hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border-none",
+    Syncing: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse hover:bg-orange-100 dark:hover:bg-orange-900/40 border-none",
   };
   return (
     <Badge className={`px-2 py-0 rounded-full font-bold text-[10px] ${map[status] || "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"}`}>
@@ -133,7 +134,7 @@ export default function CashierRecordsPage() {
       timestamp,
       additionalPayment1: parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]),
       additionalPayment2: parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]),
-      jobStatus: r["JOB STATUS"] || r["Job Status"] || "Pending",
+      jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
       balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
       raw: r
     };
@@ -151,7 +152,7 @@ export default function CashierRecordsPage() {
       "AMOUNT (₦)": "0", 
       "INITIAL PAYMENT (₦)": v[14],
       "PAYMENT STATUS": v[19],
-      "JOB STATUS": v[20] || "Pending",
+      "JOB STATUS": v[20] || "Quoted",
       "Logged By": v[21],
       "ADDITIONAL PAYMENT 1": "0",
       "ADDITIONAL PAYMENT 2": "0",
@@ -217,14 +218,14 @@ export default function CashierRecordsPage() {
   }, [search, activeTab, sortBy, sortOrder]);
 
   return (
-    <div className="p-3 md:p-8 bg-[#f8fafc] dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
+    <div className="p-3 md:p-8 bg-orange-50/20 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-[#4f46e5] dark:text-indigo-400">Daily Sales Records</h1>
+            <h1 className="text-2xl font-black text-primary dark:text-orange-400">Daily Sales Records</h1>
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full animate-pulse border border-indigo-100 dark:border-indigo-800">
+              <span className="flex items-center gap-1.5 text-[10px] font-black text-orange-500 dark:text-orange-400 uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-full animate-pulse border border-orange-100 dark:border-orange-800">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                 Syncing...
               </span>
@@ -249,7 +250,7 @@ export default function CashierRecordsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
           <Input
-            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-indigo-500 dark:text-zinc-100 dark:placeholder:text-zinc-600"
+            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-orange-500 dark:text-zinc-100 dark:placeholder:text-zinc-600"
             placeholder="Search by client or job description..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -268,7 +269,7 @@ export default function CashierRecordsPage() {
                 key={option.id}
                 onClick={() => setSortBy(option.id as any)}
                 className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${sortBy === option.id
-                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+                    ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                     : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
               >
@@ -283,7 +284,7 @@ export default function CashierRecordsPage() {
             className="h-11 w-11 rounded-xl border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center justify-center transition-all hover:bg-gray-50 dark:hover:bg-zinc-800"
             title={sortOrder === 'asc' ? "Ascending" : "Descending"}
           >
-            <ArrowUpDown className={`w-4 h-4 text-indigo-600 dark:text-indigo-400 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+            <ArrowUpDown className={`w-4 h-4 text-orange-600 dark:text-orange-400 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
           </Button>
         </div>
 
@@ -294,7 +295,7 @@ export default function CashierRecordsPage() {
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
                 className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${activeTab === tab
-                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+                    ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                     : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
               >
@@ -336,7 +337,16 @@ export default function CashierRecordsPage() {
                   <TableCell className="text-center"><StatusBadge status={r.status} /></TableCell>
                   <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-400">{r.loggedBy}</TableCell>
                   <TableCell className="text-center">
-                    <ManageSaleAction record={r} onUpdate={fetchData} />
+                    <div className="flex items-center justify-center gap-1">
+                      <WhatsAppReminder
+                        clientName={r.client}
+                        contact={r.contact || ""}
+                        balance={r.balance || 0}
+                        jobDescription={r.description}
+                        variant="icon"
+                      />
+                      <ManageSaleAction record={r} onUpdate={fetchData} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -373,7 +383,7 @@ export default function CashierRecordsPage() {
       {totalPages > 1 && (
         <div className="mt-8 flex items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-zinc-800">
           <p className="text-xs font-bold text-gray-500 dark:text-zinc-400">
-            Page <span className="text-indigo-600 dark:text-indigo-400">{currentPage}</span> of {totalPages} 
+            Page <span className="text-orange-600 dark:text-orange-400">{currentPage}</span> of {totalPages} 
             <span className="ml-2 opacity-50">({sorted.length} records)</span>
           </p>
           <div className="flex gap-2">

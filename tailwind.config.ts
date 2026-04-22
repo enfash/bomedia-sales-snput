@@ -18,6 +18,20 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        // BOMedia Brand Blue — #2e388d is the base (used as 700)
+        brand: {
+          50:  "#eef0fb",
+          100: "#d5d9f5",
+          200: "#adb3eb",
+          300: "#8590e0",
+          400: "#5d6cd5",
+          500: "#4452c5",
+          600: "#3840a9",
+          700: "#2e388d", // Primary brand colour
+          800: "#252d72",
+          900: "#1b2256",
+          950: "#10143b",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
