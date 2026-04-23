@@ -60,8 +60,8 @@ export function ManageSaleAction({
 }: ManageSaleActionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [addl1, setAddl1] = useState("");
-  const [addl2, setAddl2] = useState("");
+  const [addl1, setAddl1] = useState(record?.additionalPayment1 ? String(record.additionalPayment1) : "");
+  const [addl2, setAddl2] = useState(record?.additionalPayment2 ? String(record.additionalPayment2) : "");
   const [status, setStatus] = useState(record?.jobStatus ?? "Quoted");
   const isMobile = useMediaQuery("(max-width: 768px)");
   const pathname = usePathname();
@@ -97,10 +97,13 @@ export function ManageSaleAction({
         jobStatus: status,
       };
 
-      if (showAddl1 && addl1 !== "") {
+      const hasAddl1 = (record.additionalPayment1 ?? 0) > 0;
+      const hasAddl2 = (record.additionalPayment2 ?? 0) > 0;
+
+      if (!hasAddl1 && addl1 !== "") {
         payload.additionalPayment1 = parseFloat(addl1) || 0;
       }
-      if (showAddl2 && addl2 !== "") {
+      if (!hasAddl2 && addl2 !== "") {
         payload.additionalPayment2 = parseFloat(addl2) || 0;
       }
 
@@ -124,12 +127,6 @@ export function ManageSaleAction({
     }
   };
 
-  const showAddl1 =
-    !record.additionalPayment1 || record.additionalPayment1 === 0;
-  const showAddl2 =
-    (record.additionalPayment1 ?? 0) > 0 &&
-    (!record.additionalPayment2 || record.additionalPayment2 === 0);
-
   const triggerButton =
     variant === "icon" ? (
       <Button
@@ -151,8 +148,6 @@ export function ManageSaleAction({
 
   const contentProps = {
     record,
-    showAddl1,
-    showAddl2,
     addl1,
     setAddl1,
     addl2,
@@ -183,7 +178,7 @@ export function ManageSaleAction({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{triggerButton}</DialogTrigger>
-      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 overflow-hidden border-none shadow-2xl dark:shadow-none">
+      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl dark:shadow-none">
         <HeaderContent {...contentProps} />
         <ContentBody {...contentProps} />
         <ContentFooter {...contentProps} />
@@ -242,8 +237,6 @@ function HeaderContent({ record }: any) {
 
 function ContentBody({
   record,
-  showAddl1,
-  showAddl2,
   addl1,
   setAddl1,
   addl2,
@@ -251,6 +244,11 @@ function ContentBody({
   status,
   setStatus,
 }: any) {
+  const hasAddl1 = (record.additionalPayment1 ?? 0) > 0;
+  const hasAddl2 = (record.additionalPayment2 ?? 0) > 0;
+  const isFullyPaid = (record.balance ?? 0) <= 0 || record.status === "Paid";
+  const maxSlotsReached = hasAddl1 && hasAddl2 && (record.balance ?? 0) > 0;
+
   return (
     <div className="p-6 space-y-6">
       <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
@@ -273,43 +271,49 @@ function ContentBody({
       </div>
 
       <div className="space-y-4">
-        {showAddl1 && (
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
-              Additional Payment 1 (₦)
-            </Label>
-            <Input
-              type="number"
-              placeholder="Enter amount"
-              value={addl1}
-              onChange={(e) => setAddl1(e.target.value)}
-              className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
-            />
-          </div>
-        )}
-
-        {showAddl2 && (
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
-              Additional Payment 2 (₦)
-            </Label>
-            <Input
-              type="number"
-              placeholder="Enter amount"
-              value={addl2}
-              onChange={(e) => setAddl2(e.target.value)}
-              className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold"
-            />
-          </div>
-        )}
-
-        {!showAddl1 && !showAddl2 && (
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-              All payment slots have been filled.
+        {isFullyPaid && (
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-center">
+            <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+              Paid Completed
             </p>
           </div>
         )}
+
+        {maxSlotsReached && !isFullyPaid && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+              Maximum payment slots reached. Contact Admin to add more payments.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+            Additional Payment 1 (₦)
+          </Label>
+          <Input
+            type="number"
+            placeholder="Enter amount"
+            value={addl1}
+            onChange={(e) => setAddl1(e.target.value)}
+            disabled={hasAddl1 || isFullyPaid || maxSlotsReached}
+            className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+            Additional Payment 2 (₦)
+          </Label>
+          <Input
+            type="number"
+            placeholder="Enter amount"
+            value={addl2}
+            onChange={(e) => setAddl2(e.target.value)}
+            disabled={!hasAddl1 || hasAddl2 || isFullyPaid || maxSlotsReached}
+            className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        </div>
 
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
@@ -320,7 +324,7 @@ function ContentBody({
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
             <SelectContent
-              className="rounded-xl border-gray-100 dark:border-zinc-800 dark:bg-zinc-900 shadow-xl z-[100]"
+              className="rounded-xl border-gray-100 dark:border-zinc-800 dark:bg-zinc-900 shadow-xl z-[9999]"
               position="popper"
               sideOffset={5}
             >

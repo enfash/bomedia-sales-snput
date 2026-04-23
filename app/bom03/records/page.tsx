@@ -323,25 +323,37 @@ export default function RecordsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-4 mb-8">
         {[
           { title: "Total Sales", val: totalSales, trend: last30Sales, color: "border-brand-500", icon: ArrowUpRight, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
           { title: "Total Expenses", val: totalExpenses, trend: last30Expenses, color: "border-brand-500", icon: Wallet, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
           { title: "Net Profit", val: netProfit, color: "border-emerald-500", icon: TrendingUp, iconColor: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
           { title: "Outstanding Debt", val: outstandingDebt, color: "border-rose-500", icon: ArrowDownRight, iconColor: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
         ].map((card, idx) => (
-          <Card key={idx} className={`bg-white dark:bg-zinc-900 border-none border-l-4 shadow-sm ${card.color} hover:shadow-md transition-shadow`}>
-            <CardHeader className="p-4 pb-0 flex flex-row items-center justify-between">
-              <CardTitle className="text-[10px] font-black text-muted-foreground dark:text-zinc-500 uppercase tracking-wider">{card.title}</CardTitle>
-              <div className={`p-1.5 rounded-lg ${card.iconColor}`}>
-                <card.icon className="w-4 h-4" />
+          <Card 
+            key={idx} 
+            className={cn(
+              "bg-white dark:bg-zinc-900 border-none border-l-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between",
+              card.color,
+              idx === 0 ? "col-span-3 lg:col-span-1" : "col-span-1 lg:col-span-1"
+            )}
+          >
+            <CardHeader className="p-2 sm:p-4 pb-0 flex flex-row items-center justify-between space-y-0 gap-1">
+              <CardTitle className="text-[8px] sm:text-[10px] font-black text-muted-foreground dark:text-zinc-500 uppercase tracking-widest line-clamp-1">{card.title}</CardTitle>
+              <div className={`p-1 sm:p-1.5 rounded-lg shrink-0 ${card.iconColor}`}>
+                <card.icon className="w-3 h-3 sm:w-4 sm:h-4" />
               </div>
             </CardHeader>
-            <CardContent className="p-4 pt-2">
-              <p className="text-2xl font-black text-gray-900 dark:text-white">₦{card.val.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            <CardContent className="p-2 sm:p-4 pt-1 sm:pt-2">
+              <p className={cn(
+                "font-black text-gray-900 dark:text-white truncate",
+                idx === 0 ? "text-xl sm:text-2xl" : "text-xs sm:text-2xl"
+              )}>
+                ₦{card.val.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+              </p>
               {card.trend !== undefined && (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
-                  Last 30 Days: <span className="opacity-70">+₦{card.trend.toLocaleString()}</span>
+                <p className="text-[8px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5 sm:mt-1 truncate">
+                  <span className="hidden sm:inline">Last 30 Days: </span><span className="opacity-70">+₦{card.trend.toLocaleString()}</span>
                 </p>
               )}
             </CardContent>

@@ -108,25 +108,27 @@ function RollCard({
 export function SalesEntry() {
   const [nlText, setNlText] = useState("");
   const [isParsing, setIsParsing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [formData, setFormData] = useState({
+  const [batchData, setBatchData] = useState({
     date: new Date().toISOString().split("T")[0],
     clientName: "",
-    jobDescription: "",
     contact: "",
+    jobStatus: "Quoted",
+    initialPayment: "0",
+  });
+
+  const [jobData, setJobData] = useState({
+    jobDescription: "",
     material: "Flex",
     costPerSqft: "180",
     actualWidth: "",
     actualHeight: "",
-    rollSize: "", // empty by default — user must select
+    rollSize: "",
     qty: "1",
-    initialPayment: "0",
-    additionalPayment1: "",
-    additionalPayment2: "",
-    jobStatus: "Quoted",
-    dimensionUnit: "ft", // default to feet
+    dimensionUnit: "ft",
   });
+  
+  const [cart, setCart] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [openInv, setOpenInv] = useState(false);
 
@@ -154,50 +156,85 @@ export function SalesEntry() {
       "Mesh": "180"
     };
     
-    if (prices[formData.material]) {
-      setFormData(prev => ({ ...prev, costPerSqft: prices[formData.material] }));
+    if (prices[jobData.material]) {
+      setJobData(prev => ({ ...prev, costPerSqft: prices[jobData.material] }));
     }
     
     // SAV Roll size logic
-    if (formData.material === "SAV" && formData.rollSize && !["3", "4", "5"].includes(formData.rollSize)) {
-      setFormData(prev => ({ ...prev, rollSize: "" }));
+    if (jobData.material === "SAV" && jobData.rollSize && !["3", "4", "5"].includes(jobData.rollSize)) {
+      setJobData(prev => ({ ...prev, rollSize: "" }));
     }
-  }, [formData.material]);
+  }, [jobData.material, jobData.rollSize]);
 
   // Calculations for UI display
   const calculatedSize = useMemo(() => {
-    const w = parseFloat(formData.actualWidth) || 0;
-    const h = parseFloat(formData.actualHeight) || 0;
+    const w = parseFloat(jobData.actualWidth) || 0;
+    const h = parseFloat(jobData.actualHeight) || 0;
     const rawSize = w * h;
-    return formData.dimensionUnit === "in" ? rawSize / 144 : rawSize;
-  }, [formData.actualWidth, formData.actualHeight, formData.dimensionUnit]);
+    return jobData.dimensionUnit === "in" ? rawSize / 144 : rawSize;
+  }, [jobData.actualWidth, jobData.actualHeight, jobData.dimensionUnit]);
 
   const totalJobArea = useMemo(() => {
-    const q = parseInt(formData.qty) || 0;
+    const q = parseInt(jobData.qty) || 0;
     return calculatedSize * q;
-  }, [calculatedSize, formData.qty]);
+  }, [calculatedSize, jobData.qty]);
 
   const unitCostVal = useMemo(() => {
-    const rate = parseFloat(formData.costPerSqft) || 0;
+    const rate = parseFloat(jobData.costPerSqft) || 0;
     return rate * calculatedSize;
-  }, [formData.costPerSqft, calculatedSize]);
+  }, [jobData.costPerSqft, calculatedSize]);
 
   const totalAmount = useMemo(() => {
-    const q = parseInt(formData.qty) || 0;
+    const q = parseInt(jobData.qty) || 0;
     return unitCostVal * q;
-  }, [unitCostVal, formData.qty]);
+  }, [unitCostVal, jobData.qty]);
+
+  const grandTotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.totalAmount, 0);
+  }, [cart]);
 
   const amountDifference = useMemo(() => {
-    const p1 = parseFloat(formData.initialPayment) || 0;
-    return totalAmount - p1;
-  }, [totalAmount, formData.initialPayment]);
+    const p1 = parseFloat(batchData.initialPayment) || 0;
+    return grandTotal - p1;
+  }, [grandTotal, batchData.initialPayment]);
 
   const paymentStatus = useMemo(() => {
-    if (totalAmount === 0) return "Unpaid";
+    if (grandTotal === 0) return "Unpaid";
     if (amountDifference <= 0) return "Paid";
-    if (amountDifference < totalAmount) return "Part-payment";
+    if (amountDifference < grandTotal) return "Part-payment";
     return "Unpaid";
-  }, [amountDifference, totalAmount]);
+  }, [amountDifference, grandTotal]);
+
+  const handleAddToCart = () => {
+    setRollSizeTouched(true);
+    if (!jobData.rollSize) return;
+
+    setCart(prev => [...prev, {
+      id: crypto.randomUUID(),
+      ...jobData,
+      calculatedSize,
+      totalJobArea,
+      unitCostVal,
+      totalAmount
+    }]);
+
+    setJobData({
+      jobDescription: "",
+      material: "Flex",
+      costPerSqft: "180",
+      actualWidth: "",
+      actualHeight: "",
+      rollSize: "",
+      qty: "1",
+      dimensionUnit: "ft",
+    });
+    setRollSizeTouched(false);
+    toast.success("Job added to order");
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
 
   const handleNlSubmit = async () => {
     if (!nlText.trim()) return;
@@ -211,20 +248,23 @@ export function SalesEntry() {
       const json = await res.json();
       if (res.ok && json.data) {
         const d = json.data;
-        setFormData(prev => ({
+        setBatchData(prev => ({
           ...prev,
           clientName: d["CLIENT NAME"] || prev.clientName,
-          jobDescription: d["JOB DESCRIPTION"] || prev.jobDescription,
           contact: d.CONTACT || prev.contact,
+          initialPayment: d["INITIAL PAYMENT (₦)"] ? d["INITIAL PAYMENT (₦)"].toString() : prev.initialPayment
+        }));
+        setJobData(prev => ({
+          ...prev,
+          jobDescription: d["JOB DESCRIPTION"] || prev.jobDescription,
           material: d.Material || prev.material,
           costPerSqft: d["COST PER SQRFT"] ? d["COST PER SQRFT"].toString() : prev.costPerSqft,
           actualWidth: d.actualWidth ? d.actualWidth.toString() : "",
           actualHeight: d.actualHeight ? d.actualHeight.toString() : "",
           rollSize: d.rollSize ? d.rollSize.toString() : prev.rollSize,
-          qty: d.QTY ? d.QTY.toString() : "1",
-          initialPayment: d["INITIAL PAYMENT (₦)"] ? d["INITIAL PAYMENT (₦)"].toString() : "0"
+          qty: d.QTY ? d.QTY.toString() : "1"
         }));
-        setShowConfirmModal(true);
+        toast.success("Parsed successfully! Review details and Add to Order.");
       } else {
         toast.error(json.error || "Failed to parse");
       }
@@ -236,67 +276,88 @@ export function SalesEntry() {
   };
 
   const handleSaveToSheets = async () => {
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+
     const loggedBy = localStorage.getItem("userName") || "Unknown";
     
-    // Construct positional array (A to V)
-    const needsInchesDivisor = formData.dimensionUnit === "in";
-    const sizeFormula = needsInchesDivisor 
-      ? `=(${formData.actualWidth}*${formData.actualHeight})/144` 
-      : `=(${formData.actualWidth}*${formData.actualHeight})`;
-    
-    const rowArray = [
-      formData.date, // A
-      formData.clientName, // B
-      formData.jobDescription, // C
-      formData.contact, // D
-      formData.material, // E
-      formData.costPerSqft, // F
-      formData.rollSize === "3" ? sizeFormula : "", // G
-      formData.rollSize === "4" ? sizeFormula : "", // H
-      formData.rollSize === "5" ? sizeFormula : "", // I
-      formData.rollSize === "6" ? sizeFormula : "", // J
-      formData.rollSize === "8" ? sizeFormula : "", // K
-      formData.rollSize === "10" ? sizeFormula : "", // L
-      formData.qty, // M
-      `=([COL_G_L][ROW]*F[ROW])`, // N - Unit Cost formula (Dimension * Rate)
-      parseFloat(formData.initialPayment) || 0, // O - Initial payment (plain number)
-      `=(M[ROW]*N[ROW])`, // P - Total formula (Qty * Unit Cost)
-      formData.additionalPayment1 === "" ? "" : parseFloat(formData.additionalPayment1) || 0, // Q
-      formData.additionalPayment2 === "" ? "" : parseFloat(formData.additionalPayment2) || 0, // R
-      `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`, // S - Balance (resilient SUM formula)
-      `=IF(P[ROW]=0, "Unpaid", IF(S[ROW]<=0, "Paid", IF(S[ROW]<P[ROW], "Part-payment", "Unpaid")))`, // T - Payment status
-      formData.jobStatus, // U
-      loggedBy // V
-    ];
+    let remainingPayment = parseFloat(batchData.initialPayment) || 0;
+
+    const rowArrays = cart.map(item => {
+      const needsInchesDivisor = item.dimensionUnit === "in";
+      const sizeFormula = needsInchesDivisor 
+        ? `=(${item.actualWidth}*${item.actualHeight})/144` 
+        : `=(${item.actualWidth}*${item.actualHeight})`;
+
+      let paymentForThisRow = 0;
+      if (remainingPayment >= item.totalAmount) {
+        paymentForThisRow = item.totalAmount;
+        remainingPayment -= item.totalAmount;
+      } else if (remainingPayment > 0) {
+        paymentForThisRow = remainingPayment;
+        remainingPayment = 0;
+      }
+
+      return [
+        batchData.date, // A
+        batchData.clientName, // B
+        `${item.jobDescription.trim()} [${item.actualWidth}x${item.actualHeight}${item.dimensionUnit}]`, // C
+        batchData.contact, // D
+        item.material, // E
+        item.costPerSqft, // F
+        item.rollSize === "3" ? sizeFormula : "", // G
+        item.rollSize === "4" ? sizeFormula : "", // H
+        item.rollSize === "5" ? sizeFormula : "", // I
+        item.rollSize === "6" ? sizeFormula : "", // J
+        item.rollSize === "8" ? sizeFormula : "", // K
+        item.rollSize === "10" ? sizeFormula : "", // L
+        item.qty, // M
+        `=([COL_G_L][ROW]*F[ROW])`, // N - Unit Cost formula (Dimension * Rate)
+        paymentForThisRow, // O - Initial payment allocated
+        `=(M[ROW]*N[ROW])`, // P - Total formula (Qty * Unit Cost)
+        "", // Q
+        "", // R
+        `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`, // S - Balance
+        `=IF(P[ROW]=0, "Unpaid", IF(S[ROW]<=0, "Paid", IF(S[ROW]<P[ROW], "Part-payment", "Unpaid")))`, // T - Payment status
+        batchData.jobStatus, // U
+        loggedBy // V
+      ];
+    });
 
     try {
-      // Pass both the values array AND the totalArea metadata
       useSyncStore.getState().addPendingEntry('sale', {
-        values: rowArray,
-        totalArea: totalJobArea
+        batch: true,
+        items: rowArrays.map((row, i) => ({
+          values: row,
+          totalArea: cart[i].totalJobArea,
+          jobDescription: cart[i].jobDescription,
+          qty: cart[i].qty
+        }))
       });
       
       toast.success("Saved locally! Syncing with Google Sheets in background...");
       setShowConfirmModal(false);
       
-      // Reset ALL fields to default after saving
-      setFormData({
+      setBatchData({
         date: new Date().toISOString().split("T")[0],
         clientName: "",
-        jobDescription: "",
         contact: "",
+        jobStatus: "Quoted",
+        initialPayment: "0",
+      });
+      setJobData({
+        jobDescription: "",
         material: "Flex",
         costPerSqft: "180",
         actualWidth: "",
         actualHeight: "",
         rollSize: "",
         qty: "1",
-        initialPayment: "0",
-        additionalPayment1: "",
-        additionalPayment2: "",
-        jobStatus: "Quoted",
         dimensionUnit: "ft",
       });
+      setCart([]);
       setNlText("");
       setRollSizeTouched(false);
     } catch(err) {
@@ -337,15 +398,15 @@ export function SalesEntry() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Date</Label>
-                  <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
+                  <Input type="date" value={batchData.date} onChange={e => setBatchData({...batchData, date: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Client Name</Label>
-                  <Input placeholder="Sarah Jones" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
+                  <Input placeholder="Sarah Jones" value={batchData.clientName} onChange={e => setBatchData({...batchData, clientName: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Contact Information</Label>
-                  <Input placeholder="sarah.jones@email.com" value={formData.contact} onChange={e => setFormData({...formData, contact: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
+                  <Input placeholder="sarah.jones@email.com" value={batchData.contact} onChange={e => setBatchData({...batchData, contact: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
               </div>
             </div>
@@ -382,10 +443,10 @@ export function SalesEntry() {
                                   <CommandItem
                                     key={item["Item Name"]}
                                     onSelect={() => {
-                                      setFormData({
-                                        ...formData,
+                                      setJobData({
+                                        ...jobData,
                                         jobDescription: item["Item Name"],
-                                        costPerSqft: item["Price"]?.toString() || formData.costPerSqft
+                                        costPerSqft: item["Price"]?.toString() || jobData.costPerSqft
                                       });
                                       setOpenInv(false);
                                       toast.info(`Selected ${item["Item Name"]}`);
@@ -395,7 +456,7 @@ export function SalesEntry() {
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        formData.jobDescription === item["Item Name"] ? "opacity-100" : "opacity-0"
+                                        jobData.jobDescription === item["Item Name"] ? "opacity-100" : "opacity-0"
                                       )}
                                     />
                                     {item["Item Name"]} (₦{parseFloat(item.Price).toLocaleString()})
@@ -408,11 +469,11 @@ export function SalesEntry() {
                       </Popover>
                     )}
                   </div>
-                  <Input placeholder="3x Large Format Banners for Event" value={formData.jobDescription} onChange={e => setFormData({...formData, jobDescription: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
+                  <Input placeholder="3x Large Format Banners for Event" value={jobData.jobDescription} onChange={e => setJobData({...jobData, jobDescription: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Material</Label>
-                  <Select value={formData.material} onValueChange={(val: string) => setFormData({...formData, material: val})}>
+                  <Select value={jobData.material} onValueChange={(val: string) => setJobData({...jobData, material: val})}>
                     <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
                       <SelectItem value="Flex">Flex Banner</SelectItem>
@@ -422,7 +483,7 @@ export function SalesEntry() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Quantity</Label>
-                  <Input type="number" min="1" value={formData.qty} onChange={e => setFormData({...formData, qty: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950" />
+                  <Input type="number" min="1" value={jobData.qty} onChange={e => setJobData({...jobData, qty: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950" />
                 </div>
               </div>
             </div>
@@ -439,14 +500,14 @@ export function SalesEntry() {
                     <Label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Actual Size (Width x Height)</Label>
                     <div className="flex bg-gray-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-800">
                       <button 
-                        onClick={() => setFormData({...formData, dimensionUnit: 'ft'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${formData.dimensionUnit === 'ft' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300'}`}
+                        onClick={() => setJobData({...jobData, dimensionUnit: 'ft'})}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'ft' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300'}`}
                       >
                         FEET
                       </button>
                       <button 
-                        onClick={() => setFormData({...formData, dimensionUnit: 'in'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${formData.dimensionUnit === 'in' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300'}`}
+                        onClick={() => setJobData({...jobData, dimensionUnit: 'in'})}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'in' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300'}`}
                       >
                         INCHES
                       </button>
@@ -454,13 +515,13 @@ export function SalesEntry() {
                   </div>
                   <div className="flex items-center gap-2">
                      <div className="relative flex-1 group">
-                        <Input type="number" placeholder={formData.dimensionUnit === 'ft' ? "5" : "20"} value={formData.actualWidth} onChange={e => setFormData({...formData, actualWidth: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold" />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{formData.dimensionUnit}</span>
+                        <Input type="number" placeholder={jobData.dimensionUnit === 'ft' ? "5" : "20"} value={jobData.actualWidth} onChange={e => setJobData({...jobData, actualWidth: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold" />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
                      </div>
                      <span className="text-gray-400 font-bold text-lg flex-shrink-0">×</span>
                      <div className="relative flex-1 group">
-                        <Input type="number" placeholder={formData.dimensionUnit === 'ft' ? "3" : "15"} value={formData.actualHeight} onChange={e => setFormData({...formData, actualHeight: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold" />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{formData.dimensionUnit}</span>
+                        <Input type="number" placeholder={jobData.dimensionUnit === 'ft' ? "3" : "15"} value={jobData.actualHeight} onChange={e => setJobData({...jobData, actualHeight: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold" />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
                      </div>
                      {/* Inline live sqft chip */}
                      {calculatedSize > 0 && (
@@ -479,130 +540,133 @@ export function SalesEntry() {
                   </Label>
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                     {["3", "4", "5", "6", "8", "10"].map((size) => {
-                      const isDisabled = formData.material === "SAV" && !["3", "4", "5"].includes(size);
+                      const isDisabled = jobData.material === "SAV" && !["3", "4", "5"].includes(size);
                       return (
                         <RollCard
                           key={size}
                           width={size}
-                          selected={formData.rollSize === size}
+                          selected={jobData.rollSize === size}
                           disabled={isDisabled}
                           onClick={() => {
-                            setFormData({...formData, rollSize: size});
+                            setJobData({...jobData, rollSize: size});
                             setRollSizeTouched(true);
                           }}
                         />
                       );
                     })}
                   </div>
-                  {rollSizeTouched && !formData.rollSize && (
+                  {rollSizeTouched && !jobData.rollSize && (
                     <p className="text-[11px] text-rose-500 font-black mt-1 uppercase tracking-tighter">⚠ Roll size is required</p>
                   )}
                 </div>
 
-                <div className="md:col-span-1 space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Initial Payment (₦)</Label>
-                  <Input type="number" placeholder="5000" value={formData.initialPayment} onChange={e => setFormData({...formData, initialPayment: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
-                </div>
-
                 <div className="md:col-span-1 space-y-1.5 relative">
                   <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Cost Per SQFT (₦)</Label>
-                  <Input type="number" value={formData.costPerSqft} onChange={e => setFormData({...formData, costPerSqft: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
+                  <Input type="number" value={jobData.costPerSqft} onChange={e => setJobData({...jobData, costPerSqft: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
                 </div>
 
-                {/* Pricing Preview Section */}
-                <div className="md:col-span-4 bg-gray-50/50 dark:bg-zinc-900/30 rounded-2xl p-4 border border-gray-100 dark:border-white/5 space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calculator className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-zinc-500">Live Calculation Preview</span>
+                <div className="md:col-span-3 flex justify-end items-end">
+                   <Button 
+                     onClick={handleAddToCart}
+                     className="h-12 px-6 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
+                   >
+                     <span>+ Add to Order</span>
+                     {totalAmount > 0 && <span className="text-white/60 dark:text-black/60 font-normal">| ₦{totalAmount.toLocaleString()}</span>}
+                   </Button>
+                </div>
+
+              </div>
+
+              {/* Cart Section */}
+              {cart.length > 0 && (
+                <div className="mt-12 pt-8 border-t border-gray-100 dark:border-white/5">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Current Order</h3>
+                    <Badge variant="outline" className="px-2 py-1 font-bold rounded-lg border-gray-200 dark:border-zinc-800">{cart.length} Items</Badge>
                   </div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-tighter">Job Area</p>
-                      <div className="flex items-baseline gap-1">
-                        <p className="text-lg font-bold text-gray-900 dark:text-white">{calculatedSize.toFixed(2)}</p>
-                        <span className="text-[10px] font-medium text-gray-500 uppercase">sqft</span>
+                  <div className="space-y-3 mb-8">
+                    {cart.map((item, index) => (
+                      <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 dark:bg-zinc-900/50 border border-gray-100 dark:border-white/5 rounded-2xl gap-4">
+                        <div className="flex items-start gap-4">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-gray-900 dark:text-white mb-0.5">{item.jobDescription || `Unnamed Job ${index + 1}`}</p>
+                            <p className="text-xs font-medium text-gray-500 dark:text-zinc-400">
+                              {item.qty}x {item.material} • {item.actualWidth}{item.dimensionUnit} × {item.actualHeight}{item.dimensionUnit} • {item.rollSize}FT Roll
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto ml-12 sm:ml-0">
+                          <div className="text-left sm:text-right">
+                            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-0.5">Amount</p>
+                            <p className="font-bold text-primary dark:text-primary-foreground">₦{item.totalAmount.toLocaleString()}</p>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => removeFromCart(item.id)} 
+                            className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 h-8 px-3 rounded-lg"
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-tighter">Unit Cost</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-[10px] font-medium text-gray-500">₦</span>
-                        <p className="text-lg font-bold text-gray-900 dark:text-white">{unitCostVal.toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-tighter">Total Items</p>
-                      <div className="flex items-baseline gap-1">
-                         <p className="text-lg font-bold text-gray-900 dark:text-white">{formData.qty || 1}</p>
-                         <span className="text-[10px] font-medium text-gray-500 uppercase">Units</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-tighter">Rate Applied</p>
-                      <div className="flex items-center gap-1.5">
-                         <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0 border-primary/20 text-primary dark:text-primary-foreground">
-                           {formData.material}
-                         </Badge>
-                         <span className="text-[10px] font-medium text-gray-500">@ ₦{formData.costPerSqft}/sqft</span>
-                      </div>
-                    </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Primary Calculated Bar (Grand Total) */}
+                  <div className="hidden md:flex md:col-span-4 p-5 bg-primary rounded-3xl shadow-lg shadow-primary/20 dark:shadow-none justify-between items-center gap-4 border border-white/10 mb-8">
+                     <div className="flex-1 min-w-[100px]">
+                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Total Items:</p>
+                        <p className="text-xl font-bold text-primary-foreground leading-none">{cart.length}</p>
+                     </div>
+                     <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
+                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Grand Total:</p>
+                        <p className="text-2xl font-bold text-primary-foreground leading-none">₦{grandTotal.toLocaleString()}</p>
+                     </div>
+                     <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
+                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Initial Paid:</p>
+                        <p className="text-xl font-bold text-primary-foreground leading-none">₦{(parseFloat(batchData.initialPayment) || 0).toLocaleString()}</p>
+                     </div>
+                     <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
+                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Balance Due:</p>
+                        <p className="text-2xl font-bold text-primary-foreground leading-none">₦{amountDifference.toLocaleString()}</p>
+                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end mt-4">
+                     <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Initial Payment (₦)</Label>
+                        <Input type="number" placeholder="5000" value={batchData.initialPayment} onChange={e => setBatchData({...batchData, initialPayment: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
+                     </div>
+                     <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Job Status</Label>
+                        <Select value={batchData.jobStatus} onValueChange={(val: string) => setBatchData({...batchData, jobStatus: val})}>
+                          <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 w-full shadow-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
+                            <SelectItem value="Quoted">Quoted</SelectItem>
+                            <SelectItem value="Printing">Printing</SelectItem>
+                            <SelectItem value="Finishing">Finishing</SelectItem>
+                            <SelectItem value="Ready">Ready</SelectItem>
+                            <SelectItem value="Delivered">Delivered</SelectItem>
+                          </SelectContent>
+                        </Select>
+                     </div>
+                     <div className="flex flex-col items-center md:items-end">
+                        <p className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-500 tracking-widest mb-1">Status: <span className={paymentStatus === "Paid" ? "text-emerald-500" : "text-rose-500"}>{paymentStatus.toUpperCase()}</span></p>
+                        <Button 
+                          onClick={() => setShowConfirmModal(true)}
+                          className="w-full h-12 text-white font-bold text-lg rounded-xl shadow-xl transition-all bg-primary hover:bg-primary/90 shadow-primary/20 dark:shadow-none hover:scale-[1.02]"
+                        >
+                          Review & Save Batch
+                        </Button>
+                     </div>
                   </div>
                 </div>
-
-                {/* Desktop Primary Calculated Bar */}
-                <div className="hidden md:flex md:col-span-4 p-5 bg-primary rounded-3xl shadow-lg shadow-primary/20 dark:shadow-none justify-between items-center gap-4 border border-white/10">
-                   <div className="flex-1 min-w-[100px]">
-                      <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Total Area:</p>
-                      <p className="text-xl font-bold text-primary-foreground leading-none">{totalJobArea.toFixed(2)} sqft</p>
-                   </div>
-                   <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
-                      <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Final Total:</p>
-                      <p className="text-2xl font-bold text-primary-foreground leading-none">₦{totalAmount.toLocaleString()}</p>
-                   </div>
-                   <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
-                      <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Initial Paid:</p>
-                      <p className="text-xl font-bold text-primary-foreground leading-none">₦{(parseFloat(formData.initialPayment) || 0).toLocaleString()}</p>
-                   </div>
-                   <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
-                      <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Balance Due:</p>
-                      <p className="text-2xl font-bold text-primary-foreground leading-none">₦{amountDifference.toLocaleString()}</p>
-                   </div>
-                </div>
-
-                <div className="md:col-span-4 flex flex-col md:flex-row md:items-center justify-between gap-6 mt-4">
-                   <div className="flex-1 space-y-1.5">
-                      <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Job Status</Label>
-                      <Select value={formData.jobStatus} onValueChange={(val: string) => setFormData({...formData, jobStatus: val})}>
-                        <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 w-full md:w-[240px] shadow-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
-                          <SelectItem value="Quoted">Quoted</SelectItem>
-                          <SelectItem value="Printing">Printing</SelectItem>
-                          <SelectItem value="Finishing">Finishing</SelectItem>
-                          <SelectItem value="Ready">Ready</SelectItem>
-                          <SelectItem value="Delivered">Delivered</SelectItem>
-                        </SelectContent>
-                      </Select>
-                   </div>
-                   <div className="flex flex-col items-center md:items-end">
-                      <p className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-500 tracking-widest mb-1">Status: <span className={paymentStatus === "Paid" ? "text-emerald-500" : "text-rose-500"}>{paymentStatus.toUpperCase()}</span></p>
-                      <Button 
-                        onClick={() => {
-                          setRollSizeTouched(true);
-                          if (!formData.rollSize) return;
-                          setShowConfirmModal(true);
-                        }}
-                        className={`w-full md:w-[320px] h-14 text-white font-bold text-lg rounded-2xl shadow-xl transition-all ${
-                          !formData.rollSize
-                            ? 'bg-gray-300 dark:bg-zinc-800 cursor-not-allowed shadow-none'
-                            : 'bg-primary hover:bg-primary/90 shadow-primary/20 dark:shadow-none hover:scale-[1.02]'
-                        }`}
-                      >
-                        Review & Save
-                      </Button>
-                   </div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </TabsContent>
@@ -639,8 +703,8 @@ export function SalesEntry() {
           <Drawer.Trigger asChild>
             <button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl p-4 shadow-2xl shadow-primary/20 flex items-center justify-between group active:scale-95 transition-all">
               <div className="flex flex-col items-start gap-0.5">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-primary-foreground/80">Total Amount</span>
-                <span className="text-xl font-bold">₦{totalAmount.toLocaleString()}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-primary-foreground/80">Grand Total</span>
+                <span className="text-xl font-bold">₦{grandTotal.toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10">
                 <span className="text-[10px] font-bold uppercase tracking-wide">Summary</span>
@@ -664,19 +728,19 @@ export function SalesEntry() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-white/5">
-                    <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Total Area</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">{calculatedSize.toFixed(2)} sqft</p>
+                    <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Total Items</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">{cart.length}</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-white/5">
-                    <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Unit Cost</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">₦{unitCostVal.toLocaleString()}</p>
+                    <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Total Area</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">{cart.reduce((sum, item) => sum + item.totalJobArea, 0).toFixed(2)} sqft</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-primary/5 dark:bg-primary/20 border border-primary/10 col-span-2">
                     <div className="flex justify-between items-center mb-1">
-                      <p className="text-[9px] font-bold text-primary dark:text-primary-foreground uppercase tracking-widest">Total Amount</p>
+                      <p className="text-[9px] font-bold text-primary dark:text-primary-foreground uppercase tracking-widest">Grand Total</p>
                       <CheckCircle2 className="w-3 h-3 text-primary" />
                     </div>
-                    <p className="text-3xl font-bold text-primary dark:text-white">₦{totalAmount.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-primary dark:text-white">₦{grandTotal.toLocaleString()}</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/10 col-span-2">
                     <p className="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1">Remaining Balance</p>
@@ -686,16 +750,15 @@ export function SalesEntry() {
 
                 <Button 
                   onClick={() => {
-                    setRollSizeTouched(true);
-                    if (!formData.rollSize) {
-                      toast.error("Please select a roll size");
+                    if (cart.length === 0) {
+                      toast.error("Cart is empty");
                       return;
                     }
                     setShowConfirmModal(true);
                   }}
                   className="w-full h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xl rounded-2xl shadow-xl shadow-primary/20"
                 >
-                  Review & Save Job
+                  Review & Save Batch
                 </Button>
               </div>
             </Drawer.Content>
@@ -711,29 +774,34 @@ export function SalesEntry() {
               This will update Columns A through V in your Google Sheet.
             </DialogDescription>
           </DialogHeader>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm bg-gray-50 dark:bg-zinc-900 p-4 rounded-xl border border-gray-100 dark:border-white/5">
-               <div className="col-span-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-bold block mb-0.5">Client:</span> <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">{formData.clientName || 'N/A'}</span></div>
-               <div className="col-span-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-bold block mb-0.5">Material:</span> <span className="text-sm font-semibold text-gray-900 dark:text-white">{formData.material}</span></div>
-               <div className="col-span-1"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-bold block mb-0.5">Dimensions:</span> <span className="text-sm font-semibold text-gray-900 dark:text-white">{formData.actualWidth}{formData.dimensionUnit} × {formData.actualHeight}{formData.dimensionUnit}</span></div>
-               <div className="col-span-1"><span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase font-bold block mb-0.5">Roll:</span> <span className="text-sm font-semibold text-primary dark:text-primary-foreground">{formData.rollSize}FT</span></div>
-                <div className="col-span-2"><span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-bold block mb-0.5">Formula:</span> <code className="text-xs bg-primary/10 text-primary dark:text-primary-foreground px-2 py-0.5 rounded whitespace-nowrap">={formData.actualWidth}*{formData.actualHeight}{formData.dimensionUnit === 'in' ? '/144' : ''}</code></div>
-            </div>
+              <div className="bg-gray-50 dark:bg-zinc-900 p-4 rounded-xl border border-gray-100 dark:border-white/5 text-sm">
+                <div className="flex justify-between mb-2">
+                  <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-bold">Client:</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">{batchData.clientName || 'N/A'}</span>
+                </div>
+                <div className="space-y-2 mt-4">
+                  {cart.map((item, idx) => (
+                    <div key={item.id} className="flex justify-between text-xs py-2 border-t border-gray-200 dark:border-zinc-800">
+                      <div className="truncate pr-4 font-medium dark:text-zinc-300">
+                        {item.qty}x {item.material} ({item.rollSize}FT) - {item.jobDescription || `Item ${idx+1}`}
+                      </div>
+                      <div className="font-bold dark:text-white">₦{item.totalAmount.toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
             <div className="flex flex-col gap-1 border-b dark:border-zinc-800 pb-2">
-               <div className="flex justify-between items-center text-xs">
-                 <span className="text-gray-500 dark:text-zinc-500">Rate: ₦{formData.costPerSqft}</span>
-                 <span className="text-gray-500 dark:text-zinc-500">Qty: {formData.qty}</span>
-               </div>
-               <div className="flex justify-between items-center text-lg font-bold text-primary dark:text-primary-foreground">
-                 <span>Total Amount</span>
-                 <span>₦{totalAmount.toLocaleString()}</span>
+               <div className="flex justify-between items-center text-lg font-bold text-primary dark:text-primary-foreground mt-2">
+                 <span>Grand Total</span>
+                 <span>₦{grandTotal.toLocaleString()}</span>
                </div>
             </div>
             
             <div className="p-3 bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg">
                <div className="flex justify-between items-center text-xs font-bold text-primary dark:text-primary/90">
-                 <span>Payments Logged</span>
-                 <span>₦{parseFloat(formData.initialPayment).toLocaleString()}</span>
+                 <span>Initial Payment Received</span>
+                 <span>₦{parseFloat(batchData.initialPayment).toLocaleString()}</span>
                </div>
             </div>
           <DialogFooter className="p-4 bg-gray-50 dark:bg-zinc-900/50 border-t dark:border-zinc-800 flex flex-row gap-2">

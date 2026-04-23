@@ -63,7 +63,7 @@ export function RecordCard({ date, type, client, description, amount, status, is
         });
         
         pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
-        pdf.save(`BOMedia_Receipt_${record.customerName?.replace(/\s+/g, '_') || 'Customer'}.pdf`);
+        pdf.save(`BOMedia_Receipt_${record.client?.replace(/\s+/g, '_') || 'Customer'}.pdf`);
       } catch (error) {
         console.error("Failed to generate receipt", error);
       } finally {
@@ -71,6 +71,38 @@ export function RecordCard({ date, type, client, description, amount, status, is
       }
     }, 100);
   };
+
+  let rollSize = "";
+  let sqft = 0;
+  let qty = 0;
+
+  if (record?.raw) {
+    const sizes = ["3FT", "4FT", "5FT", "6FT", "8FT", "10FT"];
+    for (const size of sizes) {
+      if (record.raw[size]) {
+        const val = parseFloat(record.raw[size]);
+        if (val > 0) {
+          rollSize = size;
+          sqft = val;
+          break;
+        }
+      }
+    }
+    if (record.raw["QTY"]) {
+      qty = parseFloat(record.raw["QTY"]) || 0;
+    }
+  }
+
+  let displayDescription = description;
+  let extractedDimension = "";
+
+  if (description) {
+    const dimMatch = description.match(/ \[(.*?)\]$/);
+    if (dimMatch) {
+      extractedDimension = dimMatch[1];
+      displayDescription = description.substring(0, dimMatch.index).trim();
+    }
+  }
 
   // Left accent border by record type
   const isExpense = type === "Expense";
@@ -90,8 +122,11 @@ export function RecordCard({ date, type, client, description, amount, status, is
     )}>
       <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-50 dark:border-zinc-800/80">
         <div>
-          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-500 block leading-none mb-1">{date}</span>
-          <span className="text-[9px] font-bold uppercase text-primary/80 dark:text-primary/60 tracking-wider">Amount: {amount}</span>
+          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-500 block leading-none mb-3">{date}</span>
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold uppercase text-gray-500 block leading-none mb-1 tracking-wider">Amount</span>
+            <span className="text-sm font-black text-gray-900 dark:text-white leading-none">₦{amount.replace('₦', '').trim()}</span>
+          </div>
         </div>
         <div className="text-right">
           <span className="text-[9px] font-bold uppercase text-rose-400 dark:text-rose-500 block leading-none mb-1 tracking-wider">Difference</span>
@@ -107,8 +142,13 @@ export function RecordCard({ date, type, client, description, amount, status, is
           </div>
           <div>
             <p className="text-xs text-gray-500 dark:text-zinc-400">
-              <span className="font-semibold text-gray-600 dark:text-zinc-300">Description:</span> {description}
+              <span className="font-semibold text-gray-600 dark:text-zinc-300">Description:</span> {displayDescription}
             </p>
+            {rollSize && sqft > 0 && (
+              <p className="text-[10px] text-gray-500 font-bold mt-1">
+                Roll: {rollSize} ({extractedDimension ? extractedDimension : `${sqft} sqft`}) • Qty: {qty}
+              </p>
+            )}
           </div>
         </div>
         
@@ -141,7 +181,7 @@ export function RecordCard({ date, type, client, description, amount, status, is
                 clientName={record.client || client}
                 contact={record.contact || ""}
                 balance={record.balance || 0}
-                jobDescription={record.description || description}
+                jobDescription={displayDescription}
                 variant="full"
               />
             )}

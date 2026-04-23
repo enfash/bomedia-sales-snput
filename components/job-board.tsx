@@ -147,9 +147,9 @@ export function JobBoard({ isAdmin = false }: { isAdmin?: boolean }) {
                 
                 <div className="flex justify-between items-start mb-2 pl-2">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium truncate">{job.customerName}</p>
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium truncate">{job.client}</p>
                     <p className="text-sm font-bold text-gray-800 dark:text-zinc-100 leading-tight line-clamp-2 mt-0.5">
-                      {job.jobDescription}
+                      {job.description}
                     </p>
                   </div>
                 </div>

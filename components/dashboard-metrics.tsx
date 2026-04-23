@@ -62,7 +62,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden h-full bg-card rounded-2xl shadow-sm border border-border p-3 sm:p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col justify-between",
+        "relative overflow-hidden h-full bg-card rounded-2xl shadow-sm border border-border p-2 sm:p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col justify-between",
         isHero && "metric-hero border-primary/20 bg-primary/[0.03] p-5",
         isAlert && "animate-pulse-debt border-destructive/50 ring-2 ring-destructive/20"
       )}
@@ -87,18 +87,18 @@ export function MetricCard({
           className={cn(
             "rounded-xl flex items-center justify-center transition-colors shrink-0",
             isHero ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 w-10 h-10" 
-              : isAlert ? "bg-destructive/10 text-destructive w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
-              : "bg-muted text-foreground w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
+              : isAlert ? "bg-destructive/10 text-destructive w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
+              : "bg-muted text-foreground w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
           )}
         >
-          <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+          <Icon className="w-3 h-3 sm:w-5 sm:h-5" />
         </div>
       </div>
 
       <div className="space-y-1">
         <p className={cn(
           "font-black tracking-tight text-foreground leading-none truncate",
-          isHero ? "text-3xl sm:text-4xl" : "text-sm sm:text-xl lg:text-2xl"
+          isHero ? "text-3xl sm:text-4xl" : "text-xs sm:text-xl lg:text-2xl"
         )}>
           ₦{value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
         </p>
@@ -175,7 +175,7 @@ export function DashboardMetrics({
   sparkData,
 }: DashboardMetricsProps) {
   return (
-    <div className="grid grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+    <div className="grid grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-4">
       {/* Hero Card — Spans 3 columns on mobile to fill width, 2 columns on desktop */}
       <div className="col-span-3 lg:col-span-2">
         <MetricCard

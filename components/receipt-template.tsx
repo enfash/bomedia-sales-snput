@@ -24,7 +24,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     } catch (e) {}
 
     const balance = record.balance || 0;
-    const amountPaid = record.amountPaid || 0;
+    const amountPaid = record.amount || 0;
     const totalAmount = amountPaid + balance;
 
     return (
@@ -59,9 +59,9 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
         {/* Customer Details */}
         <div className="mb-8">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Billed To</p>
-          <h2 className="text-lg font-black text-gray-800">{record.customerName}</h2>
-          {record.phoneNumber && (
-            <p className="text-sm text-gray-600 mt-0.5">{record.phoneNumber}</p>
+          <h2 className="text-lg font-black text-gray-800">{record.client}</h2>
+          {record.contact && (
+            <p className="text-sm text-gray-600 mt-0.5">{record.contact}</p>
           )}
         </div>
 
@@ -77,7 +77,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
             </thead>
             <tbody className="divide-y divide-gray-100">
               <tr>
-                <td className="px-4 py-4 font-medium text-gray-900">{record.jobDescription}</td>
+                <td className="px-4 py-4 font-medium text-gray-900">{record.description}</td>
                 {record.material && <td className="px-4 py-4 text-gray-600">{record.material}</td>}
                 <td className="px-4 py-4 text-right font-bold text-gray-900">
                   ₦{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
