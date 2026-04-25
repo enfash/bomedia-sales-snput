@@ -11,8 +11,6 @@ export function BottomNav() {
   const isAdmin = pathname?.startsWith("/bom03");
   const isCashier = pathname?.startsWith("/cashier") || isAdmin;
 
-  if (!isCashier) return null;
-
   const navItems = useMemo(() => isAdmin
     ? [
         { label: "Dash",    icon: LayoutDashboard, href: "/bom03" },
@@ -28,6 +26,8 @@ export function BottomNav() {
         { label: "Records", icon: BarChart3,       href: "/cashier/records" },
         { label: "Expense", icon: Receipt,         href: "/cashier/expenses" },
       ], [isAdmin]);
+
+  if (!isCashier) return null;
 
   // Determine color scheme based on portal type
   const primaryClass = isAdmin
