@@ -74,7 +74,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
               description="New sales or expenses will populate this trend automatically."
             />
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -159,7 +159,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
             />
           ) : (
             <>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <PieChart>
                   <Pie
                     data={data}
@@ -219,7 +219,7 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
             />
           ) : (
             <>
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={200}>
                 <PieChart>
                   <Pie
                     data={data}
@@ -260,7 +260,12 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
 }
 
 // ─── Outstanding Debt Bar Chart ─────────────────────────────────────────────
-export function OutstandingDebtChart({ data }: { data: DebtData[] }) {
+interface OutstandingDebtChartProps {
+  data: DebtData[];
+  onClientClick?: (name: string) => void;
+}
+
+export function OutstandingDebtChart({ data, onClientClick }: OutstandingDebtChartProps) {
   const hasData = data && data.length > 0;
 
   return (
@@ -287,7 +292,7 @@ export function OutstandingDebtChart({ data }: { data: DebtData[] }) {
               description="No outstanding debt found in the current records. Excellent work!"
             />
           ) : (
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={200}>
               <BarChart
                 data={data}
                 layout="vertical"
@@ -309,6 +314,7 @@ export function OutstandingDebtChart({ data }: { data: DebtData[] }) {
                   tickLine={false}
                   tick={{ fontSize: 11, fill: "hsl(var(--foreground))", fontWeight: 700 }}
                   width={90}
+                  tickFormatter={(name) => (name.length > 14 ? name.slice(0, 13) + "…" : name)}
                 />
                 <Tooltip
                   contentStyle={{
@@ -320,7 +326,18 @@ export function OutstandingDebtChart({ data }: { data: DebtData[] }) {
                   formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Balance"]}
                   labelStyle={{ fontWeight: "900", marginBottom: "6px", color: "hsl(var(--foreground))" }}
                 />
-                <Bar dataKey="balance" fill="hsl(var(--destructive))" radius={[0, 6, 6, 0]} name="Balance" />
+                <Bar 
+                  dataKey="balance" 
+                  fill="hsl(var(--destructive))" 
+                  radius={[0, 6, 6, 0]} 
+                  name="Balance"
+                  onClick={(payload) => {
+                    if (onClientClick && payload?.name) {
+                      onClientClick(payload.name);
+                    }
+                  }}
+                  style={{ cursor: onClientClick ? "pointer" : "default" }}
+                />
               </BarChart>
             </ResponsiveContainer>
           )}

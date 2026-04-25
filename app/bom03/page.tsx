@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
 import { SalesExpenseChart, ExpenseCategorizationChart, OutstandingDebtChart } from "@/components/dashboard-charts";
+import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
+import { processDebtData } from "@/lib/financial-utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TodayBanner } from "@/components/today-banner";
 
@@ -44,6 +46,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [timeRange, setTimeRange] = useState<"today" | "7d" | "30d">("30d");
+  const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   
   // Notification refs to track 'new' entries
   const lastSalesIndex = useRef<number>(0);
@@ -53,6 +56,10 @@ export default function DashboardPage() {
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else if (salesData.length === 0) setLoading(true);
+
+    // Get current mute status from localStorage
+    const mutedPreference = localStorage.getItem("bomedia-muted") === "true";
+    setIsMuted(mutedPreference);
 
     try {
       const [salesRes, expensesRes] = await Promise.all([
@@ -105,9 +112,22 @@ export default function DashboardPage() {
         });
 
         // Play sound if new activity and not muted
-        if (hasNewActivity && !isMuted) {
-          const audio = new Audio("/notification.mp3");
-          audio.play().catch(e => console.error("Sound play blocked:", e));
+        if (hasNewActivity) {
+          // Double check preference
+          const currentMute = localStorage.getItem("bomedia-muted") === "true";
+          
+          if (!currentMute) {
+            const audio = new Audio("/notification.mp3");
+            audio.play().catch(e => console.error("Sound play blocked:", e));
+          }
+
+          // Dispatch system notification event
+          window.dispatchEvent(new CustomEvent("bomedia-notify", {
+            detail: {
+              title: "New BOMedia Activity",
+              body: `${freshSales.length > 0 ? freshSales.length + " new sale(s). " : ""}${freshExpenses.length > 0 ? freshExpenses.length + " new expense(s)." : ""}`
+            }
+          }));
         }
 
         // Update indices
@@ -214,33 +234,7 @@ export default function DashboardPage() {
   const prevProfitVal = prevSalesVal - prevExpensesVal;
 
   // ── Outstanding debt ───────────────────────────────────────────────────────
-  const debtRows = allSales.filter((r) => {
-    const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
-    return balance > 0;
-  });
-
-  const outstandingDebtTotal = debtRows.reduce(
-    (sum, r) => sum + parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
-    0
-  );
-
-  const unpaidCount = debtRows.length;
-
-  // Group by client name, sum balances, take top 7
-  const debtByClient: Record<string, number> = {};
-  debtRows.forEach((r) => {
-    const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
-    const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
-    debtByClient[client] = (debtByClient[client] || 0) + balance;
-  });
-
-  const outstandingDebtChart = Object.entries(debtByClient)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 7)
-    .map(([name, balance]) => ({
-      name: name.length > 14 ? name.slice(0, 13) + "…" : name,
-      balance,
-    }));
+  const { chartData: outstandingDebtChart, totalDebt: outstandingDebtTotal, count: unpaidCount } = processDebtData(allSales);
 
   // ── Today at a glance (Static window for banner) ───────────────────────────
   const startOfToday = startOfDay(now);
@@ -469,7 +463,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts — Row 2: Outstanding Debt (full width) */}
-      <OutstandingDebtChart data={outstandingDebtChart} />
+      <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} />
+
+      <DebtorPaymentModal 
+        clientName={selectedDebtor} 
+        isOpen={!!selectedDebtor} 
+        onClose={() => setSelectedDebtor(null)} 
+        onUpdate={() => fetchData(true)}
+        theme="brand"
+      />
     </div>
   );
 }

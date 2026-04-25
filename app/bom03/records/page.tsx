@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, Fragment, useMemo } from "react";
 import {
-  BarChart3,
   RefreshCw,
   Search,
-  MoreHorizontal,
-  Filter,
   ArrowUpRight,
   ArrowDownRight,
   Wallet,
@@ -14,7 +11,10 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronDown,
-  ArrowUpDown
+  ChevronRight,
+  ArrowUpDown,
+  Printer,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -31,11 +31,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSyncStore } from "@/lib/store";
 import { RecordCard, type RecordStatus } from "@/components/record-card";
-import { subDays, isWithinInterval, parseISO } from "date-fns";
+import { subDays, isWithinInterval } from "date-fns";
 import { ManageSaleAction, type UnifiedRecord } from "@/components/manage-sale-action";
+import { ManageBatchAction } from "@/components/manage-batch-action";
 import { format } from "date-fns";
 import { MaterialBadge } from "@/components/material-badge";
 import { WhatsAppReminder } from "@/components/whatsapp-reminder";
+import { ReceiptTemplate } from "@/components/receipt-template";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import { BatchCard } from "@/components/batch-card";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -80,7 +85,11 @@ export default function RecordsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   const [sortBy, setSortBy] = useState<"date" | "name" | "debt">("date");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc"); // Newest first by default
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [groupReceiptLoading, setGroupReceiptLoading] = useState<string | null>(null);
+  const groupReceiptRef = useRef<HTMLDivElement>(null);
+  const [groupReceiptRecords, setGroupReceiptRecords] = useState<UnifiedRecord[]>([]);
 
   const fetchData = async () => {
     // Only show loader if we have zero cached data
@@ -160,6 +169,7 @@ export default function RecordsPage() {
       jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
       material: r["Material"] || r["MATERIAL"] || r["material"] || "",
       balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
+      salesId: r["SALES ID"] || r["Sales Id"] || "",
       raw: r
     };
   };
@@ -257,14 +267,35 @@ export default function RecordsPage() {
     return sortOrder === "asc" ? comparison : -comparison;
   });
 
-  // --- Pagination ---
-  const totalPages = Math.ceil(sorted.length / itemsPerPage);
-  const paginated = sorted.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // (Paging logic moved to displayUnits useMemo)
 
   // Reset page when filtering changes
   useEffect(() => {
     setCurrentPage(1);
   }, [search, activeTab, sortBy, sortOrder]);
+
+  const groupStatus = (items: UnifiedRecord[]): RecordStatus => {
+    if (items.some(r => r.status === "Syncing")) return "Syncing";
+    if (items.every(r => r.status === "Settled")) return "Settled";
+    if (items.some(r => r.status === "Part-payment")) return "Part-payment";
+    return "In Progress";
+  };
+
+  const handleGroupReceipt = async (items: UnifiedRecord[], salesId: string) => {
+    setGroupReceiptRecords(items);
+    setGroupReceiptLoading(salesId);
+    setTimeout(async () => {
+      try {
+        if (!groupReceiptRef.current) return;
+        const canvas = await html2canvas(groupReceiptRef.current, { scale: 2, useCORS: true, logging: false });
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+        pdf.save(`Invoice_${salesId}.pdf`);
+      } catch (e) { console.error(e); }
+      finally { setGroupReceiptLoading(null); setGroupReceiptRecords([]); }
+    }, 150);
+  };
 
   // --- Metrics (Last 30 Days) ---
   const now = new Date();
@@ -293,6 +324,42 @@ export default function RecordsPage() {
       const balance = parseAmount(r.raw["AMOUNT DIFFERENCES"] || r.raw["Amount Differences"]);
       return sum + (balance > 0 ? balance : 0);
     }, 0);
+
+  // --- Grouping ---
+  // Build an ordered list of "display units": grouped orders + flat records
+  type GroupUnit = { type: "group"; salesId: string; items: UnifiedRecord[] };
+  type FlatUnit = { type: "flat"; record: UnifiedRecord };
+  type DisplayUnit = GroupUnit | FlatUnit;
+
+  const displayUnits: DisplayUnit[] = useMemo(() => {
+    const groups = new Map<string, UnifiedRecord[]>();
+
+    sorted.forEach((r) => {
+      if (r.salesId && r.salesId.trim() !== "" && r.type === "Sale") {
+        const existing = groups.get(r.salesId) ?? [];
+        existing.push(r);
+        groups.set(r.salesId, existing);
+      }
+    });
+
+    // Preserve sort order: emit a group the first time we see its salesId
+    const seen = new Set<string>();
+    const units: DisplayUnit[] = [];
+    sorted.forEach((r) => {
+      if (r.salesId && r.salesId.trim() !== "" && r.type === "Sale") {
+        if (!seen.has(r.salesId)) {
+          seen.add(r.salesId);
+          units.push({ type: "group", salesId: r.salesId, items: groups.get(r.salesId)! });
+        }
+      } else {
+        units.push({ type: "flat", record: r });
+      }
+    });
+    return units;
+  }, [sorted]);
+
+  const totalPages = Math.ceil(displayUnits.length / itemsPerPage);
+  const paginatedUnits = displayUnits.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="p-3 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
@@ -440,44 +507,127 @@ export default function RecordsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && paginated.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400 dark:text-zinc-500 italic">Finding records...</TableCell></TableRow>
-            ) : paginated.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400 dark:text-zinc-500">No records found matching your search.</TableCell></TableRow>
+            {loading && paginatedUnits.length === 0 ? (
+              <TableRow><TableCell colSpan={9} className="text-center py-20 text-gray-400 dark:text-zinc-500 italic">Finding records...</TableCell></TableRow>
+            ) : paginatedUnits.length === 0 ? (
+              <TableRow><TableCell colSpan={9} className="text-center py-20 text-gray-400 dark:text-zinc-500">No records found matching your search.</TableCell></TableRow>
             ) : (
-                paginated.map((r) => (
-                <TableRow key={r.id} className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 transition-colors">
-                  <TableCell className="text-xs font-bold text-gray-600 dark:text-zinc-400">{r.date}</TableCell>
-                  <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-500">{r.type}</TableCell>
-                  <TableCell className="text-sm font-bold text-gray-800 dark:text-zinc-100">{r.client}</TableCell>
-                  <TableCell className="text-xs text-gray-500 dark:text-zinc-400 max-w-[200px] truncate">{r.description}</TableCell>
-                  <TableCell className="text-sm font-black text-gray-900 dark:text-white text-right">₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-sm font-bold text-rose-600 dark:text-rose-400 text-right">
-                    {r.type === "Sale" ? `₦${(r.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
-                  </TableCell>
-                  <TableCell className="text-center"><StatusBadge status={r.status} /></TableCell>
-                  <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-400">{r.loggedBy}</TableCell>
-                  <TableCell className="text-center">
-                    {r.type === "Sale" && r.material && (
-                      <MaterialBadge material={r.material} />
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      {r.type === "Sale" && (
-                        <WhatsAppReminder
-                          clientName={r.client}
-                          contact={r.contact || ""}
-                          balance={r.balance || 0}
-                          jobDescription={r.description}
-                          variant="icon"
-                        />
+              paginatedUnits.map((unit, unitIdx) => {
+                if (unit.type === "flat") {
+                  const r = unit.record;
+                  return (
+                    <TableRow key={r.id} className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 transition-colors">
+                      <TableCell className="text-xs font-bold text-gray-600 dark:text-zinc-400">{r.date}</TableCell>
+                      <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-500">{r.type}</TableCell>
+                      <TableCell className="text-sm font-bold text-gray-800 dark:text-zinc-100">{r.client}</TableCell>
+                      <TableCell className="text-xs text-gray-500 dark:text-zinc-400 max-w-[200px] truncate">{r.description}</TableCell>
+                      <TableCell className="text-sm font-black text-gray-900 dark:text-white text-right">₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-sm font-bold text-rose-600 dark:text-rose-400 text-right">
+                        {r.type === "Sale" ? `₦${(r.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
+                      </TableCell>
+                      <TableCell className="text-center"><StatusBadge status={r.status} /></TableCell>
+                      <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-400">{r.loggedBy}</TableCell>
+                      <TableCell className="text-center">
+                        {r.type === "Sale" && r.material && (
+                          <MaterialBadge material={r.material} />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {r.type === "Sale" && (
+                            <WhatsAppReminder
+                              clientName={r.client}
+                              contact={r.contact || ""}
+                              balance={r.balance || 0}
+                              jobDescription={r.description}
+                              variant="icon"
+                            />
+                          )}
+                          <ManageSaleAction record={r} onUpdate={fetchData} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                // Group Row
+                const isExpanded = expandedGroups.has(unit.salesId);
+                const totalAmt = unit.items.reduce((s, i) => s + i.amount, 0);
+                const totalBal = unit.items.reduce((s, i) => s + (i.balance || 0), 0);
+                const firstItem = unit.items[0];
+
+                return (
+                  <Fragment key={unit.salesId}>
+                    <TableRow 
+                      key={`header-${unit.salesId}`}
+                      className={cn(
+                        "border-b border-gray-100 dark:border-zinc-800 cursor-pointer transition-colors",
+                        isExpanded ? "bg-primary/5 dark:bg-primary/10" : "bg-white dark:bg-zinc-900 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50"
                       )}
-                      <ManageSaleAction record={r} onUpdate={fetchData} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                      onClick={() => {
+                        const next = new Set(expandedGroups);
+                        if (next.has(unit.salesId)) next.delete(unit.salesId);
+                        else next.add(unit.salesId);
+                        setExpandedGroups(next);
+                      }}
+                    >
+                      <TableCell className="text-xs font-black text-primary flex items-center gap-2 py-4">
+                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        {firstItem.date}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-primary/5 dark:bg-primary/10 text-primary border-primary/20 text-[9px] font-black uppercase">Batch</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm font-black text-gray-900 dark:text-white">
+                        {firstItem.client}
+                        <div className="text-[10px] text-gray-500 font-medium">{unit.salesId}</div>
+                      </TableCell>
+                      <TableCell className="text-xs font-bold text-primary">{unit.items.length} Batched Items</TableCell>
+                      <TableCell className="text-sm font-black text-gray-900 dark:text-white text-right">₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-sm font-black text-rose-600 dark:text-rose-400 text-right">₦{totalBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-center"><StatusBadge status={groupStatus(unit.items)} /></TableCell>
+                      <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-400">Multiple</TableCell>
+                      <TableCell className="text-center">—</TableCell>
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary hover:bg-primary/10"
+                            onClick={() => handleGroupReceipt(unit.items, unit.salesId)}
+                            disabled={groupReceiptLoading === unit.salesId}
+                          >
+                            {groupReceiptLoading === unit.salesId ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Printer className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <ManageBatchAction records={unit.items} salesId={unit.salesId} onUpdate={fetchData} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && unit.items.map((item) => (
+                      <TableRow key={item.id} className="bg-gray-50/30 dark:bg-zinc-800/20 border-b border-gray-100 dark:border-zinc-800 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <TableCell className="pl-8 text-[11px] text-gray-400 dark:text-zinc-500">—</TableCell>
+                        <TableCell className="text-[10px] font-medium text-gray-400 dark:text-zinc-600 italic">Item</TableCell>
+                        <TableCell className="text-xs font-bold text-gray-500 dark:text-zinc-400">{item.description || "No description"}</TableCell>
+                        <TableCell className="text-[10px] text-gray-400 dark:text-zinc-500">Row {item.rowIndex}</TableCell>
+                        <TableCell className="text-xs font-bold text-gray-700 dark:text-zinc-300 text-right">₦{item.amount.toLocaleString()}</TableCell>
+                        <TableCell className="text-xs font-bold text-rose-500/70 dark:text-rose-400/70 text-right">₦{(item.balance || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-center"><StatusBadge status={item.status} /></TableCell>
+                        <TableCell className="text-[10px] text-gray-400 dark:text-zinc-500">{item.loggedBy}</TableCell>
+                        <TableCell className="text-center">
+                          {item.material && <MaterialBadge material={item.material} />}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <ManageSaleAction record={item} onUpdate={fetchData} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </Fragment>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -485,25 +635,38 @@ export default function RecordsPage() {
       </div>
 
       <div className="md:hidden space-y-1">
-        {loading && paginated.length === 0 ? (
+        {loading && paginatedUnits.length === 0 ? (
           <div className="text-center py-20 text-gray-400">Loading records...</div>
-        ) : paginated.length === 0 ? (
+        ) : paginatedUnits.length === 0 ? (
           <div className="text-center py-20 text-gray-400">No records found.</div>
         ) : (
-          paginated.map((r) => (
-            <RecordCard
-              key={r.id}
-              date={r.date}
-              type={r.type}
-              client={r.client}
-              description={r.description}
-              amount={`₦${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              status={r.status}
-              isPending={r.isPending}
-              record={r}
-              onUpdate={fetchData}
-            />
-          ))
+          paginatedUnits.map((unit, idx) => {
+            if (unit.type === "group") {
+              return (
+                <BatchCard
+                  key={unit.salesId}
+                  salesId={unit.salesId}
+                  records={unit.items}
+                  onUpdate={fetchData}
+                />
+              );
+            }
+            const r = unit.record;
+            return (
+              <RecordCard
+                key={r.id}
+                date={r.date}
+                type={r.type}
+                client={r.client}
+                description={r.description}
+                amount={`₦${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                status={r.status}
+                isPending={r.isPending}
+                record={r}
+                onUpdate={fetchData}
+              />
+            );
+          })
         )}
       </div>
 
@@ -512,7 +675,7 @@ export default function RecordsPage() {
         <div className="mt-8 flex items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-zinc-800">
           <p className="text-xs font-bold text-gray-600 dark:text-zinc-400">
             Page <span className="text-primary dark:text-brand-300">{currentPage}</span> of {totalPages} 
-            <span className="ml-2 opacity-60">({sorted.length} records)</span>
+            <span className="ml-2 opacity-60">({displayUnits.length} units)</span>
           </p>
           <div className="flex gap-2">
             <Button
@@ -538,6 +701,14 @@ export default function RecordsPage() {
           </div>
         </div>
       )}
+      {/* Hidden group receipt template */}
+      <div className="fixed -left-[2000px] top-0 opacity-0 pointer-events-none">
+        <div ref={groupReceiptRef} className="w-[800px] bg-white p-10">
+          {groupReceiptRecords.length > 0 && (
+            <ReceiptTemplate records={groupReceiptRecords} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

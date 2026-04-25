@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { useSyncStore } from "@/lib/store";
 import { MetricCard } from "@/components/dashboard-metrics";
 import { MaterialSalesChart, OutstandingDebtChart } from "@/components/dashboard-charts";
+import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
+import { processDebtData } from "@/lib/financial-utils";
 import { isSameDay, subDays, isWithinInterval } from "date-fns";
 import { TodayBanner } from "@/components/today-banner";
 import { FloatingSaleActionButton } from "@/components/floating-sale-fab";
@@ -40,6 +42,7 @@ export default function CashierDashboardPage() {
   const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -116,33 +119,8 @@ export default function CashierDashboardPage() {
   const dailyTotalSalesVal = sumKey(todaySales, ["AMOUNT (₦)", "Amount (₦)"]);
 
   // ── Outstanding debt ───────────────────────────────────────────────────────
-  const dailyDebtRows = todaySales.filter((r) => parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]) > 0);
-  const dailyOutstandingDebt = dailyDebtRows.reduce(
-    (sum, r) => sum + parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
-    0
-  );
-
-  const weeklyDebtRows = weekSales.filter((r) => parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]) > 0);
-  const weeklyOutstandingDebt = weeklyDebtRows.reduce(
-    (sum, r) => sum + parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
-    0
-  );
-
-  // Group by client name, sum balances, take top 10 for the week
-  const debtByClient: Record<string, number> = {};
-  weeklyDebtRows.forEach((r) => {
-    const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
-    const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
-    debtByClient[client] = (debtByClient[client] || 0) + balance;
-  });
-
-  const outstandingDebtChart = Object.entries(debtByClient)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([name, balance]) => ({
-      name: name.length > 14 ? name.slice(0, 13) + "…" : name,
-      balance,
-    }));
+  const { totalDebt: dailyOutstandingDebt } = processDebtData(todaySales);
+  const { totalDebt: weeklyOutstandingDebt, chartData: outstandingDebtChart } = processDebtData(weekSales, 10);
 
   // ── Material categories ─────────────────────────────────────────────────────
   const materials: Record<string, number> = {};
@@ -271,9 +249,17 @@ export default function CashierDashboardPage() {
           <MaterialSalesChart data={materialData} total={totalJobs} />
         </div>
         <div className="lg:col-span-2">
-          <OutstandingDebtChart data={outstandingDebtChart} />
+          <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} />
         </div>
       </div>
+
+      <DebtorPaymentModal 
+        clientName={selectedDebtor} 
+        isOpen={!!selectedDebtor} 
+        onClose={() => setSelectedDebtor(null)} 
+        onUpdate={() => fetchData(true)}
+        theme="amber"
+      />
     </div>
   );
 }

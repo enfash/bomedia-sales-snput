@@ -52,7 +52,12 @@ const getColumnId = (status: string) => {
   return "Quoted"; // fallback
 };
 
-export function JobBoard({ isAdmin = false }: { isAdmin?: boolean }) {
+interface JobBoardProps {
+  isAdmin?: boolean;
+  filterClient?: string | null;
+}
+
+export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
   const [isUpdating, setIsUpdating] = useState<number | null>(null);
   const [records, setRecords] = useState<UnifiedRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,7 +66,14 @@ export function JobBoard({ isAdmin = false }: { isAdmin?: boolean }) {
     try {
       const res = await fetch("/api/sales");
       const json = await res.json();
-      const mapped = (json.data || []).map((r: any) => mapSale(r));
+      let mapped = (json.data || []).map((r: any) => mapSale(r));
+      
+      if (filterClient) {
+        mapped = mapped.filter((r: UnifiedRecord) => 
+          r.client.toLowerCase().includes(filterClient.toLowerCase())
+        );
+      }
+      
       setRecords(mapped);
     } catch (e) {
       console.error("Failed to fetch sales for board");

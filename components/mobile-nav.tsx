@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package } from "lucide-react";
+import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
+import { toast } from "sonner";
 
 
 const navItems = [
@@ -24,8 +25,30 @@ interface MobileNavProps {
 
 export function MobileNav({ isAdmin = false }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false); // Initial false matches server
+  const [hasHydrated, setHasHydrated] = useState(false);
   const pathname = usePathname();
   const { pendingQueue, syncStatus } = useSyncStore();
+
+  useEffect(() => {
+    const savedMute = localStorage.getItem("bomedia-muted") === "true";
+    setIsMuted(savedMute);
+    setHasHydrated(true);
+  }, []);
+
+  const toggleMute = () => {
+    const nextMute = !isMuted;
+    setIsMuted(nextMute);
+    localStorage.setItem("bomedia-muted", String(nextMute));
+    toast.info(nextMute ? "Notifications Muted" : "Sound Enabled", {
+      icon: nextMute ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />,
+      duration: 2000
+    });
+  };
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
 
   const handleLogout = async () => {
     const userName = localStorage.getItem("userName");
@@ -81,27 +104,47 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
   return (
     <>
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900 dark:bg-zinc-950 text-white flex items-center justify-between px-4 z-50 border-b border-gray-800 dark:border-zinc-800 transition-colors duration-500">
+      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 z-50 flex items-center justify-between px-4 transition-colors duration-500">
         <div className="flex items-center gap-2">
-          <Logo showText={true} className="text-white" />
-          {pendingQueue.length > 0 && (
-            <span className="ml-1 flex items-center gap-1 text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/30">
-              <RefreshCw className={cn("w-2 h-2", syncStatus === 'syncing' && "animate-spin")} />
-              {pendingQueue.length}
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(true)}
+              className="md:hidden text-gray-600 dark:text-zinc-400"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
+            <div className="flex flex-col">
+              <span className="text-sm font-black text-primary dark:text-orange-400 uppercase tracking-tighter leading-none">BOMedia</span>
+              <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-widest leading-none mt-1">{isAdmin ? "Admin" : "Cashier"}</span>
+            </div>
+          </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setIsOpen(!isOpen)}
-            className="text-white hover:bg-gray-800 dark:hover:bg-zinc-900 h-10 w-10 shrink-0"
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            className="h-9 w-9 rounded-xl text-gray-400 hover:text-primary dark:hover:text-orange-400 hover:bg-gray-50 dark:hover:bg-zinc-900"
           >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            <RefreshCw className="w-4 h-4" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleMute}
+            className={cn(
+              "h-9 w-9 rounded-xl transition-all",
+              hasHydrated && isMuted 
+                ? "text-rose-500 bg-rose-50 dark:bg-rose-900/10" 
+                : "text-gray-400 hover:text-primary dark:hover:text-orange-400 hover:bg-gray-50 dark:hover:bg-zinc-900"
+            )}
+          >
+            {hasHydrated && isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </Button>
+          <ThemeToggle />
         </div>
       </header>
 

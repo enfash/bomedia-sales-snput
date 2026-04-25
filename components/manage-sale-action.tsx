@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -44,6 +45,7 @@ export interface UnifiedRecord {
   jobStatus?: string;
   material?: string;
   balance?: number;
+  salesId?: string;
   raw: Record<string, string>;
 }
 
@@ -167,6 +169,8 @@ export function ManageSaleAction({
           <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 animate-in fade-in" />
           <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] mt-24 fixed bottom-0 left-0 right-0 z-50 p-6 outline-none shadow-2xl border-t dark:border-zinc-800">
             <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mb-6" />
+            <Drawer.Title className="sr-only">Manage Sale Record</Drawer.Title>
+            <Drawer.Description className="sr-only">Update payments and job progress</Drawer.Description>
             <ContentBody {...contentProps} />
             <ContentFooter {...contentProps} drawer />
           </Drawer.Content>
@@ -179,6 +183,10 @@ export function ManageSaleAction({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{triggerButton}</DialogTrigger>
       <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl dark:shadow-none">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Manage Sale Record</DialogTitle>
+          <DialogDescription>Update payments and job progress</DialogDescription>
+        </DialogHeader>
         <HeaderContent {...contentProps} />
         <ContentBody {...contentProps} />
         <ContentFooter {...contentProps} />
