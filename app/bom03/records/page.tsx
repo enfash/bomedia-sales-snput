@@ -41,6 +41,7 @@ import { ReceiptTemplate } from "@/components/receipt-template";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { BatchCard } from "@/components/batch-card";
+import { validateRecordBatch, waitForDOMReady, enrichRecord, getPDFErrorMessage } from "@/lib/receipt-utils";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -282,19 +283,64 @@ export default function RecordsPage() {
   };
 
   const handleGroupReceipt = async (items: UnifiedRecord[], salesId: string) => {
-    setGroupReceiptRecords(items);
+    // Validate records before attempting PDF generation
+    const validation = validateRecordBatch(items);
+    if (!validation.isValid) {
+      console.error("[v0] Receipt validation failed:", validation.issues);
+      setError(`Cannot generate receipt: ${validation.issues[0]}`);
+      return;
+    }
+
+    // Log warnings for debugging
+    if (validation.warnings.length > 0) {
+      console.warn("[v0] Receipt generation warnings:", validation.warnings);
+    }
+
+    // Enrich records with defaults
+    const enrichedItems = items.map(enrichRecord);
+
+    setGroupReceiptRecords(enrichedItems);
     setGroupReceiptLoading(salesId);
-    setTimeout(async () => {
-      try {
-        if (!groupReceiptRef.current) return;
-        const canvas = await html2canvas(groupReceiptRef.current, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-        pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
-        pdf.save(`Invoice_${salesId}.pdf`);
-      } catch (e) { console.error(e); }
-      finally { setGroupReceiptLoading(null); setGroupReceiptRecords([]); }
-    }, 150);
+
+    try {
+      // Wait for DOM to be ready instead of arbitrary timeout
+      if (!groupReceiptRef.current) {
+        throw new Error("Receipt template not available in DOM");
+      }
+
+      console.log("[v0] Waiting for receipt DOM to be ready...");
+      await waitForDOMReady(groupReceiptRef.current, 5000);
+
+      console.log("[v0] DOM ready - capturing receipt canvas...");
+      const canvas = await html2canvas(groupReceiptRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+      });
+
+      console.log("[v0] Canvas captured successfully");
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "px",
+        format: [canvas.width / 2, canvas.height / 2],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`Invoice_${salesId}.pdf`);
+
+      console.log("[v0] PDF saved successfully");
+      setError(""); // Clear any previous errors
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      console.error("[v0] Receipt generation error:", error.message);
+      const userMessage = getPDFErrorMessage(error);
+      setError(userMessage);
+    } finally {
+      setGroupReceiptLoading(null);
+      setGroupReceiptRecords([]);
+    }
   };
 
   // --- Metrics (Last 30 Days) ---

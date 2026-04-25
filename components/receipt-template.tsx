@@ -12,7 +12,9 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
   ({ records }, ref) => {
     if (!records || records.length === 0) return null;
 
+    // Ensure primary record is valid
     const primary = records[0];
+    if (!primary) return null;
 
     // Receipt / order reference
     const salesId = primary.salesId && primary.salesId.trim() !== ""
@@ -94,17 +96,17 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
               {records.map((r, idx) => (
                 <tr key={r.id ?? idx}>
                   <td className="px-4 py-3 text-center text-gray-400 text-xs font-bold">{idx + 1}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{r.description}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{r.description || "Item"}</td>
                   {hasMaterial && (
                     <td className="px-4 py-3 text-gray-600 text-xs">
-                      {r.material || "—"}
+                      {r.material && r.material.trim() !== "" ? r.material : "—"}
                     </td>
                   )}
                   <td className="px-4 py-3 text-right font-bold text-gray-900">
-                    ₦{(r.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ₦{((typeof r.amount === "number" && r.amount > 0) ? r.amount : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </td>
                   <td className={`px-4 py-3 text-right font-bold ${(r.balance ?? 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                    ₦{(r.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ₦{((typeof r.balance === "number" && r.balance > 0) ? r.balance : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
               ))}
@@ -145,3 +147,5 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     );
   }
 );
+
+ReceiptTemplate.displayName = "ReceiptTemplate";
