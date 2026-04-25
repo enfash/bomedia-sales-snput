@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX } from "lucide-react";
+import { Menu, X, LayoutDashboard, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
@@ -36,21 +36,23 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
     setHasHydrated(true);
   }, []);
 
-  const toggleMute = () => {
-    const nextMute = !isMuted;
-    setIsMuted(nextMute);
-    localStorage.setItem("bomedia-muted", String(nextMute));
-    toast.info(nextMute ? "Notifications Muted" : "Sound Enabled", {
-      icon: nextMute ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />,
-      duration: 2000
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => {
+      const nextMute = !prev;
+      localStorage.setItem("bomedia-muted", String(nextMute));
+      toast.info(nextMute ? "Notifications Muted" : "Sound Enabled", {
+        icon: nextMute ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />,
+        duration: 2000
+      });
+      return nextMute;
     });
-  };
+  }, []);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     window.location.reload();
-  };
+  }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     const userName = localStorage.getItem("userName");
     localStorage.removeItem("userName");
     
@@ -65,7 +67,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/";
-  };
+  }, []);
 
   // Close nav when path changes
   useEffect(() => {
@@ -86,14 +88,12 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
   const currentNavItems = pathname.startsWith("/cashier") || !isAdmin
     ? [
         { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
         { href: "/cashier/board", label: "Job Board", icon: KanbanSquare },
         { href: "/cashier/records", label: "Records", icon: BarChart3 },
         { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
       ]
     : [
         { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
-        { href: "/new-entry",       label: "New Sale",     icon: PlusCircle },
         { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Log Expense",  icon: Receipt },

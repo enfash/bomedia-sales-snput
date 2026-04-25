@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Receipt, BarChart3, PlusCircle, KanbanSquare, Package, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -12,7 +13,7 @@ export function BottomNav() {
 
   if (!isCashier) return null;
 
-  const navItems = isAdmin
+  const navItems = useMemo(() => isAdmin
     ? [
         { label: "Dash",    icon: LayoutDashboard, href: "/bom03" },
         { label: "Board",   icon: KanbanSquare,    href: "/bom03/board" },
@@ -26,7 +27,7 @@ export function BottomNav() {
         { label: "New",     icon: PlusCircle,      href: "/new-entry", primary: true },
         { label: "Records", icon: BarChart3,       href: "/cashier/records" },
         { label: "Expense", icon: Receipt,         href: "/cashier/expenses" },
-      ];
+      ], [isAdmin]);
 
   // Determine color scheme based on portal type
   const primaryClass = isAdmin

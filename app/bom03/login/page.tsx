@@ -6,9 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, User, KeyRound, Fingerprint, ScanFace, Building2, LogIn, Store } from "lucide-react";
+import { LogIn } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -100,30 +99,6 @@ export default function LoginPage() {
             )}
           </Button>
         </form>
-
-        <div className="mt-10">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-100" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase cursor-default">
-              <span className="bg-white px-2 text-gray-400 font-black tracking-widest">or continued access</span>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <Link href="/cashier" tabIndex={-1}>
-              <Button
-                variant="outline"
-                className="w-full h-12 bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200 font-bold rounded-xl"
-                type="button"
-              >
-                <Store className="w-4 h-4 mr-2" />
-                Continue as Cashier
-              </Button>
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   );

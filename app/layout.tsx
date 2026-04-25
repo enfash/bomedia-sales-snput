@@ -6,10 +6,15 @@ import { cookies } from "next/headers";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { SyncManager } from "@/components/sync-manager";
-import { PWAManager } from "@/components/pwa-manager";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeWrapper } from "@/components/theme-wrapper";
 import { BottomNav } from "@/components/bottom-nav";
+import dynamic from "next/dynamic";
+
+// Lazy load PWAManager as it initializes service workers
+const PWAManager = dynamic(() => import("@/components/pwa-manager").then(mod => ({ default: mod.PWAManager })), {
+  ssr: false,
+});
 
 export const metadata: Metadata = {
   title: "BOMedia Sales & Expenses",
@@ -22,6 +27,13 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false,
+  },
+  icons: {
+    apple: {
+      url: "/apple-touch-icon.png",
+      sizes: "180x180",
+      type: "image/png",
+    },
   },
 };
 
@@ -39,7 +51,8 @@ export default async function RootLayout({
       <head>
         <meta name="theme-color" content="#4f46e5" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" crossOrigin="anonymous" />
+        <link rel="manifest" href="/manifest.json" crossOrigin="anonymous" />
       </head>
       <body className="antialiased min-h-screen" suppressHydrationWarning>
         <ThemeProvider
