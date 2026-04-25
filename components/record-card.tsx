@@ -372,7 +372,7 @@ export function RecordCard({
         aria-hidden="true"
       >
         <ReceiptTemplate
-          records={batchRecords.length > 0 ? batchRecords : [record]}
+          records={batchRecords.length > 0 ? batchRecords : record ? [record] : []}
           ref={receiptRef}
         />
       </div>

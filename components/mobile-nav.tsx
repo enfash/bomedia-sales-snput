@@ -11,14 +11,6 @@ import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 import { toast } from "sonner";
 
-
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-  { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
-  { href: "/cashier/records", label: "Records", icon: BarChart3 },
-];
-
 interface MobileNavProps {
   isAdmin?: boolean;
 }
