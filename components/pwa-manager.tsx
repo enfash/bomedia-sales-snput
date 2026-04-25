@@ -42,3 +42,5 @@ export function PWAManager() {
 
   return null;
 }
+
+export default PWAManager;

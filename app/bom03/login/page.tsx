@@ -28,7 +28,11 @@ export default function LoginPage() {
 
       if (res.ok) {
         toast.success("Welcome back!");
+        // Wait a brief moment for the cookie to be set before redirecting
+        await new Promise(resolve => setTimeout(resolve, 100));
         router.push("/bom03");
+        // Refresh after redirect to ensure session is properly loaded
+        await new Promise(resolve => setTimeout(resolve, 200));
         router.refresh();
       } else {
         const data = await res.json();

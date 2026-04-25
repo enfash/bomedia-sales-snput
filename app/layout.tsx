@@ -11,9 +11,10 @@ import { ThemeWrapper } from "@/components/theme-wrapper";
 import { BottomNav } from "@/components/bottom-nav";
 import dynamic from "next/dynamic";
 
-// Lazy load PWAManager as it initializes service workers
-const PWAManager = dynamic(() => import("@/components/pwa-manager").then(mod => ({ default: mod.PWAManager })), {
+// Lazy load PWAManager as it initializes service workers (client-side only)
+const PWAManager = dynamic(() => import("@/components/pwa-manager"), {
   ssr: false,
+  loading: () => null,
 });
 
 export const metadata: Metadata = {
