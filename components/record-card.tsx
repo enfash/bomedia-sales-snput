@@ -10,9 +10,7 @@ import { MoreHorizontal, Printer, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MaterialBadge } from "./material-badge";
 import { useRef, useState } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import { ReceiptTemplate } from "./receipt-template";
+import { ReceiptModal } from "./receipt-modal";
 import { WhatsAppReminder } from "./whatsapp-reminder";
 import { useSyncStore } from "@/lib/store";
 import { toast } from "sonner";
@@ -33,6 +31,7 @@ interface RecordCardProps {
   isPending?: boolean;
   record?: UnifiedRecord;
   onUpdate?: () => void;
+  batchContext?: UnifiedRecord[];
 }
 
 export function RecordCard({
@@ -45,9 +44,9 @@ export function RecordCard({
   isPending,
   record,
   onUpdate,
+  batchContext,
 }: RecordCardProps) {
-  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
-  const receiptRef = useRef<HTMLDivElement>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const { cachedSales } = useSyncStore();
   const [batchRecords, setBatchRecords] = useState<UnifiedRecord[]>([]);
 
@@ -62,124 +61,51 @@ export function RecordCard({
       "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 animate-pulse hover:bg-brand-100 dark:hover:bg-brand-900/40",
   };
 
-  const handleGenerateReceipt = async () => {
+  const handleGenerateReceipt = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
     if (!record || record.type !== "Sale") return;
 
-    setIsGeneratingReceipt(true);
+    if (record.salesId && record.salesId.trim() !== "") {
+      const batchedItems = cachedSales.filter((s: any) => {
+        const sid = s["SALES ID"] || s["Sales Id"];
+        return sid === record.salesId;
+      });
 
-    // Identify batch if salesId exists
-    let recordsToPrint = [record];
-    if (record.salesId) {
-      const batch = (cachedSales as any[])
-        .map((r) => {
-          // Map raw record to UnifiedRecord format for the template
-          // We reuse the mapping logic roughly or assume cachedSales is already mapped
-          // Actually, cachedSales is Row[], so we need to map it if it's not already.
-          // But in RecordCard, we expect UnifiedRecord[].
-          // Let's assume we need to filter and map.
-          return r;
-        })
-        .filter((r) => (r["SALES ID"] || r["Sales Id"]) === record.salesId);
-
-      if (batch.length > 1) {
-        // We need them as UnifiedRecords. The template expects UnifiedRecord[].
-        // Since we are in RecordCard, we might not have a full mapper here.
-        // However, the user request says: "filter the global cache for all records sharing that Sales ID".
-        // Let's implement a quick map here or assume we have it.
-        // For now, I'll filter the cachedSales which are usually Row objects.
-        // I will map them to UnifiedRecord.
-
-        recordsToPrint = batch.map((r: any) => ({
-          id: r._rowIndex?.toString() || Math.random().toString(),
-          date: r.DATE || r.Date || "N/A",
-          type: "Sale",
-          client: r["CLIENT NAME"] || r["Client Name"] || "N/A",
-          description: r["JOB DESCRIPTION"] || r["Job Description"] || "—",
-          amount: parseFloat(
-            r["AMOUNT (₦)"]?.toString().replace(/[₦, \s]/g, "") || "0",
-          ),
-          balance: parseFloat(
-            r["AMOUNT DIFFERENCES"]?.toString().replace(/[₦, \s]/g, "") || "0",
-          ),
-          status:
-            r["PAYMENT STATUS"] === "Paid"
-              ? "Settled"
-              : r["PAYMENT STATUS"] === "Part-payment"
-                ? "Part-payment"
-                : "In Progress",
-          loggedBy: r["Logged By"] || "Unknown",
-          salesId: r["SALES ID"] || r["Sales Id"],
-          isPending: false,
-          raw: r,
-        }));
+      if (batchedItems.length > 0) {
+        const unifiedBatch = batchedItems.map((r: any) => {
+          const rawStatus = r["PAYMENT STATUS"];
+          let mappedStatus: RecordStatus = "In Progress";
+          if (rawStatus === "Paid") mappedStatus = "Settled";
+          else if (rawStatus === "Part-payment") mappedStatus = "Part-payment";
+          
+          return {
+            id: `batch-${Math.random()}`,
+            date: r.DATE || r.Date,
+            type: "Sale",
+            client: r["CLIENT NAME"] || r["Client Name"],
+            contact: r.CONTACT || r.Contact || "",
+            description: r["JOB DESCRIPTION"] || r["Job Description"],
+            amount: parseFloat((r["AMOUNT (₦)"] || r["Amount (₦)"] || "0").toString().replace(/[₦, \s]/g, "")),
+            status: mappedStatus,
+            loggedBy: r["Logged By"],
+            isPending: false,
+            balance: parseFloat((r["AMOUNT DIFFERENCES"] || r["Amount Differences"] || "0").toString().replace(/[₦, \s]/g, "")),
+            rowIndex: r._rowIndex,
+            salesId: record.salesId,
+            material: r["Material"] || r["MATERIAL"] || r["material"] || "",
+            raw: r,
+          } as UnifiedRecord;
+        });
+        setBatchRecords(unifiedBatch);
+      } else {
+        setBatchRecords([record]);
       }
+    } else {
+      setBatchRecords([record]);
     }
 
-    setBatchRecords(recordsToPrint);
-
-    // Wait for state update and DOM render
-    setTimeout(async () => {
-      try {
-        if (!receiptRef.current) {
-          console.error("Receipt reference not found");
-          setIsGeneratingReceipt(false);
-          return;
-        }
-
-        // Wait for fonts and a couple of animation frames
-        try {
-          if (
-            typeof document !== "undefined" &&
-            (document as any).fonts?.ready
-          ) {
-            await (document as any).fonts.ready;
-          }
-        } catch (e) {}
-
-        await new Promise((r) => requestAnimationFrame(r));
-        await new Promise((r) => requestAnimationFrame(r));
-
-        const canvas = await html2canvas(receiptRef.current, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: "#ffffff",
-          windowWidth: 800,
-        });
-
-        const imgData = canvas.toDataURL("image/png");
-
-        if (imgData === "data:," || imgData.length < 100) {
-          console.error(
-            "Canvas is empty. html2canvas failed to capture the receipt.",
-          );
-          toast.error("Failed to capture receipt. Please try again.");
-          setIsGeneratingReceipt(false);
-          return;
-        }
-
-        const pdf = new jsPDF("p", "mm", "a4");
-
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-
-        // Calculate dimensions to maintain aspect ratio within A4
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const imgWidth = pageWidth;
-        const imgHeight = (canvasHeight * imgWidth) / canvasWidth;
-
-        pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-        pdf.save(
-          `Invoice_${record.salesId || record.client?.replace(/\s+/g, "_") || "Customer"}.pdf`,
-        );
-      } catch (error) {
-        console.error("Failed to generate receipt", error);
-      } finally {
-        setIsGeneratingReceipt(false);
-        setBatchRecords([]);
-      }
-    }, 500);
+    setIsReceiptModalOpen(true);
   };
 
   let rollSize = "";
@@ -336,14 +262,9 @@ export function RecordCard({
                 size="icon"
                 className="h-8 w-8 text-gray-500 hover:text-primary dark:text-zinc-400"
                 onClick={handleGenerateReceipt}
-                disabled={isGeneratingReceipt}
                 title="Download PDF Receipt"
               >
-                {isGeneratingReceipt ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Printer className="w-4 h-4" />
-                )}
+                <Printer className="w-4 h-4" />
               </Button>
             )}
 
@@ -365,17 +286,12 @@ export function RecordCard({
           </div>
         </div>
       </div>
-
-      {/* Hidden receipt template for PDF generation */}
-      <div
-        className="fixed left-[-9999px] top-[-9999px] w-[800px] bg-white pointer-events-none"
-        aria-hidden="true"
-      >
-        <ReceiptTemplate
-          records={batchRecords.length > 0 ? batchRecords : [record]}
-          ref={receiptRef}
-        />
-      </div>
+      <ReceiptModal 
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        records={batchRecords.length > 0 ? batchRecords : record ? [record] : []}
+        salesId={record?.salesId}
+      />
     </div>
   );
 }

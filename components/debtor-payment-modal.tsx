@@ -38,7 +38,7 @@ const mapSale = (r: any): UnifiedRecord => {
     client: r["CLIENT NAME"] || r["Client Name"] || "N/A",
     description: r["JOB DESCRIPTION"] || r["Job Description"] || "—",
     amount,
-    status: balance <= 0 ? "Paid" : "Partially Paid",
+    status: balance <= 0 ? "Settled" : "Part-payment",
     loggedBy: r["Logged By"] || "Unknown",
     isPending: false,
     rowIndex: r._rowIndex ? parseInt(r._rowIndex.toString()) : undefined,

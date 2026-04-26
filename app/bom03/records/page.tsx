@@ -37,9 +37,7 @@ import { ManageBatchAction } from "@/components/manage-batch-action";
 import { format } from "date-fns";
 import { MaterialBadge } from "@/components/material-badge";
 import { WhatsAppReminder } from "@/components/whatsapp-reminder";
-import { ReceiptTemplate } from "@/components/receipt-template";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { ReceiptModal } from "@/components/receipt-modal";
 import { BatchCard } from "@/components/batch-card";
 
 const parseAmount = (val: any): number => {
@@ -87,8 +85,7 @@ export default function RecordsPage() {
   const [sortBy, setSortBy] = useState<"date" | "name" | "debt">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [groupReceiptLoading, setGroupReceiptLoading] = useState<string | null>(null);
-  const groupReceiptRef = useRef<HTMLDivElement>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [groupReceiptRecords, setGroupReceiptRecords] = useState<UnifiedRecord[]>([]);
 
   const fetchData = async () => {
@@ -212,6 +209,7 @@ export default function RecordsPage() {
       "ADDITIONAL PAYMENT 1": "0",
       "ADDITIONAL PAYMENT 2": "0",
       "AMOUNT DIFFERENCES": "0",
+      "SALES ID": v[22],
     }, true, item.timestamp);
   });
 
@@ -281,20 +279,9 @@ export default function RecordsPage() {
     return "In Progress";
   };
 
-  const handleGroupReceipt = async (items: UnifiedRecord[], salesId: string) => {
+  const handleGroupReceipt = (items: UnifiedRecord[], salesId: string) => {
     setGroupReceiptRecords(items);
-    setGroupReceiptLoading(salesId);
-    setTimeout(async () => {
-      try {
-        if (!groupReceiptRef.current) return;
-        const canvas = await html2canvas(groupReceiptRef.current, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-        pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
-        pdf.save(`Invoice_${salesId}.pdf`);
-      } catch (e) { console.error(e); }
-      finally { setGroupReceiptLoading(null); setGroupReceiptRecords([]); }
-    }, 150);
+    setIsReceiptModalOpen(true);
   };
 
   // --- Metrics (Last 30 Days) ---
@@ -595,13 +582,8 @@ export default function RecordsPage() {
                             size="icon"
                             className="h-8 w-8 text-primary hover:bg-primary/10"
                             onClick={() => handleGroupReceipt(unit.items, unit.salesId)}
-                            disabled={groupReceiptLoading === unit.salesId}
                           >
-                            {groupReceiptLoading === unit.salesId ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
                               <Printer className="w-4 h-4" />
-                            )}
                           </Button>
                           <ManageBatchAction records={unit.items} salesId={unit.salesId} onUpdate={fetchData} />
                         </div>
@@ -701,14 +683,11 @@ export default function RecordsPage() {
           </div>
         </div>
       )}
-      {/* Hidden group receipt template */}
-      <div className="fixed -left-[2000px] top-0 opacity-0 pointer-events-none">
-        <div ref={groupReceiptRef} className="w-[800px] bg-white p-10">
-          {groupReceiptRecords.length > 0 && (
-            <ReceiptTemplate records={groupReceiptRecords} />
-          )}
-        </div>
-      </div>
+      <ReceiptModal 
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        records={groupReceiptRecords}
+      />
     </div>
   );
 }

@@ -154,7 +154,7 @@ export async function POST(request: Request) {
         while (processedValues.length < 22) {
           processedValues.push("");
         }
-        processedValues[22] = salesId;
+        processedValues[22] = processedValues[22] || salesId;
         
         newRows.push(processedValues);
         nextRow++;
@@ -227,7 +227,7 @@ export async function POST(request: Request) {
       while (processedValues.length < 22) {
         processedValues.push("");
       }
-      processedValues[22] = "";
+      processedValues[22] = processedValues[22] || "";
 
       await sheet.addRow(processedValues);
 

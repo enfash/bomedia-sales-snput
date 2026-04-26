@@ -26,13 +26,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useSyncStore } from "@/lib/store";
 import { RecordCard, type RecordStatus } from "@/components/record-card";
-import { isSameDay, format } from "date-fns";
+import { isSameDay, format, subDays, isWithinInterval } from "date-fns";
 import { ManageSaleAction, type UnifiedRecord } from "@/components/manage-sale-action";
 import { ManageBatchAction } from "@/components/manage-batch-action";
 import { WhatsAppReminder } from "@/components/whatsapp-reminder";
-import { ReceiptTemplate } from "@/components/receipt-template";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { ReceiptModal } from "@/components/receipt-modal";
 import { BatchCard } from "@/components/batch-card";
 
 const parseAmount = (val: any): number => {
@@ -79,8 +77,7 @@ export default function CashierRecordsPage() {
   const [sortBy, setSortBy] = useState<"date" | "name" | "debt">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [groupReceiptLoading, setGroupReceiptLoading] = useState<string | null>(null);
-  const groupReceiptRef = useRef<HTMLDivElement>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [groupReceiptRecords, setGroupReceiptRecords] = useState<UnifiedRecord[]>([]);
 
   const fetchData = async () => {
@@ -172,24 +169,35 @@ export default function CashierRecordsPage() {
       "ADDITIONAL PAYMENT 1": "0",
       "ADDITIONAL PAYMENT 2": "0",
       "AMOUNT DIFFERENCES": "0",
+      "SALES ID": v[22],
     }, true, item.timestamp);
   });
 
   const syncedSales = salesData.map(r => mapSale(r, false));
   const allSales = [...pendingSales, ...syncedSales];
 
-  // --- Filtering (Restricted to Current Day) ---
+  // --- Filtering (Current Day + Past 7 Days Debtors) ---
   const now = new Date();
+  const sevenDaysAgo = subDays(now, 7);
   
-  const todayRecords = allSales.filter(r => {
+  const visibleRecords = allSales.filter(r => {
     const dateStr = r.raw.DATE || r.raw.Date;
     if (!dateStr) return false;
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return false;
-    return isSameDay(d, now);
+    
+    // Always show today's records
+    if (isSameDay(d, now)) return true;
+    
+    // Show records from the past 7 days ONLY if they have an outstanding balance (debtors)
+    if (isWithinInterval(d, { start: sevenDaysAgo, end: now }) && (r.balance || 0) > 0) {
+      return true;
+    }
+
+    return false;
   });
 
-  const filtered = todayRecords.filter(r => {
+  const filtered = visibleRecords.filter(r => {
     const matchesSearch =
       r.client.toLowerCase().includes(search.toLowerCase()) ||
       r.description.toLowerCase().includes(search.toLowerCase());
@@ -264,20 +272,9 @@ export default function CashierRecordsPage() {
     return "In Progress";
   };
 
-  const handleGroupReceipt = async (items: UnifiedRecord[], salesId: string) => {
+  const handleGroupReceipt = (items: UnifiedRecord[], salesId: string) => {
     setGroupReceiptRecords(items);
-    setGroupReceiptLoading(salesId);
-    setTimeout(async () => {
-      try {
-        if (!groupReceiptRef.current) return;
-        const canvas = await html2canvas(groupReceiptRef.current, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-        pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
-        pdf.save(`Invoice_${salesId}.pdf`);
-      } catch (e) { console.error(e); }
-      finally { setGroupReceiptLoading(null); setGroupReceiptRecords([]); }
-    }, 150);
+    setIsReceiptModalOpen(true);
   };
 
   useEffect(() => {
@@ -458,13 +455,8 @@ export default function CashierRecordsPage() {
                             size="icon"
                              className="h-8 w-8 text-primary hover:bg-primary/10"
                             onClick={() => handleGroupReceipt(unit.items, unit.salesId)}
-                            disabled={groupReceiptLoading === unit.salesId}
                           >
-                            {groupReceiptLoading === unit.salesId ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
                               <Printer className="w-4 h-4" />
-                            )}
                           </Button>
                           <ManageBatchAction records={unit.items} salesId={unit.salesId} onUpdate={fetchData} />
                         </div>
@@ -559,14 +551,11 @@ export default function CashierRecordsPage() {
           </div>
         </div>
       )}
-      {/* Hidden group receipt template */}
-      <div className="fixed -left-[2000px] top-0 opacity-0 pointer-events-none">
-        <div ref={groupReceiptRef} className="w-[800px] bg-white p-10">
-          {groupReceiptRecords.length > 0 && (
-            <ReceiptTemplate records={groupReceiptRecords} />
-          )}
-        </div>
-      </div>
+      <ReceiptModal 
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        records={groupReceiptRecords}
+      />
     </div>
   );
 }

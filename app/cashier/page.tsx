@@ -206,7 +206,7 @@ export default function CashierDashboardPage() {
               EXPENSE
             </Button>
           </Link>
-          <Link href="/bom03/records" className="col-span-1">
+          <Link href="/cashier/records" className="col-span-1">
             <Button
               className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
             >

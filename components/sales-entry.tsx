@@ -143,6 +143,29 @@ export function SalesEntry() {
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rollSizeTouched, setRollSizeTouched] = useState(false);
+  const [clientNameTouched, setClientNameTouched] = useState(false);
+  const [dimensionsTouched, setDimensionsTouched] = useState(false);
+
+  const cachedSales = useSyncStore(state => state.cachedSales);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const uniqueClients = useMemo(() => {
+    if (!cachedSales || !Array.isArray(cachedSales)) return [];
+    const names = new Set<string>();
+    cachedSales.forEach((sale: any) => {
+      const name = sale["CLIENT NAME"] || sale["Client Name"];
+      if (name && typeof name === "string" && name.trim() !== "") {
+        names.add(name.trim());
+      }
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [cachedSales]);
+
+  const filteredClients = useMemo(() => {
+    if (!batchData.clientName) return uniqueClients;
+    const lower = batchData.clientName.toLowerCase();
+    return uniqueClients.filter(c => c.toLowerCase().includes(lower));
+  }, [uniqueClients, batchData.clientName]);
 
   // Sync default cost when material changes
   useEffect(() => {
@@ -207,7 +230,12 @@ export function SalesEntry() {
 
   const handleAddToCart = () => {
     setRollSizeTouched(true);
-    if (!jobData.rollSize) return;
+    setDimensionsTouched(true);
+    if (!jobData.rollSize || !jobData.actualWidth || !jobData.actualHeight) {
+      if (!jobData.rollSize) toast.error("Please select a roll size");
+      if (!jobData.actualWidth || !jobData.actualHeight) toast.error("Please enter both width and height");
+      return;
+    }
 
     setCart(prev => [...prev, {
       id: crypto.randomUUID(),
@@ -229,11 +257,26 @@ export function SalesEntry() {
       dimensionUnit: "ft",
     });
     setRollSizeTouched(false);
+    setDimensionsTouched(false);
     toast.success("Job added to order");
   };
 
   const removeFromCart = (id: string) => {
     setCart(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleReviewAndSave = () => {
+    setClientNameTouched(true);
+    if (!batchData.clientName) {
+      toast.error("Please enter a client name");
+      // Scroll to the top or the client name field if possible, but at least show the toast
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error("Order is empty. Add at least one job.");
+      return;
+    }
+    setShowConfirmModal(true);
   };
 
   const handleNlSubmit = async () => {
@@ -283,6 +326,11 @@ export function SalesEntry() {
 
     const loggedBy = localStorage.getItem("userName") || "Unknown";
     
+    // Generate Sales ID: BOM-YYYYMMDD-XXXX
+    const cleanDate = batchData.date.replace(/-/g, '');
+    const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
+    const generatedSalesId = `BOM-${cleanDate}-${uniqueSuffix}`;
+    
     let remainingPayment = parseFloat(batchData.initialPayment) || 0;
 
     const rowArrays = cart.map(item => {
@@ -322,7 +370,8 @@ export function SalesEntry() {
         `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`, // S - Balance
         `=IF(P[ROW]=0, "Unpaid", IF(S[ROW]<=0, "Paid", IF(S[ROW]<P[ROW], "Part-payment", "Unpaid")))`, // T - Payment status
         batchData.jobStatus, // U
-        loggedBy // V
+        loggedBy, // V
+        generatedSalesId // W
       ];
     });
 
@@ -360,6 +409,8 @@ export function SalesEntry() {
       setCart([]);
       setNlText("");
       setRollSizeTouched(false);
+      setClientNameTouched(false);
+      setDimensionsTouched(false);
     } catch(err) {
       toast.error("Error saving locally.");
     }
@@ -401,8 +452,46 @@ export function SalesEntry() {
                   <Input type="date" value={batchData.date} onChange={e => setBatchData({...batchData, date: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Client Name</Label>
-                  <Input placeholder="Sarah Jones" value={batchData.clientName} onChange={e => setBatchData({...batchData, clientName: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
+                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">
+                    Client Name <span className="text-rose-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Input 
+                      placeholder="Sarah Jones" 
+                      value={batchData.clientName} 
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      onChange={e => {
+                        setBatchData({...batchData, clientName: e.target.value});
+                        setClientNameTouched(true);
+                        setShowSuggestions(true);
+                      }} 
+                      className={cn(
+                        "h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary",
+                        clientNameTouched && !batchData.clientName && "border-rose-500 ring-rose-500/10"
+                      )} 
+                    />
+                    {showSuggestions && filteredClients.length > 0 && (
+                      <div className="absolute z-50 w-full top-[calc(100%+4px)] left-0 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        {filteredClients.map((client, index) => (
+                          <div
+                            key={index}
+                            className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-zinc-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 cursor-pointer border-b border-gray-50 dark:border-zinc-800 last:border-0 transition-colors"
+                            onClick={() => {
+                              setBatchData({ ...batchData, clientName: client });
+                              setClientNameTouched(true);
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            {client}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {clientNameTouched && !batchData.clientName && (
+                    <p className="text-[11px] text-rose-500 font-black mt-1 uppercase tracking-tighter">⚠ Client name is required</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Contact Information</Label>
@@ -497,7 +586,9 @@ export function SalesEntry() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-8">
                 <div className="md:col-span-2 space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Actual Size (Width x Height)</Label>
+                    <Label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                      Actual Size (Width x Height) <span className="text-rose-500">*</span>
+                    </Label>
                     <div className="flex bg-gray-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-800">
                       <button 
                         onClick={() => setJobData({...jobData, dimensionUnit: 'ft'})}
@@ -513,23 +604,52 @@ export function SalesEntry() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                     <div className="relative flex-1 group">
-                        <Input type="number" placeholder={jobData.dimensionUnit === 'ft' ? "5" : "20"} value={jobData.actualWidth} onChange={e => setJobData({...jobData, actualWidth: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold" />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
-                     </div>
-                     <span className="text-gray-400 font-bold text-lg flex-shrink-0">×</span>
-                     <div className="relative flex-1 group">
-                        <Input type="number" placeholder={jobData.dimensionUnit === 'ft' ? "3" : "15"} value={jobData.actualHeight} onChange={e => setJobData({...jobData, actualHeight: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold" />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
-                     </div>
-                     {/* Inline live sqft chip */}
-                     {calculatedSize > 0 && (
-                       <div className="flex-shrink-0 flex flex-col items-center justify-center px-3 h-12 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl animate-in fade-in zoom-in-95 duration-200">
-                         <span className="text-[8px] font-semibold text-primary/60 uppercase tracking-wider leading-none">= sqft</span>
-                         <span className="text-sm font-black text-primary leading-none">{calculatedSize.toFixed(1)}</span>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                       <div className="relative flex-1 group">
+                          <Input 
+                            type="number" 
+                            placeholder={jobData.dimensionUnit === 'ft' ? "5" : "20"} 
+                            value={jobData.actualWidth} 
+                            onChange={e => {
+                              setJobData({...jobData, actualWidth: e.target.value});
+                              setDimensionsTouched(true);
+                            }} 
+                            className={cn(
+                              "h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold",
+                              dimensionsTouched && !jobData.actualWidth && "border-rose-500 ring-rose-500/10"
+                            )} 
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
                        </div>
-                     )}
+                       <span className="text-gray-400 font-bold text-lg flex-shrink-0">×</span>
+                       <div className="relative flex-1 group">
+                          <Input 
+                            type="number" 
+                            placeholder={jobData.dimensionUnit === 'ft' ? "3" : "15"} 
+                            value={jobData.actualHeight} 
+                            onChange={e => {
+                              setJobData({...jobData, actualHeight: e.target.value});
+                              setDimensionsTouched(true);
+                            }} 
+                            className={cn(
+                              "h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold",
+                              dimensionsTouched && !jobData.actualHeight && "border-rose-500 ring-rose-500/10"
+                            )} 
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
+                       </div>
+                       {/* Inline live sqft chip */}
+                       {calculatedSize > 0 && (
+                         <div className="flex-shrink-0 flex flex-col items-center justify-center px-3 h-12 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl animate-in fade-in zoom-in-95 duration-200">
+                           <span className="text-[8px] font-semibold text-primary/60 uppercase tracking-wider leading-none">= sqft</span>
+                           <span className="text-sm font-black text-primary leading-none">{calculatedSize.toFixed(1)}</span>
+                         </div>
+                       )}
+                    </div>
+                    {dimensionsTouched && (!jobData.actualWidth || !jobData.actualHeight) && (
+                      <p className="text-[11px] text-rose-500 font-black uppercase tracking-tighter">⚠ Width and Height are required</p>
+                    )}
                   </div>
                 </div>
 
@@ -658,7 +778,7 @@ export function SalesEntry() {
                      <div className="flex flex-col items-center md:items-end">
                         <p className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-500 tracking-widest mb-1">Status: <span className={paymentStatus === "Paid" ? "text-emerald-500" : "text-rose-500"}>{paymentStatus.toUpperCase()}</span></p>
                         <Button 
-                          onClick={() => setShowConfirmModal(true)}
+                          onClick={handleReviewAndSave}
                           className="w-full h-12 text-white font-bold text-lg rounded-xl shadow-xl transition-all bg-primary hover:bg-primary/90 shadow-primary/20 dark:shadow-none hover:scale-[1.02]"
                         >
                           Review & Save Batch
@@ -749,13 +869,7 @@ export function SalesEntry() {
                 </div>
 
                 <Button 
-                  onClick={() => {
-                    if (cart.length === 0) {
-                      toast.error("Cart is empty");
-                      return;
-                    }
-                    setShowConfirmModal(true);
-                  }}
+                  onClick={handleReviewAndSave}
                   className="w-full h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xl rounded-2xl shadow-xl shadow-primary/20"
                 >
                   Review & Save Batch

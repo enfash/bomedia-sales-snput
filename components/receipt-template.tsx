@@ -15,9 +15,18 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     const primary = records[0];
 
     // Receipt / order reference
-    const salesId = primary.salesId && primary.salesId.trim() !== ""
-      ? primary.salesId
-      : `INV-${String(primary.rowIndex || Math.floor(Math.random() * 10000)).padStart(5, "0")}`;
+    const uniqueSalesIds = Array.from(
+      new Set(
+        records
+          .map((r) => r.salesId?.trim())
+          .filter((id) => id && id !== "")
+      )
+    );
+
+    const salesIdDisplay =
+      uniqueSalesIds.length > 0
+        ? uniqueSalesIds.join(", ")
+        : `INV-${String(primary.rowIndex || Math.floor(Math.random() * 10000)).padStart(5, "0")}`;
 
     // Date from primary record
     let recordDate = new Date();
@@ -64,7 +73,9 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           </div>
           <div className="text-right">
             <h1 className="text-3xl font-black text-gray-200 tracking-widest uppercase mb-2">Invoice</h1>
-            <p className="text-sm font-bold text-gray-800">#{salesId}</p>
+            <p className="text-sm font-bold text-gray-800">
+              {uniqueSalesIds.length > 1 ? "IDs: " : "#"}{salesIdDisplay}
+            </p>
             <p className="text-xs text-gray-500 mt-1">{format(recordDate, "MMM dd, yyyy")}</p>
           </div>
         </div>
@@ -145,3 +156,5 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     );
   }
 );
+
+ReceiptTemplate.displayName = "ReceiptTemplate";

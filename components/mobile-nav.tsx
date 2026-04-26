@@ -47,7 +47,8 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
   };
 
   const handleRefresh = () => {
-    window.location.reload();
+    window.dispatchEvent(new Event("online"));
+    toast.success("Refreshing data...", { duration: 2000 });
   };
 
   const handleLogout = async () => {

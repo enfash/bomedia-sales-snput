@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Printer, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRef, useState } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import { ReceiptTemplate } from "./receipt-template";
+import { ReceiptModal } from "./receipt-modal";
 import { ManageBatchAction } from "./manage-batch-action";
 import { RecordCard, RecordStatus } from "./record-card";
+import { toast } from "sonner";
 
 interface BatchCardProps {
   salesId: string;
@@ -20,8 +19,7 @@ interface BatchCardProps {
 
 export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
-  const receiptRef = useRef<HTMLDivElement>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   const firstItem = records[0];
   const totalAmt = records.reduce((s, i) => s + i.amount, 0);
@@ -43,26 +41,9 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
     Syncing: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground animate-pulse",
   };
 
-  const handleGenerateReceipt = async () => {
-    setIsGeneratingReceipt(true);
-    setTimeout(async () => {
-      try {
-        if (!receiptRef.current) return;
-        const canvas = await html2canvas(receiptRef.current, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'px',
-          format: [canvas.width / 2, canvas.height / 2]
-        });
-        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
-        pdf.save(`BOMedia_Batch_Receipt_${firstItem.client?.replace(/\s+/g, '_') || 'Customer'}.pdf`);
-      } catch (error) {
-        console.error("Failed to generate receipt", error);
-      } finally {
-        setIsGeneratingReceipt(false);
-      }
-    }, 100);
+  const handleGenerateReceipt = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsReceiptModalOpen(true);
   };
 
   return (
@@ -115,9 +96,8 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
                     size="icon"
                     className="h-8 w-8 text-primary border-primary/20"
                     onClick={handleGenerateReceipt}
-                    disabled={isGeneratingReceipt}
                 >
-                    {isGeneratingReceipt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                    <Printer className="w-4 h-4" />
                 </Button>
                 <ManageBatchAction records={records} salesId={salesId} onUpdate={onUpdate} />
             </div>
@@ -139,19 +119,18 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
               isPending={r.isPending}
               record={r}
               onUpdate={onUpdate}
+              batchContext={records}
             />
           ))}
         </div>
       )}
 
-      {/* Hidden receipt template for PDF generation */}
-      {isGeneratingReceipt && (
-        <div className="overflow-hidden h-0 w-0 absolute">
-          <div ref={receiptRef} className="w-[800px] bg-white p-10">
-            <ReceiptTemplate records={records} />
-          </div>
-        </div>
-      )}
+      <ReceiptModal 
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        records={records}
+        salesId={salesId}
+      />
     </div>
   );
 }
