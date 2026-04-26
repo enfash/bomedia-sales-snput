@@ -119,7 +119,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
               isPending={r.isPending}
               record={r}
               onUpdate={onUpdate}
-              batchContext={records}
+              allSalesContext={records}
             />
           ))}
         </div>

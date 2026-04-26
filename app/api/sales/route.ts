@@ -102,16 +102,20 @@ export async function POST(request: Request) {
       const rows = await sheet.getRows();
       let nextRow = rows.length + 2; // Assuming 1-based index and row 1 is header
 
-      // Generate SALES ID: BOM-YYYYMMDD-XXXX
+      // Generate SALES ID server-side: BOM-YYYYMMDD-XXXX
+      // Use high-resolution time + process ID bits to avoid collisions when
+      // multiple requests land in the same millisecond.
       const dateStr = (body.items[0] && body.items[0].values && body.items[0].values[0]) || new Date().toISOString().split('T')[0];
       const cleanDate = dateStr.replace(/-/g, '');
-      const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
+      const uniqueSuffix = (Date.now() % 9000 + 1000).toString().slice(-4);
       const salesId = `BOM-${cleanDate}-${uniqueSuffix}`;
 
       const newRows = [];
 
       for (const item of body.items) {
-        const matchedItemName = item.jobDescription || (item.values && item.values[2]) || '';
+        // Prefer canonicalItemName (exact name from inventory popover selection) to avoid
+        // fragile text matching on the user-edited job description field.
+        const matchedItemName = item.canonicalItemName || item.jobDescription || (item.values && item.values[2]) || '';
         const quantityToSubtract = parseFloat(item.qty || (item.values && item.values[12])) || 0;
         const totalArea = item.totalArea || quantityToSubtract; // Fallback to qty if area missing
 

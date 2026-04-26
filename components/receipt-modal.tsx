@@ -69,7 +69,7 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
         windowWidth: 800,
       });
 
-      const imgData = canvas.toDataURL("image/png");
+      const imgData = canvas.toDataURL("image/jpeg", 0.75);
 
       if (imgData === "data:," || canvas.width === 0 || canvas.height === 0) {
         throw new Error("Canvas is empty. html2canvas failed to capture the receipt.");
@@ -81,7 +81,7 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
         format: [canvas.width / 2, canvas.height / 2],
       });
 
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.addImage(imgData, "JPEG", 0, 0, canvas.width / 2, canvas.height / 2);
 
       const fileNameId = salesId || records[0]?.salesId || records[0]?.client.replace(/\s+/g, '_') || "receipt";
       pdf.save(`Invoice_${fileNameId}.pdf`);
@@ -119,12 +119,14 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center bg-gray-100/50 dark:bg-zinc-950">
-          {/* 
-            Container scaling to fit mobile screens. 
-            The origin is top center so it scales gracefully.
-          */}
-          <div className="relative origin-top transform scale-[0.4] sm:scale-[0.6] md:scale-75 lg:scale-100 transition-transform w-[800px] pb-10">
+        {/* 
+          Mobile-friendly scroll wrapper.
+          The receipt template is fixed at 800px wide. On small screens we let the
+          user scroll horizontally inside the modal rather than using CSS scale(),
+          which collapses the scroll height and makes content unreachable.
+        */}
+        <div className="flex-1 overflow-auto p-4 md:p-8 bg-gray-100/50 dark:bg-zinc-950">
+          <div className="min-w-[800px]">
             <div 
               ref={receiptRef}
               className="w-[800px] bg-white shadow-xl"

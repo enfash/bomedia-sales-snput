@@ -240,6 +240,10 @@ export function SalesEntry() {
     setCart(prev => [...prev, {
       id: crypto.randomUUID(),
       ...jobData,
+      // fromInventory is true when jobDescription was seeded by the inventory popover.
+      // The submission logic uses this to forward canonicalItemName to the server for
+      // an exact inventory row match instead of a fragile text search.
+      fromInventory: jobData.fromInventory ?? false,
       calculatedSize,
       totalJobArea,
       unitCostVal,
@@ -326,10 +330,8 @@ export function SalesEntry() {
 
     const loggedBy = localStorage.getItem("userName") || "Unknown";
     
-    // Generate Sales ID: BOM-YYYYMMDD-XXXX
-    const cleanDate = batchData.date.replace(/-/g, '');
-    const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
-    const generatedSalesId = `BOM-${cleanDate}-${uniqueSuffix}`;
+    // Sales ID is generated on the server to prevent client-side collisions.
+    // Do NOT generate it here.
     
     let remainingPayment = parseFloat(batchData.initialPayment) || 0;
 
@@ -371,7 +373,7 @@ export function SalesEntry() {
         `=IF(P[ROW]=0, "Unpaid", IF(S[ROW]<=0, "Paid", IF(S[ROW]<P[ROW], "Part-payment", "Unpaid")))`, // T - Payment status
         batchData.jobStatus, // U
         loggedBy, // V
-        generatedSalesId // W
+        "" // W — Sales ID assigned by server
       ];
     });
 
@@ -381,6 +383,10 @@ export function SalesEntry() {
         items: rowArrays.map((row, i) => ({
           values: row,
           totalArea: cart[i].totalJobArea,
+          // Pass the exact item name if it came from the inventory popover;
+          // the server uses this for a precise inventory match instead of
+          // parsing the freeform job description string.
+          canonicalItemName: cart[i].fromInventory ? cart[i].jobDescription : undefined,
           jobDescription: cart[i].jobDescription,
           qty: cart[i].qty
         }))
@@ -535,8 +541,11 @@ export function SalesEntry() {
                                       setJobData({
                                         ...jobData,
                                         jobDescription: item["Item Name"],
-                                        costPerSqft: item["Price"]?.toString() || jobData.costPerSqft
-                                      });
+                                        costPerSqft: item["Price"]?.toString() || jobData.costPerSqft,
+                                        // Mark as inventory-sourced so the server can use the
+                                        // exact item name for inventory deduction (canonicalItemName).
+                                        fromInventory: true,
+                                      } as any);
                                       setOpenInv(false);
                                       toast.info(`Selected ${item["Item Name"]}`);
                                     }}

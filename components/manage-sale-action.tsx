@@ -70,12 +70,15 @@ export function ManageSaleAction({
 
   const isLocked = useMemo(() => {
     if (!pathname?.includes('/cashier')) return false;
-    // Check if record is older than 24 hours
-    // Parse record.date (usually MM/DD/YYYY or similar depending on sheet format)
-    const recordDate = new Date(record.date).getTime();
-    if (isNaN(recordDate)) return false; // If date parsing fails, default to allowing
-    return (Date.now() - recordDate) > 24 * 60 * 60 * 1000;
-  }, [pathname, record.date]);
+    // Use the raw sheet date (r.DATE, e.g. "2026-04-26" or an ISO string) for
+    // accurate millisecond comparison. record.date is a display-formatted string
+    // like "Apr 26, 2026" which new Date() can misparse to midnight UTC and cause
+    // premature locking. record.timestamp is set for pending-queue entries.
+    const rawDateStr = record.raw?.DATE || record.raw?.Date;
+    const tsMs = record.timestamp ?? (rawDateStr ? new Date(rawDateStr).getTime() : NaN);
+    if (isNaN(tsMs)) return false; // Can't determine age — allow editing
+    return (Date.now() - tsMs) > 24 * 60 * 60 * 1000;
+  }, [pathname, record.raw, record.timestamp]);
 
   if (!record || record.type === "Expense" || record.isPending || isLocked) {
     return variant === "icon" ? (

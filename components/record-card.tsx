@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Printer, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MaterialBadge } from "./material-badge";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { ReceiptModal } from "./receipt-modal";
 import { WhatsAppReminder } from "./whatsapp-reminder";
 import { useSyncStore } from "@/lib/store";
@@ -31,7 +31,8 @@ interface RecordCardProps {
   isPending?: boolean;
   record?: UnifiedRecord;
   onUpdate?: () => void;
-  batchContext?: UnifiedRecord[];
+  /** All sales records available on the current page — used for batch grouping by Sales ID */
+  allSalesContext?: UnifiedRecord[];
 }
 
 export function RecordCard({
@@ -44,10 +45,10 @@ export function RecordCard({
   isPending,
   record,
   onUpdate,
-  batchContext,
+  allSalesContext,
 }: RecordCardProps) {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const { cachedSales } = useSyncStore();
+  const { pendingQueue } = useSyncStore();
   const [batchRecords, setBatchRecords] = useState<UnifiedRecord[]>([]);
 
   const statusColors: Record<RecordStatus, string> = {
@@ -66,41 +67,45 @@ export function RecordCard({
 
     if (!record || record.type !== "Sale") return;
 
-    if (record.salesId && record.salesId.trim() !== "") {
-      const batchedItems = cachedSales.filter((s: any) => {
-        const sid = s["SALES ID"] || s["Sales Id"];
-        return sid === record.salesId;
-      });
+    const salesId = String(record.salesId || "").trim();
 
-      if (batchedItems.length > 0) {
-        const unifiedBatch = batchedItems.map((r: any) => {
-          const rawStatus = r["PAYMENT STATUS"];
-          let mappedStatus: RecordStatus = "In Progress";
-          if (rawStatus === "Paid") mappedStatus = "Settled";
-          else if (rawStatus === "Part-payment") mappedStatus = "Part-payment";
-          
+    if (salesId) {
+      // 1. Search the page-level context (synced + pending already mapped to UnifiedRecord)
+      const fromContext = (allSalesContext || []).filter(
+        (s) => String(s.salesId || "").trim() === salesId && s.type === "Sale"
+      );
+
+      // 2. Also search pendingQueue items that share the same salesId (not yet in context)
+      const fromPending: UnifiedRecord[] = pendingQueue
+        .filter((item) => item.type === "sale" && item.data?.[22] === salesId)
+        .map((item) => {
+          const v = item.data;
           return {
-            id: `batch-${Math.random()}`,
-            date: r.DATE || r.Date,
-            type: "Sale",
-            client: r["CLIENT NAME"] || r["Client Name"],
-            contact: r.CONTACT || r.Contact || "",
-            description: r["JOB DESCRIPTION"] || r["Job Description"],
-            amount: parseFloat((r["AMOUNT (₦)"] || r["Amount (₦)"] || "0").toString().replace(/[₦, \s]/g, "")),
-            status: mappedStatus,
-            loggedBy: r["Logged By"],
-            isPending: false,
-            balance: parseFloat((r["AMOUNT DIFFERENCES"] || r["Amount Differences"] || "0").toString().replace(/[₦, \s]/g, "")),
-            rowIndex: r._rowIndex,
-            salesId: record.salesId,
-            material: r["Material"] || r["MATERIAL"] || r["material"] || "",
-            raw: r,
+            id: `pending-${item.id}`,
+            date: v[0] || record.date,
+            type: "Sale" as const,
+            client: v[1] || record.client,
+            contact: v[3] || record.contact || "",
+            description: v[2] || record.description,
+            amount: parseFloat(v[14] || "0"),
+            status: "Syncing" as RecordStatus,
+            loggedBy: v[21] || record.loggedBy,
+            isPending: true,
+            balance: 0,
+            salesId,
+            material: v[4] || "",
+            raw: {},
           } as UnifiedRecord;
         });
-        setBatchRecords(unifiedBatch);
-      } else {
-        setBatchRecords([record]);
-      }
+
+      // Merge: context first (avoids duplicates from pending already being in context)
+      const contextIds = new Set(fromContext.map((r) => r.id));
+      const merged = [
+        ...fromContext,
+        ...fromPending.filter((r) => !contextIds.has(r.id)),
+      ];
+
+      setBatchRecords(merged.length > 0 ? merged : [record]);
     } else {
       setBatchRecords([record]);
     }

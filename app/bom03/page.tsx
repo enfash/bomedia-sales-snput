@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX } from "lucide-react";
+import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX, CalendarRange } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
@@ -45,7 +45,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [timeRange, setTimeRange] = useState<"today" | "7d" | "30d">("30d");
+  const [timeRange, setTimeRange] = useState<"all" | "today" | "7d" | "30d" | "custom">("today");
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   
   // Notification refs to track 'new' entries
@@ -203,10 +205,23 @@ export default function DashboardPage() {
   } else if (timeRange === "7d") {
     startDate = subDays(now, 7);
     prevStartDate = subDays(now, 14);
-  } else {
+  } else if (timeRange === "30d") {
     startDate = subDays(now, 30);
     prevStartDate = subDays(now, 60);
+  } else if (timeRange === "custom" && customStart && customEnd) {
+    startDate = startOfDay(new Date(customStart));
+    const endDate = new Date(customEnd);
+    const rangeDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000));
+    prevStartDate = subDays(startDate, rangeDays);
+  } else {
+    // "all" or custom with incomplete dates — use a very old start date
+    startDate = new Date("2020-01-01");
+    prevStartDate = new Date("2019-01-01");
   }
+
+  // For "custom" use the explicit end date; otherwise use now
+  const effectiveEnd =
+    timeRange === "custom" && customEnd ? new Date(customEnd + "T23:59:59") : now;
 
   const filterByInterval = (data: Row[], start: Date, end: Date) =>
     data.filter((row) => {
@@ -214,9 +229,9 @@ export default function DashboardPage() {
       return d ? isWithinInterval(d, { start, end }) : false;
     });
 
-  const currentSales = filterByInterval(allSales, startDate, now);
+  const currentSales = filterByInterval(allSales, startDate, effectiveEnd);
   const prevSales = filterByInterval(allSales, prevStartDate, startDate);
-  const currentExpenses = filterByInterval(allExpenses, startDate, now);
+  const currentExpenses = filterByInterval(allExpenses, startDate, effectiveEnd);
   const prevExpenses = filterByInterval(allExpenses, prevStartDate, startDate);
 
   const sumKey = (data: Row[], keys: string[]) =>
@@ -247,7 +262,21 @@ export default function DashboardPage() {
 
 
   // ── Chart data ─────────────────────────────────────────────────────────────
-  const rangeInterval = eachDayOfInterval({ start: startDate, end: now });
+  // For "all" / incomplete custom: derive chart start from earliest actual data
+  // instead of using startDate (which could be 2020 → 2000+ days of intervals).
+  const chartStartDate = (() => {
+    if (timeRange !== "all" && !(timeRange === "custom" && !customStart)) {
+      return startDate;
+    }
+    const allDates = [...allSales, ...allExpenses]
+      .map((r) => parseSheetDate(r.DATE || r.Date))
+      .filter(Boolean) as Date[];
+    if (allDates.length === 0) return startOfDay(now);
+    const earliest = new Date(Math.min(...allDates.map((d) => d.getTime())));
+    // Cap at 365 days back to keep chart readable
+    return earliest < subDays(now, 365) ? subDays(now, 365) : earliest;
+  })();
+  const rangeInterval = eachDayOfInterval({ start: chartStartDate, end: effectiveEnd });
   const chartData = rangeInterval.map((day) => {
     const daySales = allSales.filter((r) => {
       const d = parseSheetDate(r.DATE || r.Date);
@@ -259,6 +288,7 @@ export default function DashboardPage() {
     });
     return {
       date: format(day, timeRange === "today" ? "HH:00" : "MMM dd"),
+      // note: custom/all ranges use "MMM dd" label (same as 7d/30d)
       sales: sumKey(daySales, ["AMOUNT (₦)", "Amount (₦)"]),
       expenses: sumKey(dayExpenses, ["Amount (₦)", "AMOUNT", "Amount"]),
     };
@@ -298,34 +328,116 @@ export default function DashboardPage() {
       <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} salesCount={todayJobCount} />
 
       {/* Mobile Time Range Selector */}
-      <div className="md:hidden flex justify-center">
-        <Tabs 
-          value={timeRange} 
+      <div className="md:hidden space-y-2">
+        <Tabs
+          value={timeRange}
           onValueChange={(val: any) => setTimeRange(val)}
           className="w-full bg-gray-100 dark:bg-zinc-900/80 p-0.5 rounded-xl border border-gray-200 dark:border-zinc-800"
         >
           <TabsList className="bg-transparent border-none p-0 h-10 w-full">
-            <TabsTrigger value="today" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9">Today</TabsTrigger>
-            <TabsTrigger value="7d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9">7D</TabsTrigger>
-            <TabsTrigger value="30d" className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9">30D</TabsTrigger>
+            {([
+              { val: "all",    label: "All" },
+              { val: "today",  label: "Today" },
+              { val: "7d",     label: "7D" },
+              { val: "30d",    label: "30D" },
+              { val: "custom", label: <CalendarRange className="w-3.5 h-3.5" /> },
+            ] as { val: string; label: React.ReactNode }[]).map(({ val, label }) => (
+              <TabsTrigger
+                key={val}
+                value={val}
+                className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9 flex items-center justify-center gap-1"
+              >
+                {label}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
+        {/* Custom date pickers — mobile */}
+        {timeRange === "custom" && (
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1">
+              <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">From</p>
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd || undefined}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="w-full h-10 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-3 focus:outline-none focus:ring-2 focus:ring-brand-600"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">To</p>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart || undefined}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="w-full h-10 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-3 focus:outline-none focus:ring-2 focus:ring-brand-600"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Desktop Time Range + Controls */}
-      <div className="hidden md:flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Tabs 
-            value={timeRange} 
+      <div className="hidden md:flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Tabs
+            value={timeRange}
             onValueChange={(val: any) => setTimeRange(val)}
             className="bg-muted p-0.5 rounded-lg border"
           >
             <TabsList className="bg-transparent border-none p-0 h-auto">
-              <TabsTrigger value="today" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white">Today</TabsTrigger>
-              <TabsTrigger value="7d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white">7D</TabsTrigger>
-              <TabsTrigger value="30d" className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white">30D</TabsTrigger>
+              {([
+                ["all",    "All"],
+                ["today",  "Today"],
+                ["7d",     "7D"],
+                ["30d",    "30D"],
+                ["custom", "Custom"],
+              ] as const).map(([val, label]) => (
+                <TabsTrigger
+                  key={val}
+                  value={val}
+                  className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white"
+                >
+                  {val === "custom" ? (
+                    <span className="flex items-center gap-1">
+                      <CalendarRange className="w-3 h-3" />
+                      {label}
+                    </span>
+                  ) : label}
+                </TabsTrigger>
+              ))}
             </TabsList>
           </Tabs>
+
+          {/* Custom date inputs — desktop inline */}
+          {timeRange === "custom" && (
+            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+              <div className="space-y-0.5">
+                <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">From</p>
+                <input
+                  type="date"
+                  value={customStart}
+                  max={customEnd || undefined}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="h-8 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-2.5 focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+              <span className="text-gray-300 dark:text-zinc-600 mt-4">→</span>
+              <div className="space-y-0.5">
+                <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">To</p>
+                <input
+                  type="date"
+                  value={customEnd}
+                  min={customStart || undefined}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="h-8 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-2.5 focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+            </div>
+          )}
+
           <Button
             variant="outline"
             size="sm"

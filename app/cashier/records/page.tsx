@@ -412,6 +412,16 @@ export default function CashierRecordsPage() {
                             jobDescription={r.description}
                             variant="icon"
                           />
+                          {r.type === "Sale" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-primary hover:bg-primary/10"
+                              onClick={() => handleGroupReceipt([r], r.salesId || "")}
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                          )}
                           <ManageSaleAction record={r} onUpdate={fetchData} />
                         </div>
                       </TableCell>
@@ -514,6 +524,7 @@ export default function CashierRecordsPage() {
                 isPending={r.isPending}
                 record={r}
                 onUpdate={fetchData}
+                allSalesContext={allSales}
               />
             );
           })
@@ -555,6 +566,7 @@ export default function CashierRecordsPage() {
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
         records={groupReceiptRecords}
+        salesId={groupReceiptRecords[0]?.salesId}
       />
     </div>
   );

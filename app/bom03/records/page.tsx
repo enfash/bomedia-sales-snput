@@ -219,6 +219,7 @@ export default function RecordsPage() {
   const syncedExpenses = expensesData.map(r => mapExpense(r, false));
 
   const allRecords = [...pendingSales, ...pendingExpenses, ...syncedSales, ...syncedExpenses];
+  const allSalesRecords = [...pendingSales, ...syncedSales];
 
   // --- Filtering ---
   const filtered = allRecords.filter(r => {
@@ -530,6 +531,16 @@ export default function RecordsPage() {
                               variant="icon"
                             />
                           )}
+                          {r.type === "Sale" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-primary hover:bg-primary/10"
+                              onClick={() => handleGroupReceipt([r], r.salesId || "")}
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                          )}
                           <ManageSaleAction record={r} onUpdate={fetchData} />
                         </div>
                       </TableCell>
@@ -646,6 +657,7 @@ export default function RecordsPage() {
                 isPending={r.isPending}
                 record={r}
                 onUpdate={fetchData}
+                allSalesContext={allSalesRecords}
               />
             );
           })
@@ -687,6 +699,7 @@ export default function RecordsPage() {
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
         records={groupReceiptRecords}
+        salesId={groupReceiptRecords[0]?.salesId}
       />
     </div>
   );

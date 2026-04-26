@@ -8,10 +8,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { usePathname } from "next/navigation";
-import { Input } from "@/components/ui/input";
 
 type Cashier = {
   Name: string;
@@ -20,7 +26,9 @@ type Cashier = {
 
 export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
+  const [selectedName, setSelectedName] = useState("");
+  const [cashiers, setCashiers] = useState<Cashier[]>([]);
+  const [isLoadingCashiers, setIsLoadingCashiers] = useState(false);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const pathname = usePathname();
@@ -33,8 +41,7 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
     }
 
     const storedName = localStorage.getItem("userName");
-    
-    // Check if the current user needs to log in
+
     if (storedName && (storedName.toLowerCase() === "elijah" || storedName.toLowerCase() === "admin") && !isAdmin) {
       localStorage.removeItem("userName");
       setOpen(true);
@@ -43,32 +50,37 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
     }
   }, [isAdmin]);
 
+  // Fetch cashiers when the dialog opens so the dropdown is populated
+  useEffect(() => {
+    if (!open) return;
+    setIsLoadingCashiers(true);
+    fetch("/api/cashiers")
+      .then((r) => r.json())
+      .then(({ data }) => setCashiers((data as Cashier[]) || []))
+      .catch(() => setError("Could not load cashier list. Check your connection."))
+      .finally(() => setIsLoadingCashiers(false));
+  }, [open]);
+
   const handleSave = async () => {
-    const cleanName = name.trim();
-    if (!cleanName) {
-      setError("Please enter your name");
+    if (!selectedName) {
+      setError("Please select your name from the list.");
       return;
     }
 
     setIsSaving(true);
     setError("");
-    
-    try {
-      // Fetch authorized cashiers on demand
-      const fetchRes = await fetch("/api/cashiers");
-      const { data } = await fetchRes.json();
-      const currentCashiers: Cashier[] = data || [];
 
-      const selectedCashier = currentCashiers.find(c => c.Name.toLowerCase() === cleanName.toLowerCase());
-      
-      if (!selectedCashier) {
-        setError("Not an authorized cashier. Ask admin to add your name.");
+    try {
+      const cashier = cashiers.find((c) => c.Name === selectedName);
+
+      if (!cashier) {
+        setError("Name not found. Refresh and try again.");
         setIsSaving(false);
         return;
       }
 
-      if (selectedCashier.Status === "Online") {
-        setError(`"${selectedCashier.Name}" is currently logged in elsewhere.`);
+      if (cashier.Status === "Online") {
+        setError(`"${cashier.Name}" is currently logged in elsewhere.`);
         setIsSaving(false);
         return;
       }
@@ -76,11 +88,11 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
       const res = await fetch("/api/cashiers", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: selectedCashier.Name, status: "Online" }),
+        body: JSON.stringify({ name: cashier.Name, status: "Online" }),
       });
 
       if (res.ok) {
-        localStorage.setItem("userName", selectedCashier.Name);
+        localStorage.setItem("userName", cashier.Name);
         setOpen(false);
         setError("");
       } else {
@@ -96,49 +108,98 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
 
   if (pathname === "/bom03/login" || pathname === "/") return null;
 
+  // Partition into available (Offline) and busy (Online) so busy names are
+  // visible but disabled — cashier can see the full team at a glance.
+  const availableCashiers = cashiers.filter((c) => c.Status !== "Online");
+  const busyCashiers = cashiers.filter((c) => c.Status === "Online");
+
   return (
     <Fragment>
       {open && <div className="fixed inset-0 z-[150] bg-background" />}
       <Dialog open={open} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogContent
+          className="sm:max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-foreground">👋 Welcome to BOMedia</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Enter your assigned name to continue to the cashier portal.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-2 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="user-name">Your Name</Label>
-            
-            <Input
-              id="user-name"
-              placeholder="e.g. John or Sarah"
-              value={name}
-              autoFocus
-              onChange={(e) => {
-                setName(e.target.value);
-                setError("");
-              }}
-              className={error ? "border-red-500 focus-visible:ring-red-500" : ""}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-              }}
-              disabled={isSaving}
-            />
-            
-            {error && <p className="text-xs text-red-500 font-medium mt-1">{error}</p>}
+            <DialogTitle className="text-xl font-bold text-foreground">
+              👋 Welcome to BOMedia
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Select your name from the list to continue to the cashier portal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-2 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cashier-select">Select Your Name</Label>
+
+              <Select
+                value={selectedName}
+                onValueChange={(val) => {
+                  setSelectedName(val);
+                  setError("");
+                }}
+                disabled={isLoadingCashiers || isSaving}
+              >
+                <SelectTrigger
+                  id="cashier-select"
+                  className={`h-12 rounded-xl font-semibold ${error ? "border-red-500 focus:ring-red-500" : ""}`}
+                >
+                  <SelectValue
+                    placeholder={
+                      isLoadingCashiers ? "Loading cashiers..." : "Choose your name"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {availableCashiers.length > 0 && (
+                    <>
+                      {availableCashiers.map((c) => (
+                        <SelectItem key={c.Name} value={c.Name} className="font-semibold">
+                          {c.Name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  {busyCashiers.length > 0 && (
+                    <>
+                      {busyCashiers.map((c) => (
+                        <SelectItem
+                          key={c.Name}
+                          value={c.Name}
+                          disabled
+                          className="text-muted-foreground line-through font-medium"
+                        >
+                          {c.Name} — online
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  {cashiers.length === 0 && !isLoadingCashiers && (
+                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      No cashiers found. Ask admin to add your name.
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+
+              {error && (
+                <p className="text-xs text-red-500 font-medium mt-1">{error}</p>
+              )}
+            </div>
+
+            <Button
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl"
+              onClick={handleSave}
+              disabled={!selectedName || isSaving || isLoadingCashiers}
+            >
+              {isSaving ? "Logging in..." : "Get Started"}
+            </Button>
           </div>
-          <Button
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-            onClick={handleSave}
-            disabled={!name || isSaving}
-          >
-            {isSaving ? "Logging in..." : "Get Started"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
     </Fragment>
   );
 }

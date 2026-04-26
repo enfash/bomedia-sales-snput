@@ -58,27 +58,38 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
 
 /**
  * Processes a flat list of sales into a grouped chart data format for outstanding debt.
+ * Net balances are calculated per client — overpayments (negative balances) reduce the total.
+ * Only clients with a net balance > 1 (to handle float rounding) are included.
  */
 export function processDebtData(sales: any[], limit = 7) {
-  const debtByClient: Record<string, number> = {};
-  let totalDebt = 0;
+  // Step 1: Accumulate net balance per client (positive = owed, negative = overpaid)
+  const netByClient: Record<string, number> = {};
 
   sales.forEach((r) => {
     const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
-    if (balance > 0) {
-      const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
-      debtByClient[client] = (debtByClient[client] || 0) + balance;
-      totalDebt += balance;
+    const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
+    if (!client) return;
+    netByClient[client] = (netByClient[client] || 0) + balance;
+  });
+
+  // Step 2: Only keep clients with a net outstanding balance > 1 (ignore overpayments + rounding noise)
+  let totalDebt = 0;
+  const debtors: Record<string, number> = {};
+
+  Object.entries(netByClient).forEach(([client, net]) => {
+    if (net > 1) {
+      debtors[client] = net;
+      totalDebt += net;
     }
   });
 
-  const chartData = Object.entries(debtByClient)
+  const chartData = Object.entries(debtors)
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([name, balance]) => ({
-      name, // Keep full name for click events
+      name,
       balance,
     }));
 
-  return { chartData, totalDebt, count: Object.keys(debtByClient).length };
+  return { chartData, totalDebt, count: Object.keys(debtors).length };
 }

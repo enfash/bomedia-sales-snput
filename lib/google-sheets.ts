@@ -38,26 +38,36 @@ export async function getDoc() {
 }
 
 /**
- * Ensures that a sheet has a header row.
- * If the sheet is empty, it will be initialized with the provided defaultHeaders.
+ * Validates that a sheet has the expected header row.
+ *
+ * SAFE MODE — this function will NEVER mutate an existing sheet's headers.
+ * Adding or reordering columns on a live sheet shifts formula references and
+ * corrupts data. Instead:
+ *   • If the sheet is completely empty → initialise it with the canonical headers.
+ *   • If headers are already present but some are missing → log a warning and
+ *     continue so callers can still use the columns that do exist.
  */
 export async function ensureHeaders(sheet: any, requiredHeaders: string[]) {
   try {
     await sheet.loadHeaderRow();
-    const existingHeaders = sheet.headerValues;
+    const existingHeaders: string[] = sheet.headerValues ?? [];
+
     const missingHeaders = requiredHeaders.filter(h => !existingHeaders.includes(h));
-    
     if (missingHeaders.length > 0) {
-      // If some headers are missing, we append them to the existing sheet
-      await sheet.setHeaderRow([...existingHeaders, ...missingHeaders]);
+      // Do NOT mutate — simply warn. Appending headers shifts formula columns.
+      console.warn(
+        `[GoogleSheets] Sheet "${sheet.title}" is missing expected headers: [${missingHeaders.join(', ')}]. ` +
+        `Skipping mutation to prevent formula corruption. Verify the sheet structure manually.`
+      );
     }
     return true;
   } catch (error: any) {
-    const msg = error.message.toLowerCase();
-    
-    // This specific error happens when the sheet is completely empty or has corrupt headers
+    const msg = (error.message ?? '').toLowerCase();
+
+    // Only initialise headers when the sheet is completely empty — safe to write here
+    // because there are no existing rows or formula references to shift.
     if (msg.includes("no values in the header row") || msg.includes("duplicate header")) {
-      console.log(`[GoogleSheets] Resetting headers for ${sheet.title} due to: ${error.message}`);
+      console.log(`[GoogleSheets] Sheet "${sheet.title}" is empty — initialising headers.`);
       await sheet.setHeaderRow(requiredHeaders);
       return true;
     }
