@@ -42,6 +42,18 @@ import {
 import { cn } from "@/lib/utils";
 import { Drawer } from "vaul";
 
+interface JobData {
+  jobDescription: string;
+  material: string;
+  costPerSqft: string;
+  actualWidth: string;
+  actualHeight: string;
+  rollSize: string;
+  qty: string;
+  dimensionUnit: string;
+  fromInventory?: boolean;
+}
+
 
 function RollCard({ 
   width, 
@@ -117,7 +129,7 @@ export function SalesEntry() {
     initialPayment: "0",
   });
 
-  const [jobData, setJobData] = useState({
+  const [jobData, setJobData] = useState<JobData>({
     jobDescription: "",
     material: "Flex",
     costPerSqft: "180",
@@ -126,6 +138,7 @@ export function SalesEntry() {
     rollSize: "",
     qty: "1",
     dimensionUnit: "ft",
+    fromInventory: false,
   });
   
   const [cart, setCart] = useState<any[]>([]);
@@ -259,6 +272,7 @@ export function SalesEntry() {
       rollSize: "",
       qty: "1",
       dimensionUnit: "ft",
+      fromInventory: false,
     });
     setRollSizeTouched(false);
     setDimensionsTouched(false);
@@ -545,7 +559,7 @@ export function SalesEntry() {
                                         // Mark as inventory-sourced so the server can use the
                                         // exact item name for inventory deduction (canonicalItemName).
                                         fromInventory: true,
-                                      } as any);
+                                      });
                                       setOpenInv(false);
                                       toast.info(`Selected ${item["Item Name"]}`);
                                     }}
