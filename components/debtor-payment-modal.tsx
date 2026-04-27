@@ -79,8 +79,8 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
 
     return [...sales, ...pending].filter(r => 
       r.client.trim() === clientName.trim() && 
-      (r.balance || 0) > 0 &&
-      !r.isPending // We can only apply payments to synced records for now
+      !r.isPending &&
+      ((r.balance || 0) > 0 || (r.additionalPayment1 === 0 || r.additionalPayment2 === 0))
     );
   }, [clientName, cachedSales, pendingQueue]);
 
@@ -157,11 +157,11 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
         </div>
       </div>
 
-      {totalBalance <= 0 ? (
+      {clientRecords.length === 0 ? (
         <div className="flex items-center justify-center gap-2 p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
           <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-            Clear Balance
+            No payment slots available
           </p>
         </div>
       ) : (
@@ -208,10 +208,16 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
                   </div>
                 ))}
               </div>
-              {lumpSum > totalBalance && (
-                 <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 mt-2">
-                   <AlertCircle className="w-3 h-3" />
-                   Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be ignored.
+              {lumpSum > totalBalance && totalBalance > 0 && (
+                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-2">
+                   <CheckCircle2 className="w-3 h-3" />
+                   Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
+                 </p>
+              )}
+              {totalBalance <= 0 && lumpSum > 0 && (
+                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-2">
+                   <CheckCircle2 className="w-3 h-3" />
+                   ₦{lumpSum.toLocaleString()} will be applied as credit.
                  </p>
               )}
             </div>

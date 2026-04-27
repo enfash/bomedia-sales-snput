@@ -32,6 +32,7 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
     return rowA - rowB;
   });
 
+  // Phase 1: Pay off outstanding balances
   for (const rec of sorted) {
     if (remaining <= 0) break;
     const balance = rec.balance ?? 0;
@@ -53,8 +54,35 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
     steps.push({ record: rec, slot, toApply, remainingAfter: remaining });
   }
 
+  // Phase 2: Handle Overpayments (Rounding up/Intentional credit)
+  // If there's leftover money, dump it into the last available slot in the set.
+  if (remaining > 0 && sorted.length > 0) {
+    // Find the last record in the sorted set that has an available slot
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const rec = sorted[i];
+      const hasSlot1 = !((rec.additionalPayment1 ?? 0) > 0);
+      const hasSlot2 = !((rec.additionalPayment2 ?? 0) > 0);
+
+      // We need to ensure we don't double-use a slot we just filled in Phase 1
+      const usedSlotsForThisRec = steps
+        .filter(s => s.record.salesId === rec.salesId)
+        .map(s => s.slot);
+
+      let availableSlot: 1 | 2 | null = null;
+      if (hasSlot1 && !usedSlotsForThisRec.includes(1)) availableSlot = 1;
+      else if (hasSlot2 && !usedSlotsForThisRec.includes(2)) availableSlot = 2;
+
+      if (availableSlot) {
+        steps.push({ record: rec, slot: availableSlot, toApply: remaining, remainingAfter: 0 });
+        remaining = 0;
+        break;
+      }
+    }
+  }
+
   return steps;
 }
+
 
 /**
  * Processes a flat list of sales into a grouped chart data format for outstanding debt.

@@ -35,7 +35,16 @@ interface DebtData {
   balance: number;
 }
 
-const CHART_COLORS = ["hsl(var(--primary))", "hsl(243 75% 75%)", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--muted-foreground))", "hsl(190 90% 50%)"];
+const CHART_COLORS = [
+  "hsl(var(--primary))",    // BOMedia Indigo
+  "hsl(142 71% 45%)",       // Emerald Green
+  "hsl(38 92% 50%)",        // Amber Orange
+  "hsl(346 84% 61%)",       // Rose Pink
+  "hsl(262 83% 58%)",       // Violet Purple
+  "hsl(199 89% 48%)",       // Sky Blue
+  "hsl(161 94% 30%)",       // Teal
+  "hsl(43 96% 56%)",        // Yellow Gold
+];
 
 function EmptyState({ icon: Icon, title, description }: { icon: any, title: string, description: string }) {
   return (
@@ -109,6 +118,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
                     boxShadow: "0 10px 30px -10px rgba(0,0,0,0.15)",
                     fontSize: "12px",
                     padding: "12px",
+                    color: "hsl(var(--foreground))",
                   }}
                   cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '4 4' }}
                   itemStyle={{ fontWeight: "900" }}
@@ -126,11 +136,11 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
           <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-border">
             <div className="flex items-center gap-2">
               <span className="w-4 h-1 rounded-full bg-primary inline-block" />
-              <span className="text-[10px] font-black text-muted-foreground uppercase">Sales</span>
+              <span className="text-[10px] font-black text-gray-600 dark:text-zinc-400 uppercase">Sales</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-4 h-1 rounded-full bg-destructive inline-block" />
-              <span className="text-[10px] font-black text-muted-foreground uppercase">Expenses</span>
+              <span className="text-[10px] font-black text-gray-600 dark:text-zinc-400 uppercase">Expenses</span>
             </div>
           </div>
         )}
@@ -188,7 +198,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-x-0 pointer-events-none" style={{ top: "35%" }}>
-                <p className="text-center text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Total Exp.</p>
+                <p className="text-center text-[9px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest">Total Exp.</p>
                 <p className="text-center text-lg font-black text-foreground leading-tight">₦{total.toLocaleString()}</p>
               </div>
             </>
@@ -248,7 +258,7 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
               </ResponsiveContainer>
               {/* Center Label */}
               <div className="absolute inset-x-0 pointer-events-none" style={{ top: "35%" }}>
-                <p className="text-center text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Total Jobs</p>
+                <p className="text-center text-[9px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest">Total Jobs</p>
                 <p className="text-center text-lg font-black text-foreground leading-tight">{total.toLocaleString()}</p>
               </div>
             </>
@@ -277,7 +287,7 @@ export function OutstandingDebtChart({ data, onClientClick }: OutstandingDebtCha
             <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-bold">Top Clients with Unpaid Balances</CardDescription>
           </div>
           {hasData && (
-            <div className="bg-destructive/10 text-destructive text-[10px] font-black px-3 py-1 rounded-full border border-destructive/20 uppercase tracking-wider">
+            <div className="bg-destructive/10 text-destructive-foreground dark:text-destructive text-[10px] font-black px-3 py-1 rounded-full border border-destructive/40 uppercase tracking-wider bg-destructive/10">
               {data.length} client{data.length !== 1 ? "s" : ""}
             </div>
           )}
@@ -322,6 +332,7 @@ export function OutstandingDebtChart({ data, onClientClick }: OutstandingDebtCha
                     borderRadius: "14px",
                     border: "1px solid hsl(var(--border))",
                     fontSize: "12px",
+                    color: "hsl(var(--foreground))",
                   }}
                   formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Balance"]}
                   labelStyle={{ fontWeight: "900", marginBottom: "6px", color: "hsl(var(--foreground))" }}

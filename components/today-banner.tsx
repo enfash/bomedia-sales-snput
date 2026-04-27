@@ -43,7 +43,7 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
             isSyncing
               ? "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800"
               : hasPending
-              ? "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800"
+              ? "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800"
               : "bg-primary/10 text-primary border-primary/20"
           )}
         >
@@ -53,7 +53,7 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
             <span
               className={cn(
                 "h-1.5 w-1.5 rounded-full",
-                hasPending ? "bg-orange-500 animate-pulse" : "bg-primary"
+                hasPending ? "bg-amber-500 animate-pulse" : "bg-primary"
               )}
             />
           )}
@@ -68,8 +68,8 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
       {/* Stat Tiles */}
       <div className="grid grid-cols-3 gap-3">
         {/* Sales */}
-        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <div className="bg-card dark:bg-zinc-900/50 border border-border dark:border-zinc-800 rounded-2xl p-4 flex flex-col gap-1 shadow-sm transition-all hover:shadow-md group">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">
             Sales
           </p>
           <p className="text-2xl sm:text-3xl font-black text-foreground leading-none">
@@ -78,8 +78,8 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
         </div>
 
         {/* Jobs */}
-        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <div className="bg-card dark:bg-zinc-900/50 border border-border dark:border-zinc-800 rounded-2xl p-4 flex flex-col gap-1 shadow-sm transition-all hover:shadow-md group">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">
             Jobs
           </p>
           <p className="text-2xl sm:text-3xl font-black text-foreground leading-none">
@@ -88,12 +88,13 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
         </div>
 
         {/* Revenue */}
-        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <div className="bg-card dark:bg-zinc-900/50 border border-border dark:border-zinc-800 rounded-2xl p-4 flex flex-col gap-1 shadow-sm transition-all hover:shadow-md group overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full -mr-8 -mt-8" />
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors relative z-10">
             Revenue
           </p>
-          <p className="text-lg sm:text-xl font-black text-foreground leading-none truncate">
-            ₦{revenue >= 1000 ? `${(revenue / 1000).toFixed(1)}k` : revenue.toLocaleString()}
+          <p className="text-lg sm:text-xl font-black text-foreground leading-none truncate relative z-10">
+            ₦{revenue >= 1000000 ? `${(revenue / 1000000).toFixed(1)}M` : revenue >= 1000 ? `${(revenue / 1000).toFixed(1)}k` : revenue.toLocaleString()}
           </p>
         </div>
       </div>

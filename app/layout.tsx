@@ -37,7 +37,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#4f46e5" />
+        <meta name="theme-color" content="#2e388d" />
         <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
@@ -54,17 +54,17 @@ export default async function RootLayout({
           <ThemeWrapper>
             {/* Desktop Sidebar */}
             <Sidebar isAdmin={isAdmin} />
-            
+
             <div className="flex-1 flex flex-col min-w-0">
               {/* Mobile Header & Nav */}
               <MobileNav isAdmin={isAdmin} />
-              
+
               <main className="flex-1 md:ml-60 min-h-screen overflow-x-hidden">
                 <div className="w-full max-w-[2000px] mx-auto p-0">
                   {children}
                 </div>
               </main>
-              
+
               <BottomNav />
             </div>
           </ThemeWrapper>

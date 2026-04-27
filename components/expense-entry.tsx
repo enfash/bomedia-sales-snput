@@ -170,7 +170,7 @@ export function ExpenseEntry() {
             <CardTitle className="text-primary dark:text-primary-foreground/90 text-lg font-black">
               Expense Entry
             </CardTitle>
-            <CardDescription className="text-xs dark:text-zinc-500 font-medium">
+            <CardDescription className="text-xs dark:text-zinc-400 font-medium">
               Record expenditures to the Expenses sheet.
             </CardDescription>
           </CardHeader>
@@ -178,7 +178,7 @@ export function ExpenseEntry() {
             <div className="space-y-1">
               <Label
                 htmlFor="exp-date"
-                className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500"
+                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
               >
                 Date
               </Label>
@@ -195,7 +195,7 @@ export function ExpenseEntry() {
             <div className="space-y-1">
               <Label
                 htmlFor="exp-amount"
-                className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500"
+                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
               >
                 Amount (₦)
               </Label>
@@ -207,13 +207,13 @@ export function ExpenseEntry() {
                 onChange={(e) =>
                   setFormData({ ...formData, amount: e.target.value })
                 }
-                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 font-bold"
+                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-500 dark:placeholder:text-zinc-500 font-bold"
               />
             </div>
             <div className="space-y-1 flex flex-col">
               <Label
                 htmlFor="exp-category"
-                className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500"
+                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
               >
                 Category
               </Label>
@@ -230,7 +230,7 @@ export function ExpenseEntry() {
                       className={
                         formData.category
                           ? "text-gray-900 dark:text-zinc-100"
-                          : "text-gray-400 dark:text-zinc-600"
+                          : "text-gray-500 dark:text-zinc-400"
                       }
                     >
                       {formData.category || "Select category..."}
@@ -280,7 +280,7 @@ export function ExpenseEntry() {
             <div className="space-y-1">
               <Label
                 htmlFor="exp-method"
-                className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500"
+                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
               >
                 Method
               </Label>
@@ -321,7 +321,7 @@ export function ExpenseEntry() {
             <div className="space-y-1">
               <Label
                 htmlFor="exp-paidto"
-                className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500"
+                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
               >
                 Paid To
               </Label>
@@ -332,13 +332,13 @@ export function ExpenseEntry() {
                 onChange={(e) =>
                   setFormData({ ...formData, paidTo: e.target.value })
                 }
-                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 font-bold"
+                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-500 dark:placeholder:text-zinc-500 font-bold"
               />
             </div>
             <div className="space-y-1 md:col-span-2">
               <Label
                 htmlFor="exp-desc"
-                className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500"
+                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
               >
                 Description
               </Label>
@@ -374,9 +374,9 @@ export function ExpenseEntry() {
                   <div
                     className={cn(
                       "flex items-center justify-center gap-2 border-2 border-dashed rounded-xl p-3 transition-colors",
-                      formData.receiptUrl
-                        ? "bg-green-50 dark:bg-emerald-950/20 border-green-200 dark:border-emerald-900/30 text-green-700 dark:text-emerald-400"
-                        : "bg-gray-50 dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-900",
+                       formData.receiptUrl
+                        ? "bg-green-50 dark:bg-emerald-950/20 border-green-200 dark:border-emerald-900/30 text-green-800 dark:text-emerald-400"
+                        : "bg-gray-50 dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-900",
                     )}
                   >
                     {isUploading ? (
@@ -425,14 +425,14 @@ export function ExpenseEntry() {
             <DialogTitle className="text-xl font-black text-primary">
               Confirm Expense
             </DialogTitle>
-            <DialogDescription className="text-xs dark:text-zinc-500 font-medium">
+            <DialogDescription className="text-xs dark:text-zinc-400 font-medium">
               Review before pushing to Google Sheets.
             </DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm bg-gray-50 dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
               <div className="col-span-1">
-                <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">
+                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
                   Date
                 </span>
                 <span className="dark:text-zinc-200 font-bold">
@@ -440,7 +440,7 @@ export function ExpenseEntry() {
                 </span>
               </div>
               <div className="col-span-1">
-                <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">
+                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
                   Category
                 </span>
                 <span className="dark:text-zinc-200 font-bold">
@@ -448,7 +448,7 @@ export function ExpenseEntry() {
                 </span>
               </div>
               <div className="col-span-1">
-                <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">
+                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
                   Method
                 </span>
                 <span className="dark:text-zinc-200 font-bold">
@@ -456,7 +456,7 @@ export function ExpenseEntry() {
                 </span>
               </div>
               <div className="col-span-1">
-                <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">
+                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
                   Amount
                 </span>
                 <span className="font-black text-lg text-red-600 dark:text-rose-400">
@@ -464,7 +464,7 @@ export function ExpenseEntry() {
                 </span>
               </div>
               <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">
+                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
                   Paid To
                 </span>
                 <span className="dark:text-zinc-200 font-bold">
@@ -472,7 +472,7 @@ export function ExpenseEntry() {
                 </span>
               </div>
               <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-0.5 tracking-wider">
+                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
                   Description
                 </span>
                 <span className="dark:text-zinc-300 font-medium leading-relaxed">

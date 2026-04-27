@@ -4,7 +4,7 @@
 
 ### Admin Portal (Indigo/Purple)
 
-- **Primary**: `hsl(243 75% 59%)` - #4f46e5 (Indigo)
+- **Primary**: `hsl(243 75% 59%)` - #2e388d (Indigo)
 - **Accent**: `hsl(243 75% 96%)` - Light indigo for backgrounds
 - **Use**: Admin dashboard, records management, data-focused features
 

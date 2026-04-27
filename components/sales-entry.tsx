@@ -91,11 +91,11 @@ function RollCard({
       </div>
       <span className={cn(
         "text-xs font-bold uppercase tracking-tight",
-        selected ? "text-primary-foreground dark:text-white" : "text-gray-500 dark:text-zinc-400"
+        selected ? "text-primary-foreground dark:text-white" : "text-gray-600 dark:text-zinc-300"
       )}>
         {width} FT
       </span>
-      <span className="text-[9px] font-bold text-gray-500 dark:text-zinc-500">Width</span>
+      <span className="text-[9px] font-bold text-gray-600 dark:text-zinc-400">Width</span>
       {selected && (
         <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5 shadow-sm">
           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -454,7 +454,7 @@ export function SalesEntry() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Date</Label>
+                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Date</Label>
                   <Input type="date" value={batchData.date} onChange={e => setBatchData({...batchData, date: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
                 <div className="space-y-1.5">
@@ -500,7 +500,7 @@ export function SalesEntry() {
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Contact Information</Label>
+                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Contact Information</Label>
                   <Input placeholder="sarah.jones@email.com" value={batchData.contact} onChange={e => setBatchData({...batchData, contact: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
               </div>
@@ -515,7 +515,7 @@ export function SalesEntry() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="md:col-span-2 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Job Description</Label>
+                    <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Job Description</Label>
                     {inventory.length > 0 && (
                       <Popover open={openInv} onOpenChange={setOpenInv}>
                         <PopoverTrigger asChild>
@@ -570,7 +570,7 @@ export function SalesEntry() {
                   <Input placeholder="3x Large Format Banners for Event" value={jobData.jobDescription} onChange={e => setJobData({...jobData, jobDescription: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Material</Label>
+                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Material</Label>
                   <Select value={jobData.material} onValueChange={(val: string) => setJobData({...jobData, material: val})}>
                     <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
@@ -580,7 +580,7 @@ export function SalesEntry() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Quantity</Label>
+                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Quantity</Label>
                   <Input type="number" min="1" value={jobData.qty} onChange={e => setJobData({...jobData, qty: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950" />
                 </div>
               </div>
@@ -595,19 +595,19 @@ export function SalesEntry() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-8">
                 <div className="md:col-span-2 space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                    <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">
                       Actual Size (Width x Height) <span className="text-rose-500">*</span>
                     </Label>
                     <div className="flex bg-gray-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-800">
                       <button 
                         onClick={() => setJobData({...jobData, dimensionUnit: 'ft'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'ft' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300'}`}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'ft' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
                       >
                         FEET
                       </button>
                       <button 
                         onClick={() => setJobData({...jobData, dimensionUnit: 'in'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'in' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300'}`}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'in' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
                       >
                         INCHES
                       </button>
@@ -631,7 +631,7 @@ export function SalesEntry() {
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
                        </div>
-                       <span className="text-gray-400 font-bold text-lg flex-shrink-0">×</span>
+                       <span className="text-gray-500 dark:text-zinc-500 font-bold text-lg flex-shrink-0">×</span>
                        <div className="relative flex-1 group">
                           <Input 
                             type="number" 
@@ -651,7 +651,7 @@ export function SalesEntry() {
                        {/* Inline live sqft chip */}
                        {calculatedSize > 0 && (
                          <div className="flex-shrink-0 flex flex-col items-center justify-center px-3 h-12 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl animate-in fade-in zoom-in-95 duration-200">
-                           <span className="text-[8px] font-semibold text-primary/60 uppercase tracking-wider leading-none">= sqft</span>
+                           <span className="text-[8px] font-semibold text-primary dark:text-primary-foreground uppercase tracking-wider leading-none">= sqft</span>
                            <span className="text-sm font-black text-primary leading-none">{calculatedSize.toFixed(1)}</span>
                          </div>
                        )}
@@ -690,7 +690,7 @@ export function SalesEntry() {
                 </div>
 
                 <div className="md:col-span-1 space-y-1.5 relative">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Cost Per SQFT (₦)</Label>
+                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Cost Per SQFT (₦)</Label>
                   <Input type="number" value={jobData.costPerSqft} onChange={e => setJobData({...jobData, costPerSqft: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
                 </div>
 
@@ -700,7 +700,7 @@ export function SalesEntry() {
                      className="h-12 px-6 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
                    >
                      <span>+ Add to Order</span>
-                     {totalAmount > 0 && <span className="text-white/60 dark:text-black/60 font-normal">| ₦{totalAmount.toLocaleString()}</span>}
+                     {totalAmount > 0 && <span className="text-white/80 dark:text-black/80 font-normal">| ₦{totalAmount.toLocaleString()}</span>}
                    </Button>
                 </div>
 
@@ -723,14 +723,14 @@ export function SalesEntry() {
                           </div>
                           <div>
                             <p className="font-bold text-sm text-gray-900 dark:text-white mb-0.5">{item.jobDescription || `Unnamed Job ${index + 1}`}</p>
-                            <p className="text-xs font-medium text-gray-500 dark:text-zinc-400">
+                            <p className="text-xs font-medium text-gray-600 dark:text-zinc-300">
                               {item.qty}x {item.material} • {item.actualWidth}{item.dimensionUnit} × {item.actualHeight}{item.dimensionUnit} • {item.rollSize}FT Roll
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto ml-12 sm:ml-0">
                           <div className="text-left sm:text-right">
-                            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-0.5">Amount</p>
+                            <p className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider mb-0.5">Amount</p>
                             <p className="font-bold text-primary dark:text-primary-foreground">₦{item.totalAmount.toLocaleString()}</p>
                           </div>
                           <Button 
@@ -768,11 +768,11 @@ export function SalesEntry() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end mt-4">
                      <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Initial Payment (₦)</Label>
+                        <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Initial Payment (₦)</Label>
                         <Input type="number" placeholder="5000" value={batchData.initialPayment} onChange={e => setBatchData({...batchData, initialPayment: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
                      </div>
                      <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">Job Status</Label>
+                        <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Job Status</Label>
                         <Select value={batchData.jobStatus} onValueChange={(val: string) => setBatchData({...batchData, jobStatus: val})}>
                           <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 w-full shadow-sm"><SelectValue /></SelectTrigger>
                           <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
@@ -785,7 +785,7 @@ export function SalesEntry() {
                         </Select>
                      </div>
                      <div className="flex flex-col items-center md:items-end">
-                        <p className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-500 tracking-widest mb-1">Status: <span className={paymentStatus === "Paid" ? "text-emerald-500" : "text-rose-500"}>{paymentStatus.toUpperCase()}</span></p>
+                        <p className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-widest mb-1">Status: <span className={paymentStatus === "Paid" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{paymentStatus.toUpperCase()}</span></p>
                         <Button 
                           onClick={handleReviewAndSave}
                           className="w-full h-12 text-white font-bold text-lg rounded-xl shadow-xl transition-all bg-primary hover:bg-primary/90 shadow-primary/20 dark:shadow-none hover:scale-[1.02]"

@@ -10,6 +10,7 @@ import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 import { toast } from "sonner";
+import { ActivityFeed } from "./activity-feed";
 
 
 const navItems = [
@@ -117,8 +118,8 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
               <Menu className="w-6 h-6" />
             </Button>
             <div className="flex flex-col">
-              <span className="text-sm font-black text-primary dark:text-orange-400 uppercase tracking-tighter leading-none">BOMedia</span>
-              <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-widest leading-none mt-1">{isAdmin ? "Admin" : "Cashier"}</span>
+              <span className="text-sm font-black text-primary uppercase tracking-tighter leading-none">BOMedia</span>
+              <span className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-widest leading-none mt-1">{isAdmin ? "Admin" : "Cashier"}</span>
             </div>
           </div>
         </div>
@@ -128,7 +129,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
             variant="ghost"
             size="icon"
             onClick={handleRefresh}
-            className="h-9 w-9 rounded-xl text-gray-400 hover:text-primary dark:hover:text-orange-400 hover:bg-gray-50 dark:hover:bg-zinc-900"
+            className="h-9 w-9 rounded-xl text-gray-400 hover:text-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
           >
             <RefreshCw className="w-4 h-4" />
           </Button>
@@ -140,11 +141,12 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
               "h-9 w-9 rounded-xl transition-all",
               hasHydrated && isMuted 
                 ? "text-rose-500 bg-rose-50 dark:bg-rose-900/10" 
-                : "text-gray-400 hover:text-primary dark:hover:text-orange-400 hover:bg-gray-50 dark:hover:bg-zinc-900"
+                : "text-gray-400 hover:text-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
             )}
           >
             {hasHydrated && isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </Button>
+          <ActivityFeed />
           <ThemeToggle />
         </div>
       </header>
@@ -164,7 +166,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
           >
             <div className="mb-8">
               <Logo className="text-white" />
-              <p className="text-xs text-gray-400 mt-1 ml-12">Sales & Expenses</p>
+              <p className="text-xs text-gray-300 mt-1 ml-12">Sales & Expenses</p>
             </div>
 
             <nav className="flex-1 space-y-2">
@@ -192,11 +194,11 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
               {/* Sync Status for Mobile */}
               <div className="p-4 bg-gray-800/40 dark:bg-zinc-900/40 rounded-xl border border-gray-700/50 dark:border-zinc-800/50">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sync Queue</span>
+                  <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-widest">Sync Queue</span>
                   {syncStatus === 'syncing' ? (
                     <RefreshCw className="w-3 h-3 text-primary animate-spin" />
                   ) : pendingQueue.length > 0 ? (
-                    <CloudOff className="w-3 h-3 text-orange-400" />
+                    <CloudOff className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                   ) : (
                     <Cloud className="w-3 h-3 text-green-400" />
                   )}

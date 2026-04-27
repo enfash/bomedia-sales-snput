@@ -145,7 +145,7 @@ export default function CashierDashboardPage() {
 
   const materialData = Object.entries(materials)
     .sort((a, b) => b[1] - a[1])
-    .map(([name, value], i) => ({ name, value, color: ["#6366f1", "#a855f7", "#10b981", "#f59e0b", "#64748b"][i % 5] }));
+    .map(([name, value], i) => ({ name, value, color: ["#2e388d", "#a855f7", "#10b981", "#f59e0b", "#64748b"][i % 5] }));
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {

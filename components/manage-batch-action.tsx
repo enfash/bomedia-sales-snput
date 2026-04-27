@@ -141,9 +141,9 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
               className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold focus:ring-primary"
             />
             {lumpSum > totalBalance && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Amount exceeds remaining balance — overpayment will be ignored.
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
               </p>
             )}
           </div>

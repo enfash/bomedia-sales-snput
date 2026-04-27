@@ -131,7 +131,7 @@ This document outlines all the design and UI improvements that have been impleme
   - `components/floating-sale-fab.tsx` (amber for cashier, primary for admin)
 
 - **Color Scheme**:
-  - **Admin Portal**: Indigo/Purple (#4f46e5) - professional, data-focused
+  - **Admin Portal**: Indigo/Purple (#2e388d) - professional, data-focused
   - **Cashier Portal**: Amber/Orange (#f59e0b) - warm, approachable, action-oriented
   - Color applied to: Primary buttons, FAB, bottom nav active state, theme accents
 

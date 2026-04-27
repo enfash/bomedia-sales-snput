@@ -68,6 +68,20 @@ export default function DashboardPage() {
         fetch("/api/sales"),
         fetch("/api/expenses"),
       ]);
+
+      // If routes are still compiling in dev mode, they might return 404/500 temporarily.
+      // We check for .ok and valid JSON to prevent "Unexpected token < in JSON" errors.
+      if (!salesRes.ok || !expensesRes.ok) {
+        throw new Error(`Fetch failed: Sales ${salesRes.status}, Expenses ${expensesRes.status}`);
+      }
+
+      const salesContentType = salesRes.headers.get("content-type");
+      const expensesContentType = expensesRes.headers.get("content-type");
+
+      if (!salesContentType?.includes("application/json") || !expensesContentType?.includes("application/json")) {
+        throw new Error("API returned non-JSON response (likely a 404/500 HTML page during compilation)");
+      }
+
       const salesJson = await salesRes.json();
       const expensesJson = await expensesRes.json();
       
@@ -345,7 +359,7 @@ export default function DashboardPage() {
               <TabsTrigger
                 key={val}
                 value={val}
-                className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white h-9 flex items-center justify-center gap-1"
+                className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-primary data-[state=active]:text-brand-700 dark:data-[state=active]:text-primary-foreground h-9 flex items-center justify-center gap-1"
               >
                 {label}
               </TabsTrigger>
@@ -398,7 +412,7 @@ export default function DashboardPage() {
                 <TabsTrigger
                   key={val}
                   value={val}
-                  className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-brand-700 data-[state=active]:text-brand-700 dark:data-[state=active]:text-white"
+                  className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-primary data-[state=active]:text-brand-700 dark:data-[state=active]:text-primary-foreground"
                 >
                   {val === "custom" ? (
                     <span className="flex items-center gap-1">
@@ -479,14 +493,14 @@ export default function DashboardPage() {
       {/* Inventory Alerts & Shortcuts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/bom03/inventory" className="md:col-span-1">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-amber-100 dark:border-amber-900/30 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
-              <Package className="w-6 h-6 text-amber-600" />
+          <div className="bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-all active:scale-[0.98] shadow-sm">
+            <div className="bg-amber-100 dark:bg-amber-900/40 p-2.5 rounded-xl shadow-inner">
+              <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-0.5">Inventory Status</p>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Check Stock Levels</h3>
-              <p className="text-[10px] text-gray-400 font-bold">Manage items & categories</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400/80 mb-0.5">Inventory Status</p>
+              <h3 className="text-base font-bold text-foreground">Check Stock Levels</h3>
+              <p className="text-xs text-muted-foreground">Manage items & categories</p>
             </div>
           </div>
         </Link>
@@ -536,8 +550,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Link href="/new-entry" className="flex-1 md:flex-none">
             <Button
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 transition-all hover:scale-105"
-              style={{ backgroundColor: "white", color: "#2e388d" }}
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 transition-all hover:scale-105 bg-white dark:bg-primary text-brand dark:text-primary-foreground border-none"
             >
               <Zap className="w-3 h-3 mr-2" />
               AI Entry

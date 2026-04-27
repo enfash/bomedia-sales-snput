@@ -295,7 +295,7 @@ export default function CashierRecordsPage() {
               </span>
             )}
           </div>
-          <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">Review all sales logged today.</p>
+          <p className="text-gray-600 dark:text-zinc-400 text-sm mt-1">Review all sales logged today.</p>
         </div>
         <Button 
           variant="outline" 
@@ -312,7 +312,7 @@ export default function CashierRecordsPage() {
       {/* Filter & Sort Bar */}
       <div className="flex flex-col lg:flex-row gap-4 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-zinc-400" />
           <Input
             className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-orange-500 dark:text-zinc-100 dark:placeholder:text-zinc-600"
             placeholder="Search by client or job description..."
@@ -334,7 +334,7 @@ export default function CashierRecordsPage() {
                 onClick={() => setSortBy(option.id as any)}
                 className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${sortBy === option.id
                     ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                    : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                    : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
                   }`}
               >
                 {option.label}
@@ -360,7 +360,7 @@ export default function CashierRecordsPage() {
                 onClick={() => setActiveTab(tab as any)}
                 className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${activeTab === tab
                     ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                    : "text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                    : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
                   }`}
               >
                 {tab}
@@ -375,13 +375,13 @@ export default function CashierRecordsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 border-none">
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 py-4">Client</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Description</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-right">Amount</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-right">Debt</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Logged By</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Actions</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-400 py-4">Client</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-400">Description</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-400 text-right">Amount</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-400 text-right">Debt</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-400 text-center">Status</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-400">Logged By</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-400 text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -402,7 +402,7 @@ export default function CashierRecordsPage() {
                         ₦{(r.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center"><StatusBadge status={r.status} /></TableCell>
-                      <TableCell className="text-xs font-medium text-gray-500 dark:text-zinc-400">{r.loggedBy}</TableCell>
+                      <TableCell className="text-xs font-medium text-gray-600 dark:text-zinc-400">{r.loggedBy}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
                           <WhatsAppReminder
@@ -451,7 +451,7 @@ export default function CashierRecordsPage() {
                       <TableCell className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-2 py-4">
                         {isExpanded ? <ChevronDown className="w-4 h-4 text-primary" /> : <ChevronRight className="w-4 h-4 text-primary" />}
                         {firstItem.client}
-                        <div className="text-[10px] text-gray-500 font-medium ml-2">{unit.salesId}</div>
+                        <div className="text-[10px] text-gray-600 dark:text-zinc-400 font-medium ml-2">{unit.salesId}</div>
                       </TableCell>
                       <TableCell className="text-xs font-bold text-primary">{unit.items.length} Batched Items</TableCell>
                       <TableCell className="text-sm font-black text-gray-900 dark:text-white text-right">₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
@@ -475,11 +475,11 @@ export default function CashierRecordsPage() {
                     {isExpanded && unit.items.map((item) => (
                       <TableRow key={item.id} className="bg-gray-50/30 dark:bg-zinc-800/20 border-b border-gray-100 dark:border-zinc-800 animate-in fade-in slide-in-from-top-1 duration-200">
                         <TableCell className="pl-10 text-xs font-bold text-gray-500 dark:text-zinc-400">{item.description || "No description"}</TableCell>
-                        <TableCell className="text-[10px] text-gray-400 dark:text-zinc-500 italic">Item Row {item.rowIndex}</TableCell>
+                        <TableCell className="text-[10px] text-gray-500 dark:text-zinc-400 italic">Item Row {item.rowIndex}</TableCell>
                         <TableCell className="text-xs font-bold text-gray-700 dark:text-zinc-300 text-right">₦{item.amount.toLocaleString()}</TableCell>
                         <TableCell className="text-xs font-bold text-rose-500/70 dark:text-rose-400/70 text-right">₦{(item.balance || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-center"><StatusBadge status={item.status} /></TableCell>
-                        <TableCell className="text-[10px] text-gray-400 dark:text-zinc-500">{item.loggedBy}</TableCell>
+                        <TableCell className="text-[10px] text-gray-500 dark:text-zinc-400">{item.loggedBy}</TableCell>
                         <TableCell className="text-center">
                           <ManageSaleAction record={item} onUpdate={fetchData} />
                         </TableCell>

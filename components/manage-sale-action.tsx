@@ -205,11 +205,11 @@ function HeaderContent({ record }: any) {
         Manage Sale Record
       </DialogTitle>
       <div className="flex justify-between items-end mt-1">
-        <p className="text-white/80 text-xs font-medium">
+        <p className="text-white font-medium">
           Update payments and job progress for {record.client}
         </p>
         <div className="text-right flex flex-col items-end">
-          <p className="text-[10px] uppercase font-black text-white/60 leading-none mb-0.5">
+          <p className="text-[10px] uppercase font-black text-white/90 leading-none mb-0.5">
             Current Balance
           </p>
           <p className="text-sm font-black text-white leading-none">
@@ -264,7 +264,7 @@ function ContentBody({
     <div className="p-6 space-y-6">
       <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
         <div>
-          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">
+          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider mb-2 block">
             Total Amount
           </Label>
           <p className="text-lg font-black text-gray-900 dark:text-white">
@@ -272,7 +272,7 @@ function ContentBody({
           </p>
         </div>
         <div>
-          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider mb-2 block">
+          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider mb-2 block">
             Current Status
           </Label>
           <p className="text-xs font-bold text-primary">
@@ -299,7 +299,7 @@ function ContentBody({
         )}
 
         <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider">
             Additional Payment 1 (₦)
           </Label>
           <Input
@@ -313,7 +313,7 @@ function ContentBody({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider">
             Additional Payment 2 (₦)
           </Label>
           <Input
@@ -327,7 +327,7 @@ function ContentBody({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider">
             Job Status
           </Label>
           <Select value={status} onValueChange={setStatus}>

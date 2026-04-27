@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
+import { ActivityFeed } from "./activity-feed";
 
 
 const navItems = [
@@ -71,7 +72,10 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center justify-between px-5 py-6 border-b border-gray-700/60 dark:border-zinc-800/50">
         <Logo className="text-white" />
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <ActivityFeed />
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* Navigation */}
@@ -103,7 +107,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
           {syncStatus === 'syncing' ? (
             <RefreshCw className="w-3 h-3 text-primary animate-spin" />
           ) : pendingQueue.length > 0 ? (
-            <CloudOff className="w-3 h-3 text-orange-400" />
+            <CloudOff className="w-3 h-3 text-amber-500 dark:text-amber-400" />
           ) : (
             <Cloud className="w-3 h-3 text-green-400" />
           )}
@@ -112,7 +116,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
           <div className="flex justify-between items-center">
             <p className="text-xs text-gray-300">{pendingQueue.length} pending items</p>
             {pendingQueue.length > 0 && (
-              <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+              <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
             )}
           </div>
           {lastSyncTime && (

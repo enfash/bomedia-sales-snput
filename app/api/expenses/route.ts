@@ -4,7 +4,7 @@ import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 export const dynamic = 'force-dynamic';
 
 const SHEET_TITLE = 'Expenses';
-const EXPENSES_HEADERS = ['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION', 'PAID TO', 'PAYMENT METHOD', 'RECEIPT URL', 'Logged By'];
+const EXPENSES_HEADERS = ['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION', 'PAID TO', 'PAYMENT METHOD', 'RECEIPT URL', 'Logged By', 'TIMESTAMP'];
 
 export async function GET() {
   try {
@@ -26,7 +26,10 @@ export async function POST(request: Request) {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
     await ensureHeaders(sheet, EXPENSES_HEADERS);
-    await sheet.addRow(body);
+    
+    const rowData = Array.isArray(body) ? [...body, new Date().toISOString()] : { ...body, TIMESTAMP: new Date().toISOString() };
+    await sheet.addRow(rowData);
+    
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('POST Expenses Error:', error);

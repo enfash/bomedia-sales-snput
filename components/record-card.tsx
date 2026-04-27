@@ -55,7 +55,7 @@ export function RecordCard({
     Settled:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40",
     "Part-payment":
-      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40",
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40",
     "In Progress":
       "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40",
     Syncing:
@@ -150,7 +150,7 @@ export function RecordCard({
   const accentBorder = isPending
     ? "border-l-[3px] border-l-brand-400"
     : isExpense
-      ? "border-l-[3px] border-l-orange-400"
+      ? "border-l-[3px] border-l-primary/40"
       : "border-l-[3px] border-l-primary/50";
 
   return (
@@ -165,11 +165,11 @@ export function RecordCard({
     >
       <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-50 dark:border-zinc-800/80">
         <div>
-          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-500 block leading-none mb-3">
+          <span className="text-xs font-semibold text-gray-600 dark:text-zinc-400 block leading-none mb-3">
             {date}
           </span>
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase text-gray-500 block leading-none mb-1 tracking-wider">
+            <span className="text-[9px] font-bold uppercase text-gray-600 block leading-none mb-1 tracking-wider">
               Amount
             </span>
             <span className="text-sm font-black text-gray-900 dark:text-white leading-none">
@@ -178,7 +178,7 @@ export function RecordCard({
           </div>
         </div>
         <div className="text-right">
-          <span className="text-[9px] font-bold uppercase text-rose-400 dark:text-rose-500 block leading-none mb-1 tracking-wider">
+          <span className="text-[9px] font-bold uppercase text-rose-500 dark:text-rose-400 block leading-none mb-1 tracking-wider">
             Difference
           </span>
           <span className="text-sm font-black text-rose-600 dark:text-rose-400 leading-none">
@@ -192,7 +192,7 @@ export function RecordCard({
       <div className="flex justify-between items-end">
         <div className="space-y-1">
           <div>
-            <p className="text-[10px] font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-tight leading-none mb-0.5">
+            <p className="text-[10px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-tight leading-none mb-0.5">
               Client/Payee
             </p>
             <p className="text-sm font-bold text-gray-800 dark:text-zinc-100">
@@ -200,8 +200,8 @@ export function RecordCard({
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 dark:text-zinc-400">
-              <span className="font-semibold text-gray-600 dark:text-zinc-300">
+            <p className="text-xs text-gray-600 dark:text-zinc-400">
+              <span className="font-bold text-gray-700 dark:text-zinc-300">
                 Description:
               </span>{" "}
               {displayDescription}

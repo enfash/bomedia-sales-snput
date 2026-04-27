@@ -131,7 +131,7 @@ All 13 design and UI upgrade tasks have been completed successfully. The BOMedia
 #### ✅ Warm Color Palette (Amber/Orange)
 
 - **Implementation**:
-  - Admin: Indigo #4f46e5 (professional)
+  - Admin: Indigo #2e388d (professional)
   - Cashier: Amber #f59e0b (warm, approachable)
   - ThemeWrapper auto-applies `theme-amber` class
   - Users instantly know which portal they're using

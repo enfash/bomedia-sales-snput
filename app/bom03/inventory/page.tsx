@@ -277,7 +277,7 @@ export default function InventoryPage() {
           <Card key={i} className="bg-white dark:bg-zinc-900 border-none shadow-sm overflow-hidden group hover:shadow-md transition-all">
             <CardContent className="p-5 flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest mb-1">{stat.title}</p>
+                <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{stat.title}</p>
                 <p className="text-2xl font-black text-gray-900 dark:text-white">{stat.val}</p>
               </div>
               <div className={`p-3 rounded-2xl ${stat.color} group-hover:scale-110 transition-transform`}>
@@ -292,7 +292,7 @@ export default function InventoryPage() {
       <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
         <div className="p-6 border-b border-gray-50 dark:border-zinc-800 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-zinc-400" />
             <Input 
               placeholder="Search inventory..." 
               value={search}
@@ -309,18 +309,18 @@ export default function InventoryPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 border-none">
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 py-4 pl-6">Item Name</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Category</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500">Waste</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-right">Selling Rate</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Remaining (Sqft)</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 text-center">Manual Adjust</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4 pl-6">Item Name</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400">Category</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400">Waste</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 text-right">Selling Rate</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 text-center">Remaining (Sqft)</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 text-center">Manual Adjust</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-20 text-gray-400 dark:text-zinc-600 font-medium italic">No inventory items found.</TableCell>
+                <TableCell colSpan={6} className="text-center py-20 text-gray-500 dark:text-zinc-400 font-medium italic">No inventory items found.</TableCell>
               </TableRow>
             ) : (
               filteredItems.map((item) => {
@@ -345,9 +345,9 @@ export default function InventoryPage() {
                         </Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-gray-500 dark:text-zinc-500 font-medium">{item.Category}</TableCell>
+                    <TableCell className="text-xs text-gray-600 dark:text-zinc-400 font-medium">{item.Category}</TableCell>
                     <TableCell>
-                      <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-600">{item["Waste Factor"]}%</span>
+                      <span className="text-[10px] font-bold text-gray-500 dark:text-zinc-400">{item["Waste Factor"]}%</span>
                     </TableCell>
                     <TableCell className="text-right font-black text-brand-700 dark:text-brand-400">₦{parseFloat(item.Price.toString()).toLocaleString()}/sqft</TableCell>
                     <TableCell className="text-center font-black text-gray-900 dark:text-white">{stock.toFixed(2)}</TableCell>

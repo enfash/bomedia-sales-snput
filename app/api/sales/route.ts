@@ -9,7 +9,7 @@ const SALES_HEADERS = [
   'DATE', 'CLIENT NAME', 'JOB DESCRIPTION', 'CONTACT', 'MATERIAL', 'COST PER SQFT', 
   '3FT', '4FT', '5FT', '6FT', '8FT', '10FT', 'QTY', 'UNIT COST', 'INITIAL PAYMENT', 
   'TOTAL', 'ADDITIONAL PAYMENT 1', 'ADDITIONAL PAYMENT 2', 'BALANCE', 'PAYMENT STATUS', 
-  'JOB STATUS', 'LOGGED BY', 'SALES ID'
+  'JOB STATUS', 'LOGGED BY', 'SALES ID', 'TIMESTAMP'
 ];
 const INVENTORY_HEADERS = [
   'Item Name', 'Category', 'Price', 'Cost', 'Width (ft)', 'Length', 'Unit', 'Adjustments', 'Stock', 'Waste Factor', 'Cost per Sqft'
@@ -154,11 +154,12 @@ export async function POST(request: Request) {
           return val;
         });
 
-        // Append Sales ID as column W (Index 22)
-        while (processedValues.length < 22) {
+        // Append Sales ID as column W (Index 22) and TIMESTAMP as column X (Index 23)
+        while (processedValues.length < 23) {
           processedValues.push("");
         }
         processedValues[22] = processedValues[22] || salesId;
+        processedValues[23] = new Date().toISOString();
         
         newRows.push(processedValues);
         nextRow++;
@@ -227,11 +228,12 @@ export async function POST(request: Request) {
         return val;
       });
 
-      // Provide empty Sales ID for legacy
-      while (processedValues.length < 22) {
+      // Provide empty Sales ID for legacy and TIMESTAMP
+      while (processedValues.length < 23) {
         processedValues.push("");
       }
       processedValues[22] = processedValues[22] || "";
+      processedValues[23] = new Date().toISOString();
 
       await sheet.addRow(processedValues);
 
@@ -254,7 +256,8 @@ export async function POST(request: Request) {
       }
     } else {
       await ensureHeaders(sheet, SALES_HEADERS);
-      await sheet.addRow(body);
+      const rowData = Array.isArray(body) ? [...body, new Date().toISOString()] : { ...body, TIMESTAMP: new Date().toISOString() };
+      await sheet.addRow(rowData);
     }
     
     return NextResponse.json({ success: true });
