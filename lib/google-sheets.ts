@@ -23,7 +23,11 @@ export async function getDoc() {
       return doc;
     } catch (error: any) {
       attempt++;
-      console.error(`Google Sheets getDoc Error (Attempt ${attempt}/${maxRetries}):`, error.message || error);
+      console.error(`Google Sheets getDoc Error (Attempt ${attempt}/${maxRetries}):`, {
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      });
       
       if (attempt >= maxRetries) {
         throw error;
