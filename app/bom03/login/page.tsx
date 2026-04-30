@@ -28,6 +28,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
+        localStorage.setItem("userName", "Admin");
         toast.success("Welcome back!");
         router.push("/bom03");
         router.refresh();

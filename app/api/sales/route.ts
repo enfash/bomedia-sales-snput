@@ -12,7 +12,7 @@ const SALES_HEADERS = [
   'JOB STATUS', 'LOGGED BY', 'SALES ID', 'TIMESTAMP'
 ];
 const INVENTORY_HEADERS = [
-  'Item Name', 'Category', 'Price', 'Cost', 'Width (ft)', 'Length', 'Unit', 'Adjustments', 'Stock', 'Waste Factor', 'Cost per Sqft'
+  'Item Name', 'Width (ft)', 'Length', 'Unit', 'Price', 'Stock'
 ];
 
 export async function GET() {
@@ -170,15 +170,14 @@ export async function POST(request: Request) {
           const invRow = invRows.find(r => r.get('Item Name')?.toLowerCase() === matchedItemName.toLowerCase());
           
           if (invRow) {
-            const wastePercent = parseFloat(invRow.get('Waste Factor')?.toString() || '0');
-            const totalDeduction = totalArea * (1 + (wastePercent / 100));
+            const availableStock = parseFloat(invRow.get('Stock')?.toString().replace(/,/g, '') || '0');
+            if (availableStock < totalArea) {
+              return NextResponse.json({ error: `Insufficient stock for ${matchedItemName}. Requested: ${totalArea} sqft, Available: ${availableStock} sqft.` }, { status: 400 });
+            }
             
-            // IMPORTANT: Update Adjustments column instead of Stock to preserve the formula audit trail
-            const currentAdjustment = parseFloat(invRow.get('Adjustments')?.toString() || '0');
-            invRow.set('Adjustments', currentAdjustment - totalDeduction);
-            
+            invRow.set('Stock', availableStock - totalArea);
             await invRow.save();
-            console.log(`Inventory updated for ${matchedItemName}: Adjustment -${totalDeduction.toFixed(2)} sqft (Waste: ${wastePercent}%)`);
+            console.log(`Inventory updated for ${matchedItemName}: -${totalArea.toFixed(2)} sqft`);
           }
         }
       }
@@ -242,16 +241,15 @@ export async function POST(request: Request) {
         const invRow = invRows.find(r => r.get('Item Name')?.toLowerCase() === matchedItemName.toLowerCase());
         
         if (invRow) {
-          const wastePercent = parseFloat(invRow.get('Waste Factor')?.toString() || '0');
           const areaToSubtract = body.totalArea || quantityToSubtract;
+          const availableStock = parseFloat(invRow.get('Stock')?.toString().replace(/,/g, '') || '0');
+          if (availableStock < areaToSubtract) {
+            return NextResponse.json({ error: `Insufficient stock for ${matchedItemName}. Requested: ${areaToSubtract} sqft, Available: ${availableStock} sqft.` }, { status: 400 });
+          }
           
-          const totalDeduction = areaToSubtract * (1 + (wastePercent / 100));
-          
-          const currentAdjustment = parseFloat(invRow.get('Adjustments')?.toString() || '0');
-          invRow.set('Adjustments', currentAdjustment - totalDeduction);
-          
+          invRow.set('Stock', availableStock - areaToSubtract);
           await invRow.save();
-          console.log(`Inventory updated for ${matchedItemName}: Adjustment -${totalDeduction.toFixed(2)} sqft (Waste: ${wastePercent}%)`);
+          console.log(`Inventory updated for ${matchedItemName}: -${areaToSubtract.toFixed(2)} sqft`);
         }
       }
     } else {

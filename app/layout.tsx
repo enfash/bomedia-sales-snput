@@ -10,6 +10,7 @@ import { PWAManager } from "@/components/pwa-manager";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeWrapper } from "@/components/theme-wrapper";
 import { BottomNav } from "@/components/bottom-nav";
+import { NotificationManager } from "@/components/notification-manager";
 
 export const metadata: Metadata = {
   title: "BOMedia Sales & Expenses",
@@ -49,6 +50,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <PWAManager />
+          <NotificationManager />
           <NamePrompt isAdmin={isAdmin} />
           <SyncManager />
           <ThemeWrapper>

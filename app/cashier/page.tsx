@@ -10,7 +10,8 @@ import {
   RefreshCw,
   Sparkles,
   Receipt,
-  BarChart3
+  BarChart3,
+  Ruler
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSyncStore } from "@/lib/store";
@@ -39,21 +40,19 @@ type Row = Record<string, string>;
 export default function CashierDashboardPage() {
   const { pendingQueue, cachedSales, setCachedData, cachedExpenses } = useSyncStore();
 
-  const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else if (salesData.length === 0) setLoading(true);
+    else if (cachedSales.length === 0) setLoading(true);
 
     try {
       const res = await fetch("/api/sales");
       const salesJson = await res.json();
       const newSales = salesJson.data ?? [];
 
-      setSalesData(newSales);
       setCachedData(newSales, cachedExpenses); // keeps expenses untouched
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -93,7 +92,7 @@ export default function CashierDashboardPage() {
       };
     });
 
-  const allSales = [...pendingSales, ...salesData];
+  const allSales = [...pendingSales, ...cachedSales];
 
   // ── Time windows ───────────────────────────────────────────────────────────
   const now = new Date();
@@ -212,6 +211,14 @@ export default function CashierDashboardPage() {
             >
               <BarChart3 className="w-3.5 h-3.5 mr-2" />
               RECORDS
+            </Button>
+          </Link>
+          <Link href="/quick-check" className="col-span-1">
+            <Button
+              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
+            >
+              <Ruler className="w-3.5 h-3.5 mr-2" />
+              QUICK CHECK
             </Button>
           </Link>
         </div>

@@ -3,7 +3,7 @@ import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 
 const SHEET_TITLE = 'Inventory';
 const INVENTORY_HEADERS = [
-  'Item Name', 'Category', 'Price', 'Cost', 'Width (ft)', 'Length', 'Unit', 'Adjustments', 'Stock', 'Waste Factor', 'Cost per Sqft'
+  'Item Name', 'Width (ft)', 'Length', 'Unit', 'Price', 'Stock'
 ];
 
 export async function GET() {
@@ -49,6 +49,11 @@ export async function POST(request: Request) {
 
     // Process formulas and placeholders
     const processedBody = { ...body };
+    
+    if (!processedBody['Unit']) {
+      processedBody['Unit'] = 'ft';
+    }
+
     Object.keys(processedBody).forEach(key => {
       const val = processedBody[key];
       if (typeof val === 'string' && val.includes('[ROW]')) {
@@ -88,10 +93,9 @@ export async function PATCH(request: Request) {
     });
 
     // Stock change logic (if provided)
-    // IMPORTANT: For formula-based model, we update the 'Adjustments' column instead of 'Stock'
     if (stockChange !== undefined) {
-      const currentAdjustment = parseFloat(row.get('Adjustments')?.toString().replace(/,/g, '') || '0') || 0;
-      row.set('Adjustments', currentAdjustment + stockChange);
+      const currentStock = parseFloat(row.get('Stock')?.toString().replace(/,/g, '') || '0') || 0;
+      row.set('Stock', currentStock + stockChange);
     }
 
     await row.save();

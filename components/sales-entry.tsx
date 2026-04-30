@@ -174,33 +174,60 @@ export function SalesEntry() {
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [cachedSales]);
 
+  const clientContacts = useMemo(() => {
+    if (!cachedSales || !Array.isArray(cachedSales)) return {} as Record<string, string>;
+    const contacts: Record<string, string> = {};
+    cachedSales.forEach((sale: any) => {
+      const name = (sale["CLIENT NAME"] || sale["Client Name"] || "").trim();
+      const contact = (sale["CONTACT"] || sale["Contact"] || "").trim();
+      if (name && contact) {
+        contacts[name] = contact;
+      }
+    });
+    return contacts;
+  }, [cachedSales]);
+
   const filteredClients = useMemo(() => {
     if (!batchData.clientName) return uniqueClients;
     const lower = batchData.clientName.toLowerCase();
     return uniqueClients.filter(c => c.toLowerCase().includes(lower));
   }, [uniqueClients, batchData.clientName]);
 
-  // Sync default cost when material changes
+  // Detect available roll size and price automatically from inventory
   useEffect(() => {
-    const prices: Record<string, string> = {
-      "Flex": "180",
-      "SAV": "200",
-      "Window Graphics": "500",
-      "Clear Sticker": "350",
-      "Blockout": "180",
-      "Reflective": "180",
-      "Mesh": "180"
-    };
+    const w = parseFloat(jobData.actualWidth) || 0;
+    const widthInFt = jobData.dimensionUnit === 'in' ? w / 12 : w;
     
-    if (prices[jobData.material]) {
-      setJobData(prev => ({ ...prev, costPerSqft: prices[jobData.material] }));
+    if (inventory && inventory.length > 0) {
+      const matItems = inventory.filter(item => 
+        item['Material Type']?.toLowerCase().includes(jobData.material.toLowerCase()) || 
+        jobData.material.toLowerCase().includes(item['Material Type']?.toLowerCase())
+      );
+      
+      if (matItems.length > 0) {
+        const priceMatch = matItems[0]['Price per Sqft'];
+        
+        if (widthInFt > 0) {
+          const widthMatch = matItems.find(item => {
+            const widthVal = parseFloat(item['Width (ft)']) || 0;
+            return Math.abs(widthVal - widthInFt) < 0.1;
+          });
+          
+          if (widthMatch) {
+            setJobData(prev => ({ 
+              ...prev, 
+              rollSize: widthMatch['Width (ft)']?.toString(),
+              costPerSqft: widthMatch['Price per Sqft']?.toString() || prev.costPerSqft
+            }));
+          } else if (priceMatch) {
+            setJobData(prev => ({ ...prev, costPerSqft: priceMatch.toString() }));
+          }
+        } else if (priceMatch) {
+          setJobData(prev => ({ ...prev, costPerSqft: priceMatch.toString() }));
+        }
+      }
     }
-    
-    // SAV Roll size logic
-    if (jobData.material === "SAV" && jobData.rollSize && !["3", "4", "5"].includes(jobData.rollSize)) {
-      setJobData(prev => ({ ...prev, rollSize: "" }));
-    }
-  }, [jobData.material, jobData.rollSize]);
+  }, [jobData.material, jobData.actualWidth, jobData.dimensionUnit, inventory]);
 
   // Calculations for UI display
   const calculatedSize = useMemo(() => {
@@ -241,6 +268,22 @@ export function SalesEntry() {
     return "Unpaid";
   }, [amountDifference, grandTotal]);
 
+  const availableRollSizes = useMemo(() => {
+    if (!inventory || inventory.length === 0) {
+      return ["3", "4", "5", "6", "8", "10"];
+    }
+    
+    const sizes = inventory
+      .filter(item => 
+        item['Material Type']?.toLowerCase().includes(jobData.material.toLowerCase()) || 
+        jobData.material.toLowerCase().includes(item['Material Type']?.toLowerCase())
+      )
+      .map(item => parseFloat(item['Width (ft)'])?.toString())
+      .filter((val, idx, self) => val && self.indexOf(val) === idx);
+      
+    return sizes.length > 0 ? sizes.sort((a,b) => parseFloat(a) - parseFloat(b)) : ["3", "4", "5", "6", "8", "10"];
+  }, [inventory, jobData.material]);
+
   const handleAddToCart = () => {
     setRollSizeTouched(true);
     setDimensionsTouched(true);
@@ -250,12 +293,28 @@ export function SalesEntry() {
       return;
     }
 
+    // Enforce remaining stock boundaries
+    if (inventory && inventory.length > 0) {
+      const match = inventory.find(item => {
+        const matMatch = item['Material Type']?.toLowerCase().includes(jobData.material.toLowerCase()) || 
+                         jobData.material.toLowerCase().includes(item['Material Type']?.toLowerCase());
+        const widthVal = parseFloat(item['Width (ft)']) || 0;
+        const rollSizeVal = parseFloat(jobData.rollSize) || 0;
+        return matMatch && Math.abs(widthVal - rollSizeVal) < 0.1;
+      });
+
+      if (match) {
+        const availableStock = parseFloat(match['Available Stock']) || 0;
+        if (availableStock < totalJobArea) {
+          toast.error(`Insufficient inventory stock! Available: ${availableStock.toFixed(1)} sqft, Required: ${totalJobArea.toFixed(1)} sqft.`);
+          return;
+        }
+      }
+    }
+
     setCart(prev => [...prev, {
       id: crypto.randomUUID(),
       ...jobData,
-      // fromInventory is true when jobDescription was seeded by the inventory popover.
-      // The submission logic uses this to forward canonicalItemName to the server for
-      // an exact inventory row match instead of a fragile text search.
       fromInventory: jobData.fromInventory ?? false,
       calculatedSize,
       totalJobArea,
@@ -498,7 +557,11 @@ export function SalesEntry() {
                             key={index}
                             className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-zinc-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 cursor-pointer border-b border-gray-50 dark:border-zinc-800 last:border-0 transition-colors"
                             onClick={() => {
-                              setBatchData({ ...batchData, clientName: client });
+                              setBatchData({ 
+                                ...batchData, 
+                                clientName: client, 
+                                contact: clientContacts[client] || "" 
+                              });
                               setClientNameTouched(true);
                               setShowSuggestions(false);
                             }}
@@ -548,20 +611,19 @@ export function SalesEntry() {
                             <CommandList>
                               <CommandEmpty>No item found.</CommandEmpty>
                               <CommandGroup>
-                                {inventory.map((item) => (
+                                {inventory.map((item, idx) => (
                                   <CommandItem
-                                    key={item["Item Name"]}
+                                    key={item["Item Name"] ? `${item["Item Name"]}-${idx}` : idx}
                                     onSelect={() => {
                                       setJobData({
                                         ...jobData,
                                         jobDescription: item["Item Name"],
                                         costPerSqft: item["Price"]?.toString() || jobData.costPerSqft,
-                                        // Mark as inventory-sourced so the server can use the
-                                        // exact item name for inventory deduction (canonicalItemName).
+                                        rollSize: item["Width (ft)"]?.toString() || jobData.rollSize,
                                         fromInventory: true,
                                       });
                                       setOpenInv(false);
-                                      toast.info(`Selected ${item["Item Name"]}`);
+                                      toast.info(`Selected ${item["Material Type"]}`);
                                     }}
                                     className="font-bold text-xs data-[selected=true]:bg-primary/10 dark:data-[selected=true]:bg-zinc-800 dark:data-[selected=true]:text-white cursor-pointer"
                                   >
@@ -571,7 +633,7 @@ export function SalesEntry() {
                                         jobData.jobDescription === item["Item Name"] ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    {item["Item Name"]} (₦{parseFloat(item.Price).toLocaleString()})
+                                    {item["Item Name"]} ({item["Width (ft)"]}ft) - ₦{parseFloat(item["Price"]).toLocaleString()}/sqft
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
@@ -682,14 +744,12 @@ export function SalesEntry() {
                     Roll Size <span className="text-muted-foreground font-medium text-[9px]">(Width in ft)</span> <span className="text-rose-500">*</span>
                   </Label>
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                    {["3", "4", "5", "6", "8", "10"].map((size) => {
-                      const isDisabled = jobData.material === "SAV" && !["3", "4", "5"].includes(size);
+                    {availableRollSizes.map((size) => {
                       return (
                         <RollCard
                           key={size}
                           width={size}
                           selected={jobData.rollSize === size}
-                          disabled={isDisabled}
                           onClick={() => {
                             setJobData({...jobData, rollSize: size});
                             setRollSizeTouched(true);

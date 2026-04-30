@@ -27,7 +27,8 @@ interface SyncState {
   // Cache Actions
   cachedSales: any[];
   cachedExpenses: any[];
-  setCachedData: (sales: any[], expenses: any[]) => void;
+  cachedInventory: any[];
+  setCachedData: (sales: any[], expenses: any[], inventory?: any[]) => void;
   updateEntryRetry: (id: string, retryCount: number, lastRetryAt: number) => void;
 }
 
@@ -40,6 +41,7 @@ export const useSyncStore = create<SyncState>()(
       errorMessage: null,
       cachedSales: [],
       cachedExpenses: [],
+      cachedInventory: [],
 
       addPendingEntry: (type, data) => set((state) => ({
         pendingQueue: [
@@ -72,10 +74,11 @@ export const useSyncStore = create<SyncState>()(
         )
       })),
 
-      setCachedData: (sales, expenses) => set({
+      setCachedData: (sales, expenses, inventory) => set((state) => ({
         cachedSales: sales,
-        cachedExpenses: expenses
-      }),
+        cachedExpenses: expenses,
+        cachedInventory: inventory || state.cachedInventory
+      })),
     }),
     {
       name: 'bomedia-sync-storage',

@@ -12,6 +12,7 @@ import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TodayBanner } from "@/components/today-banner";
+import { Badge } from "@/components/ui/badge";
 
 import {
   format,
@@ -38,16 +39,15 @@ const parseSheetDate = (dateStr: any): Date | null => {
 type Row = Record<string, string>;
 
 export default function DashboardPage() {
-  const { pendingQueue, cachedSales, cachedExpenses, setCachedData } = useSyncStore();
+  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, setCachedData } = useSyncStore();
   
-  const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
-  const [expensesData, setExpensesData] = useState<Row[]>(cachedExpenses || []);
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [timeRange, setTimeRange] = useState<"all" | "today" | "7d" | "30d" | "custom">("today");
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
+  const [inventoryData, setInventoryData] = useState<any[]>([]);
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   
   // Notification refs to track 'new' entries
@@ -57,103 +57,28 @@ export default function DashboardPage() {
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else if (salesData.length === 0) setLoading(true);
-
-    // Get current mute status from localStorage
-    const mutedPreference = localStorage.getItem("bomedia-muted") === "true";
-    setIsMuted(mutedPreference);
+    else if (cachedSales.length === 0) setLoading(true);
 
     try {
-      const [salesRes, expensesRes] = await Promise.all([
+      const [salesRes, expensesRes, inventoryRes] = await Promise.all([
         fetch("/api/sales"),
         fetch("/api/expenses"),
+        fetch("/api/inventory"),
       ]);
 
-      // If routes are still compiling in dev mode, they might return 404/500 temporarily.
-      // We check for .ok and valid JSON to prevent "Unexpected token < in JSON" errors.
-      if (!salesRes.ok || !expensesRes.ok) {
-        throw new Error(`Fetch failed: Sales ${salesRes.status}, Expenses ${expensesRes.status}`);
-      }
-
-      const salesContentType = salesRes.headers.get("content-type");
-      const expensesContentType = expensesRes.headers.get("content-type");
-
-      if (!salesContentType?.includes("application/json") || !expensesContentType?.includes("application/json")) {
-        throw new Error("API returned non-JSON response (likely a 404/500 HTML page during compilation)");
+      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok) {
+        throw new Error("Fetch failed");
       }
 
       const salesJson = await salesRes.json();
       const expensesJson = await expensesRes.json();
+      const inventoryJson = await inventoryRes.json();
       
       const newSales = salesJson.data ?? [];
       const newExpenses = expensesJson.data ?? [];
+      const newInventory = inventoryJson.data ?? [];
 
-      setSalesData(newSales);
-      setExpensesData(newExpenses);
-      setCachedData(newSales, newExpenses);
-
-      // Handle notifications
-      if (isInitialLoad.current) {
-        // Set initial baseline
-        lastSalesIndex.current = Math.max(0, ...newSales.map((r: any) => r._rowIndex || 0));
-        lastExpensesIndex.current = Math.max(0, ...newExpenses.map((r: any) => r._rowIndex || 0));
-        isInitialLoad.current = false;
-      } else {
-        let hasNewActivity = false;
-
-        // Check for new sales
-        const freshSales = newSales.filter((r: any) => (r._rowIndex || 0) > lastSalesIndex.current);
-        if (freshSales.length > 0) hasNewActivity = true;
-        freshSales.forEach((sale: any) => {
-          const amount = parseAmount(sale["AMOUNT (₦)"] || sale["Amount (₦)"]);
-          const client = sale["CLIENT NAME"] || sale["Client Name"] || "New Client";
-          const cashier = sale["LOGGED BY"] || sale["Logged By"] || "Cashier";
-          toast.success(`New Sale: ₦${amount.toLocaleString()} - ${client}`, {
-            description: `Logged by ${cashier}`,
-            duration: 5000,
-          });
-        });
-
-        // Check for new expenses
-        const freshExpenses = newExpenses.filter((r: any) => (r._rowIndex || 0) > lastExpensesIndex.current);
-        if (freshExpenses.length > 0) hasNewActivity = true;
-        freshExpenses.forEach((expense: any) => {
-          const amount = parseAmount(expense["Amount (₦)"] || expense.AMOUNT || expense.Amount);
-          const category = expense.CATEGORY || expense.Category || "Other";
-          const cashier = expense["LOGGED BY"] || expense["Logged By"] || "Cashier";
-          toast.info(`New Expense: ₦${amount.toLocaleString()} (${category})`, {
-            description: `Logged by ${cashier}`,
-            duration: 5000,
-          });
-        });
-
-        // Play sound if new activity and not muted
-        if (hasNewActivity) {
-          // Double check preference
-          const currentMute = localStorage.getItem("bomedia-muted") === "true";
-          
-          if (!currentMute) {
-            const audio = new Audio("/notification.mp3");
-            audio.play().catch(e => console.error("Sound play blocked:", e));
-          }
-
-          // Dispatch system notification event
-          window.dispatchEvent(new CustomEvent("bomedia-notify", {
-            detail: {
-              title: "New BOMedia Activity",
-              body: `${freshSales.length > 0 ? freshSales.length + " new sale(s). " : ""}${freshExpenses.length > 0 ? freshExpenses.length + " new expense(s)." : ""}`
-            }
-          }));
-        }
-
-        // Update indices
-        if (newSales.length > 0) {
-          lastSalesIndex.current = Math.max(lastSalesIndex.current, ...newSales.map((r: any) => r._rowIndex || 0));
-        }
-        if (newExpenses.length > 0) {
-          lastExpensesIndex.current = Math.max(lastExpensesIndex.current, ...newExpenses.map((r: any) => r._rowIndex || 0));
-        }
-      }
+      setCachedData(newSales, newExpenses, newInventory);
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -167,20 +92,13 @@ export default function DashboardPage() {
 
     // Auto-refresh when coming back online
     const handleOnline = () => {
-      console.log("Back online, refreshing dashboard...");
       fetchData(true);
     };
 
     window.addEventListener("online", handleOnline);
     
-    // Polling Interval (30 seconds)
-    const pollInterval = setInterval(() => {
-      fetchData(true);
-    }, 30000);
-
     return () => {
       window.removeEventListener("online", handleOnline);
-      clearInterval(pollInterval);
     };
   }, []);
 
@@ -204,8 +122,8 @@ export default function DashboardPage() {
     .filter((item) => item.type === "expense")
     .map((item) => ({ ...item.data, __isPending: "true" }));
 
-  const allSales = [...pendingSales, ...salesData];
-  const allExpenses = [...pendingExpenses, ...expensesData];
+  const allSales = [...pendingSales, ...cachedSales];
+  const allExpenses = [...pendingExpenses, ...cachedExpenses];
 
   const now = new Date();
 
@@ -492,37 +410,124 @@ export default function DashboardPage() {
 
       {/* Inventory Alerts & Shortcuts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/bom03/inventory" className="md:col-span-1">
-          <div className="bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-all active:scale-[0.98] shadow-sm">
-            <div className="bg-amber-100 dark:bg-amber-900/40 p-2.5 rounded-xl shadow-inner">
-              <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        {/* Inventory Alerts Widget */}
+        <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-zinc-800 flex flex-col justify-between gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-brand-700 dark:text-brand-400" />
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">Inventory Reorder Alerts</h3>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400/80 mb-0.5">Inventory Status</p>
-              <h3 className="text-base font-bold text-foreground">Check Stock Levels</h3>
-              <p className="text-xs text-muted-foreground">Manage items & categories</p>
+            
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {cachedInventory.length === 0 ? (
+                <p className="text-xs text-gray-500 dark:text-zinc-400 italic">No materials tracked in inventory.</p>
+              ) : (
+                cachedInventory.map((item: any) => {
+                  const stock = parseFloat(item.Stock?.toString() || "0") || 0;
+                  const width = parseFloat(item["Width (ft)"] || "0") || 0;
+                  const length = parseFloat(item["Length"] || "0") || 0;
+                  const unit = item["Unit"] || "ft";
+                  const fullRollArea = width * length * (unit === "m" ? 3.28084 : 1);
+                  const pct = fullRollArea > 0 ? Math.min(100, (stock / fullRollArea) * 100) : 0;
+
+                  let status: "Good" | "Low" | "Critical" = "Good";
+                  if (stock <= 50) status = "Critical";
+                  else if (stock <= 200) status = "Low";
+
+                  const barColor = status === "Critical" ? "bg-rose-500" : status === "Low" ? "bg-amber-500" : "bg-emerald-500";
+                  const badgeColor = status === "Critical"
+                    ? "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40"
+                    : status === "Low"
+                    ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40"
+                    : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40";
+
+                  return (
+                    <div key={item._rowIndex} className="p-3 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white dark:bg-zinc-800/30 hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-gray-900 dark:text-zinc-100 truncate">
+                              {item["Item Name"]}
+                            </span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide ${badgeColor}`}>
+                              {status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
+                            {stock.toFixed(1)} sqft remaining{fullRollArea > 0 && ` of ~${fullRollArea.toFixed(0)} sqft`}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch("/api/inventory", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ rowIndex: item._rowIndex, stockChange: 150 })
+                              });
+                              if (res.ok) {
+                                toast.success(`Restocked 150 sqft of ${item["Item Name"]}!`);
+                                const r = await fetch("/api/inventory");
+                                const j = await r.json();
+                                if (r.ok) setCachedData(cachedSales, cachedExpenses, j.data || []);
+                              } else {
+                                toast.error("Restock failed");
+                              }
+                            } catch {
+                              toast.error("Network error");
+                            }
+                          }}
+                          className="ml-3 shrink-0 h-7 rounded-lg text-[10px] font-bold border-gray-200 hover:bg-brand-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                        >
+                          +150 sqft
+                        </Button>
+                      </div>
+                      {/* Stock progress bar */}
+                      <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                          style={{ width: `${pct.toFixed(1)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
-        </Link>
-        <div className="md:col-span-2 bg-brand-50 dark:bg-brand-950/30 rounded-2xl p-4 flex items-center justify-between border border-brand-100 dark:border-brand-900/20">
-          <div className="flex gap-4">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Total Sales</p>
-              <p className="text-sm font-black text-brand-700 dark:text-brand-300">₦{totalSalesVal.toLocaleString()}</p>
+        </div>
+
+        {/* Quick Actions / Shortcuts */}
+        <div className="md:col-span-1 flex flex-col gap-2">
+          <Link href="/bom03/inventory" className="w-full flex-1">
+            <div className="h-full bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-all active:scale-[0.98] shadow-sm">
+              <div className="bg-amber-100 dark:bg-amber-900/40 p-2.5 rounded-xl shadow-inner">
+                <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400/80 mb-0.5">Inventory Control</p>
+                <h3 className="text-base font-bold text-foreground">Full Stock Sheet</h3>
+                <p className="text-xs text-muted-foreground">Add materials & logs</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-brand-100 dark:bg-brand-900/40 self-center" />
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Exp. Ratio</p>
-              <p className="text-sm font-black text-brand-700 dark:text-brand-300">
-                {totalSalesVal > 0 ? ((totalExpensesVal / totalSalesVal) * 100).toFixed(1) : "0"}%
-              </p>
+          </Link>
+          
+          <Link href="/quick-check" className="w-full flex-1">
+            <div className="h-full bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 transition-all active:scale-[0.98] shadow-sm">
+              <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2.5 rounded-xl shadow-inner">
+                <Zap className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400/80 mb-0.5">Verification</p>
+                <h3 className="text-base font-bold text-foreground">Material Quick-Check</h3>
+                <p className="text-xs text-muted-foreground">Test viability before job</p>
+              </div>
             </div>
-          </div>
-          <p className="text-[11px] text-gray-400 font-medium max-w-[200px] text-right">
-            Profit margin is currently <span className="text-emerald-600 font-bold">
-              {totalSalesVal > 0 ? ((netProfitVal / totalSalesVal) * 100).toFixed(1) : "0"}%
-            </span>
-          </p>
+          </Link>
         </div>
       </div>
 

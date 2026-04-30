@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX } from "lucide-react";
+import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
@@ -90,6 +90,8 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
         { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
         { href: "/new-entry", label: "New Sale", icon: PlusCircle },
         { href: "/cashier/board", label: "Job Board", icon: KanbanSquare },
+        { href: "/cashier/customers", label: "Customers", icon: Users },
+        { href: "/quick-check", label: "Quick-Check", icon: Ruler },
         { href: "/cashier/records", label: "Records", icon: BarChart3 },
         { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
       ]
@@ -97,6 +99,8 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
         { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
         { href: "/new-entry",       label: "New Sale",     icon: PlusCircle },
         { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
+        { href: "/bom03/customers", label: "Customers",    icon: Users },
+        { href: "/quick-check",     label: "Quick-Check",  icon: Ruler },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Log Expense",  icon: Receipt },
         { href: "/bom03/inventory", label: "Inventory",    icon: Package },

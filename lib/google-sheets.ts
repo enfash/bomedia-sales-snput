@@ -23,21 +23,32 @@ export async function getDoc() {
       return doc;
     } catch (error: any) {
       attempt++;
+
+      const isTransient =
+        error.code === 'ECONNRESET' ||
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+        error.message?.includes('fetch failed') ||
+        error.message?.includes('network') ||
+        error.cause?.code === 'ECONNRESET' ||
+        error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT';
+
       console.error(`Google Sheets getDoc Error (Attempt ${attempt}/${maxRetries}):`, {
         message: error.message,
-        stack: error.stack,
-        cause: error.cause
+        code: error.code ?? error.cause?.code,
+        transient: isTransient,
       });
-      
-      if (attempt >= maxRetries) {
+
+      if (attempt >= maxRetries || !isTransient) {
         throw error;
       }
-      
-      // Wait before retrying (exponential backoff: 1s, 2s)
-      await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+
+      // Exponential backoff with jitter: ~2s, ~4s, ~8s
+      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw new Error("Failed to load Google Sheets document after maximum retries.");
 }
 

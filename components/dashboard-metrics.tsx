@@ -91,14 +91,14 @@ export function MetricCard({
               : "bg-muted text-foreground w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
           )}
         >
-          <Icon className="w-3 h-3 sm:w-5 sm:h-5" />
+          <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
         </div>
       </div>
 
       <div className="space-y-1">
         <p className={cn(
           "font-black tracking-tight text-foreground leading-none truncate",
-          isHero ? "text-3xl sm:text-4xl" : "text-xs sm:text-xl lg:text-2xl"
+          isHero ? "text-2xl sm:text-4xl" : "text-base sm:text-xl lg:text-2xl"
         )}>
           ₦{value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
         </p>
