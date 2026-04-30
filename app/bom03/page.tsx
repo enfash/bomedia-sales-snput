@@ -425,16 +425,20 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-500 dark:text-zinc-400 italic">No materials tracked in inventory.</p>
               ) : (
                 cachedInventory.map((item: any) => {
-                  const stock = parseFloat(item.Stock?.toString() || "0") || 0;
-                  const width = parseFloat(item["Width (ft)"] || "0") || 0;
-                  const length = parseFloat(item["Length"] || "0") || 0;
-                  const unit = item["Unit"] || "ft";
-                  const fullRollArea = width * length * (unit === "m" ? 3.28084 : 1);
-                  const pct = fullRollArea > 0 ? Math.min(100, (stock / fullRollArea) * 100) : 0;
+                  // ── New schema: Remaining Length (ft) + Total Length (ft) + Status ──
+                  const remaining = parseFloat(item["Remaining Length (ft)"]?.toString() || "0") || 0;
+                  const total = parseFloat(item["Total Length (ft)"]?.toString() || "0") || 0;
+                  const threshold = parseFloat(item["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
+                  const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
 
-                  let status: "Good" | "Low" | "Critical" = "Good";
-                  if (stock <= 50) status = "Critical";
-                  else if (stock <= 200) status = "Low";
+                  // Use the sheet's own Status field, fall back to computing it
+                  const sheetStatus = item["Status"] || "";
+                  let status: "Good" | "Low" | "Critical" =
+                    sheetStatus === "Out of Stock" || sheetStatus === "Depleted" ? "Critical"
+                    : sheetStatus === "Low Stock" ? "Low"
+                    : remaining <= 0 ? "Critical"
+                    : remaining <= threshold ? "Low"
+                    : "Good";
 
                   const barColor = status === "Critical" ? "bg-rose-500" : status === "Low" ? "bg-amber-500" : "bg-emerald-500";
                   const badgeColor = status === "Critical"
@@ -443,20 +447,22 @@ export default function DashboardPage() {
                     ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40"
                     : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40";
 
+                  const displayName = item["Roll ID"] || item["Item Name"] || "Unknown";
+
                   return (
                     <div key={item._rowIndex} className="p-3 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white dark:bg-zinc-800/30 hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition-colors">
                       <div className="flex items-center justify-between mb-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-bold text-gray-900 dark:text-zinc-100 truncate">
-                              {item["Item Name"]}
+                              {displayName}
                             </span>
                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide ${badgeColor}`}>
                               {status}
                             </span>
                           </div>
                           <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
-                            {stock.toFixed(1)} sqft remaining{fullRollArea > 0 && ` of ~${fullRollArea.toFixed(0)} sqft`}
+                            {remaining.toFixed(1)}ft remaining{total > 0 && ` of ${total.toFixed(0)}ft usable`}
                           </p>
                         </div>
                         <Button
@@ -467,10 +473,10 @@ export default function DashboardPage() {
                               const res = await fetch("/api/inventory", {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ rowIndex: item._rowIndex, stockChange: 150 })
+                                body: JSON.stringify({ rowIndex: item._rowIndex, adjustment: 150 })
                               });
                               if (res.ok) {
-                                toast.success(`Restocked 150 sqft of ${item["Item Name"]}!`);
+                                toast.success(`Added 150ft to ${displayName}!`);
                                 const r = await fetch("/api/inventory");
                                 const j = await r.json();
                                 if (r.ok) setCachedData(cachedSales, cachedExpenses, j.data || []);
@@ -483,7 +489,7 @@ export default function DashboardPage() {
                           }}
                           className="ml-3 shrink-0 h-7 rounded-lg text-[10px] font-bold border-gray-200 hover:bg-brand-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                         >
-                          +150 sqft
+                          +150ft
                         </Button>
                       </div>
                       {/* Stock progress bar */}
