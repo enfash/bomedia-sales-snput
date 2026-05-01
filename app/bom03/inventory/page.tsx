@@ -37,7 +37,7 @@ function StatusPill({ status }: { status: string }) {
 function AddRollDialog({ onAdded }: { onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ itemName: "", category: "General", widthFt: "", rawLength: "", lengthUnit: "m" as "m" | "ft", price: "", cost: "", lowStockThreshold: "20" });
+  const [form, setForm] = useState({ itemName: "", category: "General", widthFt: "", rawLength: "", lengthUnit: "m" as "m" | "ft", price: "", cost: "", lowStockThreshold: "20", quantity: "1" });
 
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -60,13 +60,14 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemName: form.itemName.trim(), category: form.category.trim(), widthFt: parseFloat(form.widthFt), rawLengthFt: rawLengthFt.toFixed(2), unit: form.lengthUnit, price: form.price, cost: form.cost, lowStockThreshold: form.lowStockThreshold }),
+        body: JSON.stringify({ itemName: form.itemName.trim(), category: form.category.trim(), widthFt: parseFloat(form.widthFt), rawLengthFt: rawLengthFt.toFixed(2), unit: form.lengthUnit, price: form.price, cost: form.cost, lowStockThreshold: form.lowStockThreshold, quantity: parseInt(form.quantity) || 1 }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to add roll");
-      toast.success(`Roll added — ID: ${json.rollId}`);
+      const ids = json.rollIds ? json.rollIds.join(", ") : json.rollId;
+      toast.success(`Roll(s) added — IDs: ${ids}`);
       setOpen(false);
-      setForm({ itemName: "", category: "General", widthFt: "", rawLength: "", lengthUnit: "m", price: "", cost: "", lowStockThreshold: "20" });
+      setForm({ itemName: "", category: "General", widthFt: "", rawLength: "", lengthUnit: "m", price: "", cost: "", lowStockThreshold: "20", quantity: "1" });
       onAdded();
     } catch (err: any) {
       toast.error(err.message);
@@ -88,14 +89,18 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
           <p className="text-white/75 text-xs mt-1">10ft reserved as upfront expected waste automatically.</p>
         </DialogHeader>
         <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5 col-span-2">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1.5 col-span-3">
               <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Material Name *</Label>
               <Input placeholder="e.g. Flex, SAV, Clear Sticker" value={form.itemName} onChange={e => set("itemName", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Category</Label>
               <Input value={form.category} onChange={e => set("category", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Quantity</Label>
+              <Input type="number" min="1" value={form.quantity} onChange={e => set("quantity", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Low Stock Alert (ft)</Label>

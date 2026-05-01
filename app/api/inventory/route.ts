@@ -32,19 +32,6 @@ function computeStatus(remaining: number, threshold: number): string {
   return 'Active';
 }
 
-async function generateRollId(rows: any[], itemName: string, widthFt: number): Promise<string> {
-  const prefix = `${itemName} ${widthFt}ft - Roll `;
-  let maxNum = 0;
-  rows.forEach((row: any) => {
-    const id: string = row.get('Roll ID') || '';
-    if (id.startsWith(prefix)) {
-      const num = parseInt(id.replace(prefix, ''), 10);
-      if (!isNaN(num) && num > maxNum) maxNum = num;
-    }
-  });
-  return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
-}
-
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -93,6 +80,7 @@ export async function POST(request: Request) {
       price,
       cost,
       lowStockThreshold = 20,
+      quantity = 1,
     } = body;
 
     if (!itemName || !widthFt || !rawLengthFt) {
@@ -107,34 +95,50 @@ export async function POST(request: Request) {
     const EXPECTED_WASTE_FT = 10;
     const totalUsable = rawLength - EXPECTED_WASTE_FT;
     const threshold = parseFloat(lowStockThreshold) || 20;
-
-    const rollId = await generateRollId(existingRows, itemName, widthNum);
+    const qty = parseInt(quantity, 10) || 1;
 
     const priceNum = parseFloat(price) || 0;
     const costNum = parseFloat(cost) || 0;
     const totalAreaSqft = widthNum * totalUsable;
     const costPerSqft = totalAreaSqft > 0 ? costNum / totalAreaSqft : 0;
 
-    await sheet.addRow({
-      'Roll ID': rollId,
-      'Item Name': itemName,
-      'Category': category,
-      'Width (ft)': widthNum,
-      'Raw Length (ft)': rawLength,
-      'Total Length (ft)': totalUsable,
-      'Remaining Length (ft)': totalUsable,
-      'Waste Logged (ft)': 0,
-      'Unit': unit,
-      'Price': priceNum,
-      'Cost': costNum,
-      'Waste Factor': EXPECTED_WASTE_FT,
-      'Cost per Sqft': costPerSqft.toFixed(4),
-      'Low Stock Threshold (ft)': threshold,
-      'Status': computeStatus(totalUsable, threshold),
-      'Date Added': new Date().toISOString().split('T')[0],
+    const prefix = `${itemName} ${widthNum}ft - Roll `;
+    let maxNum = 0;
+    existingRows.forEach((row: any) => {
+      const id: string = row.get('Roll ID') || '';
+      if (id.startsWith(prefix)) {
+        const num = parseInt(id.replace(prefix, ''), 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
     });
 
-    return NextResponse.json({ success: true, rollId });
+    const rollIds: string[] = [];
+
+    for (let i = 1; i <= qty; i++) {
+      const rollId = `${prefix}${String(maxNum + i).padStart(3, '0')}`;
+      rollIds.push(rollId);
+
+      await sheet.addRow({
+        'Roll ID': rollId,
+        'Item Name': itemName,
+        'Category': category,
+        'Width (ft)': widthNum,
+        'Raw Length (ft)': rawLength,
+        'Total Length (ft)': totalUsable,
+        'Remaining Length (ft)': totalUsable,
+        'Waste Logged (ft)': 0,
+        'Unit': unit,
+        'Price': priceNum,
+        'Cost': costNum,
+        'Waste Factor': EXPECTED_WASTE_FT,
+        'Cost per Sqft': costPerSqft.toFixed(4),
+        'Low Stock Threshold (ft)': threshold,
+        'Status': computeStatus(totalUsable, threshold),
+        'Date Added': new Date().toISOString().split('T')[0],
+      });
+    }
+
+    return NextResponse.json({ success: true, rollIds });
   } catch (error: any) {
     console.error('POST Inventory Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
