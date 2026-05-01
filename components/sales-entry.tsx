@@ -1,364 +1,657 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { 
-  MoreHorizontal, 
-  Package, 
-  Check, 
-  ChevronsUpDown, 
-  FileText, 
-  Sparkles, 
-  Ruler, 
-  Calculator,
-  Maximize2, 
-  MoveHorizontal, 
-  Wallet, 
-  CheckCircle2, 
-  ChevronUp 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Package,
+  Plus,
+  Sparkles,
+  Trash2,
+  User,
+  Ruler,
+  Layers,
+  Receipt,
+  XCircle,
+  RefreshCw,
+  ArrowRight,
+  Info,
 } from "lucide-react";
 import { useSyncStore } from "@/lib/store";
-import { 
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Drawer } from "vaul";
 
-interface JobData {
-  jobDescription: string;
-  material: string;
-  costPerSqft: string;
-  actualWidth: string;
-  actualHeight: string;
-  rollSize: string;
-  qty: string;
-  dimensionUnit: string;
-  fromInventory?: boolean;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface InventoryRoll {
+  "Roll ID": string;
+  "Item Name": string;
+  "Category": string;
+  "Width (ft)": string | number;
+  "Total Length (ft)": string | number;
+  "Remaining Length (ft)": string | number;
+  "Price": string | number;
+  "Status": string;
+  _rowIndex: number;
 }
 
+interface CartItem {
+  id: string;
+  rollId: string;          // exact Roll ID from inventory
+  rollLabel: string;       // display label e.g. "Flex 4ft - Roll 001"
+  itemName: string;        // material name e.g. "Flex"
+  widthFt: number;         // roll width
+  jobDescription: string;
+  jobWidthFt: number;      // actual job width
+  jobHeightFt: number;     // actual job height / length consumed from roll
+  qty: number;
+  costPerSqft: number;
+  unitSqft: number;        // jobWidthFt × jobHeightFt
+  unitCost: number;        // costPerSqft × unitSqft
+  totalAmount: number;     // unitCost × qty
+  jobLengthFt: number;     // = jobHeightFt × qty (total linear feet consumed)
+  remainingAfterJob: number;  // roll remaining after this job
+  fromInventory: boolean;
+}
 
-function RollCard({ 
-  width, 
-  selected, 
-  onClick, 
-  disabled 
-}: { 
-  width: string; 
-  selected: boolean; 
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  // Visual height representation based on roll width
-  const rollHeights: Record<string, string> = {
-    "3": "h-6",
-    "4": "h-8",
-    "5": "h-10",
-    "6": "h-11",
-    "8": "h-14",
-    "10": "h-16"
-  };
+interface BatchMeta {
+  date: string;
+  clientName: string;
+  contact: string;
+  jobStatus: string;
+  initialPayment: string;
+}
 
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all duration-300 min-h-[100px]",
-        selected 
-          ? "border-primary bg-primary/5 dark:bg-primary/20 ring-4 ring-primary/10" 
-          : "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-primary/20 dark:hover:border-primary/40 shadow-sm",
-        disabled && "opacity-30 cursor-not-allowed grayscale"
-      )}
-    >
-      <div className={cn(
-        "w-full flex items-center justify-center mb-3",
-        selected ? "text-primary" : "text-gray-300 dark:text-zinc-700"
-      )}>
-        {/* Visual Roll Icon */}
-        <div className="relative flex flex-col items-center">
-            <div className={cn("w-6 rounded-sm border-2 border-current flex items-center justify-center overflow-hidden transition-all duration-500", rollHeights[width] || "h-8")}>
-                <div className="w-[1px] h-full bg-current/20" />
-            </div>
-            <div className="w-8 h-[2px] bg-current/40 mt-0.5 rounded-full" />
-        </div>
-      </div>
-      <span className={cn(
-        "text-xs font-bold uppercase tracking-tight",
-        selected ? "text-primary-foreground dark:text-white" : "text-gray-600 dark:text-zinc-300"
-      )}>
-        {width} FT
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const parseNum = (v: string | number | undefined) =>
+  parseFloat(String(v ?? "0").replace(/,/g, "")) || 0;
+
+const fmtCurrency = (n: number) =>
+  `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
+
+function StockBadge({ roll }: { roll: InventoryRoll }) {
+  const remaining = parseNum(roll["Remaining Length (ft)"]);
+  const status = roll.Status || "Active";
+  if (status === "Out of Stock" || remaining <= 0)
+    return (
+      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+        Out of Stock
       </span>
-      <span className="text-[9px] font-bold text-gray-600 dark:text-zinc-400">Width</span>
-      {selected && (
-        <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5 shadow-sm">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-        </div>
-      )}
-    </button>
+    );
+  if (status === "Low Stock")
+    return (
+      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+        Low · {remaining.toFixed(0)}ft
+      </span>
+    );
+  return (
+    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+      {remaining.toFixed(0)}ft left
+    </span>
   );
 }
 
+// ─── Roll Selector ────────────────────────────────────────────────────────────
+
+function RollSelector({
+  rolls,
+  selectedRollId,
+  onSelect,
+  loading,
+}: {
+  rolls: InventoryRoll[];
+  selectedRollId: string;
+  onSelect: (roll: InventoryRoll) => void;
+  loading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return rolls.filter(
+      (r) =>
+        r["Roll ID"].toLowerCase().includes(q) ||
+        r["Item Name"].toLowerCase().includes(q)
+    );
+  }, [rolls, search]);
+
+  // Group by Item Name
+  const grouped = useMemo(() => {
+    const map: Record<string, InventoryRoll[]> = {};
+    filtered.forEach((r) => {
+      const key = r["Item Name"] || "Other";
+      if (!map[key]) map[key] = [];
+      map[key].push(r);
+    });
+    return map;
+  }, [filtered]);
+
+  const selected = rolls.find((r) => r["Roll ID"] === selectedRollId);
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-400 tracking-wider flex items-center gap-1.5">
+        <Package className="w-3 h-3" />
+        Select Roll from Inventory *
+      </Label>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          "w-full h-14 rounded-2xl border-2 px-4 flex items-center justify-between transition-all text-left",
+          selectedRollId
+            ? "border-brand-500 bg-brand-50/50 dark:bg-brand-900/20 dark:border-brand-700"
+            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-brand-300 dark:hover:border-brand-700"
+        )}
+      >
+        {selected ? (
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
+              <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+                {selected["Roll ID"]}
+              </p>
+              <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
+                {parseNum(selected["Width (ft)"])}ft wide · ₦{parseNum(selected["Price"]).toLocaleString()}/sqft
+              </p>
+            </div>
+          </div>
+        ) : (
+          <span className="text-gray-400 dark:text-zinc-600 font-medium text-sm">
+            {loading ? "Loading rolls…" : "Tap to choose a roll…"}
+          </span>
+        )}
+        <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 ml-2" />
+      </button>
+
+      {/* Roll picker bottom sheet / dialog */}
+      <Drawer.Root open={open} onOpenChange={setOpen}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm" />
+          <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] fixed bottom-0 left-0 right-0 z-50 outline-none shadow-2xl border-t dark:border-zinc-800 max-h-[88vh]">
+            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mt-4" />
+
+            <div className="px-5 pt-4 pb-2 border-b dark:border-zinc-800">
+              <Drawer.Title className="text-lg font-black text-gray-900 dark:text-white mb-3">
+                Choose a Roll
+              </Drawer.Title>
+              <Drawer.Description className="sr-only">
+                Select an inventory roll for this job
+              </Drawer.Description>
+              <Input
+                placeholder="Search by roll ID or material…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="rounded-xl bg-gray-50 dark:bg-zinc-900 border-gray-200 dark:border-zinc-700"
+                autoFocus
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4 space-y-5">
+              {Object.entries(grouped).map(([material, materialRolls]) => (
+                <div key={material}>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-2 px-1">
+                    {material}
+                  </p>
+                  <div className="space-y-2">
+                    {materialRolls.map((roll) => {
+                      const remaining = parseNum(roll["Remaining Length (ft)"]);
+                      const total = parseNum(roll["Total Length (ft)"]);
+                      const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
+                      const isOut = remaining <= 0 || roll.Status === "Out of Stock";
+
+                      return (
+                        <button
+                          key={roll["Roll ID"]}
+                          type="button"
+                          disabled={isOut}
+                          onClick={() => {
+                            onSelect(roll);
+                            setOpen(false);
+                            setSearch("");
+                          }}
+                          className={cn(
+                            "w-full p-4 rounded-2xl border-2 text-left transition-all",
+                            roll["Roll ID"] === selectedRollId
+                              ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20"
+                              : isOut
+                              ? "border-gray-100 dark:border-zinc-800 opacity-40 cursor-not-allowed"
+                              : "border-gray-100 dark:border-zinc-800 hover:border-brand-300 dark:hover:border-brand-700 bg-white dark:bg-zinc-900"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="text-sm font-black text-gray-900 dark:text-white">
+                                {roll["Roll ID"]}
+                              </p>
+                              <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium mt-0.5">
+                                {parseNum(roll["Width (ft)"])}ft wide · ₦{parseNum(roll["Price"]).toLocaleString()}/sqft
+                              </p>
+                            </div>
+                            <StockBadge roll={roll} />
+                          </div>
+                          {/* Progress bar */}
+                          <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                roll.Status === "Low Stock"
+                                  ? "bg-amber-500"
+                                  : isOut
+                                  ? "bg-rose-500"
+                                  : "bg-emerald-500"
+                              )}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {filtered.length === 0 && (
+                <div className="text-center py-12 text-gray-400 dark:text-zinc-500">
+                  <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm font-medium">No rolls found</p>
+                </div>
+              )}
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+    </div>
+  );
+}
+
+// ─── Cart Item Card ───────────────────────────────────────────────────────────
+
+function CartItemCard({
+  item,
+  onRemove,
+}: {
+  item: CartItem;
+  onRemove: (id: string) => void;
+}) {
+  const stockOk = item.remainingAfterJob >= 0;
+
+  return (
+    <div
+      className={cn(
+        "relative p-4 rounded-2xl border-2 transition-all",
+        stockOk
+          ? "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+          : "border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-900/10"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+              {item.jobDescription || "Unnamed job"}
+            </p>
+            <Badge className="text-[9px] font-black border-none bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+              {item.rollLabel}
+            </Badge>
+          </div>
+          <p className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
+            {item.qty}× · {item.jobWidthFt}ft × {item.jobHeightFt}ft ·{" "}
+            {item.jobLengthFt.toFixed(1)}ft consumed
+          </p>
+
+          {!stockOk && (
+            <p className="text-[10px] text-rose-600 dark:text-rose-400 font-black flex items-center gap-1 mt-1.5">
+              <AlertTriangle className="w-3 h-3" />
+              Exceeds roll stock — adjust quantity or height
+            </p>
+          )}
+        </div>
+
+        <div className="text-right shrink-0">
+          <p className="text-base font-black text-gray-900 dark:text-white">
+            {fmtCurrency(item.totalAmount)}
+          </p>
+          <p className="text-[10px] text-gray-400 dark:text-zinc-500">
+            ₦{item.costPerSqft}/sqft
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onRemove(item.id)}
+        className="absolute top-3 right-3 w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+        aria-label="Remove"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
+// ─── Summary Bar ──────────────────────────────────────────────────────────────
+
+function SummaryBar({
+  cart,
+  grandTotal,
+  initialPayment,
+  balance,
+  paymentStatus,
+  onSubmit,
+  disabled,
+}: {
+  cart: CartItem[];
+  grandTotal: number;
+  initialPayment: number;
+  balance: number;
+  paymentStatus: string;
+  onSubmit: () => void;
+  disabled: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (cart.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 md:left-60 z-40 pb-safe">
+      <div className="bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-t border-gray-100 dark:border-zinc-800 shadow-2xl">
+        {/* Expanded breakdown */}
+        {expanded && (
+          <div className="px-4 pt-4 pb-2 grid grid-cols-3 gap-3 border-b border-gray-100 dark:border-zinc-800">
+            {[
+              { label: "Items", val: String(cart.length), sub: "in order" },
+              {
+                label: "Grand Total",
+                val: fmtCurrency(grandTotal),
+                sub: "before payment",
+              },
+              {
+                label: "Balance Due",
+                val: fmtCurrency(Math.max(0, balance)),
+                sub: paymentStatus,
+                accent: balance > 0,
+              },
+            ].map(({ label, val, sub, accent }) => (
+              <div key={label} className="text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">
+                  {label}
+                </p>
+                <p
+                  className={cn(
+                    "text-base font-black leading-tight",
+                    accent
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-gray-900 dark:text-white"
+                  )}
+                >
+                  {val}
+                </p>
+                <p className="text-[9px] text-gray-400 dark:text-zinc-500">{sub}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Collapsed bar */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-2 flex-1 min-w-0"
+          >
+            <div className="w-8 h-8 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
+              <Receipt className="w-4 h-4 text-brand-700 dark:text-brand-400" />
+            </div>
+            <div className="text-left min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
+                {cart.length} item{cart.length !== 1 ? "s" : ""} · tap to{" "}
+                {expanded ? "collapse" : "expand"}
+              </p>
+              <p className="text-base font-black text-gray-900 dark:text-white leading-tight">
+                {fmtCurrency(grandTotal)}
+              </p>
+            </div>
+            {expanded ? (
+              <ChevronDown className="w-4 h-4 text-gray-400 ml-auto shrink-0" />
+            ) : (
+              <ChevronUp className="w-4 h-4 text-gray-400 ml-auto shrink-0" />
+            )}
+          </button>
+
+          <Button
+            onClick={onSubmit}
+            disabled={disabled}
+            className="h-12 px-6 rounded-2xl bg-brand-700 hover:bg-brand-800 text-white font-black shadow-lg shadow-brand-700/20 shrink-0 flex items-center gap-2"
+          >
+            Review
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main SalesEntry Component ────────────────────────────────────────────────
+
 export function SalesEntry() {
-  const [nlText, setNlText] = useState("");
-  const [isParsing, setIsParsing] = useState(false);
-  
-  const [batchData, setBatchData] = useState({
+  // ── Inventory state ──────────────────────────────────────────────────────
+  const [inventory, setInventory] = useState<InventoryRoll[]>([]);
+  const [invLoading, setInvLoading] = useState(true);
+
+  const fetchInventory = useCallback(async () => {
+    setInvLoading(true);
+    try {
+      const res = await fetch("/api/inventory");
+      const json = await res.json();
+      if (res.ok) setInventory(json.data || []);
+    } catch {
+      toast.error("Could not load inventory rolls");
+    } finally {
+      setInvLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
+
+  // ── Batch meta (client info) ─────────────────────────────────────────────
+  const [meta, setMeta] = useState<BatchMeta>({
     date: new Date().toISOString().split("T")[0],
     clientName: "",
     contact: "",
     jobStatus: "Quoted",
     initialPayment: "0",
   });
+  const setMetaField = (k: keyof BatchMeta, v: string) =>
+    setMeta((prev) => ({ ...prev, [k]: v }));
 
-  const [jobData, setJobData] = useState<JobData>({
-    jobDescription: "",
-    material: "Flex",
-    costPerSqft: "180",
-    actualWidth: "",
-    actualHeight: "",
-    rollSize: "",
-    qty: "1",
-    dimensionUnit: "ft",
-    fromInventory: false,
-  });
-  
-  const [cart, setCart] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [openInv, setOpenInv] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/inventory")
-      .then(res => res.json())
-      .then(json => {
-        if (json.data) setInventory(json.data);
-      })
-      .catch(err => console.error("Failed to fetch inventory for selection", err));
-  }, []);
-
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [rollSizeTouched, setRollSizeTouched] = useState(false);
-  const [clientNameTouched, setClientNameTouched] = useState(false);
-  const [dimensionsTouched, setDimensionsTouched] = useState(false);
-
-  const cachedSales = useSyncStore(state => state.cachedSales);
+  // ── Client suggestions ───────────────────────────────────────────────────
+  const cachedSales = useSyncStore((s) => s.cachedSales);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const uniqueClients = useMemo(() => {
-    if (!cachedSales || !Array.isArray(cachedSales)) return [];
     const names = new Set<string>();
-    cachedSales.forEach((sale: any) => {
-      const name = sale["CLIENT NAME"] || sale["Client Name"];
-      if (name && typeof name === "string" && name.trim() !== "") {
-        names.add(name.trim());
-      }
+    cachedSales.forEach((s: any) => {
+      const n = (s["CLIENT NAME"] || s["Client Name"] || "").trim();
+      if (n) names.add(n);
     });
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
+    return Array.from(names).sort();
   }, [cachedSales]);
 
   const clientContacts = useMemo(() => {
-    if (!cachedSales || !Array.isArray(cachedSales)) return {} as Record<string, string>;
-    const contacts: Record<string, string> = {};
-    cachedSales.forEach((sale: any) => {
-      const name = (sale["CLIENT NAME"] || sale["Client Name"] || "").trim();
-      const contact = (sale["CONTACT"] || sale["Contact"] || "").trim();
-      if (name && contact) {
-        contacts[name] = contact;
-      }
+    const map: Record<string, string> = {};
+    cachedSales.forEach((s: any) => {
+      const n = (s["CLIENT NAME"] || s["Client Name"] || "").trim();
+      const c = (s["CONTACT"] || s["Contact"] || "").trim();
+      if (n && c) map[n] = c;
     });
-    return contacts;
+    return map;
   }, [cachedSales]);
 
   const filteredClients = useMemo(() => {
-    if (!batchData.clientName) return uniqueClients;
-    const lower = batchData.clientName.toLowerCase();
-    return uniqueClients.filter(c => c.toLowerCase().includes(lower));
-  }, [uniqueClients, batchData.clientName]);
+    const q = meta.clientName.toLowerCase();
+    return uniqueClients.filter((c) => c.toLowerCase().includes(q)).slice(0, 6);
+  }, [uniqueClients, meta.clientName]);
 
-  // Detect available roll size and price automatically from inventory
+  // ── Job form (single job being built) ───────────────────────────────────
+  const [selectedRollId, setSelectedRollId] = useState("");
+  const [jobDesc, setJobDesc] = useState("");
+  const [jobWidthFt, setJobWidthFt] = useState("");
+  const [jobHeightFt, setJobHeightFt] = useState("");
+  const [qty, setQty] = useState("1");
+  const [costOverride, setCostOverride] = useState("");
+  const [dimUnit, setDimUnit] = useState<"ft" | "in">("ft");
+  const [formTouched, setFormTouched] = useState(false);
+
+  const selectedRoll = useMemo(
+    () => inventory.find((r) => r["Roll ID"] === selectedRollId) || null,
+    [inventory, selectedRollId]
+  );
+
+  // When a roll is selected, auto-fill cost per sqft
   useEffect(() => {
-    const w = parseFloat(jobData.actualWidth) || 0;
-    const widthInFt = jobData.dimensionUnit === 'in' ? w / 12 : w;
-    
-    if (inventory && inventory.length > 0) {
-      const matItems = inventory.filter(item => 
-        item['Material Type']?.toLowerCase().includes(jobData.material.toLowerCase()) || 
-        jobData.material.toLowerCase().includes(item['Material Type']?.toLowerCase())
-      );
-      
-      if (matItems.length > 0) {
-        const priceMatch = matItems[0]['Price per Sqft'];
-        
-        if (widthInFt > 0) {
-          const widthMatch = matItems.find(item => {
-            const widthVal = parseFloat(item['Width (ft)']) || 0;
-            return Math.abs(widthVal - widthInFt) < 0.1;
-          });
-          
-          if (widthMatch) {
-            setJobData(prev => ({ 
-              ...prev, 
-              rollSize: widthMatch['Width (ft)']?.toString(),
-              costPerSqft: widthMatch['Price per Sqft']?.toString() || prev.costPerSqft
-            }));
-          } else if (priceMatch) {
-            setJobData(prev => ({ ...prev, costPerSqft: priceMatch.toString() }));
-          }
-        } else if (priceMatch) {
-          setJobData(prev => ({ ...prev, costPerSqft: priceMatch.toString() }));
-        }
-      }
+    if (selectedRoll) {
+      const price = parseNum(selectedRoll["Price"]);
+      if (price > 0) setCostOverride(String(price));
     }
-  }, [jobData.material, jobData.actualWidth, jobData.dimensionUnit, inventory]);
+  }, [selectedRoll]);
 
-  // Calculations for UI display
-  const calculatedSize = useMemo(() => {
-    const w = parseFloat(jobData.actualWidth) || 0;
-    const h = parseFloat(jobData.actualHeight) || 0;
-    const rawSize = w * h;
-    return jobData.dimensionUnit === "in" ? rawSize / 144 : rawSize;
-  }, [jobData.actualWidth, jobData.actualHeight, jobData.dimensionUnit]);
+  // Live calculations
+  const jobWFt = useMemo(() => {
+    const w = parseFloat(jobWidthFt) || 0;
+    return dimUnit === "in" ? w / 12 : w;
+  }, [jobWidthFt, dimUnit]);
 
-  const totalJobArea = useMemo(() => {
-    const q = parseInt(jobData.qty) || 0;
-    return calculatedSize * q;
-  }, [calculatedSize, jobData.qty]);
+  const jobHFt = useMemo(() => {
+    const h = parseFloat(jobHeightFt) || 0;
+    return dimUnit === "in" ? h / 12 : h;
+  }, [jobHeightFt, dimUnit]);
 
-  const unitCostVal = useMemo(() => {
-    const rate = parseFloat(jobData.costPerSqft) || 0;
-    return rate * calculatedSize;
-  }, [jobData.costPerSqft, calculatedSize]);
+  const qtyNum = parseInt(qty) || 1;
+  const costPerSqft = parseFloat(costOverride) || 0;
+  const unitSqft = jobWFt * jobHFt;
+  const unitCost = unitSqft * costPerSqft;
+  const totalAmount = unitCost * qtyNum;
+  const jobLengthFt = jobHFt * qtyNum; // linear feet consumed from roll
 
-  const totalAmount = useMemo(() => {
-    const q = parseInt(jobData.qty) || 0;
-    return unitCostVal * q;
-  }, [unitCostVal, jobData.qty]);
+  const rollRemaining = selectedRoll
+    ? parseNum(selectedRoll["Remaining Length (ft)"])
+    : 0;
+  const remainingAfterJob = rollRemaining - jobLengthFt;
+  const stockOk = jobLengthFt === 0 || remainingAfterJob >= 0;
 
-  const grandTotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.totalAmount, 0);
-  }, [cart]);
+  // Width compatibility check
+  const widthCompatible =
+    !selectedRoll || jobWFt <= parseNum(selectedRoll["Width (ft)"]);
 
-  const amountDifference = useMemo(() => {
-    const p1 = parseFloat(batchData.initialPayment) || 0;
-    return grandTotal - p1;
-  }, [grandTotal, batchData.initialPayment]);
-
-  const paymentStatus = useMemo(() => {
-    if (grandTotal === 0) return "Unpaid";
-    if (amountDifference <= 0) return "Paid";
-    if (amountDifference < grandTotal) return "Part-payment";
-    return "Unpaid";
-  }, [amountDifference, grandTotal]);
-
-  const availableRollSizes = useMemo(() => {
-    if (!inventory || inventory.length === 0) {
-      return ["3", "4", "5", "6", "8", "10"];
-    }
-    
-    const sizes = inventory
-      .filter(item => 
-        item['Material Type']?.toLowerCase().includes(jobData.material.toLowerCase()) || 
-        jobData.material.toLowerCase().includes(item['Material Type']?.toLowerCase())
-      )
-      .map(item => parseFloat(item['Width (ft)'])?.toString())
-      .filter((val, idx, self) => val && self.indexOf(val) === idx);
-      
-    return sizes.length > 0 ? sizes.sort((a,b) => parseFloat(a) - parseFloat(b)) : ["3", "4", "5", "6", "8", "10"];
-  }, [inventory, jobData.material]);
+  // ── Cart ─────────────────────────────────────────────────────────────────
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   const handleAddToCart = () => {
-    setRollSizeTouched(true);
-    setDimensionsTouched(true);
-    if (!jobData.rollSize || !jobData.actualWidth || !jobData.actualHeight) {
-      if (!jobData.rollSize) toast.error("Please select a roll size");
-      if (!jobData.actualWidth || !jobData.actualHeight) toast.error("Please enter both width and height");
+    setFormTouched(true);
+
+    if (!selectedRollId) {
+      toast.error("Please select a roll from inventory");
+      return;
+    }
+    if (!jobWidthFt || !jobHeightFt) {
+      toast.error("Enter both job width and height");
+      return;
+    }
+    if (!widthCompatible) {
+      toast.error(
+        `Job width (${jobWFt.toFixed(1)}ft) is wider than the selected roll (${parseNum(selectedRoll!["Width (ft)"]).toFixed(1)}ft)`
+      );
+      return;
+    }
+    if (!stockOk) {
+      toast.error(
+        `Not enough stock on ${selectedRollId}. Need ${jobLengthFt.toFixed(1)}ft but only ${rollRemaining.toFixed(1)}ft available.`
+      );
       return;
     }
 
-    // Enforce remaining stock boundaries
-    if (inventory && inventory.length > 0) {
-      const match = inventory.find(item => {
-        const matMatch = item['Material Type']?.toLowerCase().includes(jobData.material.toLowerCase()) || 
-                         jobData.material.toLowerCase().includes(item['Material Type']?.toLowerCase());
-        const widthVal = parseFloat(item['Width (ft)']) || 0;
-        const rollSizeVal = parseFloat(jobData.rollSize) || 0;
-        return matMatch && Math.abs(widthVal - rollSizeVal) < 0.1;
-      });
-
-      if (match) {
-        const availableStock = parseFloat(match['Available Stock']) || 0;
-        if (availableStock < totalJobArea) {
-          toast.error(`Insufficient inventory stock! Available: ${availableStock.toFixed(1)} sqft, Required: ${totalJobArea.toFixed(1)} sqft.`);
-          return;
-        }
-      }
-    }
-
-    setCart(prev => [...prev, {
+    const newItem: CartItem = {
       id: crypto.randomUUID(),
-      ...jobData,
-      fromInventory: jobData.fromInventory ?? false,
-      calculatedSize,
-      totalJobArea,
-      unitCostVal,
-      totalAmount
-    }]);
+      rollId: selectedRollId,
+      rollLabel: selectedRollId,
+      itemName: selectedRoll!["Item Name"],
+      widthFt: parseNum(selectedRoll!["Width (ft)"]),
+      jobDescription: jobDesc.trim() || `${selectedRoll!["Item Name"]} print job`,
+      jobWidthFt: jobWFt,
+      jobHeightFt: jobHFt,
+      qty: qtyNum,
+      costPerSqft,
+      unitSqft,
+      unitCost,
+      totalAmount,
+      jobLengthFt,
+      remainingAfterJob,
+      fromInventory: true,
+    };
 
-    setJobData({
-      jobDescription: "",
-      material: "Flex",
-      costPerSqft: "180",
-      actualWidth: "",
-      actualHeight: "",
-      rollSize: "",
-      qty: "1",
-      dimensionUnit: "ft",
-      fromInventory: false,
-    });
-    setRollSizeTouched(false);
-    setDimensionsTouched(false);
+    setCart((prev) => [...prev, newItem]);
     toast.success("Job added to order");
+
+    // Reset job form but keep roll selected for quick multi-job entry
+    setJobDesc("");
+    setJobWidthFt("");
+    setJobHeightFt("");
+    setQty("1");
+    setFormTouched(false);
   };
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.id !== id));
-  };
+  // ── Grand total calculations ─────────────────────────────────────────────
+  const grandTotal = useMemo(
+    () => cart.reduce((s, i) => s + i.totalAmount, 0),
+    [cart]
+  );
+  const initialPaymentNum = parseFloat(meta.initialPayment) || 0;
+  const balance = grandTotal - initialPaymentNum;
+  const paymentStatus = useMemo(() => {
+    if (grandTotal === 0) return "Unpaid";
+    if (balance <= 0) return "Paid";
+    if (balance < grandTotal) return "Part-payment";
+    return "Unpaid";
+  }, [grandTotal, balance]);
 
-  const handleReviewAndSave = () => {
-    setClientNameTouched(true);
-    if (!batchData.clientName) {
-      toast.error("Please enter a client name");
-      // Scroll to the top or the client name field if possible, but at least show the toast
-      return;
-    }
-    if (cart.length === 0) {
-      toast.error("Order is empty. Add at least one job.");
-      return;
-    }
-    setShowConfirmModal(true);
-  };
+  // ── AI / NL state ────────────────────────────────────────────────────────
+  const [nlText, setNlText] = useState("");
+  const [nlParsing, setNlParsing] = useState(false);
 
   const handleNlSubmit = async () => {
     if (!nlText.trim()) return;
-    setIsParsing(true);
+    setNlParsing(true);
     try {
       const res = await fetch("/api/parse-nl", {
         method: "POST",
@@ -368,647 +661,901 @@ export function SalesEntry() {
       const json = await res.json();
       if (res.ok && json.data) {
         const d = json.data;
-        setBatchData(prev => ({
-          ...prev,
-          clientName: d["CLIENT NAME"] || prev.clientName,
-          contact: d.CONTACT || prev.contact,
-          initialPayment: d["INITIAL PAYMENT (₦)"] ? d["INITIAL PAYMENT (₦)"].toString() : prev.initialPayment
-        }));
-        setJobData(prev => ({
-          ...prev,
-          jobDescription: d["JOB DESCRIPTION"] || prev.jobDescription,
-          material: d.Material || prev.material,
-          costPerSqft: d["COST PER SQRFT"] ? d["COST PER SQRFT"].toString() : prev.costPerSqft,
-          actualWidth: d.actualWidth ? d.actualWidth.toString() : "",
-          actualHeight: d.actualHeight ? d.actualHeight.toString() : "",
-          rollSize: d.rollSize ? d.rollSize.toString() : prev.rollSize,
-          qty: d.QTY ? d.QTY.toString() : "1"
-        }));
-        toast.success("Parsed successfully! Review details and Add to Order.");
+        if (d["CLIENT NAME"])
+          setMetaField("clientName", d["CLIENT NAME"]);
+        if (d["CONTACT"]) setMetaField("contact", d["CONTACT"]);
+        if (d["INITIAL PAYMENT (₦)"])
+          setMetaField("initialPayment", String(d["INITIAL PAYMENT (₦)"]));
+        if (d["JOB DESCRIPTION"]) setJobDesc(d["JOB DESCRIPTION"]);
+        if (d["COST PER SQRFT"])
+          setCostOverride(String(d["COST PER SQRFT"]));
+        if (d["actualWidth"])
+          setJobWidthFt(String(d["actualWidth"]));
+        if (d["actualHeight"])
+          setJobHeightFt(String(d["actualHeight"]));
+        if (d["QTY"]) setQty(String(d["QTY"]));
+        toast.success("Parsed! Review the details then add to order.");
       } else {
-        toast.error(json.error || "Failed to parse");
+        toast.error(json.error || "Could not parse — try rephrasing");
       }
-    } catch (err) {
+    } catch {
       toast.error("Network error");
     } finally {
-      setIsParsing(false);
+      setNlParsing(false);
     }
   };
 
-  const handleSaveToSheets = async () => {
-    if (cart.length === 0) {
-      toast.error("Cart is empty");
+  // ── Confirm & save ───────────────────────────────────────────────────────
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleReview = () => {
+    if (!meta.clientName.trim()) {
+      toast.error("Client name is required");
       return;
     }
+    if (cart.length === 0) {
+      toast.error("Add at least one job to the order");
+      return;
+    }
+    if (cart.some((i) => i.remainingAfterJob < 0)) {
+      toast.error("One or more jobs exceed available roll stock");
+      return;
+    }
+    setShowConfirm(true);
+  };
 
-    const loggedBy = localStorage.getItem("userName") || "Unknown";
-    
-    // Sales ID is generated on the server to prevent client-side collisions.
-    // Do NOT generate it here.
-    
-    let remainingPayment = parseFloat(batchData.initialPayment) || 0;
+  const handleSave = async () => {
+    setSaving(true);
+    const loggedBy =
+      typeof window !== "undefined"
+        ? localStorage.getItem("userName") || "Unknown"
+        : "Unknown";
 
-    const rowArrays = cart.map(item => {
-      const needsInchesDivisor = item.dimensionUnit === "in";
-      const sizeFormula = needsInchesDivisor 
-        ? `=(${item.actualWidth}*${item.actualHeight})/144` 
-        : `=(${item.actualWidth}*${item.actualHeight})`;
+    let remainingPayment = initialPaymentNum;
 
-      let paymentForThisRow = 0;
+    const rowArrays = cart.map((item) => {
+      let paymentForRow = 0;
       if (remainingPayment >= item.totalAmount) {
-        paymentForThisRow = item.totalAmount;
+        paymentForRow = item.totalAmount;
         remainingPayment -= item.totalAmount;
       } else if (remainingPayment > 0) {
-        paymentForThisRow = remainingPayment;
+        paymentForRow = remainingPayment;
         remainingPayment = 0;
       }
 
+      const needsInchDiv = dimUnit === "in";
+      const wRaw = needsInchDiv ? item.jobWidthFt * 12 : item.jobWidthFt;
+      const hRaw = needsInchDiv ? item.jobHeightFt * 12 : item.jobHeightFt;
+      const sizeFormula = needsInchDiv
+        ? `=(${wRaw}*${hRaw})/144`
+        : `=(${wRaw}*${hRaw})`;
+
+      const rollWidthFt = item.widthFt;
+      const colMap: Record<number, string> = {
+        3: "G", 4: "H", 5: "I", 6: "J", 8: "K", 10: "L",
+      };
+      const col = colMap[rollWidthFt] || "H";
+
       return [
-        batchData.date, // A
-        batchData.clientName, // B
-        `${item.jobDescription.trim()} [${item.actualWidth}x${item.actualHeight}${item.dimensionUnit}]`, // C
-        batchData.contact, // D
-        item.material, // E
-        item.costPerSqft, // F
-        item.rollSize === "3" ? sizeFormula : "", // G
-        item.rollSize === "4" ? sizeFormula : "", // H
-        item.rollSize === "5" ? sizeFormula : "", // I
-        item.rollSize === "6" ? sizeFormula : "", // J
-        item.rollSize === "8" ? sizeFormula : "", // K
-        item.rollSize === "10" ? sizeFormula : "", // L
-        item.qty, // M
-        `=([COL_G_L][ROW]*F[ROW])`, // N - Unit Cost formula (Dimension * Rate)
-        paymentForThisRow, // O - Initial payment allocated
-        `=(M[ROW]*N[ROW])`, // P - Total formula (Qty * Unit Cost)
-        "", // Q
-        "", // R
-        `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`, // S - Balance
-        `=IF(P[ROW]=0, "Unpaid", IF(S[ROW]<=0, "Paid", IF(S[ROW]<P[ROW], "Part-payment", "Unpaid")))`, // T - Payment status
-        batchData.jobStatus, // U
-        loggedBy, // V
-        "" // W — Sales ID assigned by server
+        meta.date,           // A DATE
+        meta.clientName,     // B CLIENT NAME
+        `${item.jobDescription} [${item.jobWidthFt.toFixed(1)}x${item.jobHeightFt.toFixed(1)}ft]`, // C JOB DESCRIPTION
+        meta.contact,        // D CONTACT
+        item.itemName,       // E MATERIAL
+        item.costPerSqft,    // F COST PER SQFT
+        col === "G" ? sizeFormula : "", // G 3FT
+        col === "H" ? sizeFormula : "", // H 4FT
+        col === "I" ? sizeFormula : "", // I 5FT
+        col === "J" ? sizeFormula : "", // J 6FT
+        col === "K" ? sizeFormula : "", // K 8FT
+        col === "L" ? sizeFormula : "", // L 10FT
+        item.qty,            // M QTY
+        `=([COL_G_L][ROW]*F[ROW])`, // N UNIT COST
+        paymentForRow,       // O INITIAL PAYMENT
+        `=(M[ROW]*N[ROW])`, // P TOTAL
+        "",                  // Q ADD PAYMENT 1
+        "",                  // R ADD PAYMENT 2
+        `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`, // S BALANCE
+        `=IF(P[ROW]=0,"Unpaid",IF(S[ROW]<=0,"Paid",IF(S[ROW]<P[ROW],"Part-payment","Unpaid")))`, // T STATUS
+        meta.jobStatus,      // U JOB STATUS
+        loggedBy,            // V LOGGED BY
+        "",                  // W SALES ID (server-generated)
       ];
     });
 
     try {
-      useSyncStore.getState().addPendingEntry('sale', {
+      useSyncStore.getState().addPendingEntry("sale", {
         batch: true,
         items: rowArrays.map((row, i) => ({
           values: row,
-          totalArea: cart[i].totalJobArea,
-          // Pass the exact item name if it came from the inventory popover;
-          // the server uses this for a precise inventory match instead of
-          // parsing the freeform job description string.
-          canonicalItemName: cart[i].fromInventory ? cart[i].jobDescription : undefined,
+          totalArea: cart[i].unitSqft * cart[i].qty,
+          jobLengthFt: cart[i].jobLengthFt,
+          canonicalItemName: cart[i].rollId, // Roll ID for inventory lookup
           jobDescription: cart[i].jobDescription,
-          qty: cart[i].qty
-        }))
+          qty: cart[i].qty,
+          rollId: cart[i].rollId,
+          rollWidthFt: cart[i].widthFt,
+        })),
       });
-      
-      toast.success("Saved locally! Syncing with Google Sheets in background...");
-      setShowConfirmModal(false);
-      
-      setBatchData({
+
+      toast.success("Order saved locally — syncing to Google Sheets…");
+      setShowConfirm(false);
+
+      // Reset everything
+      setMeta({
         date: new Date().toISOString().split("T")[0],
         clientName: "",
         contact: "",
         jobStatus: "Quoted",
         initialPayment: "0",
       });
-      setJobData({
-        jobDescription: "",
-        material: "Flex",
-        costPerSqft: "180",
-        actualWidth: "",
-        actualHeight: "",
-        rollSize: "",
-        qty: "1",
-        dimensionUnit: "ft",
-      });
       setCart([]);
+      setSelectedRollId("");
+      setJobDesc("");
+      setJobWidthFt("");
+      setJobHeightFt("");
+      setQty("1");
+      setCostOverride("");
       setNlText("");
-      setRollSizeTouched(false);
-      setClientNameTouched(false);
-      setDimensionsTouched(false);
-    } catch(err) {
-      toast.error("Error saving locally.");
+      setFormTouched(false);
+    } catch {
+      toast.error("Failed to save locally");
+    } finally {
+      setSaving(false);
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="w-full max-w-5xl mx-auto pb-24">
-      <Tabs defaultValue="manual" className="w-full">
-        <div className="flex justify-center mb-10">
-          <TabsList className="bg-gray-100/80 dark:bg-zinc-800/80 p-1.5 rounded-full border border-gray-200 dark:border-zinc-700 shadow-sm gap-1">
-            <TabsTrigger 
-              value="manual" 
-              className="px-5 py-2 rounded-full text-sm font-bold transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg dark:text-zinc-400 gap-2 data-[state=active]:ring-2 data-[state=active]:ring-primary/20"
+    <div className="pb-32">
+      <Tabs defaultValue="manual">
+        {/* Tab switcher */}
+        <div className="flex justify-center mb-8">
+          <TabsList className="bg-gray-100 dark:bg-zinc-900 p-1 rounded-full border border-gray-200 dark:border-zinc-800 gap-1">
+            <TabsTrigger
+              value="manual"
+              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-brand-700 data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
             >
-              <span>✏️</span>
-              Manual
+              ✏️ Manual
             </TabsTrigger>
-            <TabsTrigger 
-              value="ai" 
-              className="px-5 py-2 rounded-full text-sm font-bold transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg dark:text-zinc-400 gap-2 data-[state=active]:ring-2 data-[state=active]:ring-primary/20"
+            <TabsTrigger
+              value="ai"
+              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-brand-700 data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
             >
-              <span>⚡</span>
-              AI Log
+              ⚡ AI Log
             </TabsTrigger>
           </TabsList>
         </div>
-        
-        <TabsContent value="manual" className="space-y-6">
-          <div className="bg-white dark:bg-zinc-900/50 border border-gray-100 dark:border-white/5 rounded-[2rem] shadow-sm overflow-hidden p-6 md:p-8 transition-colors">
-            {/* Section 1: Client Info */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Client Info</h3>
-                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300 dark:text-zinc-600" /></div>
+
+        {/* ── MANUAL TAB ─────────────────────────────────────────────────── */}
+        <TabsContent value="manual" className="space-y-4">
+
+          {/* ── SECTION 1: Client Info ──────────────────────────────────── */}
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Date</Label>
-                  <Input type="date" value={batchData.date} onChange={e => setBatchData({...batchData, date: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">
-                    Client Name <span className="text-rose-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Input 
-                      placeholder="Sarah Jones" 
-                      value={batchData.clientName} 
-                      onFocus={() => setShowSuggestions(true)}
-                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                      onChange={e => {
-                        setBatchData({...batchData, clientName: e.target.value});
-                        setClientNameTouched(true);
-                        setShowSuggestions(true);
-                      }} 
-                      className={cn(
-                        "h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary",
-                        clientNameTouched && !batchData.clientName && "border-rose-500 ring-rose-500/10"
-                      )} 
-                    />
-                    {showSuggestions && filteredClients.length > 0 && (
-                      <div className="absolute z-50 w-full top-[calc(100%+4px)] left-0 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                        {filteredClients.map((client, index) => (
-                          <div
-                            key={index}
-                            className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-zinc-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 cursor-pointer border-b border-gray-50 dark:border-zinc-800 last:border-0 transition-colors"
-                            onClick={() => {
-                              setBatchData({ 
-                                ...batchData, 
-                                clientName: client, 
-                                contact: clientContacts[client] || "" 
-                              });
-                              setClientNameTouched(true);
-                              setShowSuggestions(false);
-                            }}
-                          >
-                            {client}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+              <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
+                Client Info
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Date */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                  Date
+                </Label>
+                <Input
+                  type="date"
+                  value={meta.date}
+                  onChange={(e) => setMetaField("date", e.target.value)}
+                  className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+              </div>
+
+              {/* Client name with autocomplete */}
+              <div className="space-y-1.5 relative">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                  Client Name *
+                </Label>
+                <Input
+                  placeholder="Sarah Jones"
+                  value={meta.clientName}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowSuggestions(false), 180)
+                  }
+                  onChange={(e) => {
+                    setMetaField("clientName", e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+                {showSuggestions && filteredClients.length > 0 && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-xl overflow-hidden">
+                    {filteredClients.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className="w-full px-4 py-3 text-sm font-bold text-left text-gray-700 dark:text-zinc-300 hover:bg-brand-50 dark:hover:bg-zinc-800 transition-colors border-b border-gray-50 dark:border-zinc-800 last:border-0"
+                        onMouseDown={() => {
+                          setMetaField("clientName", c);
+                          setMetaField(
+                            "contact",
+                            clientContacts[c] || meta.contact
+                          );
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        {c}
+                      </button>
+                    ))}
                   </div>
-                  {clientNameTouched && !batchData.clientName && (
-                    <p className="text-[11px] text-rose-500 font-black mt-1 uppercase tracking-tighter">⚠ Client name is required</p>
-                  )}
+                )}
+              </div>
+
+              {/* Contact */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                  Contact
+                </Label>
+                <Input
+                  placeholder="08012345678"
+                  value={meta.contact}
+                  onChange={(e) => setMetaField("contact", e.target.value)}
+                  className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── SECTION 2: Roll Selection ───────────────────────────────── */}
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
+                  <Layers className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Contact Information</Label>
-                  <Input placeholder="sarah.jones@email.com" value={batchData.contact} onChange={e => setBatchData({...batchData, contact: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
+                <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
+                  Roll & Material
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={fetchInventory}
+                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-brand-600 dark:text-zinc-500 dark:hover:text-brand-400 transition-colors"
+              >
+                <RefreshCw
+                  className={cn("w-3 h-3", invLoading && "animate-spin")}
+                />
+                Refresh
+              </button>
+            </div>
+
+            <RollSelector
+              rolls={inventory}
+              selectedRollId={selectedRollId}
+              onSelect={(roll) => setSelectedRollId(roll["Roll ID"])}
+              loading={invLoading}
+            />
+
+            {/* Roll details strip when selected */}
+            {selectedRoll && (
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                {[
+                  {
+                    label: "Roll Width",
+                    val: `${parseNum(selectedRoll["Width (ft)"])}ft`,
+                  },
+                  {
+                    label: "Remaining",
+                    val: `${parseNum(selectedRoll["Remaining Length (ft)"]).toFixed(1)}ft`,
+                    accent:
+                      selectedRoll.Status === "Low Stock"
+                        ? "amber"
+                        : selectedRoll.Status === "Out of Stock"
+                        ? "rose"
+                        : "green",
+                  },
+                  {
+                    label: "Selling Rate",
+                    val: `₦${parseNum(selectedRoll["Price"]).toLocaleString()}/sqft`,
+                  },
+                ].map(({ label, val, accent }) => (
+                  <div
+                    key={label}
+                    className={cn(
+                      "p-3 rounded-xl text-center",
+                      accent === "amber"
+                        ? "bg-amber-50 dark:bg-amber-900/20"
+                        : accent === "rose"
+                        ? "bg-rose-50 dark:bg-rose-900/20"
+                        : "bg-gray-50 dark:bg-zinc-800/50"
+                    )}
+                  >
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">
+                      {label}
+                    </p>
+                    <p
+                      className={cn(
+                        "text-sm font-black",
+                        accent === "amber"
+                          ? "text-amber-600 dark:text-amber-400"
+                          : accent === "rose"
+                          ? "text-rose-600 dark:text-rose-400"
+                          : "text-gray-900 dark:text-white"
+                      )}
+                    >
+                      {val}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── SECTION 3: Job Dimensions ───────────────────────────────── */}
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
+                  <Ruler className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
                 </div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
+                  Job Dimensions & Pricing
+                </h3>
+              </div>
+              {/* Unit toggle */}
+              <div className="flex bg-gray-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-gray-200 dark:border-zinc-700">
+                {(["ft", "in"] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setDimUnit(u)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all",
+                      dimUnit === u
+                        ? "bg-brand-700 text-white shadow-sm"
+                        : "text-gray-500 dark:text-zinc-400"
+                    )}
+                  >
+                    {u === "ft" ? "Feet" : "Inches"}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Section 2: Job Details */}
-            <div className="mb-8 pt-8 border-t border-gray-100 dark:border-white/5">
-               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Job Details</h3>
-                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300 dark:text-zinc-600" /></div>
+            {/* Description */}
+            <div className="space-y-1.5 mb-4">
+              <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                Job Description
+              </Label>
+              <Input
+                placeholder="e.g. Event banner, sticker label, window graphic…"
+                value={jobDesc}
+                onChange={(e) => setJobDesc(e.target.value)}
+                className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </div>
+
+            {/* Width × Height × Qty */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                  Width ({dimUnit}) *
+                </Label>
+                <Input
+                  type="number"
+                  placeholder={dimUnit === "ft" ? "4" : "48"}
+                  value={jobWidthFt}
+                  onChange={(e) => {
+                    setJobWidthFt(e.target.value);
+                    setFormTouched(true);
+                  }}
+                  className={cn(
+                    "h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100",
+                    formTouched &&
+                      !jobWidthFt &&
+                      "border-rose-400 dark:border-rose-700"
+                  )}
+                />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="md:col-span-2 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Job Description</Label>
-                    {inventory.length > 0 && (
-                      <Popover open={openInv} onOpenChange={setOpenInv}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-[9px] font-bold uppercase text-primary dark:text-primary-foreground hover:bg-primary/10 flex items-center gap-1"
-                          >
-                            <Package className="w-3 h-3" />
-                            Use Inventory
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0 rounded-xl bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800" align="end">
-                          <Command className="dark:bg-zinc-950">
-                            <CommandInput placeholder="Search inventory..." className="h-9" />
-                            <CommandList>
-                              <CommandEmpty>No item found.</CommandEmpty>
-                              <CommandGroup>
-                                {inventory.map((item, idx) => (
-                                  <CommandItem
-                                    key={item["Item Name"] ? `${item["Item Name"]}-${idx}` : idx}
-                                    onSelect={() => {
-                                      setJobData({
-                                        ...jobData,
-                                        jobDescription: item["Item Name"],
-                                        costPerSqft: item["Price"]?.toString() || jobData.costPerSqft,
-                                        rollSize: item["Width (ft)"]?.toString() || jobData.rollSize,
-                                        fromInventory: true,
-                                      });
-                                      setOpenInv(false);
-                                      toast.info(`Selected ${item["Material Type"]}`);
-                                    }}
-                                    className="font-bold text-xs data-[selected=true]:bg-primary/10 dark:data-[selected=true]:bg-zinc-800 dark:data-[selected=true]:text-white cursor-pointer"
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        jobData.jobDescription === item["Item Name"] ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {item["Item Name"]} ({item["Width (ft)"]}ft) - ₦{parseFloat(item["Price"]).toLocaleString()}/sqft
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                  Height ({dimUnit}) *
+                </Label>
+                <Input
+                  type="number"
+                  placeholder={dimUnit === "ft" ? "8" : "96"}
+                  value={jobHeightFt}
+                  onChange={(e) => {
+                    setJobHeightFt(e.target.value);
+                    setFormTouched(true);
+                  }}
+                  className={cn(
+                    "h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100",
+                    formTouched &&
+                      !jobHeightFt &&
+                      "border-rose-400 dark:border-rose-700"
+                  )}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                  Qty
+                </Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  className="h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
+                />
+              </div>
+            </div>
+
+            {/* Cost per sqft override */}
+            <div className="space-y-1.5 mb-5">
+              <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider flex items-center gap-1.5">
+                Cost Per Sqft (₦)
+                {selectedRoll && (
+                  <span className="text-[9px] text-brand-500 dark:text-brand-400 normal-case font-bold">
+                    · auto-filled from roll
+                  </span>
+                )}
+              </Label>
+              <Input
+                type="number"
+                placeholder="e.g. 200"
+                value={costOverride}
+                onChange={(e) => setCostOverride(e.target.value)}
+                className="h-12 rounded-xl font-bold text-brand-700 dark:text-brand-400 dark:bg-zinc-800 dark:border-zinc-700"
+              />
+            </div>
+
+            {/* Live calculation preview */}
+            {unitSqft > 0 && jobLengthFt > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                {[
+                  {
+                    label: "Job Area",
+                    val: `${unitSqft.toFixed(2)} sqft`,
+                    sub: "per piece",
+                  },
+                  {
+                    label: "Length Used",
+                    val: `${jobLengthFt.toFixed(1)}ft`,
+                    sub: "from roll",
+                    warn: !stockOk,
+                  },
+                  {
+                    label: "After Deduction",
+                    val: `${Math.max(0, remainingAfterJob).toFixed(1)}ft`,
+                    sub: "roll remaining",
+                    warn: remainingAfterJob < 0,
+                    good: remainingAfterJob >= 0 && jobLengthFt > 0,
+                  },
+                  {
+                    label: "Job Total",
+                    val: fmtCurrency(totalAmount),
+                    sub: `${qtyNum} × ${fmtCurrency(unitCost)}`,
+                    highlight: true,
+                  },
+                ].map(({ label, val, sub, warn, good, highlight }) => (
+                  <div
+                    key={label}
+                    className={cn(
+                      "p-3 rounded-xl text-center border",
+                      highlight
+                        ? "bg-brand-700 border-brand-600 text-white"
+                        : warn
+                        ? "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-900/50"
+                        : good
+                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50"
+                        : "bg-gray-50 dark:bg-zinc-800/50 border-gray-100 dark:border-zinc-700"
                     )}
+                  >
+                    <p
+                      className={cn(
+                        "text-[9px] font-black uppercase tracking-widest mb-0.5",
+                        highlight
+                          ? "text-white/70"
+                          : warn
+                          ? "text-rose-500"
+                          : good
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-gray-400 dark:text-zinc-500"
+                      )}
+                    >
+                      {label}
+                    </p>
+                    <p
+                      className={cn(
+                        "text-sm font-black",
+                        highlight
+                          ? "text-white"
+                          : warn
+                          ? "text-rose-600 dark:text-rose-400"
+                          : good
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-gray-900 dark:text-white"
+                      )}
+                    >
+                      {val}
+                    </p>
+                    <p
+                      className={cn(
+                        "text-[9px]",
+                        highlight
+                          ? "text-white/60"
+                          : "text-gray-400 dark:text-zinc-500"
+                      )}
+                    >
+                      {sub}
+                    </p>
                   </div>
-                  <Input placeholder="3x Large Format Banners for Event" value={jobData.jobDescription} onChange={e => setJobData({...jobData, jobDescription: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 focus:ring-primary" />
+                ))}
+              </div>
+            )}
+
+            {/* Width compatibility warning */}
+            {selectedRoll && jobWFt > 0 && !widthCompatible && (
+              <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-200 dark:border-rose-900/50 mb-4">
+                <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                  Job width ({jobWFt.toFixed(1)}ft) exceeds roll width (
+                  {parseNum(selectedRoll["Width (ft)"]).toFixed(1)}ft). Choose a
+                  wider roll.
+                </p>
+              </div>
+            )}
+
+            {/* Add to order CTA */}
+            <Button
+              onClick={handleAddToCart}
+              disabled={!selectedRollId || !jobWidthFt || !jobHeightFt || !stockOk || !widthCompatible}
+              className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Add to Order
+              {totalAmount > 0 && (
+                <span className="text-white/70 dark:text-black/60 font-bold">
+                  · {fmtCurrency(totalAmount)}
+                </span>
+              )}
+            </Button>
+          </div>
+
+          {/* ── SECTION 4: Cart ─────────────────────────────────────────── */}
+          {cart.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
+                    <Receipt className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
+                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
+                    Current Order
+                  </h3>
+                </div>
+                <Badge className="bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border-none font-black text-xs">
+                  {cart.length} item{cart.length !== 1 ? "s" : ""}
+                </Badge>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                {cart.map((item) => (
+                  <CartItemCard
+                    key={item.id}
+                    item={item}
+                    onRemove={(id) =>
+                      setCart((prev) => prev.filter((i) => i.id !== id))
+                    }
+                  />
+                ))}
+              </div>
+
+              {/* Payment inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5 border-t border-gray-100 dark:border-zinc-800">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                    Initial Payment (₦)
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={meta.initialPayment}
+                    onChange={(e) =>
+                      setMetaField("initialPayment", e.target.value)
+                    }
+                    className="h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Material</Label>
-                  <Select value={jobData.material} onValueChange={(val: string) => setJobData({...jobData, material: val})}>
-                    <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950"><SelectValue /></SelectTrigger>
-                    <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
-                      <SelectItem value="Flex">Flex Banner</SelectItem>
-                      <SelectItem value="SAV">SAV (Sticker)</SelectItem>
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+                    Job Status
+                  </Label>
+                  <Select
+                    value={meta.jobStatus}
+                    onValueChange={(v) => setMetaField("jobStatus", v)}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl dark:bg-zinc-900 dark:border-zinc-800">
+                      {["Quoted", "Printing", "Finishing", "Ready", "Delivered"].map(
+                        (s) => (
+                          <SelectItem
+                            key={s}
+                            value={s}
+                            className="font-bold dark:text-zinc-300"
+                          >
+                            {s}
+                          </SelectItem>
+                        )
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Quantity</Label>
-                  <Input type="number" min="1" value={jobData.qty} onChange={e => setJobData({...jobData, qty: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950" />
+                <div className="flex flex-col items-end justify-end gap-1">
+                  <div className="text-right w-full">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">
+                      Balance Due ·{" "}
+                      <span
+                        className={cn(
+                          "font-black",
+                          paymentStatus === "Paid"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-rose-600 dark:text-rose-400"
+                        )}
+                      >
+                        {paymentStatus.toUpperCase()}
+                      </span>
+                    </p>
+                    <p className="text-2xl font-black text-gray-900 dark:text-white">
+                      {fmtCurrency(Math.max(0, balance))}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Section 3: Pricing & Dimensions */}
-            <div className="pt-8 border-t border-gray-100 dark:border-white/5">
-               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Pricing & Dimensions</h3>
-                <div className="md:hidden"><MoreHorizontal className="w-4 h-4 text-gray-300 dark:text-zinc-600" /></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-8">
-                <div className="md:col-span-2 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">
-                      Actual Size (Width x Height) <span className="text-rose-500">*</span>
-                    </Label>
-                    <div className="flex bg-gray-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-800">
-                      <button 
-                        onClick={() => setJobData({...jobData, dimensionUnit: 'ft'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'ft' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
-                      >
-                        FEET
-                      </button>
-                      <button 
-                        onClick={() => setJobData({...jobData, dimensionUnit: 'in'})}
-                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${jobData.dimensionUnit === 'in' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-gray-600 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-300'}`}
-                      >
-                        INCHES
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                       <div className="relative flex-1 group">
-                          <Input 
-                            type="number" 
-                            placeholder={jobData.dimensionUnit === 'ft' ? "5" : "20"} 
-                            value={jobData.actualWidth} 
-                            onChange={e => {
-                              setJobData({...jobData, actualWidth: e.target.value});
-                              setDimensionsTouched(true);
-                            }} 
-                            className={cn(
-                              "h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold",
-                              dimensionsTouched && !jobData.actualWidth && "border-rose-500 ring-rose-500/10"
-                            )} 
-                          />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
-                       </div>
-                       <span className="text-gray-500 dark:text-zinc-500 font-bold text-lg flex-shrink-0">×</span>
-                       <div className="relative flex-1 group">
-                          <Input 
-                            type="number" 
-                            placeholder={jobData.dimensionUnit === 'ft' ? "3" : "15"} 
-                            value={jobData.actualHeight} 
-                            onChange={e => {
-                              setJobData({...jobData, actualHeight: e.target.value});
-                              setDimensionsTouched(true);
-                            }} 
-                            className={cn(
-                              "h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 pr-10 focus:ring-primary font-bold",
-                              dimensionsTouched && !jobData.actualHeight && "border-rose-500 ring-rose-500/10"
-                            )} 
-                          />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary/60 uppercase">{jobData.dimensionUnit}</span>
-                       </div>
-                       {/* Inline live sqft chip */}
-                       {calculatedSize > 0 && (
-                         <div className="flex-shrink-0 flex flex-col items-center justify-center px-3 h-12 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl animate-in fade-in zoom-in-95 duration-200">
-                           <span className="text-[8px] font-semibold text-primary dark:text-primary-foreground uppercase tracking-wider leading-none">= sqft</span>
-                           <span className="text-sm font-black text-primary leading-none">{calculatedSize.toFixed(1)}</span>
-                         </div>
-                       )}
-                    </div>
-                    {dimensionsTouched && (!jobData.actualWidth || !jobData.actualHeight) && (
-                      <p className="text-[11px] text-rose-500 font-black uppercase tracking-tighter">⚠ Width and Height are required</p>
-                    )}
-                  </div>
-                </div>
-
-
-                <div className="md:col-span-2 space-y-3">
-                  <Label className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider">
-                    Roll Size <span className="text-muted-foreground font-medium text-[9px]">(Width in ft)</span> <span className="text-rose-500">*</span>
-                  </Label>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                    {availableRollSizes.map((size) => {
-                      return (
-                        <RollCard
-                          key={size}
-                          width={size}
-                          selected={jobData.rollSize === size}
-                          onClick={() => {
-                            setJobData({...jobData, rollSize: size});
-                            setRollSizeTouched(true);
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                  {rollSizeTouched && !jobData.rollSize && (
-                    <p className="text-[11px] text-rose-500 font-black mt-1 uppercase tracking-tighter">⚠ Roll size is required</p>
-                  )}
-                </div>
-
-                <div className="md:col-span-1 space-y-1.5 relative">
-                  <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Cost Per SQFT (₦)</Label>
-                  <Input type="number" value={jobData.costPerSqft} onChange={e => setJobData({...jobData, costPerSqft: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
-                </div>
-
-                <div className="md:col-span-3 flex justify-end items-end">
-                   <Button 
-                     onClick={handleAddToCart}
-                     className="h-12 px-6 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
-                   >
-                     <span>+ Add to Order</span>
-                     {totalAmount > 0 && <span className="text-white/80 dark:text-black/80 font-normal">| ₦{totalAmount.toLocaleString()}</span>}
-                   </Button>
-                </div>
-
-              </div>
-
-              {/* Cart Section */}
-              {cart.length > 0 && (
-                <div className="mt-12 pt-8 border-t border-gray-100 dark:border-white/5">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Current Order</h3>
-                    <Badge variant="outline" className="px-2 py-1 font-bold rounded-lg border-gray-200 dark:border-zinc-800">{cart.length} Items</Badge>
-                  </div>
-                  
-                  <div className="space-y-3 mb-8">
-                    {cart.map((item, index) => (
-                      <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 dark:bg-zinc-900/50 border border-gray-100 dark:border-white/5 rounded-2xl gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-bold text-sm text-gray-900 dark:text-white mb-0.5">{item.jobDescription || `Unnamed Job ${index + 1}`}</p>
-                            <p className="text-xs font-medium text-gray-600 dark:text-zinc-300">
-                              {item.qty}x {item.material} • {item.actualWidth}{item.dimensionUnit} × {item.actualHeight}{item.dimensionUnit} • {item.rollSize}FT Roll
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto ml-12 sm:ml-0">
-                          <div className="text-left sm:text-right">
-                            <p className="text-[10px] uppercase font-bold text-gray-500 dark:text-zinc-400 tracking-wider mb-0.5">Amount</p>
-                            <p className="font-bold text-primary dark:text-primary-foreground">₦{item.totalAmount.toLocaleString()}</p>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => removeFromCart(item.id)} 
-                            className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 h-8 px-3 rounded-lg"
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop Primary Calculated Bar (Grand Total) */}
-                  <div className="hidden md:flex md:col-span-4 p-5 bg-primary rounded-3xl shadow-lg shadow-primary/20 dark:shadow-none justify-between items-center gap-4 border border-white/10 mb-8">
-                     <div className="flex-1 min-w-[100px]">
-                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Total Items:</p>
-                        <p className="text-xl font-bold text-primary-foreground leading-none">{cart.length}</p>
-                     </div>
-                     <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
-                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Grand Total:</p>
-                        <p className="text-2xl font-bold text-primary-foreground leading-none">₦{grandTotal.toLocaleString()}</p>
-                     </div>
-                     <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
-                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Initial Paid:</p>
-                        <p className="text-xl font-bold text-primary-foreground leading-none">₦{(parseFloat(batchData.initialPayment) || 0).toLocaleString()}</p>
-                     </div>
-                     <div className="flex-1 min-w-[100px] border-l border-white/10 pl-6">
-                        <p className="text-[9px] font-bold text-primary-foreground uppercase tracking-widest mb-1 leading-none opacity-80">Balance Due:</p>
-                        <p className="text-2xl font-bold text-primary-foreground leading-none">₦{amountDifference.toLocaleString()}</p>
-                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end mt-4">
-                     <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Initial Payment (₦)</Label>
-                        <Input type="number" placeholder="5000" value={batchData.initialPayment} onChange={e => setBatchData({...batchData, initialPayment: e.target.value})} className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 font-bold" />
-                     </div>
-                     <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-wider">Job Status</Label>
-                        <Select value={batchData.jobStatus} onValueChange={(val: string) => setBatchData({...batchData, jobStatus: val})}>
-                          <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-950 w-full shadow-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent className="rounded-xl dark:bg-zinc-950 dark:border-zinc-800">
-                            <SelectItem value="Quoted">Quoted</SelectItem>
-                            <SelectItem value="Printing">Printing</SelectItem>
-                            <SelectItem value="Finishing">Finishing</SelectItem>
-                            <SelectItem value="Ready">Ready</SelectItem>
-                            <SelectItem value="Delivered">Delivered</SelectItem>
-                          </SelectContent>
-                        </Select>
-                     </div>
-                     <div className="flex flex-col items-center md:items-end">
-                        <p className="text-[10px] uppercase font-bold text-gray-600 dark:text-zinc-400 tracking-widest mb-1">Status: <span className={paymentStatus === "Paid" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{paymentStatus.toUpperCase()}</span></p>
-                        <Button 
-                          onClick={handleReviewAndSave}
-                          className="w-full h-12 text-white font-bold text-lg rounded-xl shadow-xl transition-all bg-primary hover:bg-primary/90 shadow-primary/20 dark:shadow-none hover:scale-[1.02]"
-                        >
-                          Review & Save Batch
-                        </Button>
-                     </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </TabsContent>
-        
+
+        {/* ── AI TAB ──────────────────────────────────────────────────────── */}
         <TabsContent value="ai">
-          <div className="bg-white dark:bg-zinc-900/50 border border-gray-100 dark:border-white/5 rounded-[2rem] shadow-sm p-6 md:p-10 transition-colors">
-            <div className="mb-8">
-              <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">AI Natural Language Entry</h3>
-              <p className="text-gray-500 dark:text-zinc-400">Describe the print job in plain English and Gemini will fill the form for you.</p>
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6 md:p-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-2xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-brand-700 dark:text-brand-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">
+                  AI Natural Language Entry
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                  Describe the job in plain English — Gemini fills the form for you
+                </p>
+              </div>
             </div>
-            <div className="mb-6">
-              <textarea 
-                className="w-full p-6 bg-gray-50 dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 rounded-3xl min-h-[220px] focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary/5 focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-xl placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium" 
-                placeholder="e.g. John Doe ordered 3 flex banners sized 7x5ft on a 5ft roll, paid ₦5,000 initially..."
-                value={nlText}
-                onChange={e => setNlText(e.target.value)}
-              />
-              <p className="mt-3 text-sm text-gray-400 dark:text-zinc-500 font-medium px-2">Include material, rolls, dimensions, and customer name for best results.</p>
-            </div>
-            <Button 
-              disabled={isParsing || !nlText} 
+
+            <textarea
+              className="w-full p-5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl min-h-[180px] focus:ring-2 focus:ring-brand-500 focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-base placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium resize-none"
+              placeholder={`e.g. "John Doe ordered 3 SAV stickers, 4ft by 2ft each, paid ₦5,000 deposit…"`}
+              value={nlText}
+              onChange={(e) => setNlText(e.target.value)}
+            />
+            <p className="text-xs text-gray-400 dark:text-zinc-600 mt-2 font-medium">
+              Then select the matching roll from inventory before adding to order.
+            </p>
+
+            <Button
+              disabled={nlParsing || !nlText.trim()}
               onClick={handleNlSubmit}
-              className="w-full h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xl rounded-2xl shadow-xl shadow-primary/20 dark:shadow-none transition-all"
+              className="w-full h-14 mt-5 bg-brand-700 hover:bg-brand-800 text-white font-black text-base rounded-2xl shadow-xl shadow-brand-700/20 transition-all active:scale-[0.98]"
             >
-              {isParsing ? "Understanding your request..." : "Extract Data & Fill Form"}
+              {nlParsing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Parsing…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Extract & Fill Form
+                </>
+              )}
             </Button>
+
+            {/* After AI parse, show the job form below */}
+            {(jobWidthFt || jobHeightFt || jobDesc) && (
+              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-zinc-800 space-y-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <p className="text-sm font-black text-gray-700 dark:text-zinc-300">
+                    Parsed — now select a roll and add to order
+                  </p>
+                </div>
+
+                <RollSelector
+                  rolls={inventory}
+                  selectedRollId={selectedRollId}
+                  onSelect={(roll) => setSelectedRollId(roll["Roll ID"])}
+                  loading={invLoading}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">
+                      Width (ft)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={jobWidthFt}
+                      onChange={(e) => setJobWidthFt(e.target.value)}
+                      className="h-12 rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">
+                      Height (ft)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={jobHeightFt}
+                      onChange={(e) => setJobHeightFt(e.target.value)}
+                      className="h-12 rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 font-bold"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={!selectedRollId || !jobWidthFt || !jobHeightFt}
+                  className="w-full h-12 rounded-2xl bg-gray-900 dark:bg-white dark:text-black text-white font-black"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add to Order · {fmtCurrency(totalAmount)}
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Mobile Sticky Summary Drawer */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 z-40">
-        <Drawer.Root>
-          <Drawer.Trigger asChild>
-            <button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl p-4 shadow-2xl shadow-primary/20 flex items-center justify-between group active:scale-95 transition-all">
-              <div className="flex flex-col items-start gap-0.5">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-primary-foreground/80">Grand Total</span>
-                <span className="text-xl font-bold">₦{grandTotal.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10">
-                <span className="text-[10px] font-bold uppercase tracking-wide">Summary</span>
-                <ChevronUp className="w-4 h-4 group-data-[state=open]:rotate-180 transition-transform" />
-              </div>
-            </button>
-          </Drawer.Trigger>
-          <Drawer.Portal>
-            <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 animate-in fade-in" />
-            <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] mt-24 fixed bottom-0 left-0 right-0 z-50 p-6 outline-none shadow-2xl border-t dark:border-zinc-800">
-              <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mb-8" />
-              <div className="space-y-6">
-                <div>
-                  <Drawer.Title className="sr-only">Price Breakdown</Drawer.Title>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-primary" />
-                    Price Breakdown
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">Detailed calculation for your current inputs.</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-white/5">
-                    <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Total Items</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">{cart.length}</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-white/5">
-                    <p className="text-[9px] font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Total Area</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">{cart.reduce((sum, item) => sum + item.totalJobArea, 0).toFixed(2)} sqft</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-primary/5 dark:bg-primary/20 border border-primary/10 col-span-2">
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-[9px] font-bold text-primary dark:text-primary-foreground uppercase tracking-widest">Grand Total</p>
-                      <CheckCircle2 className="w-3 h-3 text-primary" />
-                    </div>
-                    <p className="text-3xl font-bold text-primary dark:text-white">₦{grandTotal.toLocaleString()}</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/10 col-span-2">
-                    <p className="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1">Remaining Balance</p>
-                    <p className="text-3xl font-bold text-rose-600 dark:text-white">₦{amountDifference.toLocaleString()}</p>
-                  </div>
-                </div>
+      {/* ── Sticky summary bar ─────────────────────────────────────────────── */}
+      <SummaryBar
+        cart={cart}
+        grandTotal={grandTotal}
+        initialPayment={initialPaymentNum}
+        balance={balance}
+        paymentStatus={paymentStatus}
+        onSubmit={handleReview}
+        disabled={cart.length === 0 || !meta.clientName.trim()}
+      />
 
-                <Button 
-                  onClick={handleReviewAndSave}
-                  className="w-full h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xl rounded-2xl shadow-xl shadow-primary/20"
-                >
-                  Review & Save Batch
-                </Button>
-              </div>
-            </Drawer.Content>
-          </Drawer.Portal>
-        </Drawer.Root>
-      </div>
-
-      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-        <DialogContent className="max-w-2xl bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 rounded-2xl p-0 overflow-hidden shadow-2xl">
-          <DialogHeader className="p-4 border-b dark:border-zinc-800">
-            <DialogTitle className="text-xl font-bold text-primary dark:text-primary-foreground">Confirm Entry</DialogTitle>
-            <DialogDescription className="text-xs dark:text-zinc-500">
-              This will update Columns A through V in your Google Sheet.
+      {/* ── Confirm dialog ────────────────────────────────────────────────── */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="max-w-lg bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl overflow-hidden">
+          <DialogHeader className="p-6 bg-brand-700 text-white">
+            <DialogTitle className="text-xl font-black text-white">
+              Confirm Order
+            </DialogTitle>
+            <DialogDescription className="text-white/75 text-xs mt-1">
+              Review before pushing to Google Sheets
             </DialogDescription>
           </DialogHeader>
-              <div className="bg-gray-50 dark:bg-zinc-900 p-4 rounded-xl border border-gray-100 dark:border-white/5 text-sm">
-                <div className="flex justify-between mb-2">
-                  <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-bold">Client:</span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">{batchData.clientName || 'N/A'}</span>
-                </div>
-                <div className="space-y-2 mt-4">
-                  {cart.map((item, idx) => (
-                    <div key={item.id} className="flex justify-between text-xs py-2 border-t border-gray-200 dark:border-zinc-800">
-                      <div className="truncate pr-4 font-medium dark:text-zinc-300">
-                        {item.qty}x {item.material} ({item.rollSize}FT) - {item.jobDescription || `Item ${idx+1}`}
-                      </div>
-                      <div className="font-bold dark:text-white">₦{item.totalAmount.toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
-            <div className="flex flex-col gap-1 border-b dark:border-zinc-800 pb-2">
-               <div className="flex justify-between items-center text-lg font-bold text-primary dark:text-primary-foreground mt-2">
-                 <span>Grand Total</span>
-                 <span>₦{grandTotal.toLocaleString()}</span>
-               </div>
+          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+            {/* Client */}
+            <div className="p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl">
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">
+                Client
+              </p>
+              <p className="font-black text-gray-900 dark:text-white">
+                {meta.clientName}
+              </p>
+              {meta.contact && (
+                <p className="text-sm text-gray-500 dark:text-zinc-400 font-medium">
+                  {meta.contact}
+                </p>
+              )}
             </div>
-            
-            <div className="p-3 bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg">
-               <div className="flex justify-between items-center text-xs font-bold text-primary dark:text-primary/90">
-                 <span>Initial Payment Received</span>
-                 <span>₦{parseFloat(batchData.initialPayment).toLocaleString()}</span>
-               </div>
+
+            {/* Line items */}
+            <div className="space-y-2">
+              {cart.map((item, i) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl"
+                >
+                  <div className="min-w-0 flex-1 pr-3">
+                    <p className="text-sm font-bold text-gray-800 dark:text-zinc-100 truncate">
+                      {i + 1}. {item.jobDescription}
+                    </p>
+                    <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
+                      {item.rollId} · {item.qty}× {item.jobWidthFt.toFixed(1)}ft×
+                      {item.jobHeightFt.toFixed(1)}ft
+                    </p>
+                  </div>
+                  <p className="text-sm font-black text-gray-900 dark:text-white shrink-0">
+                    {fmtCurrency(item.totalAmount)}
+                  </p>
+                </div>
+              ))}
             </div>
-          <DialogFooter className="p-4 bg-gray-50 dark:bg-zinc-900/50 border-t dark:border-zinc-800 flex flex-row gap-2">
-             <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm font-semibold dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">Back</Button>
-             <Button 
-                onClick={handleSaveToSheets} 
-                className="flex-1 bg-primary hover:bg-primary/90 h-12 text-sm font-bold shadow-sm"
-             >
-                Confirm Save
-             </Button>
+
+            {/* Totals */}
+            <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-zinc-800">
+              {[
+                { label: "Grand Total", val: fmtCurrency(grandTotal) },
+                {
+                  label: "Initial Payment",
+                  val: fmtCurrency(initialPaymentNum),
+                  green: true,
+                },
+                {
+                  label: "Balance Due",
+                  val: fmtCurrency(Math.max(0, balance)),
+                  red: balance > 0,
+                },
+              ].map(({ label, val, green, red }) => (
+                <div key={label} className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-500 dark:text-zinc-400">
+                    {label}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-sm font-black",
+                      green
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : red
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-gray-900 dark:text-white"
+                    )}
+                  >
+                    {val}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 p-3 bg-brand-50 dark:bg-brand-900/20 rounded-xl">
+              <Info className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+              <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold">
+                Roll stock will be decremented automatically when this syncs.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800">
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirm(false)}
+              className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800"
+            >
+              Back
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black shadow-lg"
+            >
+              {saving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Confirm & Save"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
