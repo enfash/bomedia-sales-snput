@@ -73,19 +73,23 @@ export function ActivityFeed() {
 
     const inventoryAlerts = cachedInventory
       .filter((item) => {
-        const stock = parseVal(item.Stock);
-        return stock <= 200; // Low or Critical
+        const remaining = parseVal(item["Remaining Length (ft)"] || item.Stock);
+        const threshold = parseVal(item["Low Stock Threshold (ft)"] || 20);
+        return remaining <= threshold;
       })
-      .map((item) => ({
-        type: "inventory" as const,
-        id: `i-${item._rowIndex}`,
-        timestamp: new Date().toISOString(), // Inventory alerts are "current"
-        description: `Stock level for ${item["Item Name"]} is ${(parseVal(item.Stock) <= 50 ? "CRITICAL" : "LOW")}`,
-        itemName: item["Item Name"],
-        stock: parseVal(item.Stock),
-        amount: 0,
-        rowIndex: item._rowIndex,
-      }));
+      .map((item) => {
+        const remaining = parseVal(item["Remaining Length (ft)"] || item.Stock);
+        return {
+          type: "inventory" as const,
+          id: `i-${item._rowIndex}`,
+          timestamp: new Date().toISOString(), // Inventory alerts are "current"
+          description: `Stock level for ${item["Roll ID"] || item["Item Name"]} is ${(remaining <= 0 ? "CRITICAL" : "LOW")}`,
+          itemName: item["Item Name"],
+          stock: remaining,
+          amount: 0,
+          rowIndex: item._rowIndex,
+        };
+      });
 
     const combined = [...sales, ...expenses, ...inventoryAlerts];
 
@@ -123,10 +127,10 @@ export function ActivityFeed() {
       const res = await fetch("/api/inventory", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowIndex, stockChange: 150 })
+        body: JSON.stringify({ rowIndex, adjustment: 164 })
       });
       if (res.ok) {
-        toast.success(`Restocked 150 sqft of ${itemName}!`);
+        toast.success(`Restocked 164ft of ${itemName}!`);
       } else {
         toast.error("Restock failed");
       }
@@ -264,7 +268,7 @@ export function ActivityFeed() {
                           {item.type === "inventory" && (
                             <div className="mt-3 flex items-center justify-between gap-3">
                               <div className="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 text-[10px] font-black uppercase">
-                                Remaining: {item.stock?.toFixed(1)} sqft
+                                Remaining: {item.stock?.toFixed(1)} ft
                               </div>
                               <Button
                                 size="sm"
@@ -273,7 +277,7 @@ export function ActivityFeed() {
                                 onClick={() => handleRestock(item.rowIndex!, item.itemName!)}
                                 className="h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-tighter border-rose-200 hover:bg-rose-500 hover:text-white dark:border-rose-900/50"
                               >
-                                {isRestocking === item.rowIndex ? "Restocking..." : "Restock Now"}
+                                {isRestocking === item.rowIndex ? "Restocking..." : "Restock Roll"}
                               </Button>
                             </div>
                           )}
