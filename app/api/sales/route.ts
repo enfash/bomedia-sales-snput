@@ -6,10 +6,10 @@ export const dynamic = 'force-dynamic';
 
 const SHEET_TITLE = 'Sales';
 const SALES_HEADERS = [
-  'DATE', 'CLIENT NAME', 'JOB DESCRIPTION', 'CONTACT', 'MATERIAL', 'COST PER SQFT', 
-  '3FT', '4FT', '5FT', '6FT', '8FT', '10FT', 'QTY', 'UNIT COST', 'INITIAL PAYMENT', 
-  'TOTAL', 'ADDITIONAL PAYMENT 1', 'ADDITIONAL PAYMENT 2', 'BALANCE', 'PAYMENT STATUS', 
-  'JOB STATUS', 'LOGGED BY', 'SALES ID', 'TIMESTAMP'
+  'DATE', 'CLIENT NAME', 'JOB DESCRIPTION', 'CONTACT', 'MATERIAL', 'Cost Per SQRFT', 
+  '3FT', '4FT', '5FT', '6FT', '8FT', '10FT', 'QTY', 'UNIT COST (₦)', 'INITIAL PAYMENT (₦)', 
+  'AMOUNT (₦)', 'ADDITIONAL PAYMENT 1', 'ADDITIONAL PAYMENT 2', 'AMOUNT DIFFERENCES', 'PAYMENT STATUS', 
+  'JOB STATUS', 'Logged By', 'Sales ID', 'TIMESTAMP', 'TRANSACTION ID'
 ];
 const INVENTORY_HEADERS = [
   'Item Name', 'Width (ft)', 'Length', 'Unit', 'Price', 'Stock'
@@ -102,6 +102,14 @@ export async function POST(request: Request) {
       const rows = await sheet.getRows();
       let nextRow = rows.length + 2; // Assuming 1-based index and row 1 is header
 
+      // --- Deduplication Check ---
+      if (body.transactionId) {
+        const isDuplicate = rows.some((r: any) => r.get('TRANSACTION ID') === body.transactionId);
+        if (isDuplicate) {
+          return NextResponse.json({ message: 'Sale already recorded' }, { status: 200 });
+        }
+      }
+
       // Generate SALES ID server-side: BOM-YYYYMMDD-XXXX
       // Use high-resolution time + process ID bits to avoid collisions when
       // multiple requests land in the same millisecond.
@@ -154,12 +162,13 @@ export async function POST(request: Request) {
           return val;
         });
 
-        // Append Sales ID as column W (Index 22) and TIMESTAMP as column X (Index 23)
-        while (processedValues.length < 23) {
+        // Append Sales ID (W/22), TIMESTAMP (X/23), and TRANSACTION ID (Y/24)
+        while (processedValues.length < 25) {
           processedValues.push("");
         }
         processedValues[22] = processedValues[22] || salesId;
         processedValues[23] = new Date().toISOString();
+        processedValues[24] = body.transactionId || "";
         
         newRows.push(processedValues);
         nextRow++;
@@ -192,6 +201,14 @@ export async function POST(request: Request) {
       await ensureHeaders(sheet, SALES_HEADERS);
       const rows = await sheet.getRows();
       const nextRow = rows.length + 2;
+      
+      // --- Deduplication Check ---
+      if (body.transactionId) {
+        const isDuplicate = rows.some((r: any) => r.get('TRANSACTION ID') === body.transactionId);
+        if (isDuplicate) {
+          return NextResponse.json({ message: 'Sale already recorded' }, { status: 200 });
+        }
+      }
       
       const processedValues = body.values.map((val: any) => {
         if (typeof val === "string") {
@@ -227,12 +244,13 @@ export async function POST(request: Request) {
         return val;
       });
 
-      // Provide empty Sales ID for legacy and TIMESTAMP
-      while (processedValues.length < 23) {
+      // Provide empty Sales ID for legacy and TIMESTAMP and TRANSACTION ID
+      while (processedValues.length < 25) {
         processedValues.push("");
       }
       processedValues[22] = processedValues[22] || "";
       processedValues[23] = new Date().toISOString();
+      processedValues[24] = body.transactionId || "";
 
       await sheet.addRow(processedValues);
 

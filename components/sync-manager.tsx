@@ -86,9 +86,9 @@ export function SyncManager() {
           const payload =
             item.type === "sale"
               ? item.data.batch === true
-                ? item.data
-                : { ...item.data, type: "array" }
-              : item.data;
+                ? { ...item.data, transactionId: item.id }
+                : { ...item.data, type: "array", transactionId: item.id }
+              : { ...item.data, transactionId: item.id };
 
           const res = await fetch(endpoint, {
             method: "POST",

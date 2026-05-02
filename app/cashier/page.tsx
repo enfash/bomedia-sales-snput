@@ -8,10 +8,8 @@ import {
   AlertCircle,
   ShoppingBag,
   RefreshCw,
-  Sparkles,
-  Receipt,
-  BarChart3,
-  Ruler
+  Ruler,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSyncStore } from "@/lib/store";
@@ -22,6 +20,7 @@ import { processDebtData } from "@/lib/financial-utils";
 import { isSameDay, subDays, isWithinInterval } from "date-fns";
 import { TodayBanner } from "@/components/today-banner";
 import { FloatingSaleActionButton } from "@/components/floating-sale-fab";
+import { ShiftReportModal } from "@/components/shift-report-modal";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -43,6 +42,7 @@ export default function CashierDashboardPage() {
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -174,53 +174,27 @@ export default function CashierDashboardPage() {
           <div>
             <h2 className="font-black text-xl md:text-2xl text-white leading-tight tracking-tight">Quick Actions</h2>
             <p className="text-sm md:text-base mt-1 text-white/90 font-medium">
-              Say: <em className="not-italic font-bold text-white">"Logged ₦12k sale..."</em> — Fast mobile entry.
+              Verify stock levels, calculate prices, or generate your daily shift report.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 lg:flex items-center gap-3 w-full md:w-auto">
-          <Link href="/new-entry" className="col-span-1">
-            <Button
-              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white text-orange-600 hover:bg-white/90 shadow-lg shadow-white/10 border-none"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-2" />
-              AI ENTRY
-            </Button>
-          </Link>
-          <Link href="/new-entry" className="col-span-1">
-            <Button
-              variant="outline"
-              className="w-full text-[11px] font-bold rounded-2xl h-12 px-5 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-[1.02] active:scale-95"
-            >
-              <ShoppingBag className="w-3.5 h-3.5 mr-2" />
-              NEW SALE
-            </Button>
-          </Link>
-          <Link href="/cashier/expenses" className="col-span-1">
-            <Button
-              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
-            >
-              <Receipt className="w-3.5 h-3.5 mr-2" />
-              EXPENSE
-            </Button>
-          </Link>
-          <Link href="/cashier/records" className="col-span-1">
-            <Button
-              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
-            >
-              <BarChart3 className="w-3.5 h-3.5 mr-2" />
-              RECORDS
-            </Button>
-          </Link>
           <Link href="/quick-check" className="col-span-1">
             <Button
-              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
+              className="w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white text-orange-600 hover:bg-white/90 shadow-lg shadow-white/10 border-none"
             >
               <Ruler className="w-3.5 h-3.5 mr-2" />
               QUICK CHECK
             </Button>
           </Link>
+          <Button
+            onClick={() => setShowReport(true)}
+            className="col-span-1 w-full text-[11px] font-black rounded-2xl h-12 px-5 transition-all hover:scale-[1.02] active:scale-95 bg-white/10 text-white hover:bg-white/20 shadow-lg border-white/20"
+          >
+            <FileText className="w-3.5 h-3.5 mr-2" />
+            REPORT
+          </Button>
         </div>
       </div>
 
@@ -267,6 +241,7 @@ export default function CashierDashboardPage() {
         onUpdate={() => fetchData(true)}
         theme="amber"
       />
+      <ShiftReportModal isOpen={showReport} onClose={() => setShowReport(false)} />
     </div>
   );
 }

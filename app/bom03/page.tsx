@@ -2,17 +2,20 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX, CalendarRange } from "lucide-react";
+import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX, CalendarRange, FileText, Users, Calculator, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
-import { SalesExpenseChart, ExpenseCategorizationChart, OutstandingDebtChart } from "@/components/dashboard-charts";
+import { SalesExpenseChart, OutstandingDebtChart } from "@/components/dashboard-charts";
+import { RecentPaymentsPulse } from "@/components/recent-payments-pulse";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TodayBanner } from "@/components/today-banner";
 import { Badge } from "@/components/ui/badge";
+import { ShiftReportModal } from "@/components/shift-report-modal";
+import { ProfitabilityWidget } from "@/components/profitability-widget";
 
 import {
   format,
@@ -39,7 +42,7 @@ const parseSheetDate = (dateStr: any): Date | null => {
 type Row = Record<string, string>;
 
 export default function DashboardPage() {
-  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, setCachedData } = useSyncStore();
+  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, setCachedData } = useSyncStore();
   
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,6 +52,7 @@ export default function DashboardPage() {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [inventoryData, setInventoryData] = useState<any[]>([]);
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
   
   // Notification refs to track 'new' entries
   const lastSalesIndex = useRef<number>(0);
@@ -60,25 +64,28 @@ export default function DashboardPage() {
     else if (cachedSales.length === 0) setLoading(true);
 
     try {
-      const [salesRes, expensesRes, inventoryRes] = await Promise.all([
+      const [salesRes, expensesRes, inventoryRes, paymentsRes] = await Promise.all([
         fetch("/api/sales"),
         fetch("/api/expenses"),
         fetch("/api/inventory"),
+        fetch("/api/payments"),
       ]);
 
-      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok) {
+      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok || !paymentsRes.ok) {
         throw new Error("Fetch failed");
       }
 
       const salesJson = await salesRes.json();
       const expensesJson = await expensesRes.json();
       const inventoryJson = await inventoryRes.json();
+      const paymentsJson = await paymentsRes.json();
       
       const newSales = salesJson.data ?? [];
       const newExpenses = expensesJson.data ?? [];
       const newInventory = inventoryJson.data ?? [];
+      const newPayments = paymentsJson.data ?? [];
 
-      setCachedData(newSales, newExpenses, newInventory);
+      setCachedData(newSales, newExpenses, newInventory, newPayments);
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -390,6 +397,15 @@ export default function DashboardPage() {
           <RefreshCw className={cn("w-3.5 h-3.5 mr-2", refreshing && "animate-spin")} />
           {refreshing ? "Updating..." : "Refresh"}
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowReport(true)}
+          className="bg-card border-border text-foreground shadow-sm rounded-xl h-9 px-4 text-xs font-bold"
+        >
+          <FileText className="w-3.5 h-3.5 mr-2" />
+          Shift Report
+        </Button>
       </div>
 
       {/* Metrics Row — 4 cards */}
@@ -433,7 +449,7 @@ export default function DashboardPage() {
 
                   // Use the sheet's own Status field, fall back to computing it
                   const sheetStatus = item["Status"] || "";
-                  let status: "Good" | "Low" | "Critical" =
+                  const status: "Good" | "Low" | "Critical" =
                     sheetStatus === "Out of Stock" || sheetStatus === "Depleted" ? "Critical"
                     : sheetStatus === "Low Stock" ? "Low"
                     : remaining <= 0 ? "Critical"
@@ -479,7 +495,7 @@ export default function DashboardPage() {
                                 toast.success(`Added 150ft to ${displayName}!`);
                                 const r = await fetch("/api/inventory");
                                 const j = await r.json();
-                                if (r.ok) setCachedData(cachedSales, cachedExpenses, j.data || []);
+                                if (r.ok) setCachedData(cachedSales, cachedExpenses, j.data || [], cachedPayments);
                               } else {
                                 toast.error("Restock failed");
                               }
@@ -534,6 +550,18 @@ export default function DashboardPage() {
               </div>
             </div>
           </Link>
+          <Link href="/bom03/staff" className="w-full flex-1">
+            <div className="h-full bg-violet-500/5 dark:bg-violet-950/30 border border-violet-200/50 dark:border-violet-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-violet-500/10 dark:hover:bg-violet-900/20 transition-all active:scale-[0.98] shadow-sm">
+              <div className="bg-violet-100 dark:bg-violet-900/40 p-2.5 rounded-xl shadow-inner">
+                <Users className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400/80 mb-0.5">Admin Only</p>
+                <h3 className="text-base font-bold text-foreground">Staff Performance</h3>
+                <p className="text-xs text-muted-foreground">Revenue & collection rates</p>
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
 
@@ -559,14 +587,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <Link href="/new-entry" className="flex-1 md:flex-none">
-            <Button
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 transition-all hover:scale-105 bg-white dark:bg-primary text-brand dark:text-primary-foreground border-none"
-            >
-              <Zap className="w-3 h-3 mr-2" />
-              AI Entry
-            </Button>
-          </Link>
+
           <Link href="/bom03/expenses" className="flex-1 md:flex-none">
             <Button
               variant="outline"
@@ -585,21 +606,47 @@ export default function DashboardPage() {
               Records
             </Button>
           </Link>
+
+          <Link href="/estimator" className="flex-1 md:flex-none">
+            <Button
+              variant="outline"
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+            >
+              <Calculator className="w-3 h-3 mr-2" />
+              Estimator
+            </Button>
+          </Link>
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/digest");
+                const json = await res.json();
+                if (json.whatsappUrl) window.open(json.whatsappUrl, "_blank");
+              } catch { toast.error("Could not load digest"); }
+            }}
+            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 text-xs font-bold rounded-xl h-10 px-4 border border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+          >
+            <Bell className="w-3 h-3" />
+            Daily Digest
+          </button>
         </div>
       </div>
 
-      {/* Charts — Row 1: Sales vs Expenses + Expense Breakdown */}
+      {/* Charts — Row 1: Sales vs Expenses + Recent Payments Pulse */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
           <SalesExpenseChart data={chartData} />
         </div>
         <div className="lg:col-span-1">
-          <ExpenseCategorizationChart data={categoryData} total={totalExpensesVal} />
+          <RecentPaymentsPulse payments={cachedPayments} />
         </div>
       </div>
 
       {/* Charts — Row 2: Outstanding Debt (full width) */}
       <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} />
+
+      {/* Material Profitability Widget */}
+      <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
 
       <DebtorPaymentModal 
         clientName={selectedDebtor} 
@@ -608,6 +655,7 @@ export default function DashboardPage() {
         onUpdate={() => fetchData(true)}
         theme="brand"
       />
+      <ShiftReportModal isOpen={showReport} onClose={() => setShowReport(false)} />
     </div>
   );
 }

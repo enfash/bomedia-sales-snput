@@ -706,6 +706,7 @@ export function SalesEntry() {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     setSaving(true);
     const loggedBy =
       typeof window !== "undefined"

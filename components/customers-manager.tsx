@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import {
   RefreshCw, Search, Users, Wallet, ArrowUpDown,
   Phone, ShoppingBag, ChevronLeft, ChevronRight,
-  TrendingUp, AlertCircle, CheckCircle2, Calendar
+  TrendingUp, AlertCircle, CheckCircle2, Calendar, Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSyncStore } from "@/lib/store";
 import { WhatsAppReminder } from "@/components/whatsapp-reminder";
 import { formatDistanceToNow } from "date-fns";
+import { CustomerTimelineModal } from "@/components/customer-timeline-modal";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -64,18 +65,21 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
   const itemsPerPage = 50;
   const [sortBy, setSortBy] = useState<"name" | "orders" | "spent" | "debt">("spent");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [selectedClient, setSelectedClient] = useState<{ name: string; contact: string } | null>(null);
 
   const fetchData = async () => {
     if (cachedSales.length === 0) setLoading(true);
     else setRefreshing(true);
     try {
-      const [salesRes, expensesRes] = await Promise.all([
+      const [salesRes, expensesRes, paymentsRes] = await Promise.all([
         fetch("/api/sales"),
         fetch("/api/expenses"),
+        fetch("/api/payments"),
       ]);
       const salesJson = await salesRes.json();
       const expensesJson = await expensesRes.json();
-      setCachedData(salesJson.data ?? [], expensesJson.data ?? []);
+      const paymentsJson = await paymentsRes.json();
+      setCachedData(salesJson.data ?? [], expensesJson.data ?? [], undefined, paymentsJson.data ?? []);
     } catch (err) {
       console.error("Error fetching records", err);
     } finally {
@@ -295,7 +299,11 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
               <TableRow><TableCell colSpan={7} className="text-center py-20 text-gray-400">No clients found.</TableCell></TableRow>
             ) : (
               paginatedCustomers.map((client, idx) => (
-                <TableRow key={idx} className="border-b border-gray-50 dark:border-zinc-800/60 hover:bg-gray-50/60 dark:hover:bg-zinc-800/40 transition-colors">
+                <TableRow 
+                  key={idx} 
+                  className="border-b border-gray-50 dark:border-zinc-800/60 hover:bg-gray-50/60 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
+                  onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
+                >
                   {/* Avatar + Name */}
                   <TableCell className="pl-6 py-3">
                     <div className="flex items-center gap-3">
@@ -355,14 +363,27 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                       {formatDate(client.lastOrderDate)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center">
-                    <WhatsAppReminder
-                      clientName={client.name}
-                      contact={client.contact || ""}
-                      balance={client.totalDebt}
-                      jobDescription="Outstanding balance reminder"
-                      variant="icon"
-                    />
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-2">
+                      {isAdmin && (
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-lg text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/50 hover:bg-brand-50 dark:hover:bg-brand-900/20"
+                          onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
+                          title="View Client Audit Timeline"
+                        >
+                          <Activity className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <WhatsAppReminder
+                        clientName={client.name}
+                        contact={client.contact || ""}
+                        balance={client.totalDebt}
+                        jobDescription="Outstanding balance reminder"
+                        variant="icon"
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -379,7 +400,11 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
           <div className="text-center py-20 text-gray-400">No clients found.</div>
         ) : (
           paginatedCustomers.map((client, idx) => (
-            <Card key={idx} className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+            <Card 
+              key={idx} 
+              className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden cursor-pointer"
+              onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
+            >
               <div className="p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
@@ -397,13 +422,26 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                       )}
                     </div>
                   </div>
-                  <WhatsAppReminder
-                    clientName={client.name}
-                    contact={client.contact || ""}
-                    balance={client.totalDebt}
-                    jobDescription="Outstanding balance reminder"
-                    variant="icon"
-                  />
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    {isAdmin && (
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-lg text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/50 hover:bg-brand-50 dark:hover:bg-brand-900/20"
+                        onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
+                        title="View Client Audit Timeline"
+                      >
+                        <Activity className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <WhatsAppReminder
+                      clientName={client.name}
+                      contact={client.contact || ""}
+                      balance={client.totalDebt}
+                      jobDescription="Outstanding balance reminder"
+                      variant="icon"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 mt-3 bg-gray-50 dark:bg-zinc-800/40 p-3 rounded-xl">
@@ -470,6 +508,13 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
           )}
         </div>
       )}
+
+      <CustomerTimelineModal
+        isOpen={!!selectedClient}
+        onClose={() => setSelectedClient(null)}
+        clientName={selectedClient?.name || null}
+        contact={selectedClient?.contact}
+      />
     </div>
   );
 }

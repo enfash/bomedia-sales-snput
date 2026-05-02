@@ -105,11 +105,17 @@ export function ManageSaleAction({
       const hasAddl1 = (record.additionalPayment1 ?? 0) > 0;
       const hasAddl2 = (record.additionalPayment2 ?? 0) > 0;
 
+      let newPaymentAmount = 0;
+      let newPaymentType = "";
+
       if (!hasAddl1 && addl1 !== "") {
         payload.additionalPayment1 = parseFloat(addl1) || 0;
-      }
-      if (!hasAddl2 && addl2 !== "") {
+        newPaymentAmount = payload.additionalPayment1;
+        newPaymentType = "Additional Payment 1";
+      } else if (!hasAddl2 && addl2 !== "") {
         payload.additionalPayment2 = parseFloat(addl2) || 0;
+        newPaymentAmount = payload.additionalPayment2;
+        newPaymentType = "Additional Payment 2";
       }
 
       const res = await fetch("/api/sales", {
@@ -118,6 +124,28 @@ export function ManageSaleAction({
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        // Log payment if there's a new payment
+        if (newPaymentAmount > 0) {
+          try {
+            await fetch("/api/payments", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                salesId: record.salesId || record.id || '',
+                clientName: record.client || '',
+                amount: newPaymentAmount,
+                paymentType: newPaymentType,
+                balanceBefore: record.balance || 0,
+                balanceAfter: Math.max(0, (record.balance || 0) - newPaymentAmount),
+                collectedBy: "System", // Ideally from auth context
+                notes: `Logged via Manage Sale Action`
+              })
+            });
+          } catch (e) {
+            console.error("Failed to log payment event", e);
+          }
+        }
+
         toast.success("Record updated successfully!");
         setIsOpen(false);
         onUpdate();

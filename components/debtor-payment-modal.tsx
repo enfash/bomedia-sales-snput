@@ -47,6 +47,7 @@ const mapSale = (r: any): UnifiedRecord => {
     balance,
     additionalPayment1: parseAmount(r["ADDITIONAL PAYMENT 1"]),
     additionalPayment2: parseAmount(r["ADDITIONAL PAYMENT 2"]),
+    salesId: r["SALES ID"] || r["Sales ID"] || "",
     raw: r
   };
 };
@@ -123,6 +124,26 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
           allOk = false;
           break;
         }
+
+        try {
+          await fetch("/api/payments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              salesId: step.record.salesId || step.record.id || '',
+              clientName: step.record.client || '',
+              amount: step.toApply,
+              paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
+              balanceBefore: step.record.balance || 0,
+              balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
+              collectedBy: "System",
+              notes: `Auto-distributed lump sum`
+            })
+          });
+        } catch (e) {
+          console.error("Failed to log payment event", e);
+        }
+
       } catch {
         allOk = false;
         break;
