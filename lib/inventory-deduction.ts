@@ -1,19 +1,71 @@
 /**
  * lib/inventory-deduction.ts
- * Drop-in utility: deducts job LINEAR FEET from inventory rolls.
- * See bottom of file for integration instructions.
+ * Upgraded to Two-Level Inventory: Materials + Rolls
  */
 
 import { GoogleSpreadsheet } from "google-spreadsheet";
 
 const INVENTORY_SHEET = "Inventory";
+const MATERIALS_SHEET = "Materials";
 
-export async function deductFromInventoryByLength(
+/**
+ * Updates the aggregate material profile in the 'Materials' sheet based on its constituent rolls.
+ * Handles auto-promotion of the next active roll.
+ */
+export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId: string) {
+  const mSheet = doc.sheetsByTitle[MATERIALS_SHEET];
+  const iSheet = doc.sheetsByTitle[INVENTORY_SHEET];
+  if (!mSheet || !iSheet) return;
+
+  const mRows = await mSheet.getRows();
+  const iRows = await iSheet.getRows();
+
+  const mRow = mRows.find(r => r.get('Material ID') === materialId);
+  if (!mRow) return;
+
+  const rolls = iRows.filter(r => r.get('Material ID') === materialId);
+  
+  const totalRemaining = rolls.reduce((sum, r) => sum + (parseFloat(r.get('Remaining Length (ft)')) || 0), 0);
+  const totalCapacity = rolls.reduce((sum, r) => sum + (parseFloat(r.get('Total Length (ft)')) || 0), 0);
+  const rollCount = rolls.length;
+
+  // Active roll auto-promotion: lowest Roll ID that has stock
+  const activeRoll = rolls
+    .filter(r => (parseFloat(r.get('Remaining Length (ft)')) || 0) > 0.1) // 0.1ft threshold for "has stock"
+    .sort((a, b) => (a.get('Roll ID') || '').localeCompare(b.get('Roll ID') || ''))[0]
+    || rolls.sort((a, b) => (a.get('Roll ID') || '').localeCompare(b.get('Roll ID') || ''))[0];
+
+  const activeRollId = activeRoll ? activeRoll.get('Roll ID') : '';
+  const threshold = parseFloat(mRow.get('Low Stock Threshold (ft)') || '20') || 20;
+
+  let status = 'Active';
+  if (totalRemaining <= 0.1) status = 'Out of Stock';
+  else if (totalRemaining <= threshold) status = 'Low Stock';
+
+  mRow.set('Total Remaining (ft)', totalRemaining.toFixed(2));
+  mRow.set('Total Capacity (ft)', totalCapacity.toFixed(2));
+  mRow.set('Active Roll ID', activeRollId);
+  mRow.set('Roll Count', rollCount);
+  mRow.set('Status', status);
+  mRow.set('Last Updated', new Date().toISOString());
+
+  await mRow.save();
+}
+
+/**
+ * Deducts consumed length from the active roll of a material.
+ * Includes orientation flip logic and unit conversion.
+ */
+export async function deductFromInventory(
   doc: GoogleSpreadsheet,
-  rollId: string | undefined,
-  itemName: string,
-  jobLengthFt: number,
-  widthFt?: number
+  params: {
+    materialId?: string;
+    rollId?: string;
+    jobWidth: number;
+    jobHeight: number;
+    qty: number;
+    unit?: 'ft' | 'in';
+  }
 ): Promise<{
   success: boolean;
   rollId?: string;
@@ -21,91 +73,104 @@ export async function deductFromInventoryByLength(
   status?: string;
   error?: string;
 }> {
+  const { materialId, rollId, jobWidth, jobHeight, qty, unit = 'ft' } = params;
+
   try {
-    const sheet = doc.sheetsByTitle[INVENTORY_SHEET];
-    if (!sheet) return { success: false, error: "Inventory sheet not found" };
+    const iSheet = doc.sheetsByTitle[INVENTORY_SHEET];
+    const mSheet = doc.sheetsByTitle[MATERIALS_SHEET];
+    if (!iSheet || !mSheet) return { success: false, error: "Inventory or Materials sheet not found" };
 
-    const rows = await sheet.getRows();
-    let row: any = null;
+    const mRows = await mSheet.getRows();
+    const iRows = await iSheet.getRows();
 
-    // Strategy 1: exact Roll ID
-    if (rollId?.trim()) {
-      row = rows.find((r: any) => r.get("Roll ID") === rollId.trim());
+    // 1. Conversion to feet
+    let jW = jobWidth;
+    let jH = jobHeight;
+    if (unit === 'in') {
+      jW /= 12;
+      jH /= 12;
     }
 
-    // Strategy 2: Item Name + Width fallback — use lowest remaining active roll first
-    if (!row && itemName) {
-      const nameLower = itemName.toLowerCase();
-      const candidates = rows.filter((r: any) => {
-        const rowName = (r.get("Item Name") || "").toLowerCase();
-        const rowStatus = r.get("Status") || "Active";
-        const nameMatch = rowName === nameLower || rowName.includes(nameLower) || nameLower.includes(rowName);
-        const notDepleted = rowStatus !== "Out of Stock" && rowStatus !== "Depleted";
-        if (!nameMatch || !notDepleted) return false;
-        if (widthFt) {
-          const rowWidth = parseFloat(r.get("Width (ft)") || "0");
-          return Math.abs(rowWidth - widthFt) < 0.1;
-        }
-        return true;
-      });
-      candidates.sort((a: any, b: any) =>
-        parseFloat(a.get("Remaining Length (ft)") || "0") - parseFloat(b.get("Remaining Length (ft)") || "0")
-      );
-      row = candidates[0] || null;
+    let materialRow: any = null;
+    let rollRow: any = null;
+
+    // Identify the roll to deduct from
+    if (rollId) {
+      rollRow = iRows.find(r => r.get('Roll ID') === rollId);
+      if (rollRow) {
+        const mId = rollRow.get('Material ID') || materialId;
+        materialRow = mRows.find(r => r.get('Material ID') === mId);
+      }
+    } else if (materialId) {
+      materialRow = mRows.find(r => r.get('Material ID') === materialId);
+      if (materialRow) {
+        const activeRollId = materialRow.get('Active Roll ID');
+        rollRow = iRows.find(r => r.get('Roll ID') === activeRollId);
+      }
     }
 
-    if (!row) {
-      console.warn(`[Inventory] No roll found for "${rollId || itemName}". Sale recorded but inventory NOT decremented.`);
-      return { success: false, error: `No roll found for ${rollId || itemName}` };
+    if (!rollRow || !materialRow) {
+      return { success: false, error: `Could not identify active roll for ${materialId || rollId}` };
     }
 
-    const currentRemaining = parseFloat(row.get("Remaining Length (ft)") || "0") || 0;
-    const threshold = parseFloat(row.get("Low Stock Threshold (ft)") || "20") || 20;
+    const rollWidth = parseFloat(rollRow.get('Width (ft)') || '0');
 
-    if (jobLengthFt > currentRemaining) {
+    // 2. Validation: Orientation Flip
+    // We need to check if jW fits the roll width. If not, check if jH fits.
+    let consumedLengthPerJob = jH;
+    let jobFits = jW <= (rollWidth + 0.01); // small buffer for floating point
+
+    if (!jobFits && jH <= (rollWidth + 0.01)) {
+      // SILENT FLIP: swap width and height
+      consumedLengthPerJob = jW;
+      jobFits = true;
+      console.log(`[Inventory] Orientation flip applied: ${jW}x${jH} -> ${jH}x${jW} on ${rollWidth}ft roll`);
+    }
+
+    if (!jobFits) {
       return {
         success: false,
-        error: `Insufficient stock on roll ${row.get("Roll ID")}. Need ${jobLengthFt.toFixed(1)}ft, have ${currentRemaining.toFixed(1)}ft.`,
+        error: `Job dimension exceeds roll width (${rollWidth}ft). Requested: ${jW.toFixed(1)}ft x ${jH.toFixed(1)}ft`,
       };
     }
 
-    const newRemaining = currentRemaining - jobLengthFt;
-    const newStatus = newRemaining <= 0 ? "Out of Stock" : newRemaining <= threshold ? "Low Stock" : "Active";
+    const totalConsumedLength = consumedLengthPerJob * qty;
 
-    row.set("Remaining Length (ft)", newRemaining.toFixed(2));
-    row.set("Status", newStatus);
-    await row.save();
+    // 3. Stock Check
+    const currentRemaining = parseFloat(rollRow.get("Remaining Length (ft)") || "0") || 0;
+    if (totalConsumedLength > currentRemaining + 0.1) {
+      return {
+        success: false,
+        error: `Insufficient stock on active roll ${rollRow.get("Roll ID")}. Need ${totalConsumedLength.toFixed(1)}ft, have ${currentRemaining.toFixed(1)}ft.`,
+      };
+    }
 
-    console.log(`[Inventory] ${row.get("Roll ID")}: −${jobLengthFt.toFixed(2)}ft → ${newRemaining.toFixed(2)}ft (${newStatus})`);
+    // 4. Update Roll
+    const newRemaining = Math.max(0, currentRemaining - totalConsumedLength);
+    const threshold = parseFloat(rollRow.get("Low Stock Threshold (ft)") || "20") || 20;
+    
+    // Status logic: if 0, mark Depleted.
+    let newStatus = 'Active';
+    if (newRemaining <= 0.1) newStatus = 'Depleted';
+    else if (newRemaining <= threshold) newStatus = 'Low Stock';
 
-    return { success: true, rollId: row.get("Roll ID"), remainingLength: newRemaining, status: newStatus };
+    rollRow.set("Remaining Length (ft)", newRemaining.toFixed(2));
+    rollRow.set("Status", newStatus);
+    await rollRow.save();
+
+    // 5. Update Material Profile (handles auto-promotion)
+    await refreshMaterialProfile(doc, materialRow.get('Material ID'));
+
+    console.log(`[Inventory] ${rollRow.get("Roll ID")}: −${totalConsumedLength.toFixed(2)}ft → ${newRemaining.toFixed(2)}ft (${newStatus})`);
+
+    return { 
+      success: true, 
+      rollId: rollRow.get("Roll ID"), 
+      remainingLength: newRemaining, 
+      status: newStatus 
+    };
   } catch (err: any) {
-    console.error("[Inventory] deductFromInventoryByLength error:", err);
+    console.error("[Inventory] deductFromInventory error:", err);
     return { success: false, error: err.message };
   }
 }
-
-/*
- * HOW TO INTEGRATE IN app/api/sales/route.ts
- * ─────────────────────────────────────────────
- * Import at top:
- *   import { deductFromInventoryByLength } from "@/lib/inventory-deduction";
- *
- * Replace the existing sqft-based inventory block with:
- *
- *   const jobLengthFt = parseFloat(item.actualHeight || item.jobLengthFt || item.qty) || 0;
- *   const rollWidthFt = parseFloat(item.rollWidth || item.rollSize) || undefined;
- *
- *   const deductResult = await deductFromInventoryByLength(
- *     doc,
- *     item.canonicalItemName,  // Roll ID if chosen from popover
- *     item.jobDescription,     // fallback material name
- *     jobLengthFt,
- *     rollWidthFt
- *   );
- *
- *   if (!deductResult.success && deductResult.error?.includes("Insufficient")) {
- *     return NextResponse.json({ error: deductResult.error }, { status: 400 });
- *   }
- *   // Non-critical failures (no matching roll) are logged but don't block the sale
- */

@@ -42,7 +42,7 @@ const parseSheetDate = (dateStr: any): Date | null => {
 type Row = Record<string, string>;
 
 export default function DashboardPage() {
-  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, setCachedData } = useSyncStore();
+  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedMaterials, cachedPayments, setCachedData } = useSyncStore();
   
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,6 +69,7 @@ export default function DashboardPage() {
         fetch("/api/expenses"),
         fetch("/api/inventory"),
         fetch("/api/payments"),
+        fetch("/api/materials"),
       ]);
 
       if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok || !paymentsRes.ok) {
@@ -79,13 +80,15 @@ export default function DashboardPage() {
       const expensesJson = await expensesRes.json();
       const inventoryJson = await inventoryRes.json();
       const paymentsJson = await paymentsRes.json();
+      const materialsJson = await materialsRes.json();
       
       const newSales = salesJson.data ?? [];
       const newExpenses = expensesJson.data ?? [];
       const newInventory = inventoryJson.data ?? [];
       const newPayments = paymentsJson.data ?? [];
-
-      setCachedData(newSales, newExpenses, newInventory, newPayments);
+      const newMaterials = materialsJson.data ?? [];
+      
+      setCachedData(newSales, newExpenses, newInventory, newPayments, newMaterials);
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -437,13 +440,13 @@ export default function DashboardPage() {
             </div>
             
             <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-              {cachedInventory.length === 0 ? (
+              {cachedMaterials.length === 0 ? (
                 <p className="text-xs text-gray-500 dark:text-zinc-400 italic">No materials tracked in inventory.</p>
               ) : (
-                cachedInventory.map((item: any) => {
-                  // ── New schema: Remaining Length (ft) + Total Length (ft) + Status ──
-                  const remaining = parseFloat(item["Remaining Length (ft)"]?.toString() || "0") || 0;
-                  const total = parseFloat(item["Total Length (ft)"]?.toString() || "0") || 0;
+                cachedMaterials.map((item: any) => {
+                  // ── Materials schema: Total Remaining (ft) + Total Capacity (ft) + Status ──
+                  const remaining = parseFloat(item["Total Remaining (ft)"]?.toString() || "0") || 0;
+                  const total = parseFloat(item["Total Capacity (ft)"]?.toString() || "0") || 0;
                   const threshold = parseFloat(item["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
                   const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
 
@@ -463,7 +466,7 @@ export default function DashboardPage() {
                     ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40"
                     : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40";
 
-                  const displayName = item["Roll ID"] || item["Item Name"] || "Unknown";
+                  const displayName = item["Material ID"] || item["Material Name"] || "Unknown";
 
                   return (
                     <div key={item._rowIndex} className="p-3 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white dark:bg-zinc-800/30 hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition-colors">
@@ -484,28 +487,12 @@ export default function DashboardPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={async () => {
-                            try {
-                              const res = await fetch("/api/inventory", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ rowIndex: item._rowIndex, adjustment: 150 })
-                              });
-                              if (res.ok) {
-                                toast.success(`Added 150ft to ${displayName}!`);
-                                const r = await fetch("/api/inventory");
-                                const j = await r.json();
-                                if (r.ok) setCachedData(cachedSales, cachedExpenses, j.data || [], cachedPayments);
-                              } else {
-                                toast.error("Restock failed");
-                              }
-                            } catch {
-                              toast.error("Network error");
-                            }
+                          onClick={() => {
+                            toast.info(`Go to Inventory tab to restock ${displayName}`);
                           }}
                           className="ml-3 shrink-0 h-7 rounded-lg text-[10px] font-bold border-gray-200 hover:bg-brand-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                         >
-                          +150ft
+                          Restock
                         </Button>
                       </div>
                       {/* Stock progress bar */}

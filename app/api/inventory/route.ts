@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
+import { refreshMaterialProfile } from '@/lib/inventory-deduction';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,7 @@ const INVENTORY_HEADERS = [
   'Low Stock Threshold (ft)',
   'Status',
   'Date Added',
+  'Material ID',
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -113,6 +115,7 @@ export async function POST(request: Request) {
       }
     });
 
+    const materialId = `${itemName.trim().toUpperCase().replace(/\s+/g, '-')}-${widthNum}FT`;
     const rollIds: string[] = [];
 
     for (let i = 1; i <= qty; i++) {
@@ -136,8 +139,12 @@ export async function POST(request: Request) {
         'Low Stock Threshold (ft)': threshold,
         'Status': computeStatus(totalUsable, threshold),
         'Date Added': new Date().toISOString().split('T')[0],
+        'Material ID': materialId,
       });
     }
+
+    // Refresh or create material profile
+    await refreshMaterialProfile(doc, materialId);
 
     return NextResponse.json({ success: true, rollIds });
   } catch (error: any) {
@@ -212,6 +219,12 @@ export async function PATCH(request: Request) {
     Object.keys(directUpdates).forEach((key) => row.set(key, directUpdates[key]));
 
     await row.save();
+
+    // Refresh material profile
+    const mId = row.get('Material ID');
+    if (mId) {
+      await refreshMaterialProfile(doc, mId);
+    }
 
     return NextResponse.json({
       success: true,
