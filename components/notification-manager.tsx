@@ -20,7 +20,11 @@ export function NotificationManager() {
   const [inventoryData, setInventoryData] = useState<any[]>([]);
   const alertedInventoryRows = useRef<Set<number>>(new Set());
 
+  const isFetching = useRef(false);
+
   const fetchData = async () => {
+    if (isFetching.current) return;
+    isFetching.current = true;
     try {
       const [salesRes, expensesRes, inventoryRes] = await Promise.all([
         fetch("/api/sales"),
@@ -28,7 +32,12 @@ export function NotificationManager() {
         fetch("/api/inventory"),
       ]);
 
-      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok) return;
+      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok) {
+        if (salesRes.status === 429 || expensesRes.status === 429 || inventoryRes.status === 429) {
+          console.warn("NotificationManager: Rate limit hit, skipping poll.");
+        }
+        return;
+      }
 
       const salesJson = await salesRes.json();
       const expensesJson = await expensesRes.json();
