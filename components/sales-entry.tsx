@@ -60,20 +60,22 @@ interface InventoryRoll {
 
 interface CartItem {
   id: string;
-  rollId: string;          // exact Roll ID from inventory
-  rollLabel: string;       // display label e.g. "Flex 4ft - Roll 001"
-  itemName: string;        // material name e.g. "Flex"
-  widthFt: number;         // roll width
+  materialId: string;    // e.g. "FLEX-4FT"
+  rollId?: string;        // null for auto-route
+  rollLabel: string;      // e.g. "Flex 4ft"
+  itemName: string;       // material name
+  widthFt: number;
   jobDescription: string;
-  jobWidthFt: number;      // actual job width
-  jobHeightFt: number;     // actual job height / length consumed from roll
+  jobWidth: number;
+  jobHeight: number;
+  dimUnit: 'ft' | 'in';
   qty: number;
   costPerSqft: number;
-  unitSqft: number;        // jobWidthFt × jobHeightFt
-  unitCost: number;        // costPerSqft × unitSqft
-  totalAmount: number;     // unitCost × qty
-  jobLengthFt: number;     // = jobHeightFt × qty (total linear feet consumed)
-  remainingAfterJob: number;  // roll remaining after this job
+  unitSqft: number;
+  unitCost: number;
+  totalAmount: number;
+  jobLengthFt: number;
+  remainingAfterJob: number;
   fromInventory: boolean;
 }
 
@@ -115,17 +117,17 @@ function StockBadge({ roll }: { roll: InventoryRoll }) {
   );
 }
 
-// ─── Roll Selector ────────────────────────────────────────────────────────────
+// ─── Material Selector ────────────────────────────────────────────────────────
 
-function RollSelector({
-  rolls,
-  selectedRollId,
+function MaterialSelector({
+  materials,
+  selectedMaterialId,
   onSelect,
   loading,
 }: {
-  rolls: InventoryRoll[];
-  selectedRollId: string;
-  onSelect: (roll: InventoryRoll) => void;
+  materials: any[];
+  selectedMaterialId: string;
+  onSelect: (material: any) => void;
   loading: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -133,38 +135,37 @@ function RollSelector({
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return rolls.filter(
-      (r) =>
-        r["Roll ID"].toLowerCase().includes(q) ||
-        r["Item Name"].toLowerCase().includes(q)
+    return materials.filter(
+      (m) =>
+        (m["Material ID"] || "").toLowerCase().includes(q) ||
+        (m["Material Name"] || "").toLowerCase().includes(q)
     );
-  }, [rolls, search]);
+  }, [materials, search]);
 
-  // Group by Item Name
   const grouped = useMemo(() => {
-    const map: Record<string, InventoryRoll[]> = {};
-    filtered.forEach((r) => {
-      const key = r["Item Name"] || "Other";
+    const map: Record<string, any[]> = {};
+    filtered.forEach((m) => {
+      const key = m["Material Name"] || "Other";
       if (!map[key]) map[key] = [];
-      map[key].push(r);
+      map[key].push(m);
     });
     return map;
   }, [filtered]);
 
-  const selected = rolls.find((r) => r["Roll ID"] === selectedRollId);
+  const selected = materials.find((m) => m["Material ID"] === selectedMaterialId);
 
   return (
     <div className="space-y-1.5">
       <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-400 tracking-wider flex items-center gap-1.5">
         <Package className="w-3 h-3" />
-        Select Roll from Inventory *
+        Select Material *
       </Label>
       <button
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
           "w-full h-14 rounded-2xl border-2 px-4 flex items-center justify-between transition-all text-left",
-          selectedRollId
+          selectedMaterialId
             ? "border-brand-500 bg-brand-50/50 dark:bg-brand-900/20 dark:border-brand-700"
             : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-brand-300 dark:hover:border-brand-700"
         )}
@@ -176,16 +177,16 @@ function RollSelector({
             </div>
             <div className="min-w-0">
               <p className="text-sm font-black text-gray-900 dark:text-white truncate">
-                {selected["Roll ID"]}
+                {selected["Material ID"]}
               </p>
               <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
-                {parseNum(selected["Width (ft)"])}ft wide · ₦{parseNum(selected["Price"]).toLocaleString()}/sqft
+                {parseNum(selected["Width (ft)"])}ft wide · ₦{parseNum(selected["Selling Price"]).toLocaleString()}/sqft
               </p>
             </div>
           </div>
         ) : (
           <span className="text-gray-400 dark:text-zinc-600 font-medium text-sm">
-            {loading ? "Loading rolls…" : "Tap to choose a roll…"}
+            {loading ? "Loading materials…" : "Tap to choose material…"}
           </span>
         )}
         <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 ml-2" />
@@ -200,13 +201,13 @@ function RollSelector({
 
             <div className="px-5 pt-4 pb-2 border-b dark:border-zinc-800">
               <Drawer.Title className="text-lg font-black text-gray-900 dark:text-white mb-3">
-                Choose a Roll
+                Choose a Material
               </Drawer.Title>
               <Drawer.Description className="sr-only">
-                Select an inventory roll for this job
+                Select a material profile for this job
               </Drawer.Description>
               <Input
-                placeholder="Search by roll ID or material…"
+                placeholder="Search materials…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="rounded-xl bg-gray-50 dark:bg-zinc-900 border-gray-200 dark:border-zinc-700"
@@ -215,31 +216,31 @@ function RollSelector({
             </div>
 
             <div className="overflow-y-auto flex-1 p-4 space-y-5">
-              {Object.entries(grouped).map(([material, materialRolls]) => (
-                <div key={material}>
+              {Object.entries(grouped).map(([materialName, options]) => (
+                <div key={materialName}>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-2 px-1">
-                    {material}
+                    {materialName}
                   </p>
                   <div className="space-y-2">
-                    {materialRolls.map((roll) => {
-                      const remaining = parseNum(roll["Remaining Length (ft)"]);
-                      const total = parseNum(roll["Total Length (ft)"]);
-                      const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
-                      const isOut = remaining <= 0 || roll.Status === "Out of Stock";
+                    {options.map((mat) => {
+                      const remaining = parseNum(mat["Total Remaining (ft)"]);
+                      const capacity = parseNum(mat["Total Capacity (ft)"]);
+                      const pct = capacity > 0 ? Math.min(100, (remaining / capacity) * 100) : 0;
+                      const isOut = remaining <= 0 || mat.Status === "Out of Stock";
 
                       return (
                         <button
-                          key={roll["Roll ID"]}
+                          key={mat["Material ID"]}
                           type="button"
                           disabled={isOut}
                           onClick={() => {
-                            onSelect(roll);
+                            onSelect(mat);
                             setOpen(false);
                             setSearch("");
                           }}
                           className={cn(
                             "w-full p-4 rounded-2xl border-2 text-left transition-all",
-                            roll["Roll ID"] === selectedRollId
+                            mat["Material ID"] === selectedMaterialId
                               ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20"
                               : isOut
                               ? "border-gray-100 dark:border-zinc-800 opacity-40 cursor-not-allowed"
@@ -249,24 +250,27 @@ function RollSelector({
                           <div className="flex items-center justify-between mb-2">
                             <div>
                               <p className="text-sm font-black text-gray-900 dark:text-white">
-                                {roll["Roll ID"]}
+                                {mat["Material ID"]}
                               </p>
                               <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium mt-0.5">
-                                {parseNum(roll["Width (ft)"])}ft wide · ₦{parseNum(roll["Price"]).toLocaleString()}/sqft
+                                {parseNum(mat["Width (ft)"])}ft wide · ₦{parseNum(mat["Selling Price"]).toLocaleString()}/sqft
                               </p>
                             </div>
-                            <StockBadge roll={roll} />
+                            <div className="text-right">
+                              <span className={cn(
+                                "text-[9px] font-black uppercase px-1.5 py-0.5 rounded",
+                                mat.Status === "Low Stock" ? "bg-amber-100 text-amber-600" : isOut ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
+                              )}>
+                                {remaining.toFixed(0)}ft left
+                              </span>
+                            </div>
                           </div>
                           {/* Progress bar */}
                           <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
                             <div
                               className={cn(
                                 "h-full rounded-full transition-all",
-                                roll.Status === "Low Stock"
-                                  ? "bg-amber-500"
-                                  : isOut
-                                  ? "bg-rose-500"
-                                  : "bg-emerald-500"
+                                mat.Status === "Low Stock" ? "bg-amber-500" : isOut ? "bg-rose-500" : "bg-emerald-500"
                               )}
                               style={{ width: `${pct}%` }}
                             />
@@ -281,7 +285,7 @@ function RollSelector({
               {filtered.length === 0 && (
                 <div className="text-center py-12 text-gray-400 dark:text-zinc-500">
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm font-medium">No rolls found</p>
+                  <p className="text-sm font-medium">No materials found</p>
                 </div>
               )}
             </div>
@@ -323,14 +327,14 @@ function CartItemCard({
             </Badge>
           </div>
           <p className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
-            {item.qty}× · {item.jobWidthFt}ft × {item.jobHeightFt}ft ·{" "}
+            {item.qty}× · {item.jobWidth}{item.dimUnit} × {item.jobHeight}{item.dimUnit} ·{" "}
             {item.jobLengthFt.toFixed(1)}ft consumed
           </p>
 
           {!stockOk && (
             <p className="text-[10px] text-rose-600 dark:text-rose-400 font-black flex items-center gap-1 mt-1.5">
               <AlertTriangle className="w-3 h-3" />
-              Exceeds roll stock — adjust quantity or height
+              Insufficient stock across all rolls of this material
             </p>
           )}
         </div>
@@ -463,26 +467,26 @@ function SummaryBar({
 // ─── Main SalesEntry Component ────────────────────────────────────────────────
 
 export function SalesEntry() {
-  // ── Inventory state ──────────────────────────────────────────────────────
-  const [inventory, setInventory] = useState<InventoryRoll[]>([]);
-  const [invLoading, setInvLoading] = useState(true);
+  // ── Inventory/Materials state ───────────────────────────────────────────
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [materialsLoading, setMaterialsLoading] = useState(true);
 
-  const fetchInventory = useCallback(async () => {
-    setInvLoading(true);
+  const fetchMaterials = useCallback(async () => {
+    setMaterialsLoading(true);
     try {
-      const res = await fetch("/api/inventory");
+      const res = await fetch("/api/materials");
       const json = await res.json();
-      if (res.ok) setInventory(json.data || []);
+      if (res.ok) setMaterials(json.data || []);
     } catch {
-      toast.error("Could not load inventory rolls");
+      toast.error("Could not load material profiles");
     } finally {
-      setInvLoading(false);
+      setMaterialsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchInventory();
-  }, [fetchInventory]);
+    fetchMaterials();
+  }, [fetchMaterials]);
 
   // ── Batch meta (client info) ─────────────────────────────────────────────
   const [meta, setMeta] = useState<BatchMeta>({
@@ -524,38 +528,38 @@ export function SalesEntry() {
   }, [uniqueClients, meta.clientName]);
 
   // ── Job form (single job being built) ───────────────────────────────────
-  const [selectedRollId, setSelectedRollId] = useState("");
+  const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [jobDesc, setJobDesc] = useState("");
-  const [jobWidthFt, setJobWidthFt] = useState("");
-  const [jobHeightFt, setJobHeightFt] = useState("");
+  const [jobWidth, setJobWidth] = useState("");
+  const [jobHeight, setJobHeight] = useState("");
   const [qty, setQty] = useState("1");
   const [costOverride, setCostOverride] = useState("");
   const [dimUnit, setDimUnit] = useState<"ft" | "in">("ft");
   const [formTouched, setFormTouched] = useState(false);
 
-  const selectedRoll = useMemo(
-    () => inventory.find((r) => r["Roll ID"] === selectedRollId) || null,
-    [inventory, selectedRollId]
+  const selectedMaterial = useMemo(
+    () => materials.find((m) => m["Material ID"] === selectedMaterialId) || null,
+    [materials, selectedMaterialId]
   );
 
-  // When a roll is selected, auto-fill cost per sqft
+  // When a material is selected, auto-fill cost per sqft
   useEffect(() => {
-    if (selectedRoll) {
-      const price = parseNum(selectedRoll["Price"]);
+    if (selectedMaterial) {
+      const price = parseNum(selectedMaterial["Selling Price"]);
       if (price > 0) setCostOverride(String(price));
     }
-  }, [selectedRoll]);
+  }, [selectedMaterial]);
 
   // Live calculations
   const jobWFt = useMemo(() => {
-    const w = parseFloat(jobWidthFt) || 0;
+    const w = parseFloat(jobWidth) || 0;
     return dimUnit === "in" ? w / 12 : w;
-  }, [jobWidthFt, dimUnit]);
+  }, [jobWidth, dimUnit]);
 
   const jobHFt = useMemo(() => {
-    const h = parseFloat(jobHeightFt) || 0;
+    const h = parseFloat(jobHeight) || 0;
     return dimUnit === "in" ? h / 12 : h;
-  }, [jobHeightFt, dimUnit]);
+  }, [jobHeight, dimUnit]);
 
   const qtyNum = parseInt(qty) || 1;
   const costPerSqft = parseFloat(costOverride) || 0;
@@ -564,15 +568,17 @@ export function SalesEntry() {
   const totalAmount = unitCost * qtyNum;
   const jobLengthFt = jobHFt * qtyNum; // linear feet consumed from roll
 
-  const rollRemaining = selectedRoll
-    ? parseNum(selectedRoll["Remaining Length (ft)"])
+  const matRemaining = selectedMaterial
+    ? parseNum(selectedMaterial["Total Remaining (ft)"])
     : 0;
-  const remainingAfterJob = rollRemaining - jobLengthFt;
+  const remainingAfterJob = matRemaining - jobLengthFt;
   const stockOk = jobLengthFt === 0 || remainingAfterJob >= 0;
 
-  // Width compatibility check
-  const widthCompatible =
-    !selectedRoll || jobWFt <= parseNum(selectedRoll["Width (ft)"]);
+  // Orientation Check: Does it fit the roll width (in either direction)?
+  const rollWidth = selectedMaterial ? parseNum(selectedMaterial["Width (ft)"]) : 0;
+  const fitsNormal = jobWFt <= rollWidth;
+  const fitsFlipped = jobHFt <= rollWidth;
+  const widthCompatible = !selectedMaterial || (fitsNormal || fitsFlipped);
 
   // ── Cart ─────────────────────────────────────────────────────────────────
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -580,36 +586,37 @@ export function SalesEntry() {
   const handleAddToCart = () => {
     setFormTouched(true);
 
-    if (!selectedRollId) {
-      toast.error("Please select a roll from inventory");
+    if (!selectedMaterialId) {
+      toast.error("Please select a material profile");
       return;
     }
-    if (!jobWidthFt || !jobHeightFt) {
+    if (!jobWidth || !jobHeight) {
       toast.error("Enter both job width and height");
       return;
     }
     if (!widthCompatible) {
       toast.error(
-        `Job width (${jobWFt.toFixed(1)}ft) is wider than the selected roll (${parseNum(selectedRoll!["Width (ft)"]).toFixed(1)}ft)`
+        `Job dimensions (${jobWFt.toFixed(1)}ft x ${jobHFt.toFixed(1)}ft) do not fit the roll width (${rollWidth.toFixed(1)}ft) in any orientation.`
       );
       return;
     }
     if (!stockOk) {
       toast.error(
-        `Not enough stock on ${selectedRollId}. Need ${jobLengthFt.toFixed(1)}ft but only ${rollRemaining.toFixed(1)}ft available.`
+        `Not enough stock for ${selectedMaterialId}. Need ${jobLengthFt.toFixed(1)}ft but total material stock is only ${matRemaining.toFixed(1)}ft.`
       );
       return;
     }
 
     const newItem: CartItem = {
       id: crypto.randomUUID(),
-      rollId: selectedRollId,
-      rollLabel: selectedRollId,
-      itemName: selectedRoll!["Item Name"],
-      widthFt: parseNum(selectedRoll!["Width (ft)"]),
-      jobDescription: jobDesc.trim() || `${selectedRoll!["Item Name"]} print job`,
-      jobWidthFt: jobWFt,
-      jobHeightFt: jobHFt,
+      materialId: selectedMaterialId,
+      rollLabel: selectedMaterialId,
+      itemName: selectedMaterial!["Material Name"],
+      widthFt: parseNum(selectedMaterial!["Width (ft)"]),
+      jobDescription: jobDesc.trim() || `${selectedMaterial!["Material Name"]} print job`,
+      jobWidth: parseFloat(jobWidth),
+      jobHeight: parseFloat(jobHeight),
+      dimUnit: dimUnit,
       qty: qtyNum,
       costPerSqft,
       unitSqft,
@@ -623,10 +630,10 @@ export function SalesEntry() {
     setCart((prev) => [...prev, newItem]);
     toast.success("Job added to order");
 
-    // Reset job form but keep roll selected for quick multi-job entry
+    // Reset job form but keep material selected
     setJobDesc("");
-    setJobWidthFt("");
-    setJobHeightFt("");
+    setJobWidth("");
+    setJobHeight("");
     setQty("1");
     setFormTouched(false);
   };
@@ -670,9 +677,9 @@ export function SalesEntry() {
         if (d["COST PER SQRFT"])
           setCostOverride(String(d["COST PER SQRFT"]));
         if (d["actualWidth"])
-          setJobWidthFt(String(d["actualWidth"]));
+          setJobWidth(String(d["actualWidth"]));
         if (d["actualHeight"])
-          setJobHeightFt(String(d["actualHeight"]));
+          setJobHeight(String(d["actualHeight"]));
         if (d["QTY"]) setQty(String(d["QTY"]));
         toast.success("Parsed! Review the details then add to order.");
       } else {
@@ -725,9 +732,9 @@ export function SalesEntry() {
         remainingPayment = 0;
       }
 
-      const needsInchDiv = dimUnit === "in";
-      const wRaw = needsInchDiv ? item.jobWidthFt * 12 : item.jobWidthFt;
-      const hRaw = needsInchDiv ? item.jobHeightFt * 12 : item.jobHeightFt;
+      const needsInchDiv = item.dimUnit === "in";
+      const wRaw = item.jobWidth;
+      const hRaw = item.jobHeight;
       const sizeFormula = needsInchDiv
         ? `=(${wRaw}*${hRaw})/144`
         : `=(${wRaw}*${hRaw})`;
@@ -741,7 +748,7 @@ export function SalesEntry() {
       return [
         meta.date,           // A DATE
         meta.clientName,     // B CLIENT NAME
-        `${item.jobDescription} [${item.jobWidthFt.toFixed(1)}x${item.jobHeightFt.toFixed(1)}ft]`, // C JOB DESCRIPTION
+        `${item.jobDescription} [${item.jobWidth}x${item.jobHeight}${item.dimUnit}]`, // C JOB DESCRIPTION
         meta.contact,        // D CONTACT
         item.itemName,       // E MATERIAL
         item.costPerSqft,    // F COST PER SQFT
@@ -768,16 +775,22 @@ export function SalesEntry() {
     try {
       useSyncStore.getState().addPendingEntry("sale", {
         batch: true,
-        items: rowArrays.map((row, i) => ({
-          values: row,
-          totalArea: cart[i].unitSqft * cart[i].qty,
-          jobLengthFt: cart[i].jobLengthFt,
-          canonicalItemName: cart[i].rollId, // Roll ID for inventory lookup
-          jobDescription: cart[i].jobDescription,
-          qty: cart[i].qty,
-          rollId: cart[i].rollId,
-          rollWidthFt: cart[i].widthFt,
-        })),
+        items: rowArrays.map((row, i) => {
+          const item = cart[i];
+          return {
+            values: row,
+            totalArea: item.unitSqft * item.qty,
+            jobLengthFt: item.jobLengthFt,
+            canonicalItemName: item.materialId, // Material ID for internal deduction
+            jobDescription: item.jobDescription,
+            qty: item.qty,
+            materialId: item.materialId,
+            jobWidth: item.jobWidth,
+            jobHeight: item.jobHeight,
+            dimUnit: item.dimUnit,
+            rollWidthFt: item.widthFt,
+          };
+        }),
       });
 
       toast.success("Order saved locally — syncing to Google Sheets…");
@@ -792,10 +805,10 @@ export function SalesEntry() {
         initialPayment: "0",
       });
       setCart([]);
-      setSelectedRollId("");
+      setSelectedMaterialId("");
       setJobDesc("");
-      setJobWidthFt("");
-      setJobHeightFt("");
+      setJobWidth("");
+      setJobHeight("");
       setQty("1");
       setCostOverride("");
       setNlText("");
@@ -929,44 +942,40 @@ export function SalesEntry() {
               </div>
               <button
                 type="button"
-                onClick={fetchInventory}
+                onClick={fetchMaterials}
                 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-brand-600 dark:text-zinc-500 dark:hover:text-brand-400 transition-colors"
               >
                 <RefreshCw
-                  className={cn("w-3 h-3", invLoading && "animate-spin")}
+                  className={cn("w-3 h-3", materialsLoading && "animate-spin")}
                 />
                 Refresh
               </button>
             </div>
 
-            <RollSelector
-              rolls={inventory}
-              selectedRollId={selectedRollId}
-              onSelect={(roll) => setSelectedRollId(roll["Roll ID"])}
-              loading={invLoading}
+            <MaterialSelector
+              materials={materials}
+              selectedMaterialId={selectedMaterialId}
+              onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
+              loading={materialsLoading}
             />
 
-            {/* Roll details strip when selected */}
-            {selectedRoll && (
-              <div className="mt-4 grid grid-cols-3 gap-3">
+            {/* Material details strip when selected */}
+            {selectedMaterial && (
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
                 {[
                   {
-                    label: "Roll Width",
-                    val: `${parseNum(selectedRoll["Width (ft)"])}ft`,
-                  },
-                  {
                     label: "Remaining",
-                    val: `${parseNum(selectedRoll["Remaining Length (ft)"]).toFixed(1)}ft`,
+                    val: `${parseNum(selectedMaterial["Total Remaining (ft)"]).toFixed(1)}ft`,
                     accent:
-                      selectedRoll.Status === "Low Stock"
+                      selectedMaterial.Status === "Low Stock"
                         ? "amber"
-                        : selectedRoll.Status === "Out of Stock"
+                        : selectedMaterial.Status === "Out of Stock"
                         ? "rose"
                         : "green",
                   },
                   {
                     label: "Selling Rate",
-                    val: `₦${parseNum(selectedRoll["Price"]).toLocaleString()}/sqft`,
+                    val: `₦${parseNum(selectedMaterial["Selling Price"]).toLocaleString()}/sqft`,
                   },
                 ].map(({ label, val, accent }) => (
                   <div
@@ -1054,15 +1063,15 @@ export function SalesEntry() {
                 <Input
                   type="number"
                   placeholder={dimUnit === "ft" ? "4" : "48"}
-                  value={jobWidthFt}
+                  value={jobWidth}
                   onChange={(e) => {
-                    setJobWidthFt(e.target.value);
+                    setJobWidth(e.target.value);
                     setFormTouched(true);
                   }}
                   className={cn(
                     "h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100",
                     formTouched &&
-                      !jobWidthFt &&
+                      !jobWidth &&
                       "border-rose-400 dark:border-rose-700"
                   )}
                 />
@@ -1074,15 +1083,15 @@ export function SalesEntry() {
                 <Input
                   type="number"
                   placeholder={dimUnit === "ft" ? "8" : "96"}
-                  value={jobHeightFt}
+                  value={jobHeight}
                   onChange={(e) => {
-                    setJobHeightFt(e.target.value);
+                    setJobHeight(e.target.value);
                     setFormTouched(true);
                   }}
                   className={cn(
                     "h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100",
                     formTouched &&
-                      !jobHeightFt &&
+                      !jobHeight &&
                       "border-rose-400 dark:border-rose-700"
                   )}
                 />
@@ -1105,9 +1114,9 @@ export function SalesEntry() {
             <div className="space-y-1.5 mb-5">
               <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider flex items-center gap-1.5">
                 Cost Per Sqft (₦)
-                {selectedRoll && (
+                {selectedMaterial && (
                   <span className="text-[9px] text-brand-500 dark:text-brand-400 normal-case font-bold">
-                    · auto-filled from roll
+                    · auto-filled from material
                   </span>
                 )}
               </Label>
@@ -1206,13 +1215,13 @@ export function SalesEntry() {
             )}
 
             {/* Width compatibility warning */}
-            {selectedRoll && jobWFt > 0 && !widthCompatible && (
+            {selectedMaterial && jobWFt > 0 && !widthCompatible && (
               <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-200 dark:border-rose-900/50 mb-4">
                 <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                  Job width ({jobWFt.toFixed(1)}ft) exceeds roll width (
-                  {parseNum(selectedRoll["Width (ft)"]).toFixed(1)}ft). Choose a
-                  wider roll.
+                  Job width ({jobWFt.toFixed(1)}ft) exceeds material width (
+                  {parseNum(selectedMaterial["Width (ft)"]).toFixed(1)}ft). Choose a
+                  wider material.
                 </p>
               </div>
             )}
@@ -1220,7 +1229,7 @@ export function SalesEntry() {
             {/* Add to order CTA */}
             <Button
               onClick={handleAddToCart}
-              disabled={!selectedRollId || !jobWidthFt || !jobHeightFt || !stockOk || !widthCompatible}
+              disabled={!selectedMaterialId || !jobWidth || !jobHeight || !stockOk || !widthCompatible}
               className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
@@ -1375,42 +1384,42 @@ export function SalesEntry() {
             </Button>
 
             {/* After AI parse, show the job form below */}
-            {(jobWidthFt || jobHeightFt || jobDesc) && (
+            {(jobWidth || jobHeight || jobDesc) && (
               <div className="mt-6 pt-6 border-t border-gray-100 dark:border-zinc-800 space-y-4">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                   <p className="text-sm font-black text-gray-700 dark:text-zinc-300">
-                    Parsed — now select a roll and add to order
+                    Parsed — now select a material and add to order
                   </p>
                 </div>
 
-                <RollSelector
-                  rolls={inventory}
-                  selectedRollId={selectedRollId}
-                  onSelect={(roll) => setSelectedRollId(roll["Roll ID"])}
-                  loading={invLoading}
+                <MaterialSelector
+                  materials={materials}
+                  selectedMaterialId={selectedMaterialId}
+                  onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
+                  loading={materialsLoading}
                 />
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">
-                      Width (ft)
+                      Width ({dimUnit})
                     </Label>
                     <Input
                       type="number"
-                      value={jobWidthFt}
-                      onChange={(e) => setJobWidthFt(e.target.value)}
+                      value={jobWidth}
+                      onChange={(e) => setJobWidth(e.target.value)}
                       className="h-12 rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 font-bold"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">
-                      Height (ft)
+                      Height ({dimUnit})
                     </Label>
                     <Input
                       type="number"
-                      value={jobHeightFt}
-                      onChange={(e) => setJobHeightFt(e.target.value)}
+                      value={jobHeight}
+                      onChange={(e) => setJobHeight(e.target.value)}
                       className="h-12 rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 font-bold"
                     />
                   </div>
@@ -1418,11 +1427,10 @@ export function SalesEntry() {
 
                 <Button
                   onClick={handleAddToCart}
-                  disabled={!selectedRollId || !jobWidthFt || !jobHeightFt}
-                  className="w-full h-12 rounded-2xl bg-gray-900 dark:bg-white dark:text-black text-white font-black"
+                  disabled={!selectedMaterialId || !jobWidth || !jobHeight}
+                  className="w-full h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add to Order · {fmtCurrency(totalAmount)}
+                  Add Parsed Job to Order · {fmtCurrency(totalAmount)}
                 </Button>
               </div>
             )}
@@ -1481,8 +1489,8 @@ export function SalesEntry() {
                       {i + 1}. {item.jobDescription}
                     </p>
                     <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
-                      {item.rollId} · {item.qty}× {item.jobWidthFt.toFixed(1)}ft×
-                      {item.jobHeightFt.toFixed(1)}ft
+                      {item.rollLabel} · {item.qty}× {item.jobWidth}{item.dimUnit}×
+                      {item.jobHeight}{item.dimUnit}
                     </p>
                   </div>
                   <p className="text-sm font-black text-gray-900 dark:text-white shrink-0">

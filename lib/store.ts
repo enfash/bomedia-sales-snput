@@ -28,8 +28,9 @@ interface SyncState {
   cachedSales: any[];
   cachedExpenses: any[];
   cachedInventory: any[];
+  cachedMaterials: any[];
   cachedPayments: any[];
-  setCachedData: (sales: any[], expenses: any[], inventory?: any[], payments?: any[]) => void;
+  setCachedData: (sales: any[], expenses: any[], inventory?: any[], payments?: any[], materials?: any[]) => void;
   updateEntryRetry: (id: string, retryCount: number, lastRetryAt: number) => void;
 }
 
@@ -43,6 +44,7 @@ export const useSyncStore = create<SyncState>()(
       cachedSales: [],
       cachedExpenses: [],
       cachedInventory: [],
+      cachedMaterials: [],
       cachedPayments: [],
 
       addPendingEntry: (type, data) => set((state) => ({
@@ -76,11 +78,12 @@ export const useSyncStore = create<SyncState>()(
         )
       })),
 
-      setCachedData: (sales, expenses, inventory, payments) => set((state) => ({
+      setCachedData: (sales, expenses, inventory, payments, materials) => set((state) => ({
         cachedSales: sales,
         cachedExpenses: expenses,
         cachedInventory: inventory || state.cachedInventory,
-        cachedPayments: payments || state.cachedPayments
+        cachedPayments: payments || state.cachedPayments,
+        cachedMaterials: materials || state.cachedMaterials
       })),
     }),
     {

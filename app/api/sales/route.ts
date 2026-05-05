@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
+import { deductFromInventory } from '@/lib/inventory-deduction';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,9 +12,9 @@ const SALES_HEADERS = [
   'AMOUNT (₦)', 'ADDITIONAL PAYMENT 1', 'ADDITIONAL PAYMENT 2', 'AMOUNT DIFFERENCES', 'PAYMENT STATUS', 
   'JOB STATUS', 'Logged By', 'Sales ID', 'TIMESTAMP', 'TRANSACTION ID'
 ];
-const INVENTORY_HEADERS = [
-  'Item Name', 'Width (ft)', 'Length', 'Unit', 'Price', 'Stock'
-];
+// const INVENTORY_HEADERS = [
+//   'Item Name', 'Width (ft)', 'Length', 'Unit', 'Price', 'Stock'
+// ];
 
 export async function GET() {
   try {
@@ -175,20 +176,19 @@ export async function POST(request: Request) {
         newRows.push(processedValues);
         nextRow++;
 
-        // Decrement Inventory if match found
-        if (inventorySheet && matchedItemName && totalArea > 0) {
-          const invRows = await inventorySheet.getRows();
-          const invRow = invRows.find(r => r.get('Item Name')?.toLowerCase() === matchedItemName.toLowerCase());
-          
-          if (invRow) {
-            const availableStock = parseFloat(invRow.get('Stock')?.toString().replace(/,/g, '') || '0');
-            if (availableStock < totalArea) {
-              return NextResponse.json({ error: `Insufficient stock for ${matchedItemName}. Requested: ${totalArea} sqft, Available: ${availableStock} sqft.` }, { status: 400 });
-            }
-            
-            invRow.set('Stock', availableStock - totalArea);
-            await invRow.save();
-            console.log(`Inventory updated for ${matchedItemName}: -${totalArea.toFixed(2)} sqft`);
+        // Decrement Inventory using upgraded utility
+        if (matchedItemName && item.jobWidth && item.jobHeight) {
+          const deductResult = await deductFromInventory(doc, {
+            materialId: item.canonicalItemName, // selected material
+            rollId: item.rollId,               // specific roll if any
+            jobWidth: parseFloat(item.jobWidth),
+            jobHeight: parseFloat(item.jobHeight),
+            qty: parseFloat(item.qty) || 1,
+            unit: item.dimUnit || 'ft'
+          });
+
+          if (!deductResult.success && deductResult.error?.includes("Insufficient")) {
+            return NextResponse.json({ error: deductResult.error }, { status: 400 });
           }
         }
       }
@@ -256,22 +256,10 @@ export async function POST(request: Request) {
 
       await sheet.addRow(processedValues);
 
-      if (inventorySheet && matchedItemName && (body.totalArea || quantityToSubtract > 0)) {
-        const invRows = await inventorySheet.getRows();
-        const invRow = invRows.find(r => r.get('Item Name')?.toLowerCase() === matchedItemName.toLowerCase());
-        
-        if (invRow) {
-          const areaToSubtract = body.totalArea || quantityToSubtract;
-          const availableStock = parseFloat(invRow.get('Stock')?.toString().replace(/,/g, '') || '0');
-          if (availableStock < areaToSubtract) {
-            return NextResponse.json({ error: `Insufficient stock for ${matchedItemName}. Requested: ${areaToSubtract} sqft, Available: ${availableStock} sqft.` }, { status: 400 });
-          }
-          
-          invRow.set('Stock', availableStock - areaToSubtract);
-          await invRow.save();
-          console.log(`Inventory updated for ${matchedItemName}: -${areaToSubtract.toFixed(2)} sqft`);
-        }
-      }
+      /* Legacy inventory deduction disabled in favor of upgraded batch logic above */
+      // if (inventorySheet && matchedItemName && (body.totalArea || quantityToSubtract > 0)) {
+      //   ...
+      // }
     } else {
       await ensureHeaders(sheet, SALES_HEADERS);
       const rowData = Array.isArray(body) ? [...body, new Date().toISOString()] : { ...body, TIMESTAMP: new Date().toISOString() };
