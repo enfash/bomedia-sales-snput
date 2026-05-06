@@ -74,7 +74,7 @@ function useCustomers() {
   const ITEMS_PER_PAGE = 50;
 
   const fetchData = useCallback(async () => {
-    cachedSales.length === 0 ? setLoading(true) : setRefreshing(true);
+    if (cachedSales.length === 0) setLoading(true); else setRefreshing(true);
     try {
       const [sRes, eRes, pRes] = await Promise.all([
         fetch("/api/sales"),
