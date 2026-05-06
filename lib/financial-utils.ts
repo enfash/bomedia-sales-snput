@@ -88,13 +88,22 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
  * Processes a flat list of sales into a grouped chart data format for outstanding debt.
  * Net balances are calculated per client — overpayments (negative balances) reduce the total.
  * Only clients with a net balance > 1 (to handle float rounding) are included.
+ *
+ * Balance is computed directly from the three payment columns (O, Q, R) rather than
+ * reading AMOUNT DIFFERENCES (Col S), which may be a stale static value or an old
+ * formula that only subtracted the initial payment.
  */
 export function processDebtData(sales: any[], limit = 7) {
   // Step 1: Accumulate net balance per client (positive = owed, negative = overpaid)
   const netByClient: Record<string, number> = {};
 
   sales.forEach((r) => {
-    const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
+    const total       = parseAmount(r["AMOUNT (₦)"]          || r["Amount (₦)"]);
+    const initialPay  = parseAmount(r["INITIAL PAYMENT (₦)"] || r["Initial Payment (₦)"]);
+    const addl1       = parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]);
+    const addl2       = parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]);
+    const balance     = total - initialPay - addl1 - addl2;
+
     const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
     if (!client) return;
     netByClient[client] = (netByClient[client] || 0) + balance;

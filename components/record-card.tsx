@@ -57,9 +57,9 @@ export function RecordCard({
     "Part-payment":
       "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40",
     "In Progress":
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40",
+      "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/40",
     Syncing:
-      "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 animate-pulse hover:bg-brand-100 dark:hover:bg-brand-900/40",
+      "bg-primary/10 text-primary dark:bg-primary/20 animate-pulse hover:bg-primary/10 dark:hover:bg-primary/20",
   };
 
   const handleGenerateReceipt = async (e: React.MouseEvent) => {
@@ -148,7 +148,7 @@ export function RecordCard({
   // Left accent border by record type
   const isExpense = type === "Expense";
   const accentBorder = isPending
-    ? "border-l-[3px] border-l-brand-400"
+    ? "border-l-[3px] border-l-primary/60"
     : isExpense
       ? "border-l-[3px] border-l-primary/40"
       : "border-l-[3px] border-l-primary/50";
@@ -159,7 +159,7 @@ export function RecordCard({
         "p-5 bg-white dark:bg-zinc-900 border rounded-xl shadow-sm mb-2.5 transition-colors duration-300",
         accentBorder,
         isPending
-          ? "border-brand-200 dark:border-brand-900/60 bg-brand-50/10 dark:bg-brand-900/10"
+          ? "border-primary/20 dark:border-primary/20 bg-primary/5 dark:bg-primary/10"
           : "border-gray-100 dark:border-zinc-800",
       )}
     >
@@ -237,7 +237,7 @@ export function RecordCard({
                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                           : record.jobStatus === "Delivered" ||
                               record.jobStatus === "Completed"
-                            ? "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
+                            ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
                             : "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400",
                 )}
               >

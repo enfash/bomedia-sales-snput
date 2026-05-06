@@ -115,7 +115,7 @@ export async function POST(request: Request) {
       }
     });
 
-    const materialId = `${itemName.trim().toUpperCase().replace(/\s+/g, '-')}-${widthNum}FT`;
+    const materialId = `${itemName.trim().toUpperCase().replace(/\s+/g, '-')}-${parseFloat(widthNum.toString())}FT`;
     const rollIds: string[] = [];
 
     for (let i = 1; i <= qty; i++) {

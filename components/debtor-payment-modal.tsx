@@ -29,8 +29,11 @@ interface DebtorPaymentModalProps {
 }
 
 const mapSale = (r: any): UnifiedRecord => {
-  const amount = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
-  const balance = parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]);
+  const amount      = parseAmount(r["AMOUNT (₦)"]          || r["Amount (₦)"]);
+  const initialPay  = parseAmount(r["INITIAL PAYMENT (₦)"] || r["Initial Payment (₦)"]);
+  const addl1       = parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]);
+  const addl2       = parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]);
+  const balance     = Math.max(0, amount - initialPay - addl1 - addl2);
   return {
     id: `sale-${r.DATE}-${r["CLIENT NAME"]}-${r._rowIndex}`,
     date: r.DATE || r.Date || "N/A",
@@ -45,8 +48,8 @@ const mapSale = (r: any): UnifiedRecord => {
     jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
     material: r["Material"] || r["MATERIAL"] || r["material"] || "",
     balance,
-    additionalPayment1: parseAmount(r["ADDITIONAL PAYMENT 1"]),
-    additionalPayment2: parseAmount(r["ADDITIONAL PAYMENT 2"]),
+    additionalPayment1: addl1,
+    additionalPayment2: addl2,
     salesId: r["SALES ID"] || r["Sales ID"] || "",
     raw: r
   };

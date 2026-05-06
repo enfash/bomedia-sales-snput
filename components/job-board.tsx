@@ -40,7 +40,7 @@ const COLUMNS = [
   { id: "Printing", label: "Printing", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400", accent: "border-amber-400 dark:border-amber-500" },
   { id: "Finishing", label: "Finishing / In Progress", color: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400", accent: "border-sky-400 dark:border-sky-500" },
   { id: "Ready", label: "Ready", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400", accent: "border-emerald-400 dark:border-emerald-500" },
-  { id: "Delivered", label: "Delivered / Completed", color: "bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300", accent: "border-brand-400 dark:border-brand-500" },
+  { id: "Delivered", label: "Delivered / Completed", color: "bg-primary/10 dark:bg-primary/20 text-primary", accent: "border-primary/50 dark:border-primary/40" },
 ];
 
 const getColumnId = (status: string) => {

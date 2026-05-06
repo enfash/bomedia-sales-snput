@@ -172,7 +172,7 @@ function ActionGrid() {
     {
       label: "New Sale",
       sub: "Log a job",
-      href: "/new-entry",
+      href: "/cashier/new-entry",
       icon: Plus,
       bg: "bg-orange-500 hover:bg-orange-600",
       text: "text-white",
@@ -209,7 +209,7 @@ function ActionGrid() {
     {
       label: "Estimator",
       sub: "Price a job",
-      href: "/estimator",
+      href: "/cashier/estimator",
       icon: Zap,
       bg: "bg-white dark:bg-zinc-900 hover:bg-orange-50 dark:hover:bg-zinc-800",
       text: "text-gray-800 dark:text-zinc-100",
@@ -364,7 +364,7 @@ function JobFeed({ jobs }: { jobs: any[] }) {
       <div className="flex flex-col items-center justify-center py-10 text-gray-300 dark:text-zinc-700">
         <ShoppingBag className="w-8 h-8 mb-2" />
         <p className="text-xs font-bold">No jobs logged today yet</p>
-        <Link href="/new-entry">
+        <Link href="/cashier/new-entry">
           <Button
             size="sm"
             className="mt-3 h-8 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs"
@@ -401,7 +401,7 @@ function JobFeed({ jobs }: { jobs: any[] }) {
           Printing: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
           Finishing: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
           Ready: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-          Delivered: "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300",
+          Delivered: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
         };
 
         return (
@@ -602,7 +602,7 @@ function DesktopSidePanel({
         {[
           { label: "Job Board", href: "/cashier/board", icon: BarChart3 },
           { label: "Customers", href: "/cashier/customers", icon: Users },
-          { label: "Price Estimator", href: "/estimator", icon: Zap },
+          { label: "Price Estimator", href: "/cashier/estimator", icon: Zap },
           { label: "Material Quick-Check", href: "/quick-check", icon: Ruler },
         ].map(({ label, href, icon: Icon }) => (
           <Link key={href} href={href}>
@@ -1017,8 +1017,8 @@ export default function CashierDashboardPage() {
             {/* Action row */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Log New Sale", href: "/new-entry", icon: Plus, primary: true },
-                { label: "Price Estimator", href: "/estimator", icon: Zap },
+                { label: "Log New Sale", href: "/cashier/new-entry", icon: Plus, primary: true },
+                { label: "Price Estimator", href: "/cashier/estimator", icon: Zap },
                 { label: "Quick Check", href: "/quick-check", icon: Ruler },
               ].map(({ label, href, icon: Icon, primary }) => (
                 <Link key={href} href={href}>

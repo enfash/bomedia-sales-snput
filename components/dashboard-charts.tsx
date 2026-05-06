@@ -287,7 +287,7 @@ export function OutstandingDebtChart({ data, onClientClick }: OutstandingDebtCha
             <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-bold">Top Clients with Unpaid Balances</CardDescription>
           </div>
           {hasData && (
-            <div className="bg-destructive/10 text-destructive-foreground dark:text-destructive text-[10px] font-black px-3 py-1 rounded-full border border-destructive/40 uppercase tracking-wider bg-destructive/10">
+            <div className="bg-destructive/10 text-destructive text-[10px] font-black px-3 py-1 rounded-full border border-destructive/30 uppercase tracking-wider">
               {data.length} client{data.length !== 1 ? "s" : ""}
             </div>
           )}
