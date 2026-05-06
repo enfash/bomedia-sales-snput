@@ -78,7 +78,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       ];
 
   return (
-    <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-60 bg-gray-900 dark:bg-zinc-950 text-white flex flex-col shadow-xl transition-colors duration-500">
+    <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-60 bg-gray-900 dark:bg-zinc-950 text-white flex-col shadow-xl transition-colors duration-500">
       {/* Logo */}
       <div className="flex items-center justify-between px-5 py-6 border-b border-gray-700/60 dark:border-zinc-800/50">
         <Logo className="text-white" />
