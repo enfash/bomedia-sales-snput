@@ -12,9 +12,12 @@ const SALES_HEADERS = [
   'AMOUNT (₦)', 'ADDITIONAL PAYMENT 1', 'ADDITIONAL PAYMENT 2', 'AMOUNT DIFFERENCES', 'PAYMENT STATUS', 
   'JOB STATUS', 'Logged By', 'Sales ID', 'TIMESTAMP', 'TRANSACTION ID'
 ];
-// const INVENTORY_HEADERS = [
-//   'Item Name', 'Width (ft)', 'Length', 'Unit', 'Price', 'Stock'
-// ];
+const INVENTORY_HEADERS = [
+  'Roll ID', 'Item Name', 'Category', 'Width (ft)', 'Raw Length (ft)',
+  'Total Length (ft)', 'Remaining Length (ft)', 'Waste Logged (ft)', 'Unit',
+  'Price', 'Cost', 'Waste Factor', 'Cost per Sqft', 'Low Stock Threshold (ft)',
+  'Status', 'Date Added', 'Material ID',
+];
 
 export async function GET() {
   try {
