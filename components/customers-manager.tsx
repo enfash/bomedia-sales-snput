@@ -96,7 +96,11 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
       const name = (s["CLIENT NAME"] || s["Client Name"] || "Walking Customer").trim();
       const contact = (s["CONTACT"] || s["Contact"] || "").trim();
       const amount = parseAmount(s["TOTAL"] || s["Total"] || s["AMOUNT (₦)"] || s["Amount (₦)"] || s["INITIAL PAYMENT (₦)"]);
-      const debt = parseAmount(s["AMOUNT DIFFERENCES"] || s["Amount Differences"] || s["BALANCE"] || s["Balance"]);
+      const total      = parseAmount(s["AMOUNT (₦)"]          || s["Amount (₦)"]);
+      const initialPay = parseAmount(s["INITIAL PAYMENT (₦)"] || s["Initial Payment (₦)"]);
+      const addl1      = parseAmount(s["ADDITIONAL PAYMENT 1"] || s["Additional Payment 1"]);
+      const addl2      = parseAmount(s["ADDITIONAL PAYMENT 2"] || s["Additional Payment 2"]);
+      const debt       = Math.max(0, total - initialPay - addl1 - addl2);
       const orderDate = s["DATE"] || s["Date"] || "N/A";
       const existing = map.get(name);
       if (existing) {
@@ -151,11 +155,11 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black text-primary dark:text-brand-300 flex items-center gap-2">
+            <h1 className="text-3xl font-black text-primary flex items-center gap-2">
               <Users className="w-8 h-8" /> Customer Manager
             </h1>
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-brand-600 dark:text-brand-300 uppercase tracking-wider bg-brand-50 dark:bg-brand-900/20 px-2 py-0.5 rounded-full animate-pulse border border-brand-100 dark:border-brand-800">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/5 dark:bg-primary/20 px-2 py-0.5 rounded-full animate-pulse border border-primary/20">
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Updating...
               </span>
             )}
@@ -176,17 +180,17 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
 
         {/* Total Clients */}
         <Card className="bg-white dark:bg-zinc-900 border-0 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-950/20 dark:to-transparent" />
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent dark:from-primary/10 dark:to-transparent" />
+          <div className="absolute top-0 left-0 w-1 h-full bg-primary rounded-l" />
           <div className="relative p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest">Total Clients</span>
-              <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+              <div className="p-2 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary">
                 <Users className="w-4 h-4" />
               </div>
             </div>
             <p className="text-3xl font-black text-gray-900 dark:text-white">{totalClients}</p>
-            <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold mt-1 flex items-center gap-1">
+            <p className="text-[10px] text-primary font-bold mt-1 flex items-center gap-1">
               <TrendingUp className="w-3 h-3" /> All-time unique clients
             </p>
           </div>
@@ -247,7 +251,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
           <Input
-            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-brand-500 dark:text-zinc-100 dark:placeholder:text-zinc-600"
+            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-primary dark:text-zinc-100 dark:placeholder:text-zinc-600"
             placeholder="Search by name or contact..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -273,7 +277,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
             onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
             className="h-11 w-11 rounded-xl border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
             title={sortOrder === "asc" ? "Ascending" : "Descending"}>
-            <ArrowUpDown className={`w-4 h-4 text-brand-700 dark:text-brand-400 transition-transform ${sortOrder === "desc" ? "rotate-180" : ""}`} />
+            <ArrowUpDown className={`w-4 h-4 text-primary transition-transform ${sortOrder === "desc" ? "rotate-180" : ""}`} />
           </Button>
         </div>
       </div>
@@ -322,7 +326,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                   </TableCell>
                   {/* Orders badge */}
                   <TableCell className="text-center">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-black">
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 dark:bg-primary/20 text-primary text-xs font-black">
                       {client.totalOrders}
                     </span>
                   </TableCell>
@@ -365,17 +369,15 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                   </TableCell>
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-2">
-                      {isAdmin && (
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-8 w-8 rounded-lg text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/50 hover:bg-brand-50 dark:hover:bg-brand-900/20"
-                          onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
-                          title="View Client Audit Timeline"
-                        >
-                          <Activity className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg text-primary border-primary/20 hover:bg-primary/5 dark:hover:bg-primary/10"
+                        onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
+                        title="View Client Timeline"
+                      >
+                        <Activity className="w-4 h-4" />
+                      </Button>
                       <WhatsAppReminder
                         clientName={client.name}
                         contact={client.contact || ""}
@@ -423,17 +425,15 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                     </div>
                   </div>
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    {isAdmin && (
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-8 w-8 rounded-lg text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/50 hover:bg-brand-50 dark:hover:bg-brand-900/20"
-                        onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
-                        title="View Client Audit Timeline"
-                      >
-                        <Activity className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg text-primary border-primary/20 hover:bg-primary/5 dark:hover:bg-primary/10"
+                      onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
+                      title="View Client Timeline"
+                    >
+                      <Activity className="w-4 h-4" />
+                    </Button>
                     <WhatsAppReminder
                       clientName={client.name}
                       contact={client.contact || ""}
@@ -447,7 +447,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                 <div className="grid grid-cols-3 gap-2 mt-3 bg-gray-50 dark:bg-zinc-800/40 p-3 rounded-xl">
                   <div className="text-center">
                     <span className="text-[9px] uppercase tracking-wider font-black text-gray-400 dark:text-zinc-500">Orders</span>
-                    <p className="text-sm font-black text-blue-600 dark:text-blue-400 mt-0.5">{client.totalOrders}</p>
+                    <p className="text-sm font-black text-primary mt-0.5">{client.totalOrders}</p>
                   </div>
                   {isAdmin ? (
                     <div className="text-center border-l border-r border-gray-200 dark:border-zinc-700">
@@ -457,7 +457,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                   ) : (
                     <div className="text-center border-l border-r border-gray-200 dark:border-zinc-700">
                       <span className="text-[9px] uppercase tracking-wider font-black text-gray-400 dark:text-zinc-500">Activity</span>
-                      <p className="text-sm font-black text-brand-600 mt-0.5">{client.totalOrders} Jobs</p>
+                      <p className="text-sm font-black text-primary mt-0.5">{client.totalOrders} Jobs</p>
                     </div>
                   )}
                   <div className="text-center">
@@ -486,7 +486,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
       {sortedCustomers.length > 0 && (
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-zinc-800">
           <p className="text-xs font-bold text-gray-600 dark:text-zinc-400 order-2 sm:order-1">
-            Showing <span className="text-primary dark:text-brand-300">
+            Showing <span className="text-primary">
               {Math.min(sortedCustomers.length, (currentPage - 1) * itemsPerPage + 1)}–{Math.min(sortedCustomers.length, currentPage * itemsPerPage)}
             </span> of {sortedCustomers.length} customers
           </p>

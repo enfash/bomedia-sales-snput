@@ -147,6 +147,25 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           </div>
         </div>
 
+        {/* Payment Details */}
+        <div className="mb-8 bg-gray-50 rounded-xl p-5 border border-gray-100">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Payment Details</p>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Account Name</span>
+              <span className="font-bold text-gray-900">Broad Options Media / Fasugba Elijah Niyi</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Account Number</span>
+              <span className="font-black text-gray-900 tracking-widest">5236650819</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Bank</span>
+              <span className="font-bold text-gray-900">Moniepoint MFB</span>
+            </div>
+          </div>
+        </div>
+
         {/* Footer */}
         <div className="border-t border-gray-200 pt-6 text-center">
           <p className="text-sm font-bold text-gray-800 mb-1">Thank you for your business!</p>

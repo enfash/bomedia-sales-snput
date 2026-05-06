@@ -51,7 +51,7 @@ function StatusBadge({ status }: { status: RecordStatus }) {
   const map: Record<RecordStatus, string> = {
     Settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border-none",
     "Part-payment": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40 border-none",
-    "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 border-none",
+    "In Progress": "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/40 border-none",
     Syncing: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse hover:bg-orange-100 dark:hover:bg-orange-900/40 border-none",
   };
   return (
@@ -146,8 +146,13 @@ export default function CashierRecordsPage() {
       additionalPayment1: parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]),
       additionalPayment2: parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]),
       jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
-      balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
-      salesId: r["SALES ID"] || r["Sales Id"] || "",
+      balance: Math.max(0,
+        amount
+        - parseAmount(r["INITIAL PAYMENT (₦)"] || r["Initial Payment (₦)"])
+        - parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"])
+        - parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"])
+      ),
+      salesId: r["Sales ID"] || r["SALES ID"] || r["Sales Id"] || "",
       raw: r
     };
   };
