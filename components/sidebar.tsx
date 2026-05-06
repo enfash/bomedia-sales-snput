@@ -34,17 +34,21 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
   const handleLogout = async () => {
     const userName = localStorage.getItem("userName");
     localStorage.removeItem("userName");
-    
-    // Attempt to free the session if applicable
+
     if (userName) {
-      await fetch("/api/cashiers", {
+      fetch("/api/cashiers", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: userName, status: "Offline" }),
       }).catch(() => {});
     }
 
-    await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Ignore — cookie is cleared server-side; redirect anyway
+    }
+
     window.location.href = "/";
   };
 

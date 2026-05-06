@@ -165,7 +165,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
           onClick={() => setIsOpen(false)}
         >
           <div 
-            className="absolute left-0 top-0 bottom-0 w-[280px] bg-gray-900 dark:bg-zinc-950 p-6 shadow-2xl flex flex-col animation-in slide-in-from-left duration-300 transition-colors duration-500"
+            className="absolute left-0 top-0 bottom-0 w-[280px] bg-gray-900 dark:bg-zinc-950 p-6 shadow-2xl flex flex-col animation-in slide-in-from-left transition-colors duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-8">
@@ -181,7 +181,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                     key={href}
                     href={href}
                     className={cn(
-                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-all transition-all duration-200",
+                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200",
                       active
                         ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
                         : "text-gray-300 hover:bg-white/5 hover:text-white"
