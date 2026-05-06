@@ -70,9 +70,9 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    /* Brand blue — lightened for dark bg legibility */
-    --primary: 234 65% 65%;
-    --primary-foreground: 234 51% 10%;
+    /* Brand blue — same as light mode #2e388e */
+    --primary: 234 51% 37%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 234 30% 17%;
     --secondary-foreground: 210 40% 98%;
@@ -88,7 +88,7 @@
 
     --border: 234 20% 17%;
     --input: 234 20% 17%;
-    --ring: 234 65% 65%;
+    --ring: 234 51% 37%;
   }
 
   .dark.theme-amber {
