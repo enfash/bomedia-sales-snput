@@ -350,7 +350,7 @@ export default function RecordsPage() {
   const paginatedUnits = displayUnits.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="p-3 md:p-8 bg-slate-50/80 dark:bg-[#2e388e0d] min-h-screen pb-32 transition-colors duration-500">
+    <div className="p-3 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
