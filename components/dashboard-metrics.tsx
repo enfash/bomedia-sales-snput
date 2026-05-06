@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2 } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -38,6 +38,7 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
 interface MetricCardProps {
   title: string;
   value: number;
+  displayValue?: string;
   change?: string;
   isPositive?: boolean;
   icon: React.ElementType;
@@ -49,6 +50,7 @@ interface MetricCardProps {
 export function MetricCard({
   title,
   value,
+  displayValue,
   change,
   isPositive,
   icon: Icon,
@@ -100,7 +102,7 @@ export function MetricCard({
           "font-black tracking-tight text-foreground leading-none truncate",
           isHero ? "text-2xl sm:text-4xl" : "text-base sm:text-xl lg:text-2xl"
         )}>
-          ₦{value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+          {displayValue ?? `₦${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}`}
         </p>
         {(subLabel || (isHero && change)) && (
           <div className="flex items-center gap-2 mt-1 sm:mt-2">
@@ -157,6 +159,8 @@ interface DashboardMetricsProps {
   isSalesUp: boolean;
   isExpensesDown: boolean;
   isProfitUp: boolean;
+  grossMarginPct: number;
+  prevGrossMarginPct: number;
   sparkData?: number[];
 }
 
@@ -172,12 +176,17 @@ export function DashboardMetrics({
   isSalesUp,
   isExpensesDown,
   isProfitUp,
+  grossMarginPct,
+  prevGrossMarginPct,
   sparkData,
 }: DashboardMetricsProps) {
+  const marginChange = `${Math.abs(Math.round(grossMarginPct - prevGrossMarginPct))}pp`;
+  const isMarginUp = grossMarginPct >= prevGrossMarginPct;
+
   return (
-    <div className="grid grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-4">
-      {/* Hero Card — Spans 3 columns on mobile to fill width, 2 columns on desktop */}
-      <div className="col-span-3 lg:col-span-2">
+    <div className="grid grid-cols-2 lg:grid-cols-6 gap-1.5 sm:gap-4">
+      {/* Hero Card — full width on mobile, 2 cols on desktop */}
+      <div className="col-span-2 lg:col-span-2">
         <MetricCard
           variant="hero"
           title="Total Sales"
@@ -188,7 +197,7 @@ export function DashboardMetrics({
           sparkData={sparkData}
         />
       </div>
-      
+
       <div className="col-span-1">
         <MetricCard
           title="Expenses"
@@ -198,7 +207,7 @@ export function DashboardMetrics({
           icon={DollarSign}
         />
       </div>
-      
+
       <div className="col-span-1">
         <MetricCard
           title="Net Profit"
@@ -208,7 +217,7 @@ export function DashboardMetrics({
           icon={BarChart2}
         />
       </div>
-      
+
       <div className="col-span-1">
         <MetricCard
           variant="alert"
@@ -216,6 +225,18 @@ export function DashboardMetrics({
           value={outstandingDebt}
           icon={AlertCircle}
           subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
+        />
+      </div>
+
+      <div className="col-span-1">
+        <MetricCard
+          title="Gross Margin"
+          value={grossMarginPct}
+          displayValue={totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%"}
+          change={totalSales > 0 ? marginChange : undefined}
+          isPositive={isMarginUp}
+          icon={Percent}
+          subLabel={totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet"}
         />
       </div>
     </div>

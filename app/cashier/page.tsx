@@ -69,12 +69,14 @@ function ShiftHero({
   revenueToday,
   collectedToday,
   pendingCount,
+  inProgressCount,
 }: {
   cashierName: string;
   jobsToday: number;
   revenueToday: number;
   collectedToday: number;
   pendingCount: number;
+  inProgressCount: number;
 }) {
   const progressPct =
     revenueToday > 0
@@ -113,20 +115,21 @@ function ShiftHero({
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-4 gap-2 mb-5">
           {[
             { label: "Jobs", val: String(jobsToday) },
             { label: "Revenue", val: fmtMoney(revenueToday) },
             { label: "Collected", val: fmtMoney(collectedToday) },
-          ].map(({ label, val }) => (
+            { label: "In Progress", val: String(inProgressCount), highlight: inProgressCount > 0 },
+          ].map(({ label, val, highlight }) => (
             <div
               key={label}
-              className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 border border-white/10 text-center"
+              className={cn("backdrop-blur-sm rounded-2xl p-2.5 border text-center", highlight ? "bg-yellow-300/20 border-yellow-300/30" : "bg-white/15 border-white/10")}
             >
-              <p className="text-orange-200 text-[9px] font-black uppercase tracking-widest mb-1">
+              <p className="text-orange-200 text-[8px] font-black uppercase tracking-widest mb-1">
                 {label}
               </p>
-              <p className="text-base font-black text-white leading-none">
+              <p className={cn("text-sm font-black leading-none", highlight ? "text-yellow-300" : "text-white")}>
                 {val}
               </p>
             </div>
@@ -721,6 +724,12 @@ export default function CashierDashboardPage() {
     [allSales]
   );
 
+  // ── In-progress jobs ─────────────────────────────────────────────────────
+  const inProgressJobs = todaySales.filter((r) => {
+    const s = (r["JOB STATUS"] || r["Job Status"] || "").toString().trim();
+    return ["Printing", "Finishing", "Ready"].includes(s);
+  });
+
   // ── Today metrics ────────────────────────────────────────────────────────
   const todayRevenue = todaySales.reduce(
     (s, r) => s + parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]),
@@ -800,6 +809,7 @@ export default function CashierDashboardPage() {
           revenueToday={todayRevenue}
           collectedToday={todayCollected}
           pendingCount={pendingQueue.length}
+          inProgressCount={inProgressJobs.length}
         />
 
         {/* Action grid */}
@@ -928,7 +938,7 @@ export default function CashierDashboardPage() {
         </div>
 
         {/* Desktop metric strip */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
           {[
             {
               label: "Today's Jobs",
@@ -936,6 +946,13 @@ export default function CashierDashboardPage() {
               sub: "logged this shift",
               icon: ShoppingBag,
               accent: "orange",
+            },
+            {
+              label: "In Progress",
+              val: String(inProgressJobs.length),
+              sub: inProgressJobs.length > 0 ? "Printing / Finishing / Ready" : "No active jobs",
+              icon: Clock,
+              accent: inProgressJobs.length > 0 ? "amber" : "green",
             },
             {
               label: "Today's Revenue",
