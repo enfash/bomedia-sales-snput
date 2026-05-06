@@ -474,25 +474,35 @@ function SummaryBar({
 
 export function SalesEntry() {
   // ── Inventory/Materials state ───────────────────────────────────────────
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [materialsLoading, setMaterialsLoading] = useState(true);
+  const { cachedMaterials, setCachedData, cachedSales, cachedExpenses, cachedInventory, cachedPayments } = useSyncStore();
+  const [materialsLoading, setMaterialsLoading] = useState(false);
 
-  const fetchMaterials = useCallback(async () => {
-    setMaterialsLoading(true);
+  const materials = cachedMaterials;
+
+  const fetchMaterials = useCallback(async (silent = false) => {
+    if (!silent) setMaterialsLoading(true);
     try {
       const res = await fetch("/api/materials");
       const json = await res.json();
-      if (res.ok) setMaterials(json.data || []);
+      if (res.ok) {
+        setCachedData(cachedSales, cachedExpenses, cachedInventory, cachedPayments, json.data || []);
+      } else {
+        toast.error(`Materials: ${json.error || "Failed to load"}`);
+      }
     } catch {
-      toast.error("Could not load material profiles");
+      toast.error("Could not load material profiles — check connection");
     } finally {
       setMaterialsLoading(false);
     }
-  }, []);
+  }, [cachedSales, cachedExpenses, cachedInventory, cachedPayments, setCachedData]);
 
   useEffect(() => {
-    fetchMaterials();
-  }, [fetchMaterials]);
+    // Only fetch if cache is empty; otherwise use cached data immediately
+    if (cachedMaterials.length === 0) {
+      fetchMaterials();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Batch meta (client info) ─────────────────────────────────────────────
   const [meta, setMeta] = useState<BatchMeta>({
@@ -506,7 +516,6 @@ export function SalesEntry() {
     setMeta((prev) => ({ ...prev, [k]: v }));
 
   // ── Client suggestions ───────────────────────────────────────────────────
-  const cachedSales = useSyncStore((s) => s.cachedSales);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const uniqueClients = useMemo(() => {
@@ -614,10 +623,9 @@ export function SalesEntry() {
       return;
     }
     if (!stockOk) {
-      toast.error(
-        `Not enough stock for ${selectedMaterialId}. Need ${jobLengthFt.toFixed(1)}ft but total material stock is only ${matRemaining.toFixed(1)}ft.`
+      toast.warning(
+        `Low stock warning: need ${jobLengthFt.toFixed(1)}ft but only ${matRemaining.toFixed(1)}ft available. Job added — restock before printing.`
       );
-      return;
     }
 
     const newItem: CartItem = {
@@ -717,10 +725,6 @@ export function SalesEntry() {
     }
     if (cart.length === 0) {
       toast.error("Add at least one job to the order");
-      return;
-    }
-    if (cart.some((i) => i.remainingAfterJob < 0)) {
-      toast.error("One or more jobs exceed available roll stock");
       return;
     }
     setShowConfirm(true);
@@ -956,7 +960,7 @@ export function SalesEntry() {
               </div>
               <button
                 type="button"
-                onClick={fetchMaterials}
+                onClick={() => fetchMaterials()}
                 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-primary dark:text-zinc-500 dark:hover:text-primary transition-colors"
               >
                 <RefreshCw
@@ -1252,7 +1256,7 @@ export function SalesEntry() {
             {/* Add to order CTA */}
             <Button
               onClick={handleAddToCart}
-              disabled={!selectedMaterialId || !jobWidth || !jobHeight || !stockOk || !widthCompatible}
+              disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}
               className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />

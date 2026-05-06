@@ -136,16 +136,15 @@ export async function deductFromInventory(
 
     const totalConsumedLength = consumedLengthPerJob * qty;
 
-    // 3. Stock Check
+    // 3. Read current stock (no hard block — sales are always logged; inventory depletes to 0)
     const currentRemaining = parseFloat(rollRow.get("Remaining Length (ft)") || "0") || 0;
     if (totalConsumedLength > currentRemaining + 0.1) {
-      return {
-        success: false,
-        error: `Insufficient stock on active roll ${rollRow.get("Roll ID")}. Need ${totalConsumedLength.toFixed(1)}ft, have ${currentRemaining.toFixed(1)}ft.`,
-      };
+      console.warn(
+        `[Inventory] Over-deduction on ${rollRow.get("Roll ID")}: need ${totalConsumedLength.toFixed(1)}ft, have ${currentRemaining.toFixed(1)}ft. Depleting to 0.`
+      );
     }
 
-    // 4. Update Roll
+    // 4. Update Roll (Math.max clamps to 0 when over-consumed)
     const newRemaining = Math.max(0, currentRemaining - totalConsumedLength);
     const threshold = parseFloat(rollRow.get("Low Stock Threshold (ft)") || "20") || 20;
     

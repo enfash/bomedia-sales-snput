@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePathname } from "next/navigation";
 
@@ -27,8 +28,10 @@ type Cashier = {
 export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const [selectedName, setSelectedName] = useState("");
+  const [manualName, setManualName] = useState("");
   const [cashiers, setCashiers] = useState<Cashier[]>([]);
   const [isLoadingCashiers, setIsLoadingCashiers] = useState(false);
+  const [apiFailed, setApiFailed] = useState(false);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const pathname = usePathname();
@@ -50,20 +53,29 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
     }
   }, [isAdmin]);
 
-  // Fetch cashiers when the dialog opens so the dropdown is populated
   useEffect(() => {
     if (!open) return;
     setIsLoadingCashiers(true);
+    setApiFailed(false);
     fetch("/api/cashiers")
       .then((r) => r.json())
-      .then(({ data }) => setCashiers((data as Cashier[]) || []))
-      .catch(() => setError("Could not load cashier list. Check your connection."))
+      .then(({ data }) => {
+        const list = (data as Cashier[]) || [];
+        setCashiers(list);
+        if (list.length === 0) setApiFailed(true);
+      })
+      .catch(() => {
+        setApiFailed(true);
+        setError("");
+      })
       .finally(() => setIsLoadingCashiers(false));
   }, [open]);
 
   const handleSave = async () => {
-    if (!selectedName) {
-      setError("Please select your name from the list.");
+    const nameToUse = apiFailed ? manualName.trim() : selectedName;
+
+    if (!nameToUse) {
+      setError(apiFailed ? "Please enter your name." : "Please select your name from the list.");
       return;
     }
 
@@ -71,36 +83,20 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
     setError("");
 
     try {
-      const cashier = cashiers.find((c) => c.Name === selectedName);
-
-      if (!cashier) {
-        setError("Name not found. Refresh and try again.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (cashier.Status === "Online") {
-        setError(`"${cashier.Name}" is currently logged in elsewhere.`);
-        setIsSaving(false);
-        return;
-      }
-
-      const res = await fetch("/api/cashiers", {
+      // Try to update status — but don't block login if it fails
+      await fetch("/api/cashiers", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: cashier.Name, status: "Online" }),
-      });
+        body: JSON.stringify({ name: nameToUse, status: "Online" }),
+      }).catch(() => {/* non-blocking */});
 
-      if (res.ok) {
-        localStorage.setItem("userName", cashier.Name);
-        setOpen(false);
-        setError("");
-      } else {
-        const resData = await res.json();
-        setError(resData.error || "Failed to log in");
-      }
+      localStorage.setItem("userName", nameToUse);
+      setOpen(false);
+      setError("");
     } catch {
-      setError("Network error. Try again.");
+      // Even if the PATCH fails, let them in
+      localStorage.setItem("userName", nameToUse);
+      setOpen(false);
     } finally {
       setIsSaving(false);
     }
@@ -108,10 +104,7 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
 
   if (pathname === "/bom03/login" || pathname === "/") return null;
 
-  // Partition into available (Offline) and busy (Online) so busy names are
-  // visible but disabled — cashier can see the full team at a glance.
-  const availableCashiers = cashiers.filter((c) => c.Status !== "Online");
-  const busyCashiers = cashiers.filter((c) => c.Status === "Online");
+  const activeName = apiFailed ? manualName.trim() : selectedName;
 
   return (
     <Fragment>
@@ -127,63 +120,80 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
               👋 Welcome to BOMedia
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Select your name from the list to continue to the cashier portal.
+              {apiFailed
+                ? "Type your name to continue to the cashier portal."
+                : "Select your name from the list to continue to the cashier portal."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-2 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cashier-select">Select Your Name</Label>
+              <Label htmlFor="cashier-select">
+                {apiFailed ? "Your Name" : "Select Your Name"}
+              </Label>
 
-              <Select
-                value={selectedName}
-                onValueChange={(val) => {
-                  setSelectedName(val);
-                  setError("");
-                }}
-                disabled={isLoadingCashiers || isSaving}
-              >
-                <SelectTrigger
+              {apiFailed ? (
+                <Input
                   id="cashier-select"
-                  className={`h-12 rounded-xl font-semibold ${error ? "border-red-500 focus:ring-red-500" : ""}`}
+                  placeholder="Type your name…"
+                  value={manualName}
+                  onChange={(e) => {
+                    setManualName(e.target.value);
+                    setError("");
+                  }}
+                  className="h-12 rounded-xl font-semibold"
+                  autoFocus
+                />
+              ) : (
+                <Select
+                  value={selectedName}
+                  onValueChange={(val) => {
+                    setSelectedName(val);
+                    setError("");
+                  }}
+                  disabled={isLoadingCashiers || isSaving}
                 >
-                  <SelectValue
-                    placeholder={
-                      isLoadingCashiers ? "Loading cashiers..." : "Choose your name"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {availableCashiers.length > 0 && (
-                    <>
-                      {availableCashiers.map((c) => (
-                        <SelectItem key={c.Name} value={c.Name} className="font-semibold">
-                          {c.Name}
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                  {busyCashiers.length > 0 && (
-                    <>
-                      {busyCashiers.map((c) => (
-                        <SelectItem
-                          key={c.Name}
-                          value={c.Name}
-                          disabled
-                          className="text-muted-foreground line-through font-medium"
-                        >
-                          {c.Name} — online
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                  {cashiers.length === 0 && !isLoadingCashiers && (
-                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                      No cashiers found. Ask admin to add your name.
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    id="cashier-select"
+                    className={`h-12 rounded-xl font-semibold ${error ? "border-red-500 focus:ring-red-500" : ""}`}
+                  >
+                    <SelectValue
+                      placeholder={
+                        isLoadingCashiers ? "Loading cashiers..." : "Choose your name"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {cashiers.map((c) => (
+                      <SelectItem
+                        key={c.Name}
+                        value={c.Name}
+                        className="font-semibold"
+                      >
+                        {c.Name}
+                        {c.Status === "Online" && (
+                          <span className="ml-2 text-[10px] text-amber-500 font-bold">● active</span>
+                        )}
+                      </SelectItem>
+                    ))}
+                    {cashiers.length === 0 && !isLoadingCashiers && (
+                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                        No cashiers found. Ask admin to add your name.
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {!apiFailed && (
+                <button
+                  type="button"
+                  onClick={() => { setApiFailed(true); setError(""); }}
+                  className="text-[11px] text-muted-foreground hover:text-primary underline underline-offset-2 transition-colors"
+                >
+                  My name isn't in the list
+                </button>
+              )}
 
               {error && (
                 <p className="text-xs text-red-500 font-medium mt-1">{error}</p>
@@ -193,7 +203,7 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
             <Button
               className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl"
               onClick={handleSave}
-              disabled={!selectedName || isSaving || isLoadingCashiers}
+              disabled={!activeName || isSaving || isLoadingCashiers}
             >
               {isSaving ? "Logging in..." : "Get Started"}
             </Button>

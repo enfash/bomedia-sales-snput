@@ -200,8 +200,8 @@ export async function POST(request: Request) {
             unit: item.dimUnit || 'ft'
           });
 
-          if (!deductResult.success && deductResult.error?.includes("Insufficient")) {
-            return NextResponse.json({ error: deductResult.error }, { status: 400 });
+          if (!deductResult.success) {
+            console.warn(`[Sales] Inventory deduction skipped: ${deductResult.error}`);
           }
         }
       }
