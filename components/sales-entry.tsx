@@ -77,6 +77,7 @@ interface CartItem {
   jobLengthFt: number;
   remainingAfterJob: number;
   fromInventory: boolean;
+  isFlipped: boolean;
 }
 
 interface BatchMeta {
@@ -166,14 +167,14 @@ function MaterialSelector({
         className={cn(
           "w-full h-14 rounded-2xl border-2 px-4 flex items-center justify-between transition-all text-left",
           selectedMaterialId
-            ? "border-brand-500 bg-brand-50/50 dark:bg-brand-900/20 dark:border-brand-700"
-            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-brand-300 dark:hover:border-brand-700"
+            ? "border-primary bg-primary/5 dark:bg-primary/10 dark:border-primary/70"
+            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-primary/50 dark:hover:border-primary/50"
         )}
       >
         {selected ? (
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
-              <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+            <div className="w-8 h-8 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
+              <Layers className="w-4 h-4 text-primary" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-black text-gray-900 dark:text-white truncate">
@@ -241,10 +242,10 @@ function MaterialSelector({
                           className={cn(
                             "w-full p-4 rounded-2xl border-2 text-left transition-all",
                             mat["Material ID"] === selectedMaterialId
-                              ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20"
+                              ? "border-primary bg-primary/5 dark:bg-primary/10"
                               : isOut
                               ? "border-gray-100 dark:border-zinc-800 opacity-40 cursor-not-allowed"
-                              : "border-gray-100 dark:border-zinc-800 hover:border-brand-300 dark:hover:border-brand-700 bg-white dark:bg-zinc-900"
+                              : "border-gray-100 dark:border-zinc-800 hover:border-primary/50 dark:hover:border-primary/50 bg-white dark:bg-zinc-900"
                           )}
                         >
                           <div className="flex items-center justify-between mb-2">
@@ -322,9 +323,14 @@ function CartItemCard({
             <p className="text-sm font-black text-gray-900 dark:text-white truncate">
               {item.jobDescription || "Unnamed job"}
             </p>
-            <Badge className="text-[9px] font-black border-none bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+            <Badge className="text-[9px] font-black border-none bg-primary/10 text-primary dark:bg-primary/20">
               {item.rollLabel}
             </Badge>
+            {item.isFlipped && (
+              <Badge className="text-[9px] font-black border-none bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                ↻ Auto-Rotated
+              </Badge>
+            )}
           </div>
           <p className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
             {item.qty}× · {item.jobWidth}{item.dimUnit} × {item.jobHeight}{item.dimUnit} ·{" "}
@@ -431,8 +437,8 @@ function SummaryBar({
             onClick={() => setExpanded((v) => !v)}
             className="flex items-center gap-2 flex-1 min-w-0"
           >
-            <div className="w-8 h-8 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
-              <Receipt className="w-4 h-4 text-brand-700 dark:text-brand-400" />
+            <div className="w-8 h-8 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
+              <Receipt className="w-4 h-4 text-primary" />
             </div>
             <div className="text-left min-w-0">
               <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
@@ -453,7 +459,7 @@ function SummaryBar({
           <Button
             onClick={onSubmit}
             disabled={disabled}
-            className="h-12 px-6 rounded-2xl bg-brand-700 hover:bg-brand-800 text-white font-black shadow-lg shadow-brand-700/20 shrink-0 flex items-center gap-2"
+            className="h-12 px-6 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black shadow-lg shadow-primary/20 shrink-0 flex items-center gap-2"
           >
             Review
             <ArrowRight className="w-4 h-4" />
@@ -561,24 +567,26 @@ export function SalesEntry() {
     return dimUnit === "in" ? h / 12 : h;
   }, [jobHeight, dimUnit]);
 
+  // Orientation check must run before jobLengthFt so the flip informs the length calc
+  const rollWidth = selectedMaterial ? parseNum(selectedMaterial["Width (ft)"]) : 0;
+  const fitsNormal  = !selectedMaterial || jobWFt <= rollWidth;
+  const fitsFlipped = !selectedMaterial || jobHFt <= rollWidth;
+  const isFlipped   = !fitsNormal && fitsFlipped; // job is rotated 90° to fit the roll width
+  const widthCompatible = fitsNormal || fitsFlipped;
+
   const qtyNum = parseInt(qty) || 1;
   const costPerSqft = parseFloat(costOverride) || 0;
-  const unitSqft = jobWFt * jobHFt;
+  const unitSqft = jobWFt * jobHFt; // area is the same regardless of orientation
   const unitCost = unitSqft * costPerSqft;
   const totalAmount = unitCost * qtyNum;
-  const jobLengthFt = jobHFt * qtyNum; // linear feet consumed from roll
+  // When flipped, job width runs along the roll length; otherwise height does
+  const jobLengthFt = (isFlipped ? jobWFt : jobHFt) * qtyNum;
 
   const matRemaining = selectedMaterial
     ? parseNum(selectedMaterial["Total Remaining (ft)"])
     : 0;
   const remainingAfterJob = matRemaining - jobLengthFt;
   const stockOk = jobLengthFt === 0 || remainingAfterJob >= 0;
-
-  // Orientation Check: Does it fit the roll width (in either direction)?
-  const rollWidth = selectedMaterial ? parseNum(selectedMaterial["Width (ft)"]) : 0;
-  const fitsNormal = jobWFt <= rollWidth;
-  const fitsFlipped = jobHFt <= rollWidth;
-  const widthCompatible = !selectedMaterial || (fitsNormal || fitsFlipped);
 
   // ── Cart ─────────────────────────────────────────────────────────────────
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -595,9 +603,14 @@ export function SalesEntry() {
       return;
     }
     if (!widthCompatible) {
-      toast.error(
-        `Job dimensions (${jobWFt.toFixed(1)}ft x ${jobHFt.toFixed(1)}ft) do not fit the roll width (${rollWidth.toFixed(1)}ft) in any orientation.`
-      );
+      if (dimUnit === "in") {
+        const wIn = parseFloat(jobWidth) || 0;
+        const hIn = parseFloat(jobHeight) || 0;
+        const rwIn = (rollWidth * 12).toFixed(0);
+        toast.error(`Job (${wIn}in × ${hIn}in): largest dimension must be ≤ ${rwIn}in to fit the roll (${rollWidth}ft wide).`);
+      } else {
+        toast.error(`Job (${jobWFt.toFixed(1)}ft × ${jobHFt.toFixed(1)}ft) exceeds roll width (${rollWidth.toFixed(1)}ft) in both orientations.`);
+      }
       return;
     }
     if (!stockOk) {
@@ -625,6 +638,7 @@ export function SalesEntry() {
       jobLengthFt,
       remainingAfterJob,
       fromInventory: true,
+      isFlipped,
     };
 
     setCart((prev) => [...prev, newItem]);
@@ -832,13 +846,13 @@ export function SalesEntry() {
           <TabsList className="bg-gray-100 dark:bg-zinc-900 p-1 rounded-full border border-gray-200 dark:border-zinc-800 gap-1">
             <TabsTrigger
               value="manual"
-              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-brand-700 data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
+              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
             >
               ✏️ Manual
             </TabsTrigger>
             <TabsTrigger
               value="ai"
-              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-brand-700 data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
+              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
             >
               ⚡ AI Log
             </TabsTrigger>
@@ -851,8 +865,8 @@ export function SalesEntry() {
           {/* ── SECTION 1: Client Info ──────────────────────────────────── */}
           <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
             <div className="flex items-center gap-2 mb-5">
-              <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
-                <User className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
+              <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-primary" />
               </div>
               <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
                 Client Info
@@ -897,7 +911,7 @@ export function SalesEntry() {
                       <button
                         key={c}
                         type="button"
-                        className="w-full px-4 py-3 text-sm font-bold text-left text-gray-700 dark:text-zinc-300 hover:bg-brand-50 dark:hover:bg-zinc-800 transition-colors border-b border-gray-50 dark:border-zinc-800 last:border-0"
+                        className="w-full px-4 py-3 text-sm font-bold text-left text-gray-700 dark:text-zinc-300 hover:bg-primary/5 dark:hover:bg-zinc-800 transition-colors border-b border-gray-50 dark:border-zinc-800 last:border-0"
                         onMouseDown={() => {
                           setMetaField("clientName", c);
                           setMetaField(
@@ -933,8 +947,8 @@ export function SalesEntry() {
           <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
-                  <Layers className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
+                <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                  <Layers className="w-3.5 h-3.5 text-primary" />
                 </div>
                 <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
                   Roll & Material
@@ -943,7 +957,7 @@ export function SalesEntry() {
               <button
                 type="button"
                 onClick={fetchMaterials}
-                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-brand-600 dark:text-zinc-500 dark:hover:text-brand-400 transition-colors"
+                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-primary dark:text-zinc-500 dark:hover:text-primary transition-colors"
               >
                 <RefreshCw
                   className={cn("w-3 h-3", materialsLoading && "animate-spin")}
@@ -1014,8 +1028,8 @@ export function SalesEntry() {
           <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
-                  <Ruler className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
+                <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                  <Ruler className="w-3.5 h-3.5 text-primary" />
                 </div>
                 <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
                   Job Dimensions & Pricing
@@ -1031,7 +1045,7 @@ export function SalesEntry() {
                     className={cn(
                       "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all",
                       dimUnit === u
-                        ? "bg-brand-700 text-white shadow-sm"
+                        ? "bg-primary text-white shadow-sm"
                         : "text-gray-500 dark:text-zinc-400"
                     )}
                   >
@@ -1115,7 +1129,7 @@ export function SalesEntry() {
               <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider flex items-center gap-1.5">
                 Cost Per Sqft (₦)
                 {selectedMaterial && (
-                  <span className="text-[9px] text-brand-500 dark:text-brand-400 normal-case font-bold">
+                  <span className="text-[9px] text-primary normal-case font-bold">
                     · auto-filled from material
                   </span>
                 )}
@@ -1125,7 +1139,7 @@ export function SalesEntry() {
                 placeholder="e.g. 200"
                 value={costOverride}
                 onChange={(e) => setCostOverride(e.target.value)}
-                className="h-12 rounded-xl font-bold text-brand-700 dark:text-brand-400 dark:bg-zinc-800 dark:border-zinc-700"
+                className="h-12 rounded-xl font-bold text-primary dark:bg-zinc-800 dark:border-zinc-700"
               />
             </div>
 
@@ -1141,7 +1155,7 @@ export function SalesEntry() {
                   {
                     label: "Length Used",
                     val: `${jobLengthFt.toFixed(1)}ft`,
-                    sub: "from roll",
+                    sub: isFlipped ? "from roll (rotated)" : "from roll",
                     warn: !stockOk,
                   },
                   {
@@ -1163,7 +1177,7 @@ export function SalesEntry() {
                     className={cn(
                       "p-3 rounded-xl text-center border",
                       highlight
-                        ? "bg-brand-700 border-brand-600 text-white"
+                        ? "bg-primary border-primary text-primary-foreground"
                         : warn
                         ? "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-900/50"
                         : good
@@ -1214,14 +1228,23 @@ export function SalesEntry() {
               </div>
             )}
 
-            {/* Width compatibility warning */}
+            {/* Orientation hint */}
+            {selectedMaterial && jobWFt > 0 && jobHFt > 0 && isFlipped && (
+              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-900/50 mb-4">
+                <XCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                  Job will be rotated to fit — {dimUnit === "in" ? `${parseFloat(jobHeight)}in` : `${jobHFt.toFixed(1)}ft`} side runs along the {rollWidth.toFixed(1)}ft roll width.
+                </p>
+              </div>
+            )}
+            {/* Width compatibility error */}
             {selectedMaterial && jobWFt > 0 && !widthCompatible && (
               <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-200 dark:border-rose-900/50 mb-4">
                 <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                  Job width ({jobWFt.toFixed(1)}ft) exceeds material width (
-                  {parseNum(selectedMaterial["Width (ft)"]).toFixed(1)}ft). Choose a
-                  wider material.
+                  {dimUnit === "in"
+                    ? `Both dimensions (${parseFloat(jobWidth)}in × ${parseFloat(jobHeight)}in) exceed the roll width (${(rollWidth * 12).toFixed(0)}in). Choose a wider material.`
+                    : `Job (${jobWFt.toFixed(1)}ft × ${jobHFt.toFixed(1)}ft) exceeds roll width (${rollWidth.toFixed(1)}ft) in both orientations. Choose a wider material.`}
                 </p>
               </div>
             )}
@@ -1247,14 +1270,14 @@ export function SalesEntry() {
             <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
-                    <Receipt className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
+                  <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                    <Receipt className="w-3.5 h-3.5 text-primary" />
                   </div>
                   <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
                     Current Order
                   </h3>
                 </div>
-                <Badge className="bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border-none font-black text-xs">
+                <Badge className="bg-primary/10 text-primary dark:bg-primary/20 border-none font-black text-xs">
                   {cart.length} item{cart.length !== 1 ? "s" : ""}
                 </Badge>
               </div>
@@ -1342,8 +1365,8 @@ export function SalesEntry() {
         <TabsContent value="ai">
           <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6 md:p-10">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-2xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-brand-700 dark:text-brand-400" />
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <h3 className="text-xl font-black text-gray-900 dark:text-white">
@@ -1356,7 +1379,7 @@ export function SalesEntry() {
             </div>
 
             <textarea
-              className="w-full p-5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl min-h-[180px] focus:ring-2 focus:ring-brand-500 focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-base placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium resize-none"
+              className="w-full p-5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl min-h-[180px] focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-base placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium resize-none"
               placeholder={`e.g. "John Doe ordered 3 SAV stickers, 4ft by 2ft each, paid ₦5,000 deposit…"`}
               value={nlText}
               onChange={(e) => setNlText(e.target.value)}
@@ -1368,7 +1391,7 @@ export function SalesEntry() {
             <Button
               disabled={nlParsing || !nlText.trim()}
               onClick={handleNlSubmit}
-              className="w-full h-14 mt-5 bg-brand-700 hover:bg-brand-800 text-white font-black text-base rounded-2xl shadow-xl shadow-brand-700/20 transition-all active:scale-[0.98]"
+              className="w-full h-14 mt-5 bg-primary hover:bg-primary/90 text-white font-black text-base rounded-2xl shadow-xl shadow-primary/20 transition-all active:scale-[0.98]"
             >
               {nlParsing ? (
                 <>
@@ -1428,7 +1451,7 @@ export function SalesEntry() {
                 <Button
                   onClick={handleAddToCart}
                   disabled={!selectedMaterialId || !jobWidth || !jobHeight}
-                  className="w-full h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black"
+                  className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black"
                 >
                   Add Parsed Job to Order · {fmtCurrency(totalAmount)}
                 </Button>
@@ -1452,7 +1475,7 @@ export function SalesEntry() {
       {/* ── Confirm dialog ────────────────────────────────────────────────── */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent className="max-w-lg bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl overflow-hidden">
-          <DialogHeader className="p-6 bg-brand-700 text-white">
+          <DialogHeader className="p-6 bg-primary text-white">
             <DialogTitle className="text-xl font-black text-white">
               Confirm Order
             </DialogTitle>
@@ -1535,9 +1558,9 @@ export function SalesEntry() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2 p-3 bg-brand-50 dark:bg-brand-900/20 rounded-xl">
-              <Info className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
-              <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold">
+            <div className="flex items-center gap-2 p-3 bg-primary/5 dark:bg-primary/10 rounded-xl">
+              <Info className="w-4 h-4 text-primary shrink-0" />
+              <p className="text-[10px] text-primary font-bold">
                 Roll stock will be decremented automatically when this syncs.
               </p>
             </div>
@@ -1554,7 +1577,7 @@ export function SalesEntry() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black shadow-lg"
+              className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-lg"
             >
               {saving ? (
                 <>
