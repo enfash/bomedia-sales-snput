@@ -77,6 +77,8 @@ export async function GET() {
 
     // Group rolls by Material ID
     const groups: Record<string, any[]> = {};
+    const rollsToSave: typeof rolls = [];
+
     rolls.forEach((roll) => {
       const name = roll.get("Item Name") || "";
       const width = roll.get("Width (ft)") || "0";
@@ -86,15 +88,14 @@ export async function GET() {
       if (!mId) {
         mId = generateMaterialId(name, width);
         roll.set("Material ID", mId);
-        // We'll save all updated rolls at the end or lazily
+        rollsToSave.push(roll);
       }
 
       if (!groups[mId]) groups[mId] = [];
       groups[mId].push(roll);
     });
 
-    // Save updated rolls (those that didn't have Material ID)
-    const rollsToSave = rolls.filter((r) => r.isDirty);
+    // Save rows where Material ID was just assigned
     for (const r of rollsToSave) {
       await r.save();
     }
@@ -155,7 +156,7 @@ export async function GET() {
         Object.entries(materialData).forEach(([key, val]) =>
           mRow!.set(key, val),
         );
-        if (mRow.isDirty) await mRow.save();
+        await mRow.save();
       } else {
         await mSheet.addRow(materialData);
       }
