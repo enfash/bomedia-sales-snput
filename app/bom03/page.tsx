@@ -265,7 +265,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-slate-50/80 dark:bg-[#2e388e0d] min-h-screen pb-24 transition-colors duration-500">
+    <div className="p-4 md:p-8 space-y-6 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
       <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} salesCount={todayJobCount} />
 
       {/* Mobile Time Range Selector */}

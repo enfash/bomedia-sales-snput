@@ -269,7 +269,7 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen bg-slate-50/80 dark:bg-[#2e388e0d]">
+      <div className="p-8 flex items-center justify-center min-h-screen bg-slate-50/80 dark:bg-zinc-950">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 text-brand-700 dark:text-brand-400 animate-spin mx-auto mb-4" />
           <p className="text-gray-500 dark:text-zinc-400 font-bold uppercase tracking-widest text-xs">Loading Inventory...</p>
@@ -279,7 +279,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 bg-slate-50/80 dark:bg-[#2e388e0d] min-h-screen pb-32">
+    <div className="p-4 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-32">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
