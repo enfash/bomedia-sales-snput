@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Ruler } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Ruler, Package, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
@@ -53,9 +53,11 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
   const currentNavItems = pathname.startsWith("/cashier") || !isAdmin
     ? [
         { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
+        { href: "/cashier/new-entry", label: "New Sale", icon: PlusCircle },
         { href: "/cashier/board", label: "Job Board", icon: KanbanSquare },
         { href: "/cashier/customers", label: "Customers", icon: Users },
+        { href: "/cashier/inventory", label: "Stock", icon: Package },
+        { href: "/cashier/estimator", label: "Estimator", icon: Calculator },
         { href: "/quick-check", label: "Quick-Check", icon: Ruler },
         { href: "/cashier/records", label: "Records", icon: BarChart3 },
         { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },

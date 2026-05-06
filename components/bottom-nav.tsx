@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, BarChart3, PlusCircle, KanbanSquare, Package, Users } from "lucide-react";
+import { LayoutDashboard, Receipt, BarChart3, PlusCircle, KanbanSquare, Package, Users, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
@@ -22,10 +22,10 @@ export function BottomNav() {
       ]
     : [
         { label: "Home",    icon: LayoutDashboard, href: "/cashier" },
+        { label: "Quote",   icon: Calculator,      href: "/cashier/estimator" },
+        { label: "New",     icon: PlusCircle,      href: "/cashier/new-entry", primary: true },
         { label: "Board",   icon: KanbanSquare,    href: "/cashier/board" },
-        { label: "New",     icon: PlusCircle,      href: "/new-entry", primary: true },
         { label: "Records", icon: BarChart3,       href: "/cashier/records" },
-        { label: "Expense", icon: Receipt,         href: "/cashier/expenses" },
       ];
 
   // Determine color scheme based on portal type

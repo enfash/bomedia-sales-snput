@@ -74,14 +74,14 @@ export function MetricCard({
 
       <div className="flex items-center justify-between mb-2 sm:mb-4 gap-1">
         <div className="flex items-center gap-1.5">
-          <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-muted-foreground line-clamp-1">{title}</p>
           {isAlert && (
-            <motion.div 
+            <motion.div
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ repeat: Infinity, duration: 1.2 }}
               className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-destructive shadow-sm shadow-destructive/50 shrink-0"
             />
           )}
+          <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-muted-foreground line-clamp-1">{title}</p>
         </div>
         <div
           className={cn(

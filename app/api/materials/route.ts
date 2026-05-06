@@ -28,8 +28,9 @@ const INVENTORY_HEADERS = [
 ];
 
 function generateMaterialId(name: string, width: string | number) {
-  const cleanName = name.trim().toUpperCase().replace(/\s+/g, '');
-  return `${cleanName}-${width}FT`;
+  const cleanName = name.trim().toUpperCase().replace(/\s+/g, '-');
+  const w = parseFloat(String(width)) || 0;
+  return `${cleanName}-${w}FT`;
 }
 
 export async function GET() {

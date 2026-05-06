@@ -50,7 +50,6 @@ export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<"all" | "today" | "7d" | "30d" | "custom">("today");
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
-  const [inventoryData, setInventoryData] = useState<any[]>([]);
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   
@@ -64,7 +63,7 @@ export default function DashboardPage() {
     else if (cachedSales.length === 0) setLoading(true);
 
     try {
-      const [salesRes, expensesRes, inventoryRes, paymentsRes] = await Promise.all([
+      const [salesRes, expensesRes, inventoryRes, paymentsRes, materialsRes] = await Promise.all([
         fetch("/api/sales"),
         fetch("/api/expenses"),
         fetch("/api/inventory"),
@@ -80,7 +79,7 @@ export default function DashboardPage() {
       const expensesJson = await expensesRes.json();
       const inventoryJson = await inventoryRes.json();
       const paymentsJson = await paymentsRes.json();
-      const materialsJson = await materialsRes.json();
+      const materialsJson = materialsRes.ok ? await materialsRes.json() : { data: [] };
       
       const newSales = salesJson.data ?? [];
       const newExpenses = expensesJson.data ?? [];
@@ -430,85 +429,128 @@ export default function DashboardPage() {
       {/* Inventory Alerts & Shortcuts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Inventory Alerts Widget */}
-        <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-zinc-800 flex flex-col justify-between gap-4">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-brand-700 dark:text-brand-400" />
-                <h3 className="text-base font-bold text-gray-900 dark:text-white">Inventory Reorder Alerts</h3>
+        {(() => {
+          const severityRank = (s: string) => s === "Critical" ? 0 : s === "Low" ? 1 : 2;
+          const sortedMaterials = [...cachedMaterials]
+            .map((item: any) => {
+              const remaining = parseFloat(item["Total Remaining (ft)"]?.toString() || "0") || 0;
+              const total     = parseFloat(item["Total Capacity (ft)"]?.toString() || "0") || 0;
+              const threshold = parseFloat(item["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
+              const pct       = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
+              const sheetStatus = item["Status"] || "";
+              const status: "Good" | "Low" | "Critical" =
+                sheetStatus === "Out of Stock" || sheetStatus === "Depleted" || remaining <= 0 ? "Critical"
+                : sheetStatus === "Low Stock" || remaining <= threshold ? "Low"
+                : "Good";
+              return { item, remaining, total, pct, status };
+            })
+            .sort((a, b) => severityRank(a.status) - severityRank(b.status));
+
+          const alertCount = sortedMaterials.filter(m => m.status !== "Good").length;
+
+          return (
+            <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 flex flex-col overflow-hidden">
+              {/* Card header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-zinc-800 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
+                    <Package className="w-4 h-4 text-brand-700 dark:text-brand-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-gray-900 dark:text-white">Inventory Reorder Alerts</h3>
+                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
+                      {cachedMaterials.length === 0 ? "No materials tracked" : alertCount === 0 ? "All stock levels healthy" : `${alertCount} material${alertCount !== 1 ? "s" : ""} need attention`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {alertCount > 0 && (
+                    <Badge className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-none text-[9px] font-black">
+                      {alertCount} alert{alertCount !== 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                  <Link href="/bom03/inventory">
+                    <Button variant="outline" size="sm" className="h-7 px-3 rounded-lg text-[10px] font-bold border-gray-200 dark:border-zinc-700 hover:bg-brand-50 dark:hover:bg-zinc-800">
+                      View All
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Scrollable list */}
+              <div className="overflow-y-auto max-h-[260px] p-4 space-y-2">
+                {cachedMaterials.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-gray-300 dark:text-zinc-700">
+                    <Package className="w-8 h-8 mb-2 opacity-50" />
+                    <p className="text-xs font-bold text-gray-400 dark:text-zinc-500">No inventory data yet</p>
+                    <Link href="/bom03/inventory">
+                      <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold mt-1 hover:underline">Add your first material →</p>
+                    </Link>
+                  </div>
+                ) : alertCount === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-gray-300 dark:text-zinc-700">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-2">
+                      <Package className="w-5 h-5 text-emerald-500" />
+                    </div>
+                    <p className="text-xs font-bold text-gray-500 dark:text-zinc-400">All stock levels are healthy</p>
+                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-0.5">{cachedMaterials.length} material{cachedMaterials.length !== 1 ? "s" : ""} tracked</p>
+                  </div>
+                ) : (
+                  sortedMaterials.filter(m => m.status !== "Good").map(({ item, remaining, total, pct, status }) => {
+                    const barColor   = status === "Critical" ? "bg-rose-500" : status === "Low" ? "bg-amber-500" : "bg-emerald-500";
+                    const badgeStyle = status === "Critical"
+                      ? "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40"
+                      : status === "Low"
+                      ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40"
+                      : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40";
+                    const materialName = item["Material Name"] || item["Material ID"] || "Unknown";
+                    const width = parseFloat(item["Width (ft)"]?.toString() || "0") || 0;
+                    const rollCount = item["Roll Count"] || "";
+
+                    return (
+                      <div key={item["Material ID"] || materialName} className="p-3 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-gray-50/50 dark:bg-zinc-800/30 hover:bg-gray-100/60 dark:hover:bg-zinc-800/60 transition-colors">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-black text-gray-900 dark:text-zinc-100 truncate">
+                                {materialName}
+                              </span>
+                              {width > 0 && (
+                                <span className="text-[9px] font-bold text-gray-400 dark:text-zinc-500">{width}ft wide</span>
+                              )}
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide ${badgeStyle}`}>
+                                {status === "Critical" ? "Out of Stock" : status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
+                              {remaining.toFixed(1)}ft left{total > 0 ? ` of ${total.toFixed(0)}ft` : ""}
+                              {rollCount ? ` · ${rollCount} roll${Number(rollCount) !== 1 ? "s" : ""}` : ""}
+                            </p>
+                          </div>
+                          <Link href="/bom03/inventory" className="ml-3 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 rounded-lg text-[10px] font-bold border-gray-200 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                            >
+                              Restock
+                            </Button>
+                          </Link>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                            style={{ width: `${pct.toFixed(1)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
-            
-            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-              {cachedMaterials.length === 0 ? (
-                <p className="text-xs text-gray-500 dark:text-zinc-400 italic">No materials tracked in inventory.</p>
-              ) : (
-                cachedMaterials.map((item: any) => {
-                  // ── Materials schema: Total Remaining (ft) + Total Capacity (ft) + Status ──
-                  const remaining = parseFloat(item["Total Remaining (ft)"]?.toString() || "0") || 0;
-                  const total = parseFloat(item["Total Capacity (ft)"]?.toString() || "0") || 0;
-                  const threshold = parseFloat(item["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
-                  const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
-
-                  // Use the sheet's own Status field, fall back to computing it
-                  const sheetStatus = item["Status"] || "";
-                  const status: "Good" | "Low" | "Critical" =
-                    sheetStatus === "Out of Stock" || sheetStatus === "Depleted" ? "Critical"
-                    : sheetStatus === "Low Stock" ? "Low"
-                    : remaining <= 0 ? "Critical"
-                    : remaining <= threshold ? "Low"
-                    : "Good";
-
-                  const barColor = status === "Critical" ? "bg-rose-500" : status === "Low" ? "bg-amber-500" : "bg-emerald-500";
-                  const badgeColor = status === "Critical"
-                    ? "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40"
-                    : status === "Low"
-                    ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40"
-                    : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40";
-
-                  const displayName = item["Material ID"] || item["Material Name"] || "Unknown";
-
-                  return (
-                    <div key={item._rowIndex} className="p-3 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white dark:bg-zinc-800/30 hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition-colors">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-gray-900 dark:text-zinc-100 truncate">
-                              {displayName}
-                            </span>
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide ${badgeColor}`}>
-                              {status}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
-                            {remaining.toFixed(1)}ft remaining{total > 0 && ` of ${total.toFixed(0)}ft usable`}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            toast.info(`Go to Inventory tab to restock ${displayName}`);
-                          }}
-                          className="ml-3 shrink-0 h-7 rounded-lg text-[10px] font-bold border-gray-200 hover:bg-brand-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                        >
-                          Restock
-                        </Button>
-                      </div>
-                      {/* Stock progress bar */}
-                      <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                          style={{ width: `${pct.toFixed(1)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Quick Actions / Shortcuts */}
         <div className="md:col-span-1 flex flex-col gap-2">
@@ -524,7 +566,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </Link>
-          
+
           <Link href="/quick-check" className="w-full flex-1">
             <div className="h-full bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 transition-all active:scale-[0.98] shadow-sm">
               <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2.5 rounded-xl shadow-inner">

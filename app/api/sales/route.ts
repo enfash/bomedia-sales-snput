@@ -79,6 +79,16 @@ export async function PATCH(request: Request) {
       sheet.getCellByA1(`U${rowIndex}`).value = jobStatus;
     }
 
+    // Re-stamp the balance and payment-status formulas so that old/static rows
+    // (Col S previously had =P-O instead of =P-SUM(O,Q,R)) are corrected whenever
+    // a payment is recorded.
+    if (additionalPayment1 !== undefined || additionalPayment2 !== undefined) {
+      sheet.getCellByA1(`S${rowIndex}`).formula =
+        `=(P${rowIndex}-SUM(O${rowIndex},Q${rowIndex},R${rowIndex}))`;
+      sheet.getCellByA1(`T${rowIndex}`).formula =
+        `=IF(P${rowIndex}=0,"Unpaid",IF(S${rowIndex}<=0,"Paid",IF(S${rowIndex}<P${rowIndex},"Part-payment","Unpaid")))`;
+    }
+
     await sheet.saveUpdatedCells();
     
     return NextResponse.json({ success: true });

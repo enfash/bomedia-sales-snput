@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, Fragment } from "react";
-import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, ChevronDown, ChevronUp, Info, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -324,118 +324,176 @@ export default function InventoryPage() {
           </Button>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 border-none">
-              {["Material Profile", "Width", "Rolls", "Total Stock", "Status"].map(h => (
-                <TableHead key={h} className={cn("text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4", h === "Material Profile" ? "pl-6" : ["Rolls","Total Stock","Status"].includes(h) ? "text-center" : "")}>{h}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredMaterials.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-20 text-gray-500 italic">No material profiles found.</TableCell></TableRow>
-            ) : filteredMaterials.map(mat => {
-              const matId = mat["Material ID"];
-              const total = parseNum(mat["Total Capacity (ft)"]);
-              const remaining = parseNum(mat["Total Remaining (ft)"]);
-              const activeRolls = inventory.filter(r => r["Material ID"] === matId);
-              const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
-              const barColor = mat.Status === "Out of Stock" || mat.Status === "Depleted" ? "bg-rose-500" : mat.Status === "Low Stock" ? "bg-amber-500" : "bg-emerald-500";
-              const isExpanded = expandedMaterialId === matId;
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 border-none">
+                {["Material Profile", "Width", "Rolls", "Total Stock", "Status"].map(h => (
+                  <TableHead key={h} className={cn("text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4 whitespace-nowrap", h === "Material Profile" ? "pl-6" : ["Rolls","Total Stock","Status"].includes(h) ? "text-center" : "")}>{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredMaterials.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-20">
+                    <div className="flex flex-col items-center gap-2 text-gray-300 dark:text-zinc-700">
+                      <Package className="w-10 h-10 mb-1 opacity-40" />
+                      <p className="text-sm font-bold text-gray-500 dark:text-zinc-400">No materials found</p>
+                      <p className="text-xs text-gray-400 dark:text-zinc-500">{search ? "Try a different search term" : "Add your first roll using the button above"}</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredMaterials.map(mat => {
+                const matId = mat["Material ID"];
+                const total = parseNum(mat["Total Capacity (ft)"]);
+                const remaining = parseNum(mat["Total Remaining (ft)"]);
+                const rollCount = parseNum(mat["Roll Count"]) || 0;
+                const activeRollId = mat["Active Roll ID"] || "";
+                const matchedRolls = inventory.filter(r => r["Material ID"] === matId);
+                const displayRolls = matchedRolls.length > 0 ? matchedRolls : inventory.filter(r => (r["Roll ID"] || "").startsWith(mat["Material Name"] || "XXXXXX"));
+                const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
+                const barColor = mat.Status === "Out of Stock" || mat.Status === "Depleted" ? "bg-rose-500" : mat.Status === "Low Stock" ? "bg-amber-500" : "bg-emerald-500";
+                const isExpanded = expandedMaterialId === matId;
+                const rollCountDisplay = rollCount || displayRolls.length;
 
-              return (
-                <Fragment key={matId}>
-                  <TableRow className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/30 dark:hover:bg-zinc-800/50 cursor-pointer" onClick={() => setExpandedMaterialId(isExpanded ? null : matId)}>
-                    <TableCell className="font-bold py-4 pl-6">
-                      <div className="flex items-center gap-2">
-                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
-                        <div>
-                          <p className="text-sm font-black text-gray-900 dark:text-zinc-100">{mat["Material Name"]}</p>
-                          <p className="text-[10px] text-gray-400 dark:text-zinc-500">{matId}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-black text-brand-700 dark:text-brand-400">{parseNum(mat["Width (ft)"])}ft</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="text-[10px] font-bold border-gray-200 dark:border-zinc-700">
-                        {activeRolls.length} Physical Rolls
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="font-black text-gray-900 dark:text-white text-sm">{remaining.toFixed(1)}ft</span>
-                        <div className="w-20 h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
-                          <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct.toFixed(1)}%` }} />
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center"><StatusPill status={mat.Status || "Active"} /></TableCell>
-                  </TableRow>
-                  
-                  {isExpanded && (
-                    <TableRow className="bg-gray-50/50 dark:bg-zinc-800/20 border-b border-gray-50 dark:border-zinc-800">
-                      <TableCell colSpan={5} className="p-0">
-                        <div className="p-6">
-                          <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2">
-                            <Package className="w-3 h-3" /> Physical Roll Inventory
-                          </h4>
-                          <div className="grid grid-cols-1 gap-3">
-                            {activeRolls.map(roll => {
-                              const rTotal = parseNum(roll["Total Length (ft)"]);
-                              const rRem = parseNum(roll["Remaining Length (ft)"]);
-                              const rPct = rTotal > 0 ? (rRem / rTotal) * 100 : 0;
-                              
-                              return (
-                                <div key={roll["Roll ID"]} className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm">
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-zinc-800 flex items-center justify-center font-black text-[10px] text-gray-400">
-                                      ID
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-black text-gray-900 dark:text-white">{roll["Roll ID"]}</p>
-                                      <p className="text-[10px] text-gray-400">{roll["Date Added"]}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-8">
-                                    <div className="text-center">
-                                      <p className="text-[9px] uppercase font-black text-gray-400 mb-0.5">Remaining</p>
-                                      <p className="text-sm font-black text-gray-900 dark:text-white">{rRem.toFixed(1)}ft</p>
-                                      <div className="w-16 h-1 rounded-full bg-gray-100 dark:bg-zinc-800 mt-1">
-                                        <div 
-                                          className={cn("h-full rounded-full", roll.Status === "Out of Stock" ? "bg-rose-500" : "bg-brand-500")} 
-                                          style={{ width: `${rPct}%` }} 
-                                        />
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="text-center">
-                                      <p className="text-[9px] uppercase font-black text-gray-400 mb-0.5">Status</p>
-                                      <StatusPill status={roll.Status} />
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2 pl-4 border-l dark:border-zinc-800">
-                                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-black text-rose-600 dark:text-rose-400" onClick={() => setWasteTarget(roll)}>Log Waste</Button>
-                                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-black" onClick={() => setAdjustTarget(roll)}>Adjust</Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            {activeRolls.length === 0 && (
-                              <p className="text-xs text-gray-500 italic py-4">No physical rolls currently linked to this profile.</p>
-                            )}
+                return (
+                  <Fragment key={matId}>
+                    <TableRow className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/30 dark:hover:bg-zinc-800/50 cursor-pointer" onClick={() => setExpandedMaterialId(isExpanded ? null : matId)}>
+                      <TableCell className="font-bold py-4 pl-6">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-gray-900 dark:text-zinc-100 truncate">{mat["Material Name"]}</p>
+                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono">{matId}</p>
                           </div>
                         </div>
                       </TableCell>
+                      <TableCell className="font-black text-brand-700 dark:text-brand-400 whitespace-nowrap">{parseNum(mat["Width (ft)"])}ft</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-[10px] font-bold border-gray-200 dark:border-zinc-700 whitespace-nowrap">
+                          {rollCountDisplay} {rollCountDisplay === 1 ? "Roll" : "Rolls"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-black text-gray-900 dark:text-white text-sm whitespace-nowrap">{remaining.toFixed(1)}ft</span>
+                          <div className="w-20 h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct.toFixed(1)}%` }} />
+                          </div>
+                          <span className="text-[9px] text-gray-400 dark:text-zinc-500">{pct.toFixed(0)}% left</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center"><StatusPill status={mat.Status || "Active"} /></TableCell>
                     </TableRow>
-                  )}
-                </Fragment>
-              );
-            })}
-          </TableBody>
-        </Table>
+
+                    {isExpanded && (
+                      <TableRow className="bg-gray-50/50 dark:bg-zinc-800/20 border-b border-gray-50 dark:border-zinc-800">
+                        <TableCell colSpan={5} className="p-0">
+                          <div className="p-4 md:p-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest flex items-center gap-2">
+                                <Package className="w-3 h-3" /> Physical Roll Log
+                              </h4>
+                              {activeRollId && (
+                                <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
+                                  <Zap className="w-2.5 h-2.5" /> Active: {activeRollId}
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              {displayRolls.length === 0 ? (
+                                <p className="text-xs text-gray-400 dark:text-zinc-500 italic py-4 text-center">No physical rolls linked to this profile yet.</p>
+                              ) : displayRolls.map(roll => {
+                                const rTotal = parseNum(roll["Total Length (ft)"]);
+                                const rRem = parseNum(roll["Remaining Length (ft)"]);
+                                const rPct = rTotal > 0 ? Math.min(100, (rRem / rTotal) * 100) : 0;
+                                const isActiveRoll = roll["Roll ID"] === activeRollId;
+                                const rollBarColor = roll.Status === "Out of Stock" || rRem <= 0 ? "bg-rose-500" : roll.Status === "Low Stock" ? "bg-amber-500" : "bg-brand-500";
+
+                                return (
+                                  <div
+                                    key={roll["Roll ID"]}
+                                    className={cn(
+                                      "p-4 bg-white dark:bg-zinc-900 rounded-xl border shadow-sm",
+                                      isActiveRoll
+                                        ? "border-emerald-200 dark:border-emerald-800/40 ring-1 ring-emerald-200 dark:ring-emerald-800/40"
+                                        : "border-gray-100 dark:border-zinc-800"
+                                    )}
+                                  >
+                                    {/* Roll header row */}
+                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                      <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                          "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+                                          isActiveRoll ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-gray-50 dark:bg-zinc-800"
+                                        )}>
+                                          <Package className={cn("w-4 h-4", isActiveRoll ? "text-emerald-500" : "text-gray-400 dark:text-zinc-500")} />
+                                        </div>
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <p className="text-sm font-black text-gray-900 dark:text-white">{roll["Roll ID"]}</p>
+                                            {isActiveRoll && (
+                                              <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/30 uppercase tracking-wide">
+                                                Active
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-[10px] text-gray-400 dark:text-zinc-500">{roll["Date Added"] || "—"}</p>
+                                        </div>
+                                      </div>
+                                      <StatusPill status={roll.Status || "Active"} />
+                                    </div>
+
+                                    {/* Progress bar */}
+                                    <div className="mb-3">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Remaining</span>
+                                        <span className="text-[10px] font-black text-gray-700 dark:text-zinc-300">
+                                          {rRem.toFixed(1)}ft <span className="text-gray-400 font-medium">of {rTotal.toFixed(0)}ft</span>
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
+                                        <div
+                                          className={cn("h-full rounded-full transition-all duration-500", rollBarColor)}
+                                          style={{ width: `${rPct.toFixed(1)}%` }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2 justify-end">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 rounded-lg text-[10px] font-black border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/10"
+                                        onClick={(e) => { e.stopPropagation(); setWasteTarget(roll); }}
+                                      >
+                                        Log Waste
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 rounded-lg text-[10px] font-black border-gray-200 dark:border-zinc-700 hover:bg-brand-50 dark:hover:bg-zinc-800"
+                                        onClick={(e) => { e.stopPropagation(); setAdjustTarget(roll); }}
+                                      >
+                                        Adjust Stock
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <AdjustDialog roll={adjustTarget} onClose={() => setAdjustTarget(null)} onDone={() => { setAdjustTarget(null); fetchData(); }} />
