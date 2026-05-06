@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
-import { SalesExpenseChart, OutstandingDebtChart } from "@/components/dashboard-charts";
+import { SalesExpenseChart, OutstandingDebtChart, PaymentStatusWidget, TopClientsWidget } from "@/components/dashboard-charts";
 import { RecentPaymentsPulse } from "@/components/recent-payments-pulse";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [timeRange, setTimeRange] = useState<"all" | "today" | "7d" | "30d" | "custom">("today");
+  const [timeRange, setTimeRange] = useState<"all" | "today" | "7d" | "30d" | "custom">("30d");
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
@@ -189,8 +189,60 @@ export default function DashboardPage() {
   const netProfitVal = totalSalesVal - totalExpensesVal;
   const prevProfitVal = prevSalesVal - prevExpensesVal;
 
+  // ── Gross margin ───────────────────────────────────────────────────────────
+  const grossMarginPct = totalSalesVal > 0 ? (netProfitVal / totalSalesVal) * 100 : 0;
+  const prevGrossMarginPct = prevSalesVal > 0 ? ((prevSalesVal - prevExpensesVal) / prevSalesVal) * 100 : 0;
+
+  // ── Payment status breakdown ───────────────────────────────────────────────
+  const paymentStats = currentSales.reduce(
+    (acc, r) => {
+      const status = (r["PAYMENT STATUS"] || r["Payment Status"] || "Unpaid").trim();
+      const amount = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
+      if (status === "Paid") { acc.paid++; acc.paidAmt += amount; }
+      else if (status.startsWith("Part")) { acc.partPaid++; acc.partPaidAmt += amount; }
+      else { acc.unpaid++; acc.unpaidAmt += amount; }
+      return acc;
+    },
+    { paid: 0, paidAmt: 0, partPaid: 0, partPaidAmt: 0, unpaid: 0, unpaidAmt: 0 }
+  );
+
+  // ── Top clients by revenue ─────────────────────────────────────────────────
+  const clientRevenueMap: Record<string, number> = {};
+  currentSales.forEach((r) => {
+    const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
+    const amount = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
+    if (client && amount > 0) clientRevenueMap[client] = (clientRevenueMap[client] || 0) + amount;
+  });
+  const topClients = Object.entries(clientRevenueMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, revenue]) => ({ name, revenue }));
+
+  // ── Debt age map (days since oldest unpaid invoice per client) ─────────────
+  const debtAgeMap: Record<string, number> = {};
+  allSales.forEach((r) => {
+    const total      = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
+    const initialPay = parseAmount(r["INITIAL PAYMENT (₦)"] || r["Initial Payment (₦)"]);
+    const addl1      = parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]);
+    const addl2      = parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]);
+    const balance    = total - initialPay - addl1 - addl2;
+    if (balance <= 1) return;
+    const client = (r["CLIENT NAME"] || r["Client Name"] || "").trim();
+    const d = parseSheetDate(r.DATE || r.Date);
+    if (!client || !d) return;
+    const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000);
+    if (!debtAgeMap[client] || daysAgo > debtAgeMap[client]) debtAgeMap[client] = daysAgo;
+  });
+
   // ── Outstanding debt ───────────────────────────────────────────────────────
   const { chartData: outstandingDebtChart, totalDebt: outstandingDebtTotal, count: unpaidCount } = processDebtData(allSales);
+
+  // ── Summary sentence ───────────────────────────────────────────────────────
+  const trendDir = totalSalesVal >= prevSalesVal ? "up" : "down";
+  const changeAmt = Math.abs(totalSalesVal - prevSalesVal);
+  const summaryText = totalSalesVal === 0
+    ? "No sales recorded in this period — try expanding the date range."
+    : `Revenue is ${trendDir} ₦${changeAmt >= 1000 ? (changeAmt / 1000).toFixed(0) + "k" : changeAmt.toLocaleString()} vs the previous period. ${outstandingDebtTotal > 0 ? `Outstanding debt stands at ₦${outstandingDebtTotal >= 1000 ? (outstandingDebtTotal / 1000).toFixed(0) + "k" : outstandingDebtTotal.toLocaleString()}.` : "All balances are cleared."} ${grossMarginPct > 0 ? `Margin: ${grossMarginPct.toFixed(0)}%.` : ""}`;
 
   // ── Today at a glance (Static window for banner) ───────────────────────────
   const startOfToday = startOfDay(now);
@@ -411,6 +463,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Metrics Row — 4 cards */}
+      {/* Summary sentence */}
+      {totalSalesVal > 0 && (
+        <div className="bg-primary/5 dark:bg-primary/10 border border-primary/15 rounded-2xl px-5 py-3 flex items-start gap-3">
+          <span className="text-base mt-0.5">📊</span>
+          <p className="text-sm font-semibold text-foreground leading-relaxed">{summaryText}</p>
+        </div>
+      )}
+
       <DashboardMetrics
         totalSales={totalSalesVal}
         totalExpenses={totalExpensesVal}
@@ -423,6 +483,8 @@ export default function DashboardPage() {
         isSalesUp={totalSalesVal >= prevSalesVal}
         isExpensesDown={totalExpensesVal <= prevExpensesVal}
         isProfitUp={netProfitVal >= prevProfitVal}
+        grossMarginPct={grossMarginPct}
+        prevGrossMarginPct={prevGrossMarginPct}
         sparkData={chartData.slice(-7).map(d => d.sales)}
       />
 
@@ -672,7 +734,21 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts — Row 2: Outstanding Debt (full width) */}
-      <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} />
+      <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} ageMap={debtAgeMap} />
+
+      {/* Charts — Row 3: Payment Status + Top Clients */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <PaymentStatusWidget
+          paid={paymentStats.paid}
+          partPaid={paymentStats.partPaid}
+          unpaid={paymentStats.unpaid}
+          paidAmt={paymentStats.paidAmt}
+          partPaidAmt={paymentStats.partPaidAmt}
+          unpaidAmt={paymentStats.unpaidAmt}
+          total={currentSales.length}
+        />
+        <TopClientsWidget clients={topClients} />
+      </div>
 
       {/* Material Profitability Widget */}
       <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
