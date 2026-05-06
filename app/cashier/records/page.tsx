@@ -549,7 +549,7 @@ export default function CashierRecordsPage() {
               size="sm"
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 font-black text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800"
+              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800"
             >
               <ArrowLeft className="w-3.5 h-3.5 mr-2" />
               Back
@@ -559,7 +559,7 @@ export default function CashierRecordsPage() {
               size="sm"
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 font-black text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800"
+              className="rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800"
             >
               Next
               <ArrowRight className="w-3.5 h-3.5 ml-2" />
