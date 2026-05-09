@@ -10,7 +10,6 @@ import {
   Wallet,
   Clock,
   ChevronDown,
-  ChevronUp,
   ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -103,11 +102,12 @@ function StaffCard({ stats }: { stats: StaffStats }) {
           </p>
         </div>
 
-        {expanded ? (
-          <ChevronUp className="w-4 h-4 text-gray-300 shrink-0 ml-1" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-gray-300 shrink-0 ml-1" />
-        )}
+        <ChevronDown
+          className={cn(
+            "w-4 h-4 text-gray-300 shrink-0 ml-1 transition-[transform] duration-200 ease-out",
+            expanded && "rotate-180"
+          )}
+        />
       </button>
 
       {/* Stats strip */}
@@ -151,85 +151,94 @@ function StaffCard({ stats }: { stats: StaffStats }) {
         ))}
       </div>
 
-      {/* Expanded recent jobs */}
-      {expanded && (
-        <div className="border-t border-gray-50 dark:border-zinc-800 p-4 bg-gray-50/50 dark:bg-zinc-800/20">
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 text-center">
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">
-                Today's Jobs
-              </p>
-              <p className="text-lg font-black text-gray-900 dark:text-white">
-                {stats.jobsToday}
-              </p>
-            </div>
-            <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 text-center">
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">
-                Today's Revenue
-              </p>
-              <p className="text-lg font-black text-gray-900 dark:text-white">
-                {fmtMoney(stats.revenueToday)}
-              </p>
-            </div>
-          </div>
-
-          {stats.recentJobs.length > 0 && (
-            <>
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-2">
-                Recent Jobs (last 5)
-              </p>
-              <div className="space-y-1.5">
-                {stats.recentJobs.slice(0, 5).map((job: any, i: number) => {
-                  const client = job["CLIENT NAME"] || job["Client Name"] || "—";
-                  const desc = job["JOB DESCRIPTION"] || job["Job Description"] || "—";
-                  const amt = parseAmt(job["AMOUNT (₦)"] || job["Amount (₦)"]);
-                  const status = job["PAYMENT STATUS"] || "Unpaid";
-
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800"
-                    >
-                      <div className="min-w-0 flex-1 pr-2">
-                        <p className="text-xs font-bold text-gray-800 dark:text-zinc-200 truncate">
-                          {client}
-                        </p>
-                        <p className="text-[10px] text-gray-400 dark:text-zinc-500 truncate">
-                          {desc}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span
-                          className={cn(
-                            "text-[9px] font-black px-1.5 py-0.5 rounded",
-                            status === "Paid"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : status === "Part-payment"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-rose-100 text-rose-700"
-                          )}
-                        >
-                          {status}
-                        </span>
-                        <p className="text-xs font-black text-gray-900 dark:text-white">
-                          {fmtMoney(amt)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+      {/* Expanded recent jobs — grid-rows height transition, no snap */}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows]",
+          expanded
+            ? "grid-rows-[1fr] duration-300 ease-out"
+            : "grid-rows-[0fr] duration-200 ease-in"
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-gray-50 dark:border-zinc-800 p-4 bg-gray-50/50 dark:bg-zinc-800/20">
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">
+                  Today's Jobs
+                </p>
+                <p className="text-lg font-black text-gray-900 dark:text-white">
+                  {stats.jobsToday}
+                </p>
               </div>
-            </>
-          )}
+              <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">
+                  Today's Revenue
+                </p>
+                <p className="text-lg font-black text-gray-900 dark:text-white">
+                  {fmtMoney(stats.revenueToday)}
+                </p>
+              </div>
+            </div>
 
-          {stats.lastLogin && (
-            <p className="text-[9px] text-gray-300 dark:text-zinc-700 mt-3 flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              Last login: {stats.lastLogin}
-            </p>
-          )}
+            {stats.recentJobs.length > 0 && (
+              <>
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-2">
+                  Recent Jobs (last 5)
+                </p>
+                <div className="space-y-1.5">
+                  {stats.recentJobs.slice(0, 5).map((job: any, i: number) => {
+                    const client = job["CLIENT NAME"] || job["Client Name"] || "—";
+                    const desc = job["JOB DESCRIPTION"] || job["Job Description"] || "—";
+                    const amt = parseAmt(job["AMOUNT (₦)"] || job["Amount (₦)"]);
+                    const status = job["PAYMENT STATUS"] || "Unpaid";
+
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800"
+                      >
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="text-xs font-bold text-gray-800 dark:text-zinc-200 truncate">
+                            {client}
+                          </p>
+                          <p className="text-[10px] text-gray-400 dark:text-zinc-500 truncate">
+                            {desc}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className={cn(
+                              "text-[9px] font-black px-1.5 py-0.5 rounded",
+                              status === "Paid"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : status === "Part-payment"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-rose-100 text-rose-700"
+                            )}
+                          >
+                            {status}
+                          </span>
+                          <p className="text-xs font-black text-gray-900 dark:text-white">
+                            {fmtMoney(amt)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {stats.lastLogin && (
+              <p className="text-[9px] text-gray-300 dark:text-zinc-700 mt-3 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Last login: {stats.lastLogin}
+              </p>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -482,8 +491,14 @@ export default function StaffPerformancePage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {staffStats.map((stats) => (
-            <StaffCard key={stats.name} stats={stats} />
+          {staffStats.map((stats, i) => (
+            <div
+              key={`${stats.name}-${dateRange}`}
+              className="staff-card-enter"
+              style={{ transitionDelay: `${i * 55}ms` }}
+            >
+              <StaffCard stats={stats} />
+            </div>
           ))}
         </div>
       )}
