@@ -149,7 +149,7 @@ export default function CashierInventoryPage() {
             <Card
               key={mat["Material ID"]}
               className={cn(
-                "bg-white dark:bg-zinc-900 border-2 shadow-sm transition-all",
+                "bg-white dark:bg-zinc-900 border-2 shadow-sm transition-[border-color,opacity]",
                 mat.Status === "Out of Stock"
                   ? "border-rose-100 dark:border-rose-900/30 opacity-70"
                   : mat.Status === "Low Stock"
@@ -182,7 +182,7 @@ export default function CashierInventoryPage() {
 
                 <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
                   <div
-                    className={cn("h-full rounded-full transition-all duration-500", barColor)}
+                    className={cn("h-full rounded-full [transition:width_500ms_ease-out]", barColor)}
                     style={{ width: `${pct.toFixed(1)}%` }}
                   />
                 </div>

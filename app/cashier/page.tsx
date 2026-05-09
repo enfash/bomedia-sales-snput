@@ -149,7 +149,7 @@ function ShiftHero({
           <div className="w-full h-2 rounded-full bg-white/20 overflow-hidden">
             <div
               className={cn(
-                "h-full rounded-full transition-all duration-700",
+                "h-full rounded-full [transition:width_700ms_ease-out]",
                 progressPct >= 80
                   ? "bg-emerald-400"
                   : progressPct >= 50
@@ -235,7 +235,7 @@ function ActionGrid() {
         <Link key={href} href={href}>
           <div
             className={cn(
-              "rounded-2xl p-3.5 flex flex-col gap-2 transition-all active:scale-95 shadow-sm",
+              "rounded-2xl p-3.5 flex flex-col gap-2 transition-[background-color,transform] active:scale-95 shadow-sm",
               bg,
               border,
               shadow,
@@ -410,7 +410,7 @@ function JobFeed({ jobs }: { jobs: any[] }) {
         return (
           <div
             key={i}
-            className="flex items-start gap-3 p-3.5 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 hover:border-orange-200 dark:hover:border-orange-900/40 transition-all"
+            className="flex items-start gap-3 p-3.5 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 [@media(hover:hover)]:hover:border-orange-200 dark:[@media(hover:hover)]:hover:border-orange-900/40 transition-[border-color]"
           >
             {/* Index */}
             <div className="w-6 h-6 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-[9px] font-black text-orange-500 dark:text-orange-400 shrink-0 mt-0.5">
@@ -1041,7 +1041,7 @@ export default function CashierDashboardPage() {
                 <Link key={href} href={href}>
                   <div
                     className={cn(
-                      "flex items-center gap-3 p-4 rounded-2xl transition-all hover:shadow-md active:scale-[0.98] cursor-pointer",
+                      "flex items-center gap-3 p-4 rounded-2xl transition-[box-shadow,background-color,transform] [@media(hover:hover)]:hover:shadow-md active:scale-[0.98] cursor-pointer",
                       primary
                         ? "bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
                         : "bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 hover:border-orange-200 dark:hover:border-orange-900/40 shadow-sm"

@@ -10,7 +10,7 @@ interface LogoProps extends React.HTMLAttributes<HTMLSpanElement> {
 export function Logo({ showText = true, className, ...props }: LogoProps) {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)} {...props}>
-      <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 group overflow-hidden border border-gray-100 dark:border-zinc-800">
+      <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-lg shadow-primary/20 transition-[transform] [@media(hover:hover)]:hover:scale-105 active:scale-95 group overflow-hidden border border-gray-100 dark:border-zinc-800">
         <Image 
           src="/bomedia-icon.svg" 
           alt="BOMedia Logo" 

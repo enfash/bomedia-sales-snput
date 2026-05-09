@@ -311,7 +311,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
       <div className={cn("grid grid-cols-2 gap-4 mb-8", isAdmin ? "md:grid-cols-3" : "md:grid-cols-2")}>
 
         {/* Total Clients */}
-        <Card className="bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative hover:shadow-md transition-all">
+        <Card className="bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent dark:from-primary/10" />
           <div className="absolute top-0 left-0 w-1 h-full bg-primary rounded-l" />
           <div className="relative p-4">
@@ -329,7 +329,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
         </Card>
 
         {/* Unpaid Debt */}
-        <Card className="bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative hover:shadow-md transition-all">
+        <Card className="bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
           <div className="absolute inset-0 bg-gradient-to-br from-rose-50 to-transparent dark:from-rose-950/20" />
           <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 rounded-l" />
           <div className="relative p-4">
@@ -348,7 +348,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
 
         {/* Top Spender (admin only) */}
         {isAdmin && (
-          <Card className="col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative hover:shadow-md transition-all">
+          <Card className="col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent dark:from-emerald-950/20" />
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 rounded-l" />
             <div className="relative p-4">
@@ -395,7 +395,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
           <button
             onClick={() => setDebtorsOnly(v => !v)}
             className={cn(
-              "flex items-center gap-1.5 px-4 h-11 rounded-xl text-xs font-bold border transition-all",
+              "flex items-center gap-1.5 px-4 h-11 rounded-xl text-xs font-bold border transition-[background-color,color,border-color]",
               debtorsOnly
                 ? "bg-rose-600 text-white border-rose-600 shadow"
                 : "bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 text-gray-600 dark:text-zinc-400 shadow-sm hover:border-rose-300 dark:hover:border-rose-700",
@@ -413,7 +413,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
             {(["name", "orders", "spent", "debt"] as const).map(key => (
               <button key={key} onClick={() => setSortBy(key)}
                 className={cn(
-                  "px-3 py-2 rounded-lg text-xs font-bold transition-all capitalize",
+                  "px-3 py-2 rounded-lg text-xs font-bold transition-[background-color,color] capitalize",
                   sortBy === key
                     ? "bg-primary/10 dark:bg-primary/20 text-primary"
                     : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300",

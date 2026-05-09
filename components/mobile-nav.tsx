@@ -142,7 +142,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
             size="icon"
             onClick={toggleMute}
             className={cn(
-              "h-9 w-9 rounded-xl transition-all",
+              "h-9 w-9 rounded-xl transition-[background-color,color]",
               hasHydrated && isMuted 
                 ? "text-rose-500 bg-rose-50 dark:bg-rose-900/10" 
                 : "text-gray-400 hover:text-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
@@ -161,7 +161,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
       {/* Mobile Nav Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] md:hidden animation-in fade-in transition-all duration-200"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] md:hidden animation-in fade-in transition-[opacity] duration-200"
           onClick={() => setIsOpen(false)}
         >
           <div 
@@ -181,7 +181,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                     key={href}
                     href={href}
                     className={cn(
-                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200",
+                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-[background-color,color] duration-200",
                       active
                         ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
                         : "text-gray-300 hover:bg-white/5 hover:text-white"

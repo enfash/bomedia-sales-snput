@@ -200,7 +200,7 @@ export function ProfitabilityWidget({ sales, inventory }: ProfitabilityWidgetPro
               {/* Revenue bar */}
               <div className="h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
                 <div
-                  className={cn("h-full rounded-full transition-all duration-500", barColor)}
+                  className={cn("h-full rounded-full [transition:width_500ms_ease-out]", barColor)}
                   style={{ width: `${(mat.revenue / maxRevenue) * 100}%` }}
                 />
               </div>

@@ -20,7 +20,7 @@ export default function LandingPage() {
 
         <div className="pt-8">
           <Link href="/cashier" className="w-full inline-block">
-            <Button size="lg" className="w-full text-lg h-14 bg-brand-700 hover:bg-brand-800 shadow-md transition-all">
+            <Button size="lg" className="w-full text-lg h-14 bg-brand-700 hover:bg-brand-800 shadow-md transition-[background-color,box-shadow]">
               Start Recording (Cashier)
             </Button>
           </Link>

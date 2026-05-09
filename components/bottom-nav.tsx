@@ -87,7 +87,7 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] px-2 transition-all active:scale-95",
+                "flex flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] px-2 transition-[color,transform] active:scale-95",
                 isActive
                   ? cn("scale-105", activeColorClass)
                   : "text-gray-500 dark:text-zinc-400",

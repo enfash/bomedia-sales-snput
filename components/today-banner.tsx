@@ -67,7 +67,7 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
       {/* Stat Tiles */}
       <div className="grid grid-cols-3 gap-3">
         {/* Sales */}
-        <div className="relative bg-white dark:bg-zinc-900 border border-blue-100 dark:border-blue-900/30 rounded-2xl p-4 flex flex-col gap-1 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+        <div className="relative bg-white dark:bg-zinc-900 border border-blue-100 dark:border-blue-900/30 rounded-2xl p-4 flex flex-col gap-1 shadow-sm overflow-hidden group [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
           <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l" />
           <div className="absolute -top-4 -right-4 w-14 h-14 rounded-full bg-blue-500/5 group-hover:bg-blue-500/10 transition-colors" />
           <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 dark:text-blue-400 relative z-10">Sales</p>
@@ -78,7 +78,7 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
         </div>
 
         {/* Jobs */}
-        <div className="relative bg-white dark:bg-zinc-900 border border-violet-100 dark:border-violet-900/30 rounded-2xl p-4 flex flex-col gap-1 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+        <div className="relative bg-white dark:bg-zinc-900 border border-violet-100 dark:border-violet-900/30 rounded-2xl p-4 flex flex-col gap-1 shadow-sm overflow-hidden group [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
           <div className="absolute top-0 left-0 w-1 h-full bg-violet-500 rounded-l" />
           <div className="absolute -top-4 -right-4 w-14 h-14 rounded-full bg-violet-500/5 group-hover:bg-violet-500/10 transition-colors" />
           <p className="text-[10px] font-black uppercase tracking-widest text-violet-500 dark:text-violet-400 relative z-10">Jobs</p>
@@ -89,7 +89,7 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
         </div>
 
         {/* Revenue */}
-        <div className="relative bg-white dark:bg-zinc-900 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-4 flex flex-col gap-1 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+        <div className="relative bg-white dark:bg-zinc-900 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-4 flex flex-col gap-1 shadow-sm overflow-hidden group [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
           <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 rounded-l" />
           <div className="absolute -top-4 -right-4 w-14 h-14 rounded-full bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors" />
           <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 relative z-10">Revenue</p>

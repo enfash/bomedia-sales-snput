@@ -156,7 +156,7 @@ export function ActivityFeed() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-10 w-10 rounded-full text-gray-500 hover:text-primary hover:bg-primary/10 transition-all active:scale-95"
+          className="relative h-10 w-10 rounded-full text-gray-500 hover:text-primary hover:bg-primary/10 transition-[background-color,color,transform] active:scale-95"
         >
           <Bell className="h-5 w-5" />
           {activityItems.length > 0 && (
@@ -200,7 +200,7 @@ export function ActivityFeed() {
                     <div
                       key={item.id}
                       className={cn(
-                        "group p-4 rounded-2xl border border-gray-100 dark:border-zinc-800/50 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-200",
+                        "group p-4 rounded-2xl border border-gray-100 dark:border-zinc-800/50 bg-white dark:bg-zinc-900 [@media(hover:hover)]:hover:shadow-md transition-[box-shadow] duration-200",
                         item.type === "inventory" && item.stock! <= 50 ? "border-rose-200 dark:border-rose-900/30 bg-rose-50/30 dark:bg-rose-900/10" : ""
                       )}
                     >

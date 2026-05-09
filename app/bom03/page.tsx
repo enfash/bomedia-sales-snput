@@ -601,7 +601,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                            className={`h-full rounded-full [transition:width_500ms_ease-out] ${barColor}`}
                             style={{ width: `${pct.toFixed(1)}%` }}
                           />
                         </div>
@@ -617,7 +617,7 @@ export default function DashboardPage() {
         {/* Quick Actions / Shortcuts */}
         <div className="md:col-span-1 flex flex-col gap-2">
           <Link href="/bom03/inventory" className="w-full flex-1">
-            <div className="h-full bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-all active:scale-[0.98] shadow-sm">
+            <div className="h-full bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-[background-color,transform] active:scale-[0.98] shadow-sm">
               <div className="bg-amber-100 dark:bg-amber-900/40 p-2.5 rounded-xl shadow-inner">
                 <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
               </div>
@@ -630,7 +630,7 @@ export default function DashboardPage() {
           </Link>
 
           <Link href="/quick-check" className="w-full flex-1">
-            <div className="h-full bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 transition-all active:scale-[0.98] shadow-sm">
+            <div className="h-full bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 transition-[background-color,transform] active:scale-[0.98] shadow-sm">
               <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2.5 rounded-xl shadow-inner">
                 <Zap className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
               </div>
@@ -642,7 +642,7 @@ export default function DashboardPage() {
             </div>
           </Link>
           <Link href="/bom03/staff" className="w-full flex-1">
-            <div className="h-full bg-violet-500/5 dark:bg-violet-950/30 border border-violet-200/50 dark:border-violet-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-violet-500/10 dark:hover:bg-violet-900/20 transition-all active:scale-[0.98] shadow-sm">
+            <div className="h-full bg-violet-500/5 dark:bg-violet-950/30 border border-violet-200/50 dark:border-violet-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-violet-500/10 dark:hover:bg-violet-900/20 transition-[background-color,transform] active:scale-[0.98] shadow-sm">
               <div className="bg-violet-100 dark:bg-violet-900/40 p-2.5 rounded-xl shadow-inner">
                 <Users className="w-6 h-6 text-violet-600 dark:text-violet-400" />
               </div>
@@ -682,7 +682,7 @@ export default function DashboardPage() {
           <Link href="/bom03/expenses" className="flex-1 md:flex-none">
             <Button
               variant="outline"
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
             >
               <Receipt className="w-3 h-3 mr-2" />
               Log Expense
@@ -691,7 +691,7 @@ export default function DashboardPage() {
           <Link href="/bom03/records" className="flex-1 md:flex-none">
             <Button
               variant="outline"
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
             >
               <BarChart3 className="w-3 h-3 mr-2" />
               Records
@@ -701,7 +701,7 @@ export default function DashboardPage() {
           <Link href="/estimator" className="flex-1 md:flex-none">
             <Button
               variant="outline"
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
             >
               <Calculator className="w-3 h-3 mr-2" />
               Estimator
@@ -715,7 +715,7 @@ export default function DashboardPage() {
                 if (json.whatsappUrl) window.open(json.whatsappUrl, "_blank");
               } catch { toast.error("Could not load digest"); }
             }}
-            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 text-xs font-bold rounded-xl h-10 px-4 border border-white/30 text-white bg-white/10 hover:bg-white/20 transition-all hover:scale-105"
+            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 text-xs font-bold rounded-xl h-10 px-4 border border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
           >
             <Bell className="w-3 h-3" />
             Daily Digest

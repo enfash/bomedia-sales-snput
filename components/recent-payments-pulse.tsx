@@ -47,7 +47,7 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
   const hasData = recent.length > 0;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl flex flex-col h-[420px]">
+    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl flex flex-col h-[420px]">
       <CardHeader className="pb-3 border-b border-border/50">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-brand-50 dark:bg-brand-900/30 rounded-lg text-brand-600 dark:text-brand-400">

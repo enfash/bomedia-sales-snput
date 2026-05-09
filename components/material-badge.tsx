@@ -46,7 +46,7 @@ export function MaterialBadge({ material, className }: MaterialBadgeProps) {
     <Badge 
       variant="outline"
       className={cn(
-        "text-[9px] font-semibold uppercase tracking-wider rounded-md px-1.5 py-0 min-w-[32px] justify-center transition-all",
+        "text-[9px] font-semibold uppercase tracking-wider rounded-md px-1.5 py-0 min-w-[32px] justify-center transition-[background-color,color,border-color]",
         getColors(),
         className
       )}

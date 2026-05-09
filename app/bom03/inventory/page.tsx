@@ -116,7 +116,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
               <div className="flex gap-2">
                 {["3","4","5","6","8","10"].map(w => (
                   <button key={w} type="button" onClick={() => set("widthFt", w)}
-                    className={cn("flex-1 h-10 rounded-xl text-xs font-black border-2 transition-all", form.widthFt === w ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-brand-300")}>
+                    className={cn("flex-1 h-10 rounded-xl text-xs font-black border-2 transition-[border-color,background-color,color]", form.widthFt === w ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-brand-300")}>
                     {w}ft
                   </button>
                 ))}
@@ -300,7 +300,7 @@ export default function InventoryPage() {
           { title: "Out of Stock", val: stats.outOfStock, icon: XCircle, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
           { title: "Total Remaining", val: `${Math.round(stats.totalFt).toLocaleString()}ft`, icon: Ruler, color: "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30" },
         ].map((s, i) => (
-          <Card key={i} className="bg-white dark:bg-zinc-900 border-none shadow-sm hover:shadow-md transition-all">
+          <Card key={i} className="bg-white dark:bg-zinc-900 border-none shadow-sm [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
             <CardContent className="p-5 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{s.title}</p>
@@ -379,7 +379,7 @@ export default function InventoryPage() {
                         <div className="flex flex-col items-center gap-1">
                           <span className="font-black text-gray-900 dark:text-white text-sm whitespace-nowrap">{remaining.toFixed(1)}ft</span>
                           <div className="w-20 h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct.toFixed(1)}%` }} />
+                            <div className={`h-full rounded-full [transition:width_500ms_ease-out] ${barColor}`} style={{ width: `${pct.toFixed(1)}%` }} />
                           </div>
                           <span className="text-[9px] text-gray-400 dark:text-zinc-500">{pct.toFixed(0)}% left</span>
                         </div>
@@ -455,7 +455,7 @@ export default function InventoryPage() {
                                       </div>
                                       <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
                                         <div
-                                          className={cn("h-full rounded-full transition-all duration-500", rollBarColor)}
+                                          className={cn("h-full rounded-full [transition:width_500ms_ease-out]", rollBarColor)}
                                           style={{ width: `${rPct.toFixed(1)}%` }}
                                         />
                                       </div>

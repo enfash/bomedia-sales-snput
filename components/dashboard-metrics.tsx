@@ -64,7 +64,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden h-full bg-card rounded-2xl shadow-sm border border-border p-2 sm:p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col justify-between",
+        "relative overflow-hidden h-full bg-card rounded-2xl shadow-sm border border-border p-2 sm:p-5 transition-[box-shadow,transform] duration-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:-translate-y-1 flex flex-col justify-between",
         isHero && "metric-hero border-primary/20 bg-primary/[0.03] p-5",
         isAlert && "animate-pulse-debt border-destructive/50 ring-2 ring-destructive/20"
       )}
