@@ -62,7 +62,7 @@ type SortKey = "name" | "orders" | "spent" | "debt";
 // ── Custom hook ───────────────────────────────────────────────────────────────
 
 function useCustomers() {
-  const { cachedSales, setCachedData, cachedExpenses } = useSyncStore();
+  const { cachedSales, setCachedData, cachedExpenses, cachedInventory, cachedMaterials } = useSyncStore();
   const [loading, setLoading]       = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]         = useState("");
@@ -82,7 +82,7 @@ function useCustomers() {
         fetch("/api/payments"),
       ]);
       const [sJson, eJson, pJson] = await Promise.all([sRes.json(), eRes.json(), pRes.json()]);
-      setCachedData(sJson.data ?? [], eJson.data ?? [], undefined, pJson.data ?? []);
+      setCachedData(sJson.data ?? [], eJson.data ?? [], cachedInventory, pJson.data ?? [], cachedMaterials);
     } catch (err) {
       console.error("Customers: fetch error", err);
     } finally {

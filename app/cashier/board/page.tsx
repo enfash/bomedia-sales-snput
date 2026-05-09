@@ -12,14 +12,14 @@ import { Button } from "@/components/ui/button";
 
 export default function CashierBoardPage() {
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
-  const { cachedSales, setCachedData, cachedExpenses } = useSyncStore();
+  const { cachedSales, setCachedData, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials } = useSyncStore();
   const [loading, setLoading] = useState(cachedSales.length === 0);
 
   const fetchData = async () => {
     try {
       const res = await fetch("/api/sales");
       const json = await res.json();
-      setCachedData(json.data || [], cachedExpenses);
+      setCachedData(json.data ?? cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials);
     } catch (e) {
       console.error("Failed to fetch sales for board metrics");
     } finally {
