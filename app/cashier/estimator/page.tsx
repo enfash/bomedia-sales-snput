@@ -154,7 +154,7 @@ function MaterialPicker({
                   disabled={isOut}
                   onClick={() => onChange(roll["Roll ID"])}
                   className={cn(
-                    "p-3 rounded-xl border-2 text-left transition-all",
+                    "p-3 rounded-xl border-2 text-left transition-[border-color,background-color]",
                     isSel
                       ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
                       : isOut
@@ -275,7 +275,7 @@ function QuoteItemCard({
                   <button key={u} type="button"
                     onClick={() => onChange({ dimUnit: u })}
                     className={cn(
-                      "px-2.5 py-1 rounded-md text-[10px] font-black uppercase transition-all",
+                      "px-2.5 py-1 rounded-md text-[10px] font-black uppercase transition-[background-color,color]",
                       item.dimUnit === u ? "bg-orange-500 text-white" : "text-gray-500 dark:text-zinc-400",
                     )}>
                     {u}
@@ -292,7 +292,7 @@ function QuoteItemCard({
                     width:  item.dimUnit === "in" ? String(p.w * 12) : String(p.w),
                     height: item.dimUnit === "in" ? String(p.h * 12) : String(p.h),
                   })}
-                  className="px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-[10px] font-black text-gray-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-600 transition-all">
+                  className="px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-[10px] font-black text-gray-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-600 transition-[border-color,color]">
                   {p.label}ft
                 </button>
               ))}
@@ -559,7 +559,7 @@ export default function CashierEstimatorPage() {
           <button
             type="button"
             onClick={addItem}
-            className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl border-2 border-dashed border-orange-200 dark:border-orange-900/40 text-orange-500 dark:text-orange-400 hover:border-orange-400 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-all font-bold text-sm"
+            className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl border-2 border-dashed border-orange-200 dark:border-orange-900/40 text-orange-500 dark:text-orange-400 hover:border-orange-400 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-[border-color,background-color] font-bold text-sm"
           >
             <Plus className="w-4 h-4" /> Add Another Item
           </button>
@@ -611,7 +611,7 @@ export default function CashierEstimatorPage() {
         {/* ── Log sale CTA ── */}
         {hasAnyResult && allStockOk && (
           <Link href="/cashier/new-entry">
-            <div className="flex items-center justify-between p-4 bg-orange-500 hover:bg-orange-600 rounded-2xl text-white transition-all shadow-lg shadow-orange-500/20 cursor-pointer">
+            <div className="flex items-center justify-between p-4 bg-orange-500 hover:bg-orange-600 rounded-2xl text-white transition-[background-color] shadow-lg shadow-orange-500/20 cursor-pointer">
               <div>
                 <p className="text-sm font-black">Ready to log as a sale?</p>
                 <p className="text-white/70 text-xs mt-0.5">Head to New Entry with these dimensions</p>

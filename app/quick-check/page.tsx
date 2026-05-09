@@ -156,7 +156,7 @@ export default function QuickCheckPage() {
                   id="material-select"
                   value={selectedItem?._rowIndex.toString() || ""}
                   onChange={(e) => handleSelectMaterial(e.target.value)}
-                  className="w-full h-12 px-4 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all shadow-inner"
+                  className="w-full h-12 px-4 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-[border-color,box-shadow,background-color] shadow-inner"
                 >
                   {items.map((item) => (
                     <option key={item._rowIndex} value={item._rowIndex.toString()}>
@@ -225,7 +225,7 @@ export default function QuickCheckPage() {
 
           {/* Selected Results Card */}
           {parsedWidth > 0 && parsedLength > 0 && selectedItem && (
-            <Card className={`border-none shadow-2xl rounded-[2rem] overflow-hidden transition-all duration-500 bg-gradient-to-br ${
+            <Card className={`border-none shadow-2xl rounded-[2rem] overflow-hidden transition-[box-shadow] duration-300 bg-gradient-to-br ${
               isFulfilled 
                 ? "from-emerald-500 to-emerald-600 text-white" 
                 : canFulfillNet 
@@ -281,7 +281,7 @@ export default function QuickCheckPage() {
               </h3>
               <div className="grid grid-cols-1 gap-2">
                 {alternativeFulfillments.map((alt) => (
-                  <Card key={alt._rowIndex} className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800/60 shadow-sm rounded-2xl p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
+                  <Card key={alt._rowIndex} className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800/60 shadow-sm rounded-2xl p-4 flex items-center justify-between transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-md">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-orange-50 dark:bg-zinc-800 rounded-xl text-orange-600 dark:text-orange-400">
                         <Package className="w-5 h-5" />

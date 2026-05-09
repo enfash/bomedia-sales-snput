@@ -97,7 +97,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-[background-color,color]",
                 active
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                   : "text-gray-300 hover:bg-white/5 hover:text-white"

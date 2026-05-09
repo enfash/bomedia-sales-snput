@@ -48,7 +48,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
 
   return (
     <div className={cn(
-      "bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm mb-2.5 overflow-hidden transition-all duration-300",
+      "bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm mb-2.5 overflow-hidden transition-[box-shadow,border-color] duration-300",
       isExpanded ? "ring-1 ring-primary/20" : ""
     )}>
       {/* Header / Summary Section */}

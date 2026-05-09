@@ -337,7 +337,7 @@ export default function CashierRecordsPage() {
               <button
                 key={option.id}
                 onClick={() => setSortBy(option.id as any)}
-                className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${sortBy === option.id
+                className={`px-4 py-2 rounded-lg text-xs font-black transition-[background-color,color] ${sortBy === option.id
                     ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                     : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
                   }`}
@@ -350,7 +350,7 @@ export default function CashierRecordsPage() {
             variant="outline"
             size="icon"
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="h-11 w-11 rounded-xl border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center justify-center transition-all hover:bg-gray-50 dark:hover:bg-zinc-800"
+            className="h-11 w-11 rounded-xl border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center justify-center transition-[background-color] hover:bg-gray-50 dark:hover:bg-zinc-800"
             title={sortOrder === 'asc' ? "Ascending" : "Descending"}
           >
             <ArrowUpDown className={`w-4 h-4 text-orange-600 dark:text-orange-400 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
@@ -363,7 +363,7 @@ export default function CashierRecordsPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`px-6 py-2 rounded-lg text-xs font-black transition-all ${activeTab === tab
+                className={`px-6 py-2 rounded-lg text-xs font-black transition-[background-color,color] ${activeTab === tab
                     ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                     : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
                   }`}

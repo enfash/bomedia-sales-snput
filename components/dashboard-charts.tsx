@@ -73,7 +73,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
   const avgDailySales = activeDays > 0 ? Math.round(totalSalesSum / activeDays) : 0;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
+    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-black text-foreground">Sales vs Expenses</CardTitle>
         <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-black">Daily Performance Trend</CardDescription>
@@ -174,7 +174,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
   const hasData = total > 0;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
+    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-black text-foreground">Expense Breakdown</CardTitle>
         <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-black">Category Split</CardDescription>
@@ -234,7 +234,7 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
   const hasData = total > 0;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
+    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-bold text-foreground">Material Distribution</CardTitle>
         <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-bold">Workload Breakdown</CardDescription>
@@ -307,7 +307,7 @@ export function OutstandingDebtChart({ data, onClientClick, ageMap }: Outstandin
   const hasData = data && data.length > 0;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
+    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div>
@@ -421,7 +421,7 @@ export function PaymentStatusWidget({ paid, partPaid, unpaid, paidAmt, partPaidA
   const unpaidPct = total > 0 ? (unpaid  / total) * 100 : 0;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
+    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-black text-foreground">Payment Status Split</CardTitle>
         <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-black">Jobs by Payment Status</CardDescription>
@@ -433,9 +433,9 @@ export function PaymentStatusWidget({ paid, partPaid, unpaid, paidAmt, partPaidA
           <>
             {/* Stacked bar */}
             <div className="w-full h-3 rounded-full overflow-hidden flex mb-5">
-              {paidPct > 0   && <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${paidPct}%` }} />}
-              {partPct > 0   && <div className="bg-amber-400 h-full transition-all duration-500"  style={{ width: `${partPct}%` }} />}
-              {unpaidPct > 0 && <div className="bg-rose-500 h-full transition-all duration-500"   style={{ width: `${unpaidPct}%` }} />}
+              {paidPct > 0   && <div className="bg-emerald-500 h-full [transition:width_500ms_ease-out]" style={{ width: `${paidPct}%` }} />}
+              {partPct > 0   && <div className="bg-amber-400 h-full [transition:width_500ms_ease-out]"  style={{ width: `${partPct}%` }} />}
+              {unpaidPct > 0 && <div className="bg-rose-500 h-full [transition:width_500ms_ease-out]"   style={{ width: `${unpaidPct}%` }} />}
             </div>
 
             {/* Stats grid */}
@@ -473,7 +473,7 @@ export function TopClientsWidget({ clients }: TopClientsWidgetProps) {
   const maxRevenue = hasData ? Math.max(...clients.map(c => c.revenue), 1) : 1;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-all duration-500 hover:shadow-xl">
+    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
@@ -513,7 +513,7 @@ export function TopClientsWidget({ clients }: TopClientsWidgetProps) {
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-primary/70 transition-all duration-500"
+                      className="h-full rounded-full bg-primary/70 [transition:width_500ms_ease-out]"
                       style={{ width: `${barWidth}%` }}
                     />
                   </div>

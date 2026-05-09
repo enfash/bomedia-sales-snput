@@ -165,7 +165,7 @@ function MaterialSelector({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "w-full h-14 rounded-2xl border-2 px-4 flex items-center justify-between transition-all text-left",
+          "w-full h-14 rounded-2xl border-2 px-4 flex items-center justify-between transition-[border-color,background-color] text-left",
           selectedMaterialId
             ? "border-primary bg-primary/5 dark:bg-primary/10 dark:border-primary/70"
             : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-primary/50 dark:hover:border-primary/50"
@@ -240,7 +240,7 @@ function MaterialSelector({
                             setSearch("");
                           }}
                           className={cn(
-                            "w-full p-4 rounded-2xl border-2 text-left transition-all",
+                            "w-full p-4 rounded-2xl border-2 text-left transition-[border-color,background-color]",
                             mat["Material ID"] === selectedMaterialId
                               ? "border-primary bg-primary/5 dark:bg-primary/10"
                               : isOut
@@ -270,7 +270,7 @@ function MaterialSelector({
                           <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
                             <div
                               className={cn(
-                                "h-full rounded-full transition-all",
+                                "h-full rounded-full [transition:width_300ms_ease-out]",
                                 mat.Status === "Low Stock" ? "bg-amber-500" : isOut ? "bg-rose-500" : "bg-emerald-500"
                               )}
                               style={{ width: `${pct}%` }}
@@ -311,7 +311,7 @@ function CartItemCard({
   return (
     <div
       className={cn(
-        "relative p-4 rounded-2xl border-2 transition-all",
+        "relative p-4 rounded-2xl border-2 transition-[border-color,background-color]",
         stockOk
           ? "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
           : "border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-900/10"
@@ -358,7 +358,7 @@ function CartItemCard({
       <button
         type="button"
         onClick={() => onRemove(item.id)}
-        className="absolute top-3 right-3 w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+        className="absolute top-3 right-3 w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-[background-color,color]"
         aria-label="Remove"
       >
         <Trash2 className="w-3.5 h-3.5" />
@@ -850,13 +850,13 @@ export function SalesEntry() {
           <TabsList className="bg-gray-100 dark:bg-zinc-900 p-1 rounded-full border border-gray-200 dark:border-zinc-800 gap-1">
             <TabsTrigger
               value="manual"
-              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
+              className="px-6 py-2 rounded-full text-sm font-black transition-[background-color,color,box-shadow] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
             >
               ✏️ Manual
             </TabsTrigger>
             <TabsTrigger
               value="ai"
-              className="px-6 py-2 rounded-full text-sm font-black transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
+              className="px-6 py-2 rounded-full text-sm font-black transition-[background-color,color,box-shadow] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
             >
               ⚡ AI Log
             </TabsTrigger>
@@ -1047,7 +1047,7 @@ export function SalesEntry() {
                     type="button"
                     onClick={() => setDimUnit(u)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all",
+                      "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-[background-color,color]",
                       dimUnit === u
                         ? "bg-primary text-white shadow-sm"
                         : "text-gray-500 dark:text-zinc-400"
@@ -1257,7 +1257,7 @@ export function SalesEntry() {
             <Button
               onClick={handleAddToCart}
               disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}
-              className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-[background-color,transform] active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Add to Order
@@ -1383,7 +1383,7 @@ export function SalesEntry() {
             </div>
 
             <textarea
-              className="w-full p-5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl min-h-[180px] focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all text-base placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium resize-none"
+              className="w-full p-5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl min-h-[180px] focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-[border-color,box-shadow,background-color] text-base placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium resize-none"
               placeholder={`e.g. "John Doe ordered 3 SAV stickers, 4ft by 2ft each, paid ₦5,000 deposit…"`}
               value={nlText}
               onChange={(e) => setNlText(e.target.value)}
@@ -1395,7 +1395,7 @@ export function SalesEntry() {
             <Button
               disabled={nlParsing || !nlText.trim()}
               onClick={handleNlSubmit}
-              className="w-full h-14 mt-5 bg-primary hover:bg-primary/90 text-white font-black text-base rounded-2xl shadow-xl shadow-primary/20 transition-all active:scale-[0.98]"
+              className="w-full h-14 mt-5 bg-primary hover:bg-primary/90 text-white font-black text-base rounded-2xl shadow-xl shadow-primary/20 transition-[background-color,transform] active:scale-[0.98]"
             >
               {nlParsing ? (
                 <>

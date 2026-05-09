@@ -194,7 +194,7 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
         <Button
           disabled={isSubmitting || lumpSum <= 0 || preview.length === 0}
           onClick={handleSubmit}
-          className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-all active:scale-[0.98]"
+          className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.98]"
         >
           {isSubmitting ? "Processing..." : "Apply Payment"}
         </Button>
