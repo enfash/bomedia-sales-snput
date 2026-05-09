@@ -397,7 +397,7 @@ function QuoteItemCard({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function EstimatorPage() {
-  const { cachedInventory, setCachedData, cachedSales, cachedExpenses, cachedPayments } = useSyncStore();
+  const { cachedInventory, setCachedData, cachedSales, cachedExpenses, cachedPayments, cachedMaterials } = useSyncStore();
   const [mounted, setMounted] = useState(false);
   const [syncing, setSyncing]   = useState(false);
   const [clientName, setClientName] = useState("");
@@ -416,10 +416,10 @@ export default function EstimatorPage() {
     try {
       const r = await fetch("/api/inventory");
       const j = await r.json();
-      if (j.data) setCachedData(cachedSales, cachedExpenses, j.data, cachedPayments);
+      if (j.data) setCachedData(cachedSales, cachedExpenses, j.data, cachedPayments, cachedMaterials);
     } catch { /* silent */ }
     finally { setSyncing(false); }
-  }, [cachedSales, cachedExpenses, cachedPayments, setCachedData]);
+  }, [cachedSales, cachedExpenses, cachedPayments, cachedMaterials, setCachedData]);
 
   useEffect(() => { refreshInventory(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -78,13 +78,22 @@ export const useSyncStore = create<SyncState>()(
         )
       })),
 
-      setCachedData: (sales, expenses, inventory, payments, materials) => set((state) => ({
-        cachedSales: sales,
-        cachedExpenses: expenses,
-        cachedInventory: inventory || state.cachedInventory,
-        cachedPayments: payments || state.cachedPayments,
-        cachedMaterials: materials || state.cachedMaterials
-      })),
+      setCachedData: (sales, expenses, inventory, payments, materials) => {
+        if (process.env.NODE_ENV !== 'production') {
+          if (!Array.isArray(sales))
+            console.warn('[setCachedData] arg 1 (sales) must be an array, got:', typeof sales);
+          if (!Array.isArray(expenses))
+            console.warn('[setCachedData] arg 2 (expenses) must be an array, got:', typeof expenses);
+        }
+        return set((state) => ({
+          cachedSales: sales,
+          cachedExpenses: expenses,
+          // ?? so only undefined/null falls back — an explicit [] correctly empties the slice
+          cachedInventory: inventory ?? state.cachedInventory,
+          cachedPayments: payments ?? state.cachedPayments,
+          cachedMaterials: materials ?? state.cachedMaterials,
+        }));
+      },
     }),
     {
       name: 'bomedia-sync-storage',

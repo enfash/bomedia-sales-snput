@@ -628,7 +628,7 @@ function DesktopSidePanel({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CashierDashboardPage() {
-  const { pendingQueue, cachedSales, setCachedData, cachedExpenses, cachedInventory } =
+  const { pendingQueue, cachedSales, setCachedData, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials } =
     useSyncStore();
 
   const [loading, setLoading] = useState(cachedSales.length === 0);
@@ -657,14 +657,14 @@ export default function CashierDashboardPage() {
       const sales = sJson.data || cachedSales;
       const inventory = iJson.data || cachedInventory;
       
-      setCachedData(sales, cachedExpenses, inventory);
+      setCachedData(sales, cachedExpenses, inventory, cachedPayments, cachedMaterials);
     } catch (error) {
       console.error("Fetch dashboard data error:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [cachedSales, cachedInventory, cachedExpenses, setCachedData]);
+  }, [cachedSales, cachedInventory, cachedExpenses, cachedPayments, cachedMaterials, setCachedData]);
 
   useEffect(() => {
     if (cachedSales.length === 0) {

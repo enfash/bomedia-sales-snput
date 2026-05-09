@@ -69,7 +69,7 @@ function StatusBadge({ status }: { status: RecordStatus }) {
 }
 
 export default function RecordsPage() {
-  const { pendingQueue, cachedSales, cachedExpenses, setCachedData, syncStatus } = useSyncStore();
+  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData, syncStatus } = useSyncStore();
   
   const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
   const [expensesData, setExpensesData] = useState<Row[]>(cachedExpenses || []);
@@ -108,7 +108,7 @@ export default function RecordsPage() {
 
       setSalesData(newSales);
       setExpensesData(newExpenses);
-      setCachedData(newSales, newExpenses);
+      setCachedData(newSales, newExpenses, cachedInventory, cachedPayments, cachedMaterials);
     } catch {
       // If we have cached data, don't show a hard error, just a console log
       if (salesData.length > 0) {

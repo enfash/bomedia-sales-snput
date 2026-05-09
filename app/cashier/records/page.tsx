@@ -62,7 +62,7 @@ function StatusBadge({ status }: { status: RecordStatus }) {
 }
 
 export default function CashierRecordsPage() {
-  const { pendingQueue, cachedSales, cachedExpenses, setCachedData } = useSyncStore();
+  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData } = useSyncStore();
   
   const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
   const [loading, setLoading] = useState(cachedSales.length === 0);
@@ -92,7 +92,7 @@ export default function CashierRecordsPage() {
       const newSales = salesJson.data ?? [];
 
       setSalesData(newSales);
-      setCachedData(newSales, cachedExpenses);
+      setCachedData(newSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials);
     } catch {
       if (salesData.length > 0) {
         console.warn("Currently offline. Using cached records.");

@@ -12,7 +12,7 @@ const parseAmount = (val: any): number => {
 };
 
 export function NotificationManager() {
-  const { cachedSales, cachedExpenses, setCachedData } = useSyncStore();
+  const { cachedSales, cachedExpenses, cachedPayments, cachedMaterials, setCachedData } = useSyncStore();
   
   const lastSalesIndex = useRef<number>(0);
   const lastExpensesIndex = useRef<number>(0);
@@ -59,7 +59,7 @@ export function NotificationManager() {
           if (stock <= 50) alertedInventoryRows.current.add(item._rowIndex);
         });
         
-        setCachedData(newSales, newExpenses, newInventory);
+        setCachedData(newSales, newExpenses, newInventory, cachedPayments, cachedMaterials);
         return;
       }
 
@@ -116,7 +116,7 @@ export function NotificationManager() {
       });
 
       // Update Store Cache
-      setCachedData(newSales, newExpenses, newInventory);
+      setCachedData(newSales, newExpenses, newInventory, cachedPayments, cachedMaterials);
 
       // Sound Notification
       if (hasNewActivity) {
