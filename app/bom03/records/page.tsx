@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, Fragment, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   RefreshCw,
   Search,
@@ -69,6 +70,7 @@ function StatusBadge({ status }: { status: RecordStatus }) {
 }
 
 export default function RecordsPage() {
+  const router = useRouter();
   const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData, syncStatus } = useSyncStore();
   
   const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
@@ -355,6 +357,10 @@ export default function RecordsPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}
+              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <h1 className="text-3xl font-black text-primary dark:text-brand-300">Financial Records</h1>
             {refreshing && (
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-brand-600 dark:text-brand-300 uppercase tracking-wider bg-brand-50 dark:bg-brand-900/20 px-2 py-0.5 rounded-full animate-pulse border border-brand-100 dark:border-brand-800">

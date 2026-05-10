@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   RefreshCw, Search, Users, Wallet, ArrowUpDown,
   ShoppingBag, ChevronLeft, ChevronRight,
   TrendingUp, AlertCircle, CheckCircle2, Calendar,
-  Activity, Download, Filter, PhoneCall,
+  Activity, Download, Filter, PhoneCall, ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -256,6 +257,7 @@ function EmptyState({ filtered }: { filtered: boolean }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean }) {
+  const router = useRouter();
   const {
     loading, refreshing, fetchData,
     search, setSearch,
@@ -279,6 +281,10 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}
+              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <h1 className="text-3xl font-black text-primary flex items-center gap-2">
               <Users className="w-8 h-8" /> Customer Manager
             </h1>

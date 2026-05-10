@@ -115,26 +115,29 @@ export async function deductFromInventory(
 
     const rollWidth = parseFloat(rollRow.get('Width (ft)') || '0');
 
-    // 2. Validation: Orientation Flip
-    // We need to check if jW fits the roll width. If not, check if jH fits.
-    let consumedLengthPerJob = jH;
-    let jobFits = jW <= (rollWidth + 0.01); // small buffer for floating point
-
-    if (!jobFits && jH <= (rollWidth + 0.01)) {
-      // SILENT FLIP: swap width and height
-      consumedLengthPerJob = jW;
-      jobFits = true;
-      console.log(`[Inventory] Orientation flip applied: ${jW}x${jH} -> ${jH}x${jW} on ${rollWidth}ft roll`);
+    // 2. Tiling/Nesting: calculate rows needed for each orientation, pick the shorter one.
+    let normalLen = Infinity;
+    if (jW <= rollWidth + 0.01) {
+      const itemsPerRow = Math.floor((rollWidth + 0.01) / jW);
+      normalLen = Math.ceil(qty / itemsPerRow) * jH;
     }
 
-    if (!jobFits) {
+    let flippedLen = Infinity;
+    if (jH <= rollWidth + 0.01) {
+      const itemsPerRow = Math.floor((rollWidth + 0.01) / jH);
+      flippedLen = Math.ceil(qty / itemsPerRow) * jW;
+    }
+
+    if (normalLen === Infinity && flippedLen === Infinity) {
       return {
         success: false,
         error: `Job dimension exceeds roll width (${rollWidth}ft). Requested: ${jW.toFixed(1)}ft x ${jH.toFixed(1)}ft`,
       };
     }
 
-    const totalConsumedLength = consumedLengthPerJob * qty;
+    const isFlipped = flippedLen < normalLen;
+    const totalConsumedLength = isFlipped ? flippedLen : normalLen;
+    console.log(`[Inventory] Tiling (${isFlipped ? 'flipped' : 'normal'}): ${qty}× ${jW.toFixed(2)}ft×${jH.toFixed(2)}ft → ${totalConsumedLength.toFixed(2)}ft on ${rollWidth}ft roll`);
 
     // 3. Read current stock (no hard block — sales are always logged; inventory depletes to 0)
     const currentRemaining = parseFloat(rollRow.get("Remaining Length (ft)") || "0") || 0;

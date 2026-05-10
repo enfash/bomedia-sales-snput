@@ -21,6 +21,11 @@ export function SyncManager() {
   const isSyncingRef = useRef(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  // Rehydrate from localStorage after hydration to prevent server/client mismatch
+  useEffect(() => {
+    useSyncStore.persist.rehydrate();
+  }, []);
+
   // Items that have exceeded max retries — these won't be retried automatically
   const exhaustedItems = pendingQueue.filter(
     (item) => (item.retryCount ?? 0) >= MAX_RETRIES

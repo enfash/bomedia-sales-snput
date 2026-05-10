@@ -576,20 +576,34 @@ export function SalesEntry() {
     return dimUnit === "in" ? h / 12 : h;
   }, [jobHeight, dimUnit]);
 
-  // Orientation check must run before jobLengthFt so the flip informs the length calc
   const rollWidth = selectedMaterial ? parseNum(selectedMaterial["Width (ft)"]) : 0;
-  const fitsNormal  = !selectedMaterial || jobWFt <= rollWidth;
-  const fitsFlipped = !selectedMaterial || jobHFt <= rollWidth;
-  const isFlipped   = !fitsNormal && fitsFlipped; // job is rotated 90° to fit the roll width
-  const widthCompatible = fitsNormal || fitsFlipped;
-
   const qtyNum = parseInt(qty) || 1;
+
+  // Tiling logic: fit multiple items side-by-side across the roll width before consuming length.
+  // For each orientation, itemsPerRow = how many fit across; rows = ceil(qty / itemsPerRow).
+  let normalLen = Infinity;
+  let flippedLen = Infinity;
+  if (rollWidth > 0 && jobWFt > 0 && jobHFt > 0) {
+    if (jobWFt <= rollWidth + 0.01) {
+      const itemsPerRow = Math.floor((rollWidth + 0.01) / jobWFt);
+      normalLen = Math.ceil(qtyNum / itemsPerRow) * jobHFt;
+    }
+    if (jobHFt <= rollWidth + 0.01) {
+      const itemsPerRow = Math.floor((rollWidth + 0.01) / jobHFt);
+      flippedLen = Math.ceil(qtyNum / itemsPerRow) * jobWFt;
+    }
+  }
+
+  const widthCompatible = !selectedMaterial || normalLen !== Infinity || flippedLen !== Infinity;
+  const isFlipped = widthCompatible && flippedLen < normalLen;
+  const jobLengthFt = widthCompatible && (normalLen !== Infinity || flippedLen !== Infinity)
+    ? (isFlipped ? flippedLen : normalLen)
+    : 0;
+
   const costPerSqft = parseFloat(costOverride) || 0;
-  const unitSqft = jobWFt * jobHFt; // area is the same regardless of orientation
+  const unitSqft = jobWFt * jobHFt;
   const unitCost = unitSqft * costPerSqft;
   const totalAmount = unitCost * qtyNum;
-  // When flipped, job width runs along the roll length; otherwise height does
-  const jobLengthFt = (isFlipped ? jobWFt : jobHFt) * qtyNum;
 
   const matRemaining = selectedMaterial
     ? parseNum(selectedMaterial["Total Remaining (ft)"])
