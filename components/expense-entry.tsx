@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useSyncStore } from "@/lib/store";
-import { Camera, Check, ChevronsUpDown, Loader2, Search } from "lucide-react";
+import { Camera, Check, ChevronsUpDown, Loader2, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -44,6 +44,16 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+
+type RecentExpense = {
+  id: string;
+  amount: string;
+  category: string;
+  description: string;
+  date: string;
+  paymentMethod: string;
+  paidTo: string;
+};
 
 const EXPENSE_CATEGORIES = [
   "Raw Materials",
@@ -71,6 +81,7 @@ export function ExpenseEntry() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>([]);
 
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -142,11 +153,37 @@ export function ExpenseEntry() {
     };
 
     try {
-      // Save locally to the sync queue
       useSyncStore.getState().addPendingEntry("expense", payload);
 
-      toast.success("Expense recorded locally! Syncing in background...");
+      // Capture the ID synchronously — addPendingEntry is a sync Zustand set
+      const queue = useSyncStore.getState().pendingQueue;
+      const entryId = queue[queue.length - 1]?.id ?? "";
+
+      const saved: RecentExpense = {
+        id: entryId,
+        amount: formData.amount,
+        category: formData.category,
+        description: formData.description,
+        date: formData.date,
+        paymentMethod: formData.paymentMethod,
+        paidTo: formData.paidTo,
+      };
+      setRecentExpenses(prev => [saved, ...prev].slice(0, 5));
+
       setShowConfirmModal(false);
+
+      toast.success(`₦${Number(formData.amount).toLocaleString()} logged`, {
+        description: `${formData.category} · ${formData.description}`,
+        duration: 5000,
+        action: {
+          label: "Undo",
+          onClick: () => {
+            useSyncStore.getState().removeEntry(entryId);
+            setRecentExpenses(prev => prev.filter(e => e.id !== entryId));
+            toast.info("Expense removed.", { duration: 2000 });
+          },
+        },
+      });
 
       setFormData({
         date: new Date().toISOString().split("T")[0],
@@ -418,6 +455,42 @@ export function ExpenseEntry() {
           </CardFooter>
         </Card>
       </div>
+
+      {/* Recent Expenses — session only, cleared on page reload */}
+      {recentExpenses.length > 0 && (
+        <div className="w-full max-w-2xl mx-auto px-2 md:px-4 pb-8">
+          <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/60 dark:bg-zinc-800/40">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-zinc-400">
+                  This Session
+                </span>
+              </div>
+              <span className="text-[10px] font-black text-gray-400 dark:text-zinc-500">
+                {recentExpenses.length} logged
+              </span>
+            </div>
+            <ul className="divide-y divide-gray-50 dark:divide-zinc-800">
+              {recentExpenses.map((exp) => (
+                <li key={exp.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+                      {exp.category}
+                    </p>
+                    <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">
+                      {exp.description}{exp.paidTo ? ` · ${exp.paidTo}` : ""} · {exp.paymentMethod}
+                    </p>
+                  </div>
+                  <span className="text-sm font-black text-rose-600 dark:text-rose-400 shrink-0">
+                    ₦{Number(exp.amount).toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
         <DialogContent className="max-w-[calc(100%-2rem)] w-full rounded-2xl p-0 overflow-hidden bg-white dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 shadow-2xl">
