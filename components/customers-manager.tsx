@@ -413,7 +413,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
             {(["name", "orders", "spent", "debt"] as const).map(key => (
               <button key={key} onClick={() => setSortBy(key)}
                 className={cn(
-                  "px-3 py-2 rounded-lg text-xs font-bold transition-[background-color,color] capitalize",
+                  "px-3 py-2 rounded-lg text-xs font-bold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] capitalize",
                   sortBy === key
                     ? "bg-primary/10 dark:bg-primary/20 text-primary"
                     : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300",

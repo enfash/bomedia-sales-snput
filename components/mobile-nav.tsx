@@ -184,7 +184,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                     key={href}
                     href={href}
                     className={cn(
-                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-[background-color,color] duration-200",
+                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
                       active
                         ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
                         : "text-gray-300 hover:bg-white/5 hover:text-white"
@@ -217,7 +217,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                 {isAdmin && (
                   <Button
                     variant="ghost"
-                    className="w-full text-brand-300 hover:text-white hover:bg-brand-700/30 justify-start"
+                    className="w-full text-brand-300 hover:text-white hover:bg-brand-700/30 justify-start transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
                     onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
                   >
                     <ArrowLeftRight className="w-5 h-5 mr-3" />
@@ -226,7 +226,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                 )}
                 <Button
                   variant="ghost"
-                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 justify-start"
+                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] justify-start"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-5 h-5 mr-3" />

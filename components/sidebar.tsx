@@ -100,7 +100,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-[background-color,color]",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
                 active
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                   : "text-gray-300 hover:bg-white/5 hover:text-white"
@@ -143,7 +143,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         <div className="px-3 pb-2">
           <button
             onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-brand-300 hover:bg-white/5 hover:text-white transition-[background-color,color]"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-brand-300 hover:bg-white/5 hover:text-white transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]"
           >
             <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
             {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
@@ -166,7 +166,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
             </div>
             <button
               onClick={handleLogout}
-              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 transition-colors"
+              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
               title="Log out"
             >
               <LogOut className="w-4 h-4" />

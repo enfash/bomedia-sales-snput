@@ -411,7 +411,7 @@ export function ExpenseEntry() {
           <CardFooter className="p-4 border-t dark:border-white/5 bg-gray-50/50 dark:bg-zinc-900/50">
             <Button
               onClick={handleReview}
-              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground py-6 text-base font-bold rounded-xl shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.98]"
+              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground py-6 text-base font-bold rounded-xl shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
             >
               Review & Save
             </Button>

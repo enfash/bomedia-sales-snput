@@ -1257,7 +1257,7 @@ export function SalesEntry() {
             <Button
               onClick={handleAddToCart}
               disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}
-              className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-[background-color,transform] active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-[background-color,transform] active:scale-[0.97] flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Add to Order
@@ -1395,7 +1395,7 @@ export function SalesEntry() {
             <Button
               disabled={nlParsing || !nlText.trim()}
               onClick={handleNlSubmit}
-              className="w-full h-14 mt-5 bg-primary hover:bg-primary/90 text-white font-black text-base rounded-2xl shadow-xl shadow-primary/20 transition-[background-color,transform] active:scale-[0.98]"
+              className="w-full h-14 mt-5 bg-primary hover:bg-primary/90 text-white font-black text-base rounded-2xl shadow-xl shadow-primary/20 transition-[background-color,transform] active:scale-[0.97]"
             >
               {nlParsing ? (
                 <>

@@ -92,7 +92,7 @@ export default function LoginPage() {
           
           <Button
             type="submit"
-            className="w-full h-12 bg-brand-700 hover:bg-brand-800 text-white font-heavy rounded-xl text-base shadow-lg shadow-brand-700/20 transition-[background-color,transform] active:scale-[0.98]"
+            className="w-full h-12 bg-brand-700 hover:bg-brand-800 text-white font-heavy rounded-xl text-base shadow-lg shadow-brand-700/20 transition-[background-color,transform] active:scale-[0.97]"
             disabled={loading}
           >
             {loading ? "Verifying..." : (

@@ -116,7 +116,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
               <div className="flex gap-2">
                 {["3","4","5","6","8","10"].map(w => (
                   <button key={w} type="button" onClick={() => set("widthFt", w)}
-                    className={cn("flex-1 h-10 rounded-xl text-xs font-black border-2 transition-[border-color,background-color,color]", form.widthFt === w ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-brand-300")}>
+                    className={cn("flex-1 h-10 rounded-xl text-xs font-black border-2 transition-[border-color,background-color,color,transform] duration-150 ease-out active:scale-[0.97]", form.widthFt === w ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-brand-300")}>
                     {w}ft
                   </button>
                 ))}

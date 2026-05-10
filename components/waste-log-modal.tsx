@@ -312,7 +312,7 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
       <Button
         disabled={saving || !wasteLength || !reason}
         onClick={handleSave}
-        className="flex-1 h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black shadow-lg shadow-rose-600/20 active:scale-[0.98]">
+        className="flex-1 h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black shadow-lg shadow-rose-600/20 active:scale-[0.97]">
         {saving ? "Logging..." : "Log Waste & Deduct"}
       </Button>
     </div>

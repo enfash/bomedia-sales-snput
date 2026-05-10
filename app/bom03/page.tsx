@@ -617,7 +617,7 @@ export default function DashboardPage() {
         {/* Quick Actions / Shortcuts */}
         <div className="md:col-span-1 flex flex-col gap-2">
           <Link href="/bom03/inventory" className="w-full flex-1">
-            <div className="h-full bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-[background-color,transform] active:scale-[0.98] shadow-sm">
+            <div className="h-full bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-[background-color,transform] active:scale-[0.97] shadow-sm">
               <div className="bg-amber-100 dark:bg-amber-900/40 p-2.5 rounded-xl shadow-inner">
                 <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
               </div>
@@ -630,7 +630,7 @@ export default function DashboardPage() {
           </Link>
 
           <Link href="/quick-check" className="w-full flex-1">
-            <div className="h-full bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 transition-[background-color,transform] active:scale-[0.98] shadow-sm">
+            <div className="h-full bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 transition-[background-color,transform] active:scale-[0.97] shadow-sm">
               <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2.5 rounded-xl shadow-inner">
                 <Zap className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
               </div>
@@ -642,7 +642,7 @@ export default function DashboardPage() {
             </div>
           </Link>
           <Link href="/bom03/staff" className="w-full flex-1">
-            <div className="h-full bg-violet-500/5 dark:bg-violet-950/30 border border-violet-200/50 dark:border-violet-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-violet-500/10 dark:hover:bg-violet-900/20 transition-[background-color,transform] active:scale-[0.98] shadow-sm">
+            <div className="h-full bg-violet-500/5 dark:bg-violet-950/30 border border-violet-200/50 dark:border-violet-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-violet-500/10 dark:hover:bg-violet-900/20 transition-[background-color,transform] active:scale-[0.97] shadow-sm">
               <div className="bg-violet-100 dark:bg-violet-900/40 p-2.5 rounded-xl shadow-inner">
                 <Users className="w-6 h-6 text-violet-600 dark:text-violet-400" />
               </div>
