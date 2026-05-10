@@ -1,0 +1,29 @@
+import { SalesEntry } from "@/components/sales-entry";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+
+export default function AdminNewEntryPage() {
+  return (
+    <div className="p-6 md:p-8 min-h-screen">
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-1">
+          <Link href="/bom03">
+            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+              Log New Sale
+            </h1>
+            <p className="text-gray-500 dark:text-zinc-400 mt-1">
+              Log a new print job for a customer.
+            </p>
+          </div>
+        </div>
+      </div>
+      <SalesEntry />
+    </div>
+  );
+}

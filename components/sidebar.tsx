@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Ruler, Package, Calculator } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Ruler, Package, Calculator, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
@@ -24,6 +24,7 @@ interface SidebarProps {
 
 export function Sidebar({ isAdmin = false }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [userName, setUserName] = useState("");
   const { pendingQueue, syncStatus, lastSyncTime } = useSyncStore();
 
@@ -54,27 +55,29 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
   if (pathname === "/bom03/login" || pathname === "/") return null;
 
-  const currentNavItems = pathname.startsWith("/cashier") || !isAdmin
+  const isInCashierView = pathname.startsWith("/cashier") || !isAdmin;
+
+  const currentNavItems = isInCashierView
     ? [
-        { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/cashier/new-entry", label: "New Sale", icon: PlusCircle },
-        { href: "/cashier/board", label: "Job Board", icon: KanbanSquare },
-        { href: "/cashier/customers", label: "Customers", icon: Users },
-        { href: "/cashier/inventory", label: "Stock", icon: Package },
-        { href: "/cashier/estimator", label: "Estimator", icon: Calculator },
-        { href: "/quick-check", label: "Quick-Check", icon: Ruler },
-        { href: "/cashier/records", label: "Records", icon: BarChart3 },
-        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/cashier",           label: "Dashboard",  icon: LayoutDashboard },
+        { href: "/cashier/new-entry", label: "New Sale",   icon: PlusCircle },
+        { href: "/cashier/board",     label: "Job Board",  icon: KanbanSquare },
+        { href: "/cashier/customers", label: "Customers",  icon: Users },
+        { href: "/cashier/inventory", label: "Stock",      icon: Package },
+        { href: "/cashier/estimator", label: "Estimator",  icon: Calculator },
+        { href: "/quick-check",       label: "Quick-Check", icon: Ruler },
+        { href: "/cashier/records",   label: "Records",    icon: BarChart3 },
+        { href: "/cashier/expenses",  label: "Log Expense", icon: Receipt },
       ]
     : [
-        { href: "/bom03", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-        { href: "/bom03/board", label: "Job Board", icon: KanbanSquare },
-        { href: "/bom03/customers", label: "Customers", icon: Users },
-        { href: "/quick-check", label: "Quick-Check", icon: Ruler },
-        { href: "/bom03/records", label: "Records", icon: BarChart3 },
-        { href: "/bom03/expenses", label: "Log Expense", icon: Receipt },
-        { href: "/bom03/staff", label: "Staff Manager", icon: Users },
+        { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
+        { href: "/bom03/new-entry", label: "New Sale",     icon: PlusCircle },
+        { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
+        { href: "/bom03/customers", label: "Customers",    icon: Users },
+        { href: "/quick-check",     label: "Quick-Check",  icon: Ruler },
+        { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
+        { href: "/bom03/expenses",  label: "Log Expense",  icon: Receipt },
+        { href: "/bom03/staff",     label: "Staff Manager", icon: Users },
       ];
 
   return (
@@ -134,6 +137,19 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
           )}
         </div>
       </div>
+
+      {/* Portal switcher — admin only */}
+      {isAdmin && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-brand-300 hover:bg-white/5 hover:text-white transition-[background-color,color]"
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+            {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
+          </button>
+        </div>
+      )}
 
       {/* User badge */}
       {userName && (
