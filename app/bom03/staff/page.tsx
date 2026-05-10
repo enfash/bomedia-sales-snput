@@ -83,7 +83,7 @@ function StaffCard({ stats }: { stats: StaffStats }) {
             </p>
             {stats.isOnline && (
               <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Online
               </span>
             )}

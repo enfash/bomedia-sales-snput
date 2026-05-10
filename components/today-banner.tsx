@@ -57,7 +57,7 @@ export function TodayBanner({ jobCount, revenue, salesCount, className }: TodayB
           ) : (
             <span className={cn(
               "h-1.5 w-1.5 rounded-full",
-              hasPending ? "bg-amber-500 animate-pulse" : "bg-primary"
+              hasPending ? "bg-amber-500" : "bg-primary"
             )} />
           )}
           {isSyncing ? "Syncing" : hasPending ? `${pendingQueue.length} pending` : "Live"}

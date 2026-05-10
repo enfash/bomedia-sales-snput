@@ -236,9 +236,9 @@ export default function QuickCheckPage() {
                 <div className="flex items-center gap-4">
                   <div className="p-3.5 bg-white/20 rounded-2xl shadow-inner">
                     {isFulfilled ? (
-                      <CheckCircle2 className="w-10 h-10 text-white animate-pulse" />
+                      <CheckCircle2 className="w-10 h-10 text-white" />
                     ) : canFulfillNet ? (
-                      <AlertTriangle className="w-10 h-10 text-white animate-bounce" />
+                      <AlertTriangle className="w-10 h-10 text-white" />
                     ) : (
                       <XCircle className="w-10 h-10 text-white" />
                     )}
