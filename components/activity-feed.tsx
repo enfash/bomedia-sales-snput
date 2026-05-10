@@ -156,7 +156,7 @@ export function ActivityFeed() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-10 w-10 rounded-full text-gray-500 hover:text-primary hover:bg-primary/10 transition-[background-color,color,transform] active:scale-95"
+          className="relative h-10 w-10 rounded-full text-gray-500 hover:text-primary hover:bg-primary/10 transition-[background-color,color,transform] active:scale-[0.97]"
         >
           <Bell className="h-5 w-5" />
           {activityItems.length > 0 && (

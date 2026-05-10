@@ -61,7 +61,7 @@ export function BottomNav() {
               >
                 <div
                   className={cn(
-                    "w-14 h-14 rounded-full shadow-[0_8px_20px] flex items-center justify-center border-4 border-gray-50 dark:border-zinc-950 transition-transform active:scale-95",
+                    "w-14 h-14 rounded-full shadow-[0_8px_20px] flex items-center justify-center border-4 border-gray-50 dark:border-zinc-950 transition-transform active:scale-[0.97]",
                     `bg-gradient-to-br ${primaryClass}`,
                     `${shadowClass}`,
                   )}
@@ -87,7 +87,7 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] px-2 transition-[color,transform] active:scale-95",
+                "flex flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] px-2 transition-[color,transform] active:scale-[0.97]",
                 isActive
                   ? cn("scale-105", activeColorClass)
                   : "text-gray-500 dark:text-zinc-400",

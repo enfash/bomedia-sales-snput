@@ -36,7 +36,7 @@ export function FloatingSaleActionButton() {
         <Button
           size="icon"
           className={cn(
-            "h-14 w-14 rounded-full text-white shadow-2xl border-4 border-white dark:border-zinc-900 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-110 active:scale-95",
+            "h-14 w-14 rounded-full text-white shadow-2xl border-4 border-white dark:border-zinc-900 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-110 active:scale-[0.97]",
             isAdmin
               ? "bg-brand-700 hover:bg-brand-800 shadow-brand-700/40"
               : "bg-orange-500 hover:bg-orange-600 shadow-orange-500/40",

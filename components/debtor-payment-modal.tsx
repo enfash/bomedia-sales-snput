@@ -264,7 +264,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
         <Button
           disabled={isSubmitting || lumpSum <= 0 || preview.length === 0}
           onClick={handleSubmit}
-          className={`flex-1 h-12 rounded-xl ${primaryColor} ${hoverColor} text-white font-black shadow-lg transition-[background-color,transform] active:scale-[0.98]`}
+          className={`flex-1 h-12 rounded-xl ${primaryColor} ${hoverColor} text-white font-black shadow-lg transition-[background-color,transform] active:scale-[0.97]`}
         >
           {isSubmitting ? (
             <>

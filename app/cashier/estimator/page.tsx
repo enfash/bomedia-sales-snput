@@ -235,7 +235,7 @@ function QuoteItemCard({
             <button
               type="button"
               onClick={e => { e.stopPropagation(); onRemove(); }}
-              className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-gray-400 hover:text-rose-500 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-gray-400 hover:text-rose-500 transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -275,7 +275,7 @@ function QuoteItemCard({
                   <button key={u} type="button"
                     onClick={() => onChange({ dimUnit: u })}
                     className={cn(
-                      "px-2.5 py-1 rounded-md text-[10px] font-black uppercase transition-[background-color,color]",
+                      "px-2.5 py-1 rounded-md text-[10px] font-black uppercase transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
                       item.dimUnit === u ? "bg-orange-500 text-white" : "text-gray-500 dark:text-zinc-400",
                     )}>
                     {u}
@@ -292,7 +292,7 @@ function QuoteItemCard({
                     width:  item.dimUnit === "in" ? String(p.w * 12) : String(p.w),
                     height: item.dimUnit === "in" ? String(p.h * 12) : String(p.h),
                   })}
-                  className="px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-[10px] font-black text-gray-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-600 transition-[border-color,color]">
+                  className="px-2.5 py-1 rounded-lg bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-[10px] font-black text-gray-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-600 transition-[border-color,color,transform] duration-150 ease-out active:scale-[0.97]">
                   {p.label}ft
                 </button>
               ))}
@@ -493,7 +493,7 @@ export default function CashierEstimatorPage() {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-3">
             <Link href="/cashier">
-              <button type="button" className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+              <button type="button" className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]">
                 <ArrowLeft className="w-4 h-4 text-white" />
               </button>
             </Link>
@@ -505,7 +505,7 @@ export default function CashierEstimatorPage() {
               <p className="text-white/70 text-xs font-medium">Multi-item quote builder · no sale logged</p>
             </div>
             <button type="button" onClick={refreshInventory}
-              className="ml-auto p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"
+              className="ml-auto p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
               title="Refresh stock">
               <RefreshCw className={cn("w-4 h-4 text-white", syncing && "animate-spin")} />
             </button>

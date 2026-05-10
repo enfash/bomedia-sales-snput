@@ -70,7 +70,7 @@ function StaffCard({ stats }: { stats: StaffStats }) {
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full p-5 flex items-center gap-4 text-left hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors"
+        className="w-full p-5 flex items-center gap-4 text-left hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
       >
         <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white text-sm font-black shrink-0", avatarColor)}>
           {initials}
@@ -420,7 +420,7 @@ export default function StaffPerformancePage() {
             key={r}
             onClick={() => setDateRange(r)}
             className={cn(
-              "px-4 py-2 rounded-xl text-xs font-black uppercase transition-[background-color,color]",
+              "px-4 py-2 rounded-xl text-xs font-black uppercase transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
               dateRange === r
                 ? "bg-brand-700 text-white shadow-lg shadow-brand-700/20"
                 : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-200 dark:border-zinc-800"

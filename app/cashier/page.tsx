@@ -235,7 +235,7 @@ function ActionGrid() {
         <Link key={href} href={href}>
           <div
             className={cn(
-              "rounded-2xl p-3.5 flex flex-col gap-2 transition-[background-color,transform] active:scale-95 shadow-sm",
+              "rounded-2xl p-3.5 flex flex-col gap-2 transition-[background-color,transform] active:scale-[0.97] shadow-sm",
               bg,
               border,
               shadow,
@@ -534,7 +534,7 @@ function DesktopSidePanel({
                 <button
                   key={i}
                   onClick={() => onDebtorClick(d.name)}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50/50 dark:hover:bg-rose-900/10 transition-colors text-left"
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50/50 dark:hover:bg-rose-900/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] text-left"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-[9px] font-black text-rose-500 dark:text-rose-400 shrink-0">
@@ -856,7 +856,7 @@ export default function CashierDashboardPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fetchData(true)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-zinc-800 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
               >
                 <RefreshCw
                   className={cn(
@@ -1041,7 +1041,7 @@ export default function CashierDashboardPage() {
                 <Link key={href} href={href}>
                   <div
                     className={cn(
-                      "flex items-center gap-3 p-4 rounded-2xl transition-[box-shadow,background-color,transform] [@media(hover:hover)]:hover:shadow-md active:scale-[0.98] cursor-pointer",
+                      "flex items-center gap-3 p-4 rounded-2xl transition-[box-shadow,background-color,transform] [@media(hover:hover)]:hover:shadow-md active:scale-[0.97] cursor-pointer",
                       primary
                         ? "bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
                         : "bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 hover:border-orange-200 dark:hover:border-orange-900/40 shadow-sm"
