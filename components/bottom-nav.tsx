@@ -16,7 +16,7 @@ export function BottomNav() {
     ? [
         { label: "Dash",    icon: LayoutDashboard, href: "/bom03" },
         { label: "Board",   icon: KanbanSquare,    href: "/bom03/board" },
-        { label: "New",     icon: PlusCircle,      href: "/new-entry", primary: true },
+        { label: "New",     icon: PlusCircle,      href: "/bom03/new-entry", primary: true },
         { label: "Stock",   icon: Package,         href: "/bom03/inventory" },
         { label: "Staff",   icon: Users,           href: "/bom03/staff" },
       ]

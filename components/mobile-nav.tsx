@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX, Ruler } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX, Ruler, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
@@ -29,6 +29,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
   const [isMuted, setIsMuted] = useState(false); // Initial false matches server
   const [hasHydrated, setHasHydrated] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { pendingQueue, syncStatus } = useSyncStore();
 
   useEffect(() => {
@@ -85,26 +86,28 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
   if (pathname === "/bom03/login" || pathname === "/") return null;
 
-  const currentNavItems = pathname.startsWith("/cashier") || !isAdmin
+  const isInCashierView = pathname.startsWith("/cashier") || !isAdmin;
+
+  const currentNavItems = isInCashierView
     ? [
-        { href: "/cashier", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-        { href: "/cashier/board", label: "Job Board", icon: KanbanSquare },
-        { href: "/cashier/customers", label: "Customers", icon: Users },
-        { href: "/quick-check", label: "Quick-Check", icon: Ruler },
-        { href: "/cashier/records", label: "Records", icon: BarChart3 },
-        { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
+        { href: "/cashier",           label: "Dashboard",   icon: LayoutDashboard },
+        { href: "/cashier/new-entry", label: "New Sale",    icon: PlusCircle },
+        { href: "/cashier/board",     label: "Job Board",   icon: KanbanSquare },
+        { href: "/cashier/customers", label: "Customers",   icon: Users },
+        { href: "/quick-check",       label: "Quick-Check", icon: Ruler },
+        { href: "/cashier/records",   label: "Records",     icon: BarChart3 },
+        { href: "/cashier/expenses",  label: "Log Expense", icon: Receipt },
       ]
     : [
-        { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
-        { href: "/new-entry",       label: "New Sale",     icon: PlusCircle },
-        { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
-        { href: "/bom03/customers", label: "Customers",    icon: Users },
-        { href: "/quick-check",     label: "Quick-Check",  icon: Ruler },
-        { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
-        { href: "/bom03/expenses",  label: "Log Expense",  icon: Receipt },
-        { href: "/bom03/inventory", label: "Inventory",    icon: Package },
-        { href: "/bom03/staff",     label: "Staff Manager", icon: Users },
+        { href: "/bom03",              label: "Dashboard",    icon: LayoutDashboard },
+        { href: "/bom03/new-entry",    label: "New Sale",     icon: PlusCircle },
+        { href: "/bom03/board",        label: "Job Board",    icon: KanbanSquare },
+        { href: "/bom03/customers",    label: "Customers",    icon: Users },
+        { href: "/quick-check",        label: "Quick-Check",  icon: Ruler },
+        { href: "/bom03/records",      label: "Records",      icon: BarChart3 },
+        { href: "/bom03/expenses",     label: "Log Expense",  icon: Receipt },
+        { href: "/bom03/inventory",    label: "Inventory",    icon: Package },
+        { href: "/bom03/staff",        label: "Staff Manager", icon: Users },
       ];
 
   return (
@@ -210,16 +213,26 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                 <p className="text-xs text-gray-300">{pendingQueue.length} items waiting for network</p>
               </div>
 
-              <div className="pt-6 border-t border-gray-800 text-center space-y-4">
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 justify-start" 
+              <div className="pt-6 border-t border-gray-800 space-y-2">
+                {isAdmin && (
+                  <Button
+                    variant="ghost"
+                    className="w-full text-brand-300 hover:text-white hover:bg-brand-700/30 justify-start"
+                    onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
+                  >
+                    <ArrowLeftRight className="w-5 h-5 mr-3" />
+                    {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 justify-start"
                   onClick={handleLogout}
                 >
                   <LogOut className="w-5 h-5 mr-3" />
                   Log Out
                 </Button>
-                <p className="text-xs text-gray-600 font-medium">BOMedia Management System</p>
+                <p className="text-xs text-gray-600 font-medium text-center">BOMedia Management System</p>
               </div>
             </div>
           </div>
