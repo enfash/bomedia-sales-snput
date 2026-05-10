@@ -129,7 +129,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
           <div className="flex justify-between items-center">
             <p className="text-xs text-gray-300">{pendingQueue.length} pending items</p>
             {pendingQueue.length > 0 && (
-              <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="flex h-2 w-2 rounded-full bg-amber-500" />
             )}
           </div>
           {lastSyncTime && (

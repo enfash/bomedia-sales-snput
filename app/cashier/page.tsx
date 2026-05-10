@@ -106,7 +106,7 @@ function ShiftHero({
 
           {pendingCount > 0 && (
             <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-300" />
               <span className="text-[10px] font-black text-white">
                 {pendingCount} syncing
               </span>
@@ -913,7 +913,7 @@ export default function CashierDashboardPage() {
           <div className="flex items-center gap-3">
             {pendingQueue.length > 0 && (
               <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30 rounded-full px-3 py-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 <span className="text-[10px] font-black text-amber-700 dark:text-amber-400">
                   {pendingQueue.length} syncing
                 </span>
