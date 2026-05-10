@@ -7,10 +7,12 @@ import { OutstandingDebtChart } from "@/components/dashboard-charts";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AlertCircle, Wallet, ChevronRight } from "lucide-react";
+import { AlertCircle, Wallet, ChevronRight, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 export default function CashierBoardPage() {
+  const router = useRouter();
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   const { cachedSales, setCachedData, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials } = useSyncStore();
   const [loading, setLoading] = useState(cachedSales.length === 0);
@@ -38,7 +40,13 @@ export default function CashierBoardPage() {
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Job Board</h1>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}
+              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Job Board</h1>
+          </div>
           <p className="text-gray-500 dark:text-zinc-400 mt-1 font-medium">Track sales jobs through production.</p>
         </div>
       </div>

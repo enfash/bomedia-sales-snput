@@ -98,6 +98,7 @@ export const useSyncStore = create<SyncState>()(
     {
       name: 'bomedia-sync-storage',
       storage: createJSONStorage(() => localStorage),
+      skipHydration: true,
     }
   )
 );

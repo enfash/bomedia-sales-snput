@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Package, RefreshCw, Search, AlertTriangle, CheckCircle2, XCircle, Ruler } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Package, RefreshCw, Search, AlertTriangle, CheckCircle2, XCircle, Ruler, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export default function CashierInventoryPage() {
+  const router = useRouter();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,6 +82,10 @@ export default function CashierInventoryPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}
+              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
               Material Stock
             </h1>

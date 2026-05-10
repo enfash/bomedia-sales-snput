@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo, Fragment } from "react";
-import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, ChevronDown, ChevronUp, Info, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, ChevronDown, ChevronUp, Info, Zap, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -217,6 +218,7 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
+  const router = useRouter();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [inventory, setInventory] = useState<Roll[]>([]);
   const [loading, setLoading] = useState(true);
@@ -284,6 +286,10 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}
+              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Inventory Management</h1>
             {refreshing && <RefreshCw className="w-4 h-4 text-brand-600 animate-spin" />}
           </div>

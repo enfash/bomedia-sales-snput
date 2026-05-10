@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -30,6 +30,7 @@ type InventoryItem = {
 };
 
 export default function QuickCheckPage() {
+  const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -119,11 +120,9 @@ export default function QuickCheckPage() {
         {/* Navigation Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <Link href="/cashier">
-              <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800">
-                <ArrowLeft className="w-4 h-4 text-gray-700 dark:text-zinc-300" />
-              </Button>
-            </Link>
+            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
+              <ArrowLeft className="w-4 h-4 text-gray-700 dark:text-zinc-300" />
+            </Button>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Quick-Check</h1>
