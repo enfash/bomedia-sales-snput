@@ -10,14 +10,6 @@ import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 import { ActivityFeed } from "./activity-feed";
 
-
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/new-entry", label: "New Sale", icon: PlusCircle },
-  { href: "/cashier/expenses", label: "Log Expense", icon: Receipt },
-  { href: "/cashier/records", label: "Records", icon: BarChart3 },
-];
-
 interface SidebarProps {
   isAdmin?: boolean;
 }
