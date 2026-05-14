@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -84,6 +84,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>([]);
 
   const [open, setOpen] = useState(false);
+  const [showVendorSuggestions, setShowVendorSuggestions] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     amount: "",
@@ -94,6 +95,22 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     receiptUrl: "",
     status: "Unpaid" as "Paid" | "Unpaid",
   });
+
+  const { cachedExpenses } = useSyncStore();
+
+  const uniqueVendors = useMemo(() => {
+    const names = new Set<string>();
+    cachedExpenses.forEach((e: any) => {
+      const n = (e["PAID TO"] || "").trim();
+      if (n) names.add(n);
+    });
+    return Array.from(names).sort();
+  }, [cachedExpenses]);
+
+  const filteredVendors = useMemo(() => {
+    const q = formData.paidTo.toLowerCase();
+    return uniqueVendors.filter(v => v.toLowerCase().includes(q)).slice(0, 6);
+  }, [uniqueVendors, formData.paidTo]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -393,7 +410,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <Label
                 htmlFor="exp-paidto"
                 className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
@@ -404,11 +421,31 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
                 id="exp-paidto"
                 placeholder="Vendor/Person"
                 value={formData.paidTo}
-                onChange={(e) =>
-                  setFormData({ ...formData, paidTo: e.target.value })
-                }
+                onFocus={() => setShowVendorSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowVendorSuggestions(false), 180)}
+                onChange={(e) => {
+                  setFormData({ ...formData, paidTo: e.target.value });
+                  setShowVendorSuggestions(true);
+                }}
                 className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-500 dark:placeholder:text-zinc-500 font-bold"
               />
+              {showVendorSuggestions && filteredVendors.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-xl overflow-hidden">
+                  {filteredVendors.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className="w-full px-4 py-3 text-sm font-bold text-left text-gray-700 dark:text-zinc-300 hover:bg-primary/5 dark:hover:bg-zinc-800 transition-colors border-b border-gray-50 dark:border-zinc-800 last:border-0"
+                      onMouseDown={() => {
+                        setFormData({ ...formData, paidTo: v });
+                        setShowVendorSuggestions(false);
+                      }}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1 md:col-span-2">
               <Label
