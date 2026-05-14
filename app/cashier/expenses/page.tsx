@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExpenseEntry } from "@/components/expense-entry";
 import {
   Receipt,
   ArrowLeft,
   Plus,
+  X,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -185,10 +186,10 @@ function ExpenseRow({ expense, onStatusToggle }: {
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const formRef = useRef<HTMLDivElement>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | "Paid" | "Unpaid">("All");
+  const [showForm, setShowForm] = useState(false);
 
   const fetchExpenses = useCallback(async () => {
     try {
@@ -259,11 +260,16 @@ export default function ExpensesPage() {
           </div>
           <Button
             size="sm"
-            onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="h-9 px-4 rounded-xl bg-primary text-primary-foreground font-black text-[12px] flex items-center gap-1.5 shadow-md shadow-primary/20 dark:shadow-none"
+            onClick={() => setShowForm(v => !v)}
+            className={cn(
+              "h-9 px-4 rounded-xl font-black text-[12px] flex items-center gap-1.5 shadow-md transition-colors",
+              showForm
+                ? "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 shadow-none"
+                : "bg-primary text-primary-foreground shadow-primary/20 dark:shadow-none"
+            )}
           >
-            <Plus className="w-3.5 h-3.5" />
-            New
+            {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            {showForm ? "Cancel" : "New"}
           </Button>
         </div>
         <p className="text-gray-500 dark:text-zinc-400 text-sm font-medium pl-0 md:pl-0">
@@ -281,6 +287,13 @@ export default function ExpensesPage() {
           <span className="text-[11px] text-rose-500/70 dark:text-rose-500 font-medium">
             across {expenses.filter(e => (e.STATUS || "Unpaid") === "Unpaid").length} expense{expenses.filter(e => (e.STATUS || "Unpaid") === "Unpaid").length !== 1 ? "s" : ""}
           </span>
+        </div>
+      )}
+
+      {/* New expense form — toggled by the New button */}
+      {showForm && (
+        <div className="mb-6 animate-in slide-in-from-top-2 duration-200">
+          <ExpenseEntry onSaved={() => { fetchExpenses(); setShowForm(false); }} />
         </div>
       )}
 
@@ -329,16 +342,6 @@ export default function ExpensesPage() {
         )}
       </div>
 
-      {/* Log form */}
-      <div ref={formRef} className="scroll-mt-4">
-        <div className="flex items-center gap-2 mb-3 px-1">
-          <Plus className="w-4 h-4 text-gray-400 dark:text-zinc-500" />
-          <h2 className="text-[11px] uppercase font-black tracking-widest text-gray-400 dark:text-zinc-500">
-            Log New Expense
-          </h2>
-        </div>
-        <ExpenseEntry onSaved={fetchExpenses} />
-      </div>
     </div>
   );
 }
