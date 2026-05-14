@@ -59,7 +59,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         { href: "/cashier/estimator", label: "Estimator",  icon: Calculator },
         { href: "/quick-check",       label: "Quick-Check", icon: Ruler },
         { href: "/cashier/records",   label: "Records",    icon: BarChart3 },
-        { href: "/cashier/expenses",  label: "Log Expense", icon: Receipt },
+        { href: "/cashier/expenses",  label: "Expenses", icon: Receipt },
       ]
     : [
         { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
@@ -68,7 +68,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         { href: "/bom03/customers", label: "Customers",    icon: Users },
         { href: "/quick-check",     label: "Quick-Check",  icon: Ruler },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
-        { href: "/bom03/expenses",  label: "Log Expense",  icon: Receipt },
+        { href: "/bom03/expenses",  label: "Expenses",  icon: Receipt },
         { href: "/bom03/staff",     label: "Staff Manager", icon: Users },
       ];
 
