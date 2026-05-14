@@ -11,6 +11,8 @@ export function BottomNav() {
   const isCashier = pathname?.startsWith("/cashier") || isAdmin;
 
   if (!isCashier) return null;
+  // SummaryBar occupies the bottom on new-entry — hide to avoid overlap
+  if (pathname?.endsWith("/new-entry")) return null;
 
   const navItems = isAdmin
     ? [
