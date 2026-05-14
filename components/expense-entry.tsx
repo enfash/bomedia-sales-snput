@@ -77,7 +77,7 @@ const EXPENSE_CATEGORIES = [
   "Miscellaneous",
 ];
 
-export function ExpenseEntry() {
+export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -92,6 +92,7 @@ export function ExpenseEntry() {
     paidTo: "",
     paymentMethod: "Cash",
     receiptUrl: "",
+    status: "Unpaid" as "Paid" | "Unpaid",
   });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,6 +151,9 @@ export function ExpenseEntry() {
       "PAYMENT METHOD": formData.paymentMethod,
       "RECEIPT URL": formData.receiptUrl,
       "Logged By": loggedBy,
+      STATUS: formData.status,
+      "PAID BY": formData.status === "Paid" ? loggedBy : "",
+      "PAID AT": formData.status === "Paid" ? new Date().toISOString() : "",
     };
 
     try {
@@ -184,6 +188,7 @@ export function ExpenseEntry() {
           },
         },
       });
+      onSaved?.();
 
       setFormData({
         date: new Date().toISOString().split("T")[0],
@@ -193,6 +198,7 @@ export function ExpenseEntry() {
         paidTo: "",
         paymentMethod: "Cash",
         receiptUrl: "",
+        status: "Unpaid",
       });
     } catch (err) {
       toast.error("Error saving expense locally.");
@@ -355,6 +361,38 @@ export function ExpenseEntry() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400">
+                Payment Status
+              </Label>
+              <div className="flex items-center gap-2 h-10">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, status: "Unpaid" })}
+                  className={cn(
+                    "flex-1 h-10 rounded-xl text-sm font-black border transition-colors",
+                    formData.status === "Unpaid"
+                      ? "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400"
+                      : "bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-400 dark:text-zinc-500"
+                  )}
+                >
+                  Unpaid
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, status: "Paid" })}
+                  className={cn(
+                    "flex-1 h-10 rounded-xl text-sm font-black border transition-colors",
+                    formData.status === "Paid"
+                      ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400"
+                      : "bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-400 dark:text-zinc-500"
+                  )}
+                >
+                  Paid
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-1">
               <Label
                 htmlFor="exp-paidto"
@@ -536,12 +574,25 @@ export function ExpenseEntry() {
                   ₦{Number(formData.amount).toLocaleString()}
                 </span>
               </div>
-              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1">
+              <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
                 <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
                   Paid To
                 </span>
                 <span className="dark:text-zinc-200 font-bold">
                   {formData.paidTo || "—"}
+                </span>
+              </div>
+              <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
+                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
+                  Status
+                </span>
+                <span className={cn(
+                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black",
+                  formData.status === "Paid"
+                    ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
+                    : "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400"
+                )}>
+                  {formData.status}
                 </span>
               </div>
               <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1">
