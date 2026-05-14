@@ -479,6 +479,23 @@ export function SalesEntry() {
 
   const materials = cachedMaterials;
 
+  // Silently seed cachedSales so client-name suggestions work even when
+  // navigating directly to /new-entry without going through the dashboard.
+  const fetchSalesForSuggestions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sales");
+      const json = await res.json();
+      if (res.ok && json.data?.length) {
+        setCachedData(json.data, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials);
+      }
+    } catch { /* silent — suggestions are best-effort */ }
+  }, [cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData]);
+
+  useEffect(() => {
+    if (cachedSales.length === 0) fetchSalesForSuggestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fetchMaterials = useCallback(async (silent = false) => {
     if (!silent) setMaterialsLoading(true);
     try {
