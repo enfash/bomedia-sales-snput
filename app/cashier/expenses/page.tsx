@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Plus,
   X,
+  RefreshCw,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -18,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useSyncStore } from "@/lib/store";
 
 type Expense = {
   DATE: string;
@@ -186,24 +188,33 @@ function ExpenseRow({ expense, onStatusToggle }: {
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { cachedExpenses, cachedSales, cachedInventory, cachedPayments, cachedMaterials, setCachedData } = useSyncStore();
+
+  const [expenses, setExpenses] = useState<Expense[]>(() =>
+    cachedExpenses.length > 0 ? [...cachedExpenses].reverse() : []
+  );
+  const [loading, setLoading] = useState(cachedExpenses.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"All" | "Paid" | "Unpaid">("All");
   const [showForm, setShowForm] = useState(false);
 
-  const fetchExpenses = useCallback(async () => {
+  const fetchExpenses = useCallback(async (isManual = false) => {
+    if (isManual) setRefreshing(true);
     try {
       const res = await fetch("/api/expenses");
       if (!res.ok) throw new Error("Failed to fetch");
       const { data } = await res.json();
-      // Most recent first
-      setExpenses((data as Expense[]).reverse());
+      const sorted = (data as Expense[]).reverse();
+      setExpenses(sorted);
+      setCachedData(cachedSales, data, cachedInventory, cachedPayments, cachedMaterials);
+      if (isManual) toast.success("Expenses refreshed");
     } catch {
       toast.error("Could not load expenses.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [cachedSales, cachedInventory, cachedPayments, cachedMaterials, setCachedData]);
 
   useEffect(() => {
     fetchExpenses();
@@ -258,19 +269,31 @@ export default function ExpensesPage() {
               <h1 className="text-2xl font-black text-gray-900 dark:text-white">Expenses</h1>
             </div>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setShowForm(v => !v)}
-            className={cn(
-              "h-9 px-4 rounded-xl font-black text-[12px] flex items-center gap-1.5 shadow-md transition-colors",
-              showForm
-                ? "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 shadow-none"
-                : "bg-primary text-primary-foreground shadow-primary/20 dark:shadow-none"
-            )}
-          >
-            {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            {showForm ? "Cancel" : "New"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => fetchExpenses(true)}
+              disabled={refreshing}
+              className="h-9 w-9 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowForm(v => !v)}
+              className={cn(
+                "h-9 px-4 rounded-xl font-black text-[12px] flex items-center gap-1.5 shadow-md transition-colors",
+                showForm
+                  ? "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 shadow-none"
+                  : "bg-primary text-primary-foreground shadow-primary/20 dark:shadow-none"
+              )}
+            >
+              {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              {showForm ? "Cancel" : "New"}
+            </Button>
+          </div>
         </div>
         <p className="text-gray-500 dark:text-zinc-400 text-sm font-medium pl-0 md:pl-0">
           Track and manage business expenses.
