@@ -2,29 +2,24 @@ import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 
 const SHEET_TITLE = 'Cashiers';
-const CASHIER_HEADERS = ['Name', 'Status', 'Last Login'];
+const CASHIER_HEADERS = ['Name', 'Status', 'Last Login', 'Last Active'];
 
 export async function GET() {
   try {
     const doc = await getDoc();
     let sheet = doc.sheetsByTitle[SHEET_TITLE];
-    
-    // Create sheet if missing
     if (!sheet) {
       sheet = await doc.addSheet({ headerValues: CASHIER_HEADERS, title: SHEET_TITLE });
     }
-
     await ensureHeaders(sheet, CASHIER_HEADERS);
     const rows = await sheet.getRows();
-    
     const data = rows.map((row: any) => ({
       ...row.toObject(),
       _rowIndex: row.rowNumber,
-      // Ensure defaults for older rows
       Status: row.get('Status') || 'Offline',
-      'Last Login': row.get('Last Login') || 'Never'
+      'Last Login': row.get('Last Login') || 'Never',
+      'Last Active': row.get('Last Active') || '',
     }));
-
     return NextResponse.json({ data });
   } catch (error: any) {
     console.error("GET Cashiers Error:", error);
@@ -42,20 +37,13 @@ export async function POST(request: Request) {
     if (!sheet) {
       sheet = await doc.addSheet({ headerValues: CASHIER_HEADERS, title: SHEET_TITLE });
     }
-    
     await ensureHeaders(sheet, CASHIER_HEADERS);
     const rows = await sheet.getRows();
-    
-    if (rows.some((r: any) => r.get('Name')?.toLowerCase() === name.toLowerCase())) {
-        return NextResponse.json({ error: "Cashier name already exists" }, { status: 400 });
-    }
 
-    await sheet.addRow({
-        Name: name,
-        Status: 'Offline',
-        'Last Login': 'Never'
-    });
-    
+    if (rows.some((r: any) => r.get('Name')?.toLowerCase() === name.toLowerCase())) {
+      return NextResponse.json({ error: "Cashier name already exists" }, { status: 400 });
+    }
+    await sheet.addRow({ Name: name, Status: 'Offline', 'Last Login': 'Never', 'Last Active': '' });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("POST Cashiers Error:", error);
@@ -65,7 +53,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { name, status } = await request.json();
+    const { name, status, heartbeat } = await request.json();
     if (!name || !status) return NextResponse.json({ error: "Name and status are required" }, { status: 400 });
 
     const doc = await getDoc();
@@ -74,16 +62,22 @@ export async function PATCH(request: Request) {
 
     await ensureHeaders(sheet, CASHIER_HEADERS);
     const rows = await sheet.getRows();
-    
     const row = rows.find((r: any) => r.get('Name') === name);
     if (!row) return NextResponse.json({ error: "Cashier not found" }, { status: 404 });
 
     row.set('Status', status);
+
     if (status === 'Online') {
-        const now = new Date();
-        row.set('Last Login', now.toLocaleString());
+      // Only update Last Login on explicit login, not heartbeats
+      if (!heartbeat) {
+        row.set('Last Login', new Date().toLocaleString('en-NG'));
+      }
+      row.set('Last Active', new Date().toISOString());
+    } else {
+      // Going offline — clear Last Active so stale timestamps don't linger
+      row.set('Last Active', '');
     }
-    
+
     await row.save();
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -103,7 +97,6 @@ export async function DELETE(request: Request) {
 
     await ensureHeaders(sheet, CASHIER_HEADERS);
     const rows = await sheet.getRows();
-    
     const row = rows.find((r: any) => r.get('Name') === name);
     if (!row) return NextResponse.json({ error: "Cashier not found" }, { status: 404 });
 

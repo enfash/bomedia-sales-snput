@@ -55,7 +55,28 @@ interface Cashier {
   Name: string;
   Status: string;
   "Last Login": string;
+  "Last Active": string;
   _rowIndex?: number;
+}
+
+const ONLINE_THRESHOLD_MS = 7 * 60 * 1000; // 7 min = 2 missed heartbeats + buffer
+
+function isReallyOnline(cashier: Cashier): boolean {
+  const lastActive = cashier["Last Active"];
+  if (!lastActive) return false;
+  return Date.now() - new Date(lastActive).getTime() < ONLINE_THRESHOLD_MS;
+}
+
+function lastSeenLabel(cashier: Cashier): string {
+  const lastActive = cashier["Last Active"];
+  if (!lastActive) return cashier["Last Login"] || "Never";
+  const diffMs = Date.now() - new Date(lastActive).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return cashier["Last Login"] || "Never";
 }
 
 const parseAmt = (v: any) =>
@@ -308,7 +329,7 @@ function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: 
         <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
           <ul>
             {cashiers.map((cashier, i) => {
-              const isOnline = cashier.Status === "Online";
+              const isOnline = isReallyOnline(cashier);
               const initials = cashier.Name.split(" ").slice(0, 2).map(w => w[0]?.toUpperCase() || "").join("");
               const avatarColor = colors[cashier.Name.charCodeAt(0) % colors.length];
 
@@ -335,7 +356,7 @@ function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: 
                     </div>
                     <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium mt-0.5 flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Last login: {cashier["Last Login"] || "Never"}
+                      {isOnline ? "Active now" : `Last seen: ${lastSeenLabel(cashier)}`}
                     </p>
                   </div>
 
@@ -476,7 +497,7 @@ export default function StaffManagerPage() {
           revenueToday: todaySales.reduce((s, r) => s + parseAmt(r["AMOUNT (₦)"] || r["Amount (₦)"]), 0),
           topMaterial,
           recentJobs: [...cashierSales].sort((a, b) => new Date(b.DATE || b.Date || "").getTime() - new Date(a.DATE || a.Date || "").getTime()).slice(0, 5),
-          isOnline: cashierRecord?.Status === "Online",
+          isOnline: cashierRecord ? isReallyOnline(cashierRecord) : false,
           lastLogin: cashierRecord?.["Last Login"] || "",
         };
       })
@@ -574,7 +595,7 @@ export default function StaffManagerPage() {
           {/* Team summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
-              { label: "Active Staff", val: String(staffStats.length), sub: `${cashiers.filter(c => c.Status === "Online").length} online now`, icon: Users, color: "text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20" },
+              { label: "Active Staff", val: String(staffStats.length), sub: `${cashiers.filter(c => isReallyOnline(c)).length} online now`, icon: Users, color: "text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20" },
               { label: "Team Revenue", val: totals.rev >= 1000 ? `₦${(totals.rev / 1000).toFixed(0)}k` : fmtMoney(totals.rev), sub: fmtMoney(totals.rev), icon: TrendingUp, color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20" },
               { label: "Cash Collected", val: totals.col >= 1000 ? `₦${(totals.col / 1000).toFixed(0)}k` : fmtMoney(totals.col), sub: `${totals.avgCollection.toFixed(0)}% collection rate`, icon: Wallet, color: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" },
               { label: "Team Debt", val: totals.dbt >= 1000 ? `₦${(totals.dbt / 1000).toFixed(0)}k` : fmtMoney(totals.dbt), sub: "outstanding across all", icon: AlertTriangle, color: totals.dbt > 0 ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20" : "text-gray-400 bg-gray-50 dark:bg-zinc-800" },
