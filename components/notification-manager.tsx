@@ -18,7 +18,7 @@ export function NotificationManager() {
   const lastExpensesIndex = useRef<number>(0);
   const isInitialLoad = useRef<boolean>(true);
   const [inventoryData, setInventoryData] = useState<any[]>([]);
-  const alertedInventoryRows = useRef<Set<number>>(new Set());
+  const alertedInventoryRows = useRef<Set<string>>(new Set());
 
   const isFetching = useRef(false);
 
@@ -26,14 +26,15 @@ export function NotificationManager() {
     if (isFetching.current) return;
     isFetching.current = true;
     try {
-      const [salesRes, expensesRes, inventoryRes] = await Promise.all([
+      const [salesRes, expensesRes, inventoryRes, materialsRes] = await Promise.all([
         fetch("/api/sales"),
         fetch("/api/expenses"),
         fetch("/api/inventory"),
+        fetch("/api/materials"),
       ]);
 
-      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok) {
-        if (salesRes.status === 429 || expensesRes.status === 429 || inventoryRes.status === 429) {
+      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok || !materialsRes.ok) {
+        if (salesRes.status === 429 || expensesRes.status === 429 || inventoryRes.status === 429 || materialsRes.status === 429) {
           console.warn("NotificationManager: Rate limit hit, skipping poll.");
         }
         return;
@@ -42,10 +43,12 @@ export function NotificationManager() {
       const salesJson = await salesRes.json();
       const expensesJson = await expensesRes.json();
       const inventoryJson = await inventoryRes.json();
-      
+      const materialsJson = await materialsRes.json();
+
       const newSales = salesJson.data ?? [];
       const newExpenses = expensesJson.data ?? [];
       const newInventory = inventoryJson.data ?? [];
+      const newMaterials = materialsJson.data ?? [];
 
       // Update baseline on initial load
       if (isInitialLoad.current && newSales.length > 0) {
@@ -53,13 +56,14 @@ export function NotificationManager() {
         lastExpensesIndex.current = Math.max(0, ...newExpenses.map((r: any) => r._rowIndex || 0));
         isInitialLoad.current = false;
         
-        // Initial inventory alert baseline (don't alert on existing low stock)
-        newInventory.forEach((item: any) => {
-          const stock = parseFloat(item.Stock?.toString() || "0") || 0;
-          if (stock <= 50) alertedInventoryRows.current.add(item._rowIndex);
+        // Baseline: mark already-low materials so we don't alert on first load
+        newMaterials.forEach((mat: any) => {
+          const remaining = parseFloat(mat["Total Remaining (ft)"]?.toString() || "0") || 0;
+          const threshold = parseFloat(mat["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
+          if (remaining <= threshold) alertedInventoryRows.current.add(mat["Material ID"]);
         });
-        
-        setCachedData(newSales, newExpenses, newInventory, cachedPayments, cachedMaterials);
+
+        setCachedData(newSales, newExpenses, newInventory, cachedPayments, newMaterials);
         return;
       }
 
@@ -99,24 +103,27 @@ export function NotificationManager() {
         lastExpensesIndex.current = Math.max(lastExpensesIndex.current, ...newExpenses.map((r: any) => r._rowIndex || 0));
       }
 
-      // 3. Check for Critical Inventory Alerts
-      newInventory.forEach((item: any) => {
-        const stock = parseFloat(item.Stock?.toString() || "0") || 0;
-        if (stock <= 50 && !alertedInventoryRows.current.has(item._rowIndex)) {
-          toast.error(`Critical Stock: ${item["Item Name"]}`, {
-            description: `Only ${stock.toFixed(1)} sqft remaining!`,
+      // 3. Check for Low Stock at the material level (aggregate across all rolls)
+      newMaterials.forEach((mat: any) => {
+        const matId = mat["Material ID"];
+        const remaining = parseFloat(mat["Total Remaining (ft)"]?.toString() || "0") || 0;
+        const threshold = parseFloat(mat["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
+
+        if (remaining <= threshold && !alertedInventoryRows.current.has(matId)) {
+          toast.error(`Low Stock: ${mat["Material Name"]}`, {
+            description: `Only ${remaining.toFixed(1)} ft remaining across all rolls.`,
             icon: <Package className="w-4 h-4" />,
             duration: 8000,
           });
-          alertedInventoryRows.current.add(item._rowIndex);
+          alertedInventoryRows.current.add(matId);
           hasNewActivity = true;
-        } else if (stock > 50) {
-          alertedInventoryRows.current.delete(item._rowIndex);
+        } else if (remaining > threshold) {
+          alertedInventoryRows.current.delete(matId);
         }
       });
 
       // Update Store Cache
-      setCachedData(newSales, newExpenses, newInventory, cachedPayments, cachedMaterials);
+      setCachedData(newSales, newExpenses, newInventory, cachedPayments, newMaterials);
 
       // Sound Notification
       if (hasNewActivity) {
@@ -137,6 +144,8 @@ export function NotificationManager() {
 
     } catch (error) {
       console.error("NotificationManager Sync Error:", error);
+    } finally {
+      isFetching.current = false;
     }
   };
 
