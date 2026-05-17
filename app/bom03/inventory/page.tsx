@@ -215,6 +215,132 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
   );
 }
 
+// ─── Restock Dialog ───────────────────────────────────────────────────────────
+
+function RestockDialog({ material, onClose, onDone }: { material: Material | null; onClose: () => void; onDone: () => void }) {
+  const [form, setForm] = useState({ quantity: "1", rawLength: "", lengthUnit: "m" as "m" | "ft", price: "", cost: "" });
+  const [saving, setSaving] = useState(false);
+
+  const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    if (material) setForm({ quantity: "1", rawLength: "", lengthUnit: "m", price: "", cost: "" });
+  }, [material?.["Material ID"]]);
+
+  const rawLengthFt = useMemo(() => {
+    const raw = parseFloat(form.rawLength) || 0;
+    return form.lengthUnit === "m" ? raw * METERS_TO_FEET : raw;
+  }, [form.rawLength, form.lengthUnit]);
+
+  const widthFt = parseNum(material?.["Width (ft)"]);
+  const usableLength = Math.max(0, rawLengthFt - 10);
+  const totalAreaSqft = widthFt * usableLength;
+  const costPerSqft = totalAreaSqft > 0 ? (parseFloat(form.cost) || 0) / totalAreaSqft : 0;
+
+  const handleSave = async () => {
+    if (!form.rawLength) { toast.error("Roll length is required."); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemName: material!["Material Name"],
+          category: material!["Category"] || "General",
+          widthFt,
+          rawLengthFt: rawLengthFt.toFixed(2),
+          unit: form.lengthUnit,
+          price: form.price,
+          cost: form.cost,
+          lowStockThreshold: material!["Low Stock Threshold (ft)"] || "20",
+          quantity: parseInt(form.quantity) || 1,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to add roll");
+      const ids = json.rollIds ? json.rollIds.join(", ") : json.rollId;
+      toast.success(`Restock complete — Roll ID(s): ${ids}`);
+      onDone();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!material} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+        <DialogHeader className="p-6 bg-amber-500 text-white">
+          <DialogTitle className="text-xl font-black">Restock: {material?.["Material Name"]}</DialogTitle>
+          <p className="text-white/80 text-xs mt-1">Creates a new roll — existing roll history is preserved.</p>
+        </DialogHeader>
+        <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+          {/* Inherited properties */}
+          <div className="p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-zinc-400">
+            <span><span className="font-black">Width:</span> {widthFt}ft</span>
+            <span><span className="font-black">Category:</span> {material?.["Category"] || "General"}</span>
+            <span><span className="font-black">Low stock alert:</span> {material?.["Low Stock Threshold (ft)"] || 20}ft</span>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Quantity of Rolls</Label>
+            <Input type="number" min="1" value={form.quantity} onChange={e => set("quantity", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+          </div>
+
+          <div className="p-4 bg-brand-50/50 dark:bg-brand-900/20 rounded-2xl space-y-3 border border-brand-100 dark:border-brand-800/50">
+            <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest border-b border-brand-100 dark:border-brand-700/50 pb-2">Roll Dimensions</p>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Roll Length *</Label>
+              <div className="flex gap-2">
+                <Input type="number" placeholder={form.lengthUnit === "m" ? "e.g. 50" : "e.g. 164"} value={form.rawLength} onChange={e => set("rawLength", e.target.value)} className="rounded-xl flex-1 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+                <Button variant="ghost" size="sm" onClick={() => set("lengthUnit", form.lengthUnit === "m" ? "ft" : "m")} className="px-4 font-black text-xs h-10 border border-brand-100 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 dark:text-zinc-300 uppercase">{form.lengthUnit}</Button>
+              </div>
+            </div>
+            {rawLengthFt > 0 && (
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[
+                  { label: "Full Length", value: `${rawLengthFt.toFixed(1)}ft`, highlight: false, accent: false },
+                  { label: "−10ft Waste", value: "−10ft", highlight: false, accent: true },
+                  { label: "Usable Stock", value: `${usableLength.toFixed(1)}ft`, highlight: true, accent: false },
+                ].map(({ label, value, highlight, accent }) => (
+                  <div key={label} className={cn("p-2 rounded-xl", highlight ? "bg-brand-600 text-white" : accent ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600" : "bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300")}>
+                    <p className={cn("text-[9px] font-bold uppercase", highlight ? "text-white/70" : "text-gray-400 dark:text-zinc-500")}>{label}</p>
+                    <p className="text-sm font-black leading-tight">{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Selling Price (₦/sqft)</Label>
+              <Input type="number" placeholder="e.g. 200" value={form.price} onChange={e => set("price", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Total Buy Cost (₦)</Label>
+              <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+            </div>
+          </div>
+          {costPerSqft > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
+              <Info className="w-4 h-4 text-gray-400 shrink-0" />
+              <p className="text-xs text-gray-500 dark:text-zinc-400">
+                Cost per sqft: <span className="font-black text-gray-800 dark:text-zinc-100">₦{costPerSqft.toFixed(2)}</span> based on {totalAreaSqft.toFixed(0)} usable sqft
+              </p>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-800/50 flex gap-3 border-t dark:border-zinc-800">
+          <Button variant="outline" onClick={onClose} className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
+          <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black">{saving ? "Adding Roll..." : "Confirm Restock"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
@@ -226,6 +352,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [adjustTarget, setAdjustTarget] = useState<Roll | null>(null);
   const [wasteTarget, setWasteTarget] = useState<Roll | null>(null);
+  const [restockTarget, setRestockTarget] = useState<Material | null>(null);
   const [expandedMaterialId, setExpandedMaterialId] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -334,15 +461,15 @@ export default function InventoryPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 border-none">
-                {["Material Profile", "Width", "Rolls", "Total Stock", "Status"].map(h => (
-                  <TableHead key={h} className={cn("text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4 whitespace-nowrap", h === "Material Profile" ? "pl-6" : ["Rolls","Total Stock","Status"].includes(h) ? "text-center" : "")}>{h}</TableHead>
+                {["Material Profile", "Width", "Rolls", "Total Stock", "Status", ""].map(h => (
+                  <TableHead key={h} className={cn("text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4 whitespace-nowrap", h === "Material Profile" ? "pl-6" : ["Rolls","Total Stock","Status"].includes(h) ? "text-center" : h === "" ? "text-right pr-4" : "")}>{h}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-20">
+                  <TableCell colSpan={6} className="text-center py-20">
                     <div className="flex flex-col items-center gap-2 text-gray-300 dark:text-zinc-700">
                       <Package className="w-10 h-10 mb-1 opacity-40" />
                       <p className="text-sm font-bold text-gray-500 dark:text-zinc-400">No materials found</p>
@@ -391,11 +518,21 @@ export default function InventoryPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-center"><StatusPill status={mat.Status || "Active"} /></TableCell>
+                      <TableCell className="text-right pr-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-lg text-[10px] font-black border-amber-200 dark:border-amber-800/40 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 whitespace-nowrap"
+                          onClick={(e) => { e.stopPropagation(); setRestockTarget(mat); }}
+                        >
+                          Restock
+                        </Button>
+                      </TableCell>
                     </TableRow>
 
                     {isExpanded && (
                       <TableRow className="bg-gray-50/50 dark:bg-zinc-800/20 border-b border-gray-50 dark:border-zinc-800">
-                        <TableCell colSpan={5} className="p-0">
+                        <TableCell colSpan={6} className="p-0">
                           <div className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest flex items-center gap-2">
@@ -503,6 +640,7 @@ export default function InventoryPage() {
       </div>
 
       <AdjustDialog roll={adjustTarget} onClose={() => setAdjustTarget(null)} onDone={() => { setAdjustTarget(null); fetchData(); }} />
+      <RestockDialog material={restockTarget} onClose={() => setRestockTarget(null)} onDone={() => { setRestockTarget(null); fetchData(); }} />
       {wasteTarget && (
         <WasteLogModal
           roll={wasteTarget as InventoryRollForWaste}
