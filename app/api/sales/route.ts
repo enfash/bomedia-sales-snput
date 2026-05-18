@@ -139,10 +139,16 @@ export async function POST(request: Request) {
         const requiredMap: Record<string, number> = {};
         for (const item of body.items) {
           const matId = item.canonicalItemName;
-          if (!matId || !item.jobHeight) continue;
-          const hFt = (item.dimUnit === 'in') ? parseFloat(item.jobHeight) / 12 : parseFloat(item.jobHeight) || 0;
-          const qty = parseFloat(item.qty) || 1;
-          requiredMap[matId] = (requiredMap[matId] || 0) + hFt * qty;
+          if (!matId) continue;
+          // Prefer the client-computed tiled length (accounts for items packed side-by-side).
+          // Fall back to height×qty only when jobLengthFt is absent (legacy payloads).
+          let lengthFt = parseFloat(item.jobLengthFt) || 0;
+          if (lengthFt <= 0) {
+            const hFt = (item.dimUnit === 'in') ? parseFloat(item.jobHeight) / 12 : parseFloat(item.jobHeight) || 0;
+            const qty = parseFloat(item.qty) || 1;
+            lengthFt = hFt * qty;
+          }
+          requiredMap[matId] = (requiredMap[matId] || 0) + lengthFt;
         }
 
         for (const [matId, required] of Object.entries(requiredMap)) {
