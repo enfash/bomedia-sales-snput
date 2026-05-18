@@ -14,61 +14,75 @@ const serviceAccountAuth = new JWT({
 const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID || '', serviceAccountAuth);
 
 let lastLoadTime = 0;
+let loadingPromise: Promise<GoogleSpreadsheet> | null = null;
 const LOAD_CACHE_DURATION = 15000; // 15 seconds cache for metadata
 
 export async function getDoc() {
-  const maxRetries = 3;
-  let attempt = 0;
-
   const now = Date.now();
   if (lastLoadTime && (now - lastLoadTime < LOAD_CACHE_DURATION)) {
     return doc;
   }
 
-  while (attempt < maxRetries) {
-    try {
-      await doc.loadInfo();
-      lastLoadTime = Date.now();
-      return doc;
-    } catch (error: any) {
-      attempt++;
-
-      const isQuotaError = error.message?.includes('429') || error.response?.status === 429;
-      
-      const isTransient =
-        error.code === 'ECONNRESET' ||
-        error.code === 'ETIMEDOUT' ||
-        error.code === 'UND_ERR_CONNECT_TIMEOUT' ||
-        error.message?.includes('fetch failed') ||
-        error.message?.includes('network') ||
-        error.cause?.code === 'ECONNRESET' ||
-        error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
-        isQuotaError;
-
-      console.error(`Google Sheets getDoc Error (Attempt ${attempt}/${maxRetries}):`, {
-        message: error.message,
-        code: error.code ?? error.cause?.code,
-        status: error.response?.status,
-        transient: isTransient,
-      });
-
-      if (attempt >= maxRetries || !isTransient) {
-        // Attach status code if it's a quota error
-        if (isQuotaError) {
-          (error as any).status = 429;
-        }
-        throw error;
-      }
-
-      // Exponential backoff with jitter: ~2s, ~4s, ~8s
-      // If it's a quota error, use a longer backoff
-      const baseDelay = isQuotaError ? 5000 : 2000;
-      const delay = Math.pow(2, attempt) * baseDelay + Math.random() * 500;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
+  // If a loadInfo() is already in-flight, share it rather than firing another
+  // concurrent request. Without this, simultaneous route invocations (e.g. from
+  // the notification manager polling 4 endpoints at once) all race through the
+  // cache check and each call doc.loadInfo(), queuing 4 parallel connections to
+  // the Google Sheets API and causing 10–60 s response times.
+  if (loadingPromise) {
+    return loadingPromise;
   }
 
-  throw new Error("Failed to load Google Sheets document after maximum retries.");
+  loadingPromise = (async () => {
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        await doc.loadInfo();
+        lastLoadTime = Date.now();
+        return doc;
+      } catch (error: any) {
+        attempt++;
+
+        const isQuotaError = error.message?.includes('429') || error.response?.status === 429;
+
+        const isTransient =
+          error.code === 'ECONNRESET' ||
+          error.code === 'ETIMEDOUT' ||
+          error.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+          error.message?.includes('fetch failed') ||
+          error.message?.includes('network') ||
+          error.cause?.code === 'ECONNRESET' ||
+          error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+          isQuotaError;
+
+        console.error(`Google Sheets getDoc Error (Attempt ${attempt}/${maxRetries}):`, {
+          message: error.message,
+          code: error.code ?? error.cause?.code,
+          status: error.response?.status,
+          transient: isTransient,
+        });
+
+        if (attempt >= maxRetries || !isTransient) {
+          if (isQuotaError) {
+            (error as any).status = 429;
+          }
+          throw error;
+        }
+
+        // Exponential backoff with jitter: ~2s, ~4s, ~8s
+        const baseDelay = isQuotaError ? 5000 : 2000;
+        const delay = Math.pow(2, attempt) * baseDelay + Math.random() * 500;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw new Error("Failed to load Google Sheets document after maximum retries.");
+  })().finally(() => {
+    loadingPromise = null;
+  });
+
+  return loadingPromise;
 }
 
 /**

@@ -298,6 +298,10 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
     }
   };
 
+  const remaining = parseFloat(String(roll["Remaining Length (ft)"] || "0")) || 0;
+  const wasteNum = parseFloat(wasteLength) || 0;
+  const overrun = wasteNum > 0 && wasteNum > remaining;
+
   const bodyProps = { roll, wasteLength, setWasteLength, reason, setReason, description, setDescription, jobRef, setJobRef, date, setDate };
 
   const FooterButtons = ({ drawer = false }: { drawer?: boolean }) => (
@@ -310,7 +314,7 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
         Cancel
       </Button>
       <Button
-        disabled={saving || !wasteLength || !reason}
+        disabled={saving || !wasteLength || !reason || overrun}
         onClick={handleSave}
         className="flex-1 h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black shadow-lg shadow-rose-600/20 active:scale-[0.97]">
         {saving ? "Logging..." : "Log Waste & Deduct"}

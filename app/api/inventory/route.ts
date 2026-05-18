@@ -96,9 +96,20 @@ export async function POST(request: Request) {
     const widthNum = parseFloat(widthFt);
     const rawLength = parseFloat(rawLengthFt);
     const EXPECTED_WASTE_FT = 10;
+    const threshold = Math.max(0, parseFloat(lowStockThreshold) || 20);
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
+
+    if (widthNum <= 0) {
+      return NextResponse.json({ error: 'Roll width must be greater than 0.' }, { status: 400 });
+    }
+    if (rawLength <= EXPECTED_WASTE_FT) {
+      return NextResponse.json(
+        { error: `Roll length (${rawLength}ft) must exceed the ${EXPECTED_WASTE_FT}ft waste reserve. Usable stock would be zero or negative.` },
+        { status: 400 }
+      );
+    }
+
     const totalUsable = rawLength - EXPECTED_WASTE_FT;
-    const threshold = parseFloat(lowStockThreshold) || 20;
-    const qty = parseInt(quantity, 10) || 1;
 
     const priceNum = parseFloat(price) || 0;
     const costNum = parseFloat(cost) || 0;

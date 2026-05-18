@@ -17,36 +17,57 @@ export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId:
   const iSheet = doc.sheetsByTitle[INVENTORY_SHEET];
   if (!mSheet || !iSheet) return;
 
-  const mRows = await mSheet.getRows();
-  const iRows = await iSheet.getRows();
-
-  const mRow = mRows.find(r => r.get('Material ID') === materialId);
-  if (!mRow) return;
+  const [mRows, iRows] = await Promise.all([mSheet.getRows(), iSheet.getRows()]);
 
   const rolls = iRows.filter(r => r.get('Material ID') === materialId);
-  
+  if (rolls.length === 0) return;
+
   const totalRemaining = rolls.reduce((sum, r) => sum + (parseFloat(r.get('Remaining Length (ft)')) || 0), 0);
   const totalCapacity = rolls.reduce((sum, r) => sum + (parseFloat(r.get('Total Length (ft)')) || 0), 0);
   const rollCount = rolls.length;
 
   // Active roll auto-promotion: lowest Roll ID that has stock
   const activeRoll = rolls
-    .filter(r => (parseFloat(r.get('Remaining Length (ft)')) || 0) > 0.1) // 0.1ft threshold for "has stock"
+    .filter(r => (parseFloat(r.get('Remaining Length (ft)')) || 0) > 0.1)
     .sort((a, b) => (a.get('Roll ID') || '').localeCompare(b.get('Roll ID') || ''))[0]
     || rolls.sort((a, b) => (a.get('Roll ID') || '').localeCompare(b.get('Roll ID') || ''))[0];
 
   const activeRollId = activeRoll ? activeRoll.get('Roll ID') : '';
-  const threshold = parseFloat(mRow.get('Low Stock Threshold (ft)') || '20') || 20;
+  const firstRoll = rolls[0];
+  // Price follows the active roll — reflects the most recently purchased/restocked roll
+  const priceRoll = activeRoll || firstRoll;
+  const mRow = mRows.find(r => r.get('Material ID') === materialId);
+  const threshold = parseFloat((mRow ?? firstRoll).get('Low Stock Threshold (ft)') || '20') || 20;
 
   let status = 'Active';
   if (totalRemaining <= 0.1) status = 'Out of Stock';
   else if (totalRemaining <= threshold) status = 'Low Stock';
+
+  if (!mRow) {
+    // First roll for this material — create the Materials row
+    await mSheet.addRow({
+      'Material ID': materialId,
+      'Material Name': firstRoll.get('Item Name'),
+      'Width (ft)': firstRoll.get('Width (ft)'),
+      'Selling Price': priceRoll.get('Price'),
+      'Total Remaining (ft)': totalRemaining.toFixed(2),
+      'Total Capacity (ft)': totalCapacity.toFixed(2),
+      'Active Roll ID': activeRollId,
+      'Roll Count': rollCount,
+      'Status': status,
+      'Low Stock Threshold (ft)': threshold,
+      'Last Updated': new Date().toISOString(),
+      'Notes': '',
+    });
+    return;
+  }
 
   mRow.set('Total Remaining (ft)', totalRemaining.toFixed(2));
   mRow.set('Total Capacity (ft)', totalCapacity.toFixed(2));
   mRow.set('Active Roll ID', activeRollId);
   mRow.set('Roll Count', rollCount);
   mRow.set('Status', status);
+  mRow.set('Selling Price', priceRoll.get('Price'));
   mRow.set('Last Updated', new Date().toISOString());
 
   await mRow.save();
