@@ -14,7 +14,6 @@ export async function GET() {
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
-    await ensureHeaders(sheet, EXPENSES_HEADERS);
     const rows = await sheet.getRows();
     const data = rows.map(row => row.toObject());
     return NextResponse.json({ data });

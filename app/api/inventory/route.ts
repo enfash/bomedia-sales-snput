@@ -48,7 +48,6 @@ export async function GET() {
       }, { status: 404 });
     }
 
-    await ensureHeaders(sheet, INVENTORY_HEADERS);
     const rows = await sheet.getRows();
     const data = rows.map((row) => ({ ...row.toObject(), _rowIndex: row.rowNumber }));
     return NextResponse.json({ data });
