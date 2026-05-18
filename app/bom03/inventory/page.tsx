@@ -57,6 +57,10 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
       toast.error("Material name, width, and length are required.");
       return;
     }
+    if (rawLengthFt <= 10) {
+      toast.error("Roll length must exceed 10ft (the reserved waste factor). Usable stock would be zero or negative.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/inventory", {
@@ -178,37 +182,79 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
 
 function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: () => void; onDone: () => void }) {
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
   if (!roll) return null;
 
+  const adj = parseFloat(amount);
+  const current = parseNum(roll["Remaining Length (ft)"]);
+  const preview = isNaN(adj) ? null : Math.max(0, current + adj);
+  const canSave = !isNaN(adj) && adj !== 0 && note.trim().length > 0;
+
   const handleSave = async () => {
-    const adj = parseFloat(amount);
-    if (isNaN(adj)) return;
+    if (!canSave) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/inventory", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rowIndex: roll._rowIndex, adjustment: adj }) });
-      if (res.ok) { toast.success("Stock adjusted!"); setAmount(""); onDone(); }
-      else { const j = await res.json(); toast.error(j.error || "Failed"); }
+      const res = await fetch("/api/inventory", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rowIndex: roll._rowIndex, adjustment: adj }),
+      });
+      if (!res.ok) { const j = await res.json(); toast.error(j.error || "Failed"); return; }
+
+      // Write audit log to Expenses sheet
+      const loggedBy = typeof window !== "undefined" ? localStorage.getItem("userName") || "Unknown" : "Unknown";
+      await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          DATE: new Date().toISOString().split("T")[0],
+          AMOUNT: "0",
+          CATEGORY: "Inventory Adjustment",
+          DESCRIPTION: `[ADJUST] ${roll["Roll ID"]} · ${adj > 0 ? "+" : ""}${adj.toFixed(1)}ft · ${note.trim()}`,
+          "PAID TO": "—",
+          "PAYMENT METHOD": "N/A",
+          "RECEIPT URL": "",
+          "Logged By": loggedBy,
+          "JOB REF": "—",
+          "ROLL ID": roll["Roll ID"],
+          "ADJUST FT": adj.toFixed(2),
+        }),
+      });
+
+      toast.success(`Stock adjusted — ${adj > 0 ? "+" : ""}${adj.toFixed(1)}ft on ${roll["Roll ID"]}`);
+      setAmount(""); setNote(""); onDone();
     } catch { toast.error("Network error"); }
     finally { setSaving(false); }
   };
 
   return (
     <Dialog open={!!roll} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-6 border-none shadow-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-black text-gray-900 dark:text-white">Manual Adjustment</DialogTitle>
-          <p className="text-xs text-gray-500 dark:text-zinc-400">{roll["Roll ID"]} — Current: <span className="font-black">{parseNum(roll["Remaining Length (ft)"]).toFixed(1)}ft</span></p>
+      <DialogContent className="max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+        <DialogHeader className="p-6 bg-brand-700 text-white">
+          <DialogTitle className="text-lg font-black">Manual Adjustment</DialogTitle>
+          <p className="text-white/75 text-xs mt-0.5">{roll["Roll ID"]} — Current: <span className="font-black">{current.toFixed(1)}ft</span></p>
         </DialogHeader>
-        <div className="space-y-3 py-4">
-          <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Adjustment (ft)</Label>
-          <Input type="number" placeholder="e.g. -5 for damage, +50 for restock" value={amount} onChange={e => setAmount(e.target.value)} className="rounded-xl h-12 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-          <p className="text-[9px] text-gray-400 italic">Use negative (−) to subtract, positive (+) to add.</p>
+        <div className="p-6 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Adjustment (ft)</Label>
+            <Input type="number" placeholder="e.g. −5 for damage, +10 for correction" value={amount} onChange={e => setAmount(e.target.value)} className="rounded-xl h-12 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+            {preview !== null && (
+              <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
+                After adjustment: <span className="font-black text-gray-800 dark:text-zinc-200">{preview.toFixed(1)}ft remaining</span>
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Reason (required for audit log) *</Label>
+            <Input placeholder="e.g. Measurement correction, damaged section removed" value={note} onChange={e => setNote(e.target.value)} className="rounded-xl h-12 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+          </div>
+          <p className="text-[9px] text-gray-400 dark:text-zinc-500 italic">This adjustment will be logged to the Expenses sheet for audit purposes.</p>
         </div>
-        <DialogFooter className="flex gap-2">
+        <DialogFooter className="p-6 pt-0 flex gap-2">
           <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-11 font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="flex-1 bg-brand-700 hover:bg-brand-800 text-white font-black rounded-xl h-11">Apply</Button>
+          <Button onClick={handleSave} disabled={saving || !canSave} className="flex-1 bg-brand-700 hover:bg-brand-800 text-white font-black rounded-xl h-11">{saving ? "Saving..." : "Apply"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -224,7 +270,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    if (material) setForm({ quantity: "1", rawLength: "", lengthUnit: "m", price: "", cost: "" });
+    if (material) setForm({ quantity: "1", rawLength: "", lengthUnit: "m", price: String(parseNum(material["Selling Price"]) || ""), cost: "" });
   }, [material?.["Material ID"]]);
 
   const rawLengthFt = useMemo(() => {
@@ -239,6 +285,10 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
 
   const handleSave = async () => {
     if (!form.rawLength) { toast.error("Roll length is required."); return; }
+    if (rawLengthFt <= 10) {
+      toast.error("Roll length must exceed 10ft (the reserved waste factor). Usable stock would be zero or negative.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/inventory", {
@@ -276,10 +326,11 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
           <p className="text-white/80 text-xs mt-1">Creates a new roll — existing roll history is preserved.</p>
         </DialogHeader>
         <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-          {/* Inherited properties */}
+          {/* Inherited properties — read-only */}
           <div className="p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-zinc-400">
             <span><span className="font-black">Width:</span> {widthFt}ft</span>
             <span><span className="font-black">Category:</span> {material?.["Category"] || "General"}</span>
+            <span><span className="font-black">Selling Price:</span> ₦{form.price || "—"}/sqft</span>
             <span><span className="font-black">Low stock alert:</span> {material?.["Low Stock Threshold (ft)"] || 20}ft</span>
           </div>
 
@@ -313,15 +364,9 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Selling Price (₦/sqft)</Label>
-              <Input type="number" placeholder="e.g. 200" value={form.price} onChange={e => set("price", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Total Buy Cost (₦)</Label>
-              <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Total Buy Cost (₦)</Label>
+            <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
           </div>
           {costPerSqft > 0 && (
             <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
@@ -461,15 +506,15 @@ export default function InventoryPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 border-none">
-                {["Material Profile", "Width", "Rolls", "Total Stock", "Status", ""].map(h => (
-                  <TableHead key={h} className={cn("text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4 whitespace-nowrap", h === "Material Profile" ? "pl-6" : ["Rolls","Total Stock","Status"].includes(h) ? "text-center" : h === "" ? "text-right pr-4" : "")}>{h}</TableHead>
+                {["Material Profile", "Width", "Rolls", "Total Stock", "Status"].map(h => (
+                  <TableHead key={h} className={cn("text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4 whitespace-nowrap", h === "Material Profile" ? "pl-6" : ["Rolls","Total Stock","Status"].includes(h) ? "text-center" : "")}>{h}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-20">
+                  <TableCell colSpan={5} className="text-center py-20">
                     <div className="flex flex-col items-center gap-2 text-gray-300 dark:text-zinc-700">
                       <Package className="w-10 h-10 mb-1 opacity-40" />
                       <p className="text-sm font-bold text-gray-500 dark:text-zinc-400">No materials found</p>
@@ -518,31 +563,31 @@ export default function InventoryPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-center"><StatusPill status={mat.Status || "Active"} /></TableCell>
-                      <TableCell className="text-right pr-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 rounded-lg text-[10px] font-black border-amber-200 dark:border-amber-800/40 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 whitespace-nowrap"
-                          onClick={(e) => { e.stopPropagation(); setRestockTarget(mat); }}
-                        >
-                          Restock
-                        </Button>
-                      </TableCell>
                     </TableRow>
 
                     {isExpanded && (
                       <TableRow className="bg-gray-50/50 dark:bg-zinc-800/20 border-b border-gray-50 dark:border-zinc-800">
-                        <TableCell colSpan={6} className="p-0">
+                        <TableCell colSpan={5} className="p-0">
                           <div className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest flex items-center gap-2">
                                 <Package className="w-3 h-3" /> Physical Roll Log
                               </h4>
-                              {activeRollId && (
-                                <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
-                                  <Zap className="w-2.5 h-2.5" /> Active: {activeRollId}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {activeRollId && (
+                                  <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
+                                    <Zap className="w-2.5 h-2.5" /> Active: {activeRollId}
+                                  </span>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 rounded-lg text-[10px] font-black border-amber-200 dark:border-amber-800/40 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 whitespace-nowrap"
+                                  onClick={() => setRestockTarget(mat)}
+                                >
+                                  Restock Material
+                                </Button>
+                              </div>
                             </div>
                             <div className="space-y-2">
                               {displayRolls.length === 0 ? (
@@ -554,14 +599,17 @@ export default function InventoryPage() {
                                 const isActiveRoll = roll["Roll ID"] === activeRollId;
                                 const rollBarColor = roll.Status === "Out of Stock" || rRem <= 0 ? "bg-rose-500" : roll.Status === "Low Stock" ? "bg-amber-500" : "bg-brand-500";
 
+                                const isFinished = roll.Status === "Depleted" || roll.Status === "Out of Stock";
                                 return (
                                   <div
                                     key={roll["Roll ID"]}
                                     className={cn(
-                                      "p-4 bg-white dark:bg-zinc-900 rounded-xl border shadow-sm",
-                                      isActiveRoll
-                                        ? "border-emerald-200 dark:border-emerald-800/40 ring-1 ring-emerald-200 dark:ring-emerald-800/40"
-                                        : "border-gray-100 dark:border-zinc-800"
+                                      "p-4 rounded-xl border shadow-sm",
+                                      isFinished
+                                        ? "bg-gray-50 dark:bg-zinc-800/30 border-gray-100 dark:border-zinc-800 opacity-60"
+                                        : isActiveRoll
+                                        ? "bg-white dark:bg-zinc-900 border-emerald-200 dark:border-emerald-800/40 ring-1 ring-emerald-200 dark:ring-emerald-800/40"
+                                        : "bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800"
                                     )}
                                   >
                                     {/* Roll header row */}
@@ -569,9 +617,9 @@ export default function InventoryPage() {
                                       <div className="flex items-center gap-3">
                                         <div className={cn(
                                           "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-                                          isActiveRoll ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-gray-50 dark:bg-zinc-800"
+                                          isFinished ? "bg-gray-100 dark:bg-zinc-700/50" : isActiveRoll ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-gray-50 dark:bg-zinc-800"
                                         )}>
-                                          <Package className={cn("w-4 h-4", isActiveRoll ? "text-emerald-500" : "text-gray-400 dark:text-zinc-500")} />
+                                          <Package className={cn("w-4 h-4", isFinished ? "text-gray-300 dark:text-zinc-600" : isActiveRoll ? "text-emerald-500" : "text-gray-400 dark:text-zinc-500")} />
                                         </div>
                                         <div>
                                           <div className="flex items-center gap-2">
@@ -606,22 +654,28 @@ export default function InventoryPage() {
 
                                     {/* Actions */}
                                     <div className="flex items-center gap-2 justify-end">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 rounded-lg text-[10px] font-black border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/10"
-                                        onClick={(e) => { e.stopPropagation(); setWasteTarget(roll); }}
-                                      >
-                                        Log Waste
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 rounded-lg text-[10px] font-black border-gray-200 dark:border-zinc-700 hover:bg-brand-50 dark:hover:bg-zinc-800"
-                                        onClick={(e) => { e.stopPropagation(); setAdjustTarget(roll); }}
-                                      >
-                                        Adjust Stock
-                                      </Button>
+                                      {isFinished ? (
+                                        <span className="text-[9px] font-black text-gray-300 dark:text-zinc-600 uppercase tracking-widest">Roll Complete</span>
+                                      ) : (
+                                        <>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-lg text-[10px] font-black border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/10"
+                                            onClick={(e) => { e.stopPropagation(); setWasteTarget(roll); }}
+                                          >
+                                            Log Waste
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-lg text-[10px] font-black border-gray-200 dark:border-zinc-700 hover:bg-brand-50 dark:hover:bg-zinc-800"
+                                            onClick={(e) => { e.stopPropagation(); setAdjustTarget(roll); }}
+                                          >
+                                            Adjust Stock
+                                          </Button>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 );

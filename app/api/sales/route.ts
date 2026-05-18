@@ -126,9 +126,37 @@ export async function POST(request: Request) {
         }
       }
 
+      // --- Stock Pre-Validation (read-only — no writes yet) ---
+      const mSheet = doc.sheetsByTitle['Materials'];
+      if (mSheet) {
+        const matRows = await mSheet.getRows();
+        const stockMap: Record<string, number> = {};
+        matRows.forEach((r: any) => {
+          const id = r.get('Material ID');
+          if (id) stockMap[id] = parseFloat(r.get('Total Remaining (ft)') || '0') || 0;
+        });
+
+        const requiredMap: Record<string, number> = {};
+        for (const item of body.items) {
+          const matId = item.canonicalItemName;
+          if (!matId || !item.jobHeight) continue;
+          const hFt = (item.dimUnit === 'in') ? parseFloat(item.jobHeight) / 12 : parseFloat(item.jobHeight) || 0;
+          const qty = parseFloat(item.qty) || 1;
+          requiredMap[matId] = (requiredMap[matId] || 0) + hFt * qty;
+        }
+
+        for (const [matId, required] of Object.entries(requiredMap)) {
+          const available = stockMap[matId] ?? 0;
+          // 1ft buffer: tiling may use less than the conservative height×qty estimate
+          if (required > available + 1) {
+            return NextResponse.json({
+              error: `Not enough stock for ${matId}. Needed ≈${required.toFixed(1)}ft, available ${available.toFixed(1)}ft. Please restock before recording this sale.`,
+            }, { status: 409 });
+          }
+        }
+      }
+
       // Generate SALES ID server-side: BOM-YYYYMMDD-XXXX
-      // Use high-resolution time + process ID bits to avoid collisions when
-      // multiple requests land in the same millisecond.
       const dateStr = (body.items[0] && body.items[0].values && body.items[0].values[0]) || new Date().toISOString().split('T')[0];
       const cleanDate = dateStr.replace(/-/g, '');
       const uniqueSuffix = (Date.now() % 9000 + 1000).toString().slice(-4);
@@ -201,7 +229,10 @@ export async function POST(request: Request) {
           });
 
           if (!deductResult.success) {
-            console.warn(`[Sales] Inventory deduction skipped: ${deductResult.error}`);
+            console.error(`[Sales] Inventory deduction failed: ${deductResult.error}`);
+            return NextResponse.json({
+              error: `Inventory deduction failed for ${item.canonicalItemName}: ${deductResult.error}. Sale not recorded.`,
+            }, { status: 409 });
           }
         }
       }
