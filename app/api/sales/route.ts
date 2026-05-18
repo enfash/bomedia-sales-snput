@@ -23,7 +23,6 @@ export async function GET() {
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[0];
-    await ensureHeaders(sheet, SALES_HEADERS);
     const rows = await sheet.getRows();
     
     const data = rows.map(row => ({

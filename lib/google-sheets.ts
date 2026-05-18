@@ -15,7 +15,7 @@ const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID || '', serviceAcco
 
 let lastLoadTime = 0;
 let loadingPromise: Promise<GoogleSpreadsheet> | null = null;
-const LOAD_CACHE_DURATION = 15000; // 15 seconds cache for metadata
+const LOAD_CACHE_DURATION = 300000; // 5 minutes cache for metadata
 
 export async function getDoc() {
   const now = Date.now();

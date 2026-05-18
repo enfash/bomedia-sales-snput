@@ -150,17 +150,20 @@ export function NotificationManager() {
   };
 
   useEffect(() => {
-    // Initial fetch
-    fetchData();
+    // Delay the first poll so it doesn't race with the page's own initial fetch.
+    // The dashboard populates the store on mount; NotificationManager only needs
+    // to watch for *new* activity after that settles.
+    let interval: ReturnType<typeof setInterval> | null = null;
 
-    // Set up polling
-    const interval = setInterval(fetchData, 30000);
-    
-    // Listen for manual refreshes
-    window.addEventListener("online", fetchData);
+    const timer = setTimeout(() => {
+      fetchData();
+      interval = setInterval(fetchData, 30000);
+      window.addEventListener("online", fetchData);
+    }, 25000);
 
     return () => {
-      clearInterval(interval);
+      clearTimeout(timer);
+      if (interval) clearInterval(interval);
       window.removeEventListener("online", fetchData);
     };
   }, []);

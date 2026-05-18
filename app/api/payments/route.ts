@@ -18,7 +18,6 @@ export async function GET() {
       return NextResponse.json({ data: [] });
     }
 
-    await ensureHeaders(sheet, PAYMENTS_HEADERS);
     const rows = await sheet.getRows();
     
     const data = rows.map(row => ({
