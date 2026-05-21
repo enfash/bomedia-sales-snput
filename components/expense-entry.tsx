@@ -195,7 +195,8 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       amount: "",
       category: "",
       description: "",
-      paidTo: "",
+      // Preserve vendor name so user can add multiple items for same vendor
+      paidTo: formData.paidTo,
       paymentMethod: "Bank Transfer",
       receiptUrl: "",
       status: "Unpaid",
