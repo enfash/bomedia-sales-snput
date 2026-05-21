@@ -3,7 +3,7 @@
 import { type UnifiedRecord } from "@/components/manage-sale-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Printer, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Printer, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRef, useState } from "react";
 import { ReceiptModal } from "./receipt-modal";
@@ -20,10 +20,11 @@ interface BatchCardProps {
 export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [localRecords, setLocalRecords] = useState<UnifiedRecord[]>(records);
 
-  const firstItem = records[0];
-  const totalAmt = records.reduce((s, i) => s + i.amount, 0);
-  const totalBal = records.reduce((s, i) => s + (i.balance || 0), 0);
+  const firstItem = localRecords[0];
+  const totalAmt = localRecords.reduce((s, i) => s + i.amount, 0);
+  const totalBal = localRecords.reduce((s, i) => s + (i.balance || 0), 0);
 
   const groupStatus = (items: UnifiedRecord[]): RecordStatus => {
     if (items.some(i => i.status === "Syncing")) return "Syncing";
@@ -32,7 +33,12 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
     return "In Progress";
   };
 
-  const status = groupStatus(records);
+  const status = groupStatus(localRecords);
+
+  const handleDeleteItem = (itemId: string) => {
+    setLocalRecords(prev => prev.filter(r => r.id !== itemId));
+    toast.success("Item removed from batch");
+  };
 
   const statusColors: Record<RecordStatus, string> = {
     Settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -45,6 +51,10 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
     e.stopPropagation();
     setIsReceiptModalOpen(true);
   };
+
+  if (!firstItem) {
+    return null;
+  }
 
   return (
     <div className={cn(
@@ -88,7 +98,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
 
         <div className="mt-3 flex items-center justify-between">
             <Badge variant="outline" className="bg-primary/5 dark:bg-primary/10 text-primary border-primary/20 text-[9px] font-black">
-                {records.length} ITEMS IN BATCH
+                {localRecords.length} ITEMS IN BATCH
             </Badge>
             <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                 <Button
@@ -99,7 +109,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
                 >
                     <Printer className="w-4 h-4" />
                 </Button>
-                <ManageBatchAction records={records} salesId={salesId} onUpdate={onUpdate} />
+                <ManageBatchAction records={localRecords} salesId={salesId} onUpdate={onUpdate} />
             </div>
         </div>
       </div>
@@ -107,28 +117,40 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
       {/* Expanded Content */}
       {isExpanded && (
         <div className="bg-gray-50/50 dark:bg-zinc-950/30 p-3 space-y-2 border-t border-gray-50 dark:border-zinc-800/50">
-          {records.map((r, idx) => (
-            <RecordCard
-              key={r.id || idx}
-              date={r.date}
-              type={r.type}
-              client={r.client}
-              description={r.description}
-              amount={`₦${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              status={r.status}
-              isPending={r.isPending}
-              record={r}
-              onUpdate={onUpdate}
-              allSalesContext={records}
-            />
+          {localRecords.map((r, idx) => (
+            <div key={r.id || idx} className="flex items-start gap-2">
+              <div className="flex-1">
+                <RecordCard
+                  date={r.date}
+                  type={r.type}
+                  client={r.client}
+                  description={r.description}
+                  amount={`₦${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                  status={r.status}
+                  isPending={r.isPending}
+                  record={r}
+                  onUpdate={onUpdate}
+                  allSalesContext={localRecords}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 dark:hover:text-rose-400 flex-shrink-0 mt-2"
+                onClick={() => handleDeleteItem(r.id)}
+                title="Remove from batch"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
           ))}
         </div>
       )}
 
-      <ReceiptModal 
+      <ReceiptModal
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
-        records={records}
+        records={localRecords}
         salesId={salesId}
       />
     </div>

@@ -43,10 +43,7 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
   );
 
   const handleSubmit = async () => {
-    if (lumpSum <= 0) {
-      toast.error("Please enter a valid payment amount.");
-      return;
-    }
+    if (lumpSum <= 0) return; // nothing to apply — keep modal open for review
     const steps = computeWaterfall(records, lumpSum);
     if (steps.length === 0) {
       toast.error("No eligible unpaid items to apply payment to.");
@@ -190,15 +187,13 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
       >
         Cancel
       </Button>
-      {totalBalance > 0 && (
-        <Button
-          disabled={isSubmitting || lumpSum <= 0 || preview.length === 0}
-          onClick={handleSubmit}
-          className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
-        >
-          {isSubmitting ? "Processing..." : "Apply Payment"}
-        </Button>
-      )}
+      <Button
+        disabled={isSubmitting || (totalBalance <= 0 && lumpSum <= 0)}
+        onClick={handleSubmit}
+        className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
+      >
+        {isSubmitting ? "Processing..." : lumpSum > 0 ? "Apply Payment" : totalBalance <= 0 ? "All Paid" : "Review"}
+      </Button>
     </div>
   );
 
