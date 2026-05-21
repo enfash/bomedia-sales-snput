@@ -82,6 +82,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>([]);
+  const [batchItems, setBatchItems] = useState<any[]>([]);
 
   const [open, setOpen] = useState(false);
   const [showVendorSuggestions, setShowVendorSuggestions] = useState(false);
@@ -155,6 +156,84 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       return;
     }
     setShowConfirmModal(true);
+  };
+
+  const handleAddToBatch = () => {
+    if (!formData.amount || !formData.category || !formData.description) {
+      toast.error("Please fill in Amount, Category, and Description.");
+      return;
+    }
+    const item = {
+      DATE: formData.date,
+      AMOUNT: formData.amount,
+      CATEGORY: formData.category,
+      DESCRIPTION: formData.description,
+      'PAID TO': formData.paidTo,
+      'PAYMENT METHOD': formData.paymentMethod,
+      'RECEIPT URL': formData.receiptUrl,
+      STATUS: formData.status,
+      // TIMESTAMP will be added server-side
+    };
+
+    setBatchItems((prev) => [item, ...prev]);
+
+    const saved: RecentExpense = {
+      id: `local-${Date.now()}`,
+      amount: formData.amount,
+      category: formData.category,
+      description: formData.description,
+      date: formData.date,
+      paymentMethod: formData.paymentMethod,
+      paidTo: formData.paidTo,
+    };
+    setRecentExpenses((prev) => [saved, ...prev].slice(0, 20));
+
+    toast.success(`Added ₦${Number(formData.amount).toLocaleString()} to batch`);
+
+    setFormData({
+      date: new Date().toISOString().split("T")[0],
+      amount: "",
+      category: "",
+      description: "",
+      paidTo: "",
+      paymentMethod: "Cash",
+      receiptUrl: "",
+      status: "Unpaid",
+    });
+  };
+
+  const handleSaveBatch = async () => {
+    if (batchItems.length === 0) {
+      toast.error("No items in batch to save.");
+      return;
+    }
+
+    try {
+      const loggedBy = localStorage.getItem("userName") || "Unknown";
+      const items = batchItems.map((it) => ({ ...it, 'Logged By': loggedBy }));
+
+      useSyncStore.getState().addPendingEntry("expense", { batch: true, items });
+      const queue = useSyncStore.getState().pendingQueue;
+      const entryId = queue[queue.length - 1]?.id ?? "";
+
+      toast.success(`${batchItems.length} expenses logged`, {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            useSyncStore.getState().removeEntry(entryId);
+            toast.info("Batch removed.");
+          },
+        },
+      });
+
+      setBatchItems([]);
+      setRecentExpenses([]);
+      setShowConfirmModal(false);
+      onSaved?.();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to queue batch.");
+    }
   };
 
   const handleSave = async () => {
@@ -520,10 +599,17 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="p-4 border-t dark:border-white/5 bg-gray-50/50 dark:bg-zinc-900/50">
+          <CardFooter className="p-4 border-t dark:border-white/5 bg-gray-50/50 dark:bg-zinc-900/50 flex gap-3">
+            <Button
+              variant="outline"
+              onClick={handleAddToBatch}
+              className="flex-1 h-12 text-sm font-bold rounded-xl"
+            >
+              Add to Batch
+            </Button>
             <Button
               onClick={handleReview}
-              className="w-full bg-primary hover:bg-primary/95 text-primary-foreground py-6 text-base font-bold rounded-xl shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
+              className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground py-3 text-base font-bold rounded-xl shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
             >
               Review & Save
             </Button>
@@ -571,105 +657,82 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
         <DialogContent className="max-w-[calc(100%-2rem)] w-full rounded-2xl p-0 overflow-hidden bg-white dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 shadow-2xl">
           <DialogHeader className="p-4 border-b dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50">
             <DialogTitle className="text-xl font-black text-primary">
-              Confirm Expense
+              {batchItems.length > 0 ? "Confirm Expenses" : "Confirm Expense"}
             </DialogTitle>
             <DialogDescription className="text-xs dark:text-zinc-400 font-medium">
               Review before pushing to Google Sheets.
             </DialogDescription>
           </DialogHeader>
-          <div className="p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm bg-gray-50 dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
-              <div className="col-span-1">
-                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
-                  Date
-                </span>
-                <span className="dark:text-zinc-200 font-bold">
-                  {formData.date}
-                </span>
-              </div>
-              <div className="col-span-1">
-                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
-                  Category
-                </span>
-                <span className="dark:text-zinc-200 font-bold">
-                  {formData.category}
-                </span>
-              </div>
-              <div className="col-span-1">
-                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
-                  Method
-                </span>
-                <span className="dark:text-zinc-200 font-bold">
-                  {formData.paymentMethod}
-                </span>
-              </div>
-              <div className="col-span-1">
-                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
-                  Amount
-                </span>
-                <span className="font-black text-lg text-red-600 dark:text-rose-400">
-                  ₦{Number(formData.amount).toLocaleString()}
-                </span>
-              </div>
-              <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
-                  Paid To
-                </span>
-                <span className="dark:text-zinc-200 font-bold">
-                  {formData.paidTo || "—"}
-                </span>
-              </div>
-              <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
-                  Status
-                </span>
-                <span className={cn(
-                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black",
-                  formData.status === "Paid"
-                    ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
-                    : "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400"
-                )}>
-                  {formData.status}
-                </span>
-              </div>
-              <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">
-                  Description
-                </span>
-                <span className="dark:text-zinc-300 font-medium leading-relaxed">
-                  {formData.description}
-                </span>
-              </div>
-              {formData.receiptUrl && (
-                <div className="col-span-2 border-t pt-2 mt-1 text-center">
-                  <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-1">
-                    Receipt Preview
-                  </span>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={formData.receiptUrl}
-                    alt="Receipt"
-                    className="max-h-40 mx-auto rounded-lg shadow-sm border dark:border-zinc-800"
-                  />
+
+          <div className="p-4">
+            {batchItems.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black">Batch Preview</h3>
+                    <p className="text-xs text-gray-500 dark:text-zinc-400">{batchItems.length} items ready to save</p>
+                  </div>
                 </div>
-              )}
-            </div>
+                <ul className="divide-y divide-gray-100 dark:divide-zinc-800 rounded-xl border border-gray-100 dark:border-zinc-800 overflow-hidden">
+                  {batchItems.map((b, i) => (
+                    <li key={i} className="px-4 py-3 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-gray-900 dark:text-white truncate">{b.CATEGORY}</p>
+                        <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">{b.DESCRIPTION}</p>
+                      </div>
+                      <span className="text-sm font-black text-rose-600 dark:text-rose-400">₦{Number(b.AMOUNT).toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm bg-gray-50 dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
+                <div className="col-span-1">
+                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Date</span>
+                  <span className="dark:text-zinc-200 font-bold">{formData.date}</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Category</span>
+                  <span className="dark:text-zinc-200 font-bold">{formData.category}</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Method</span>
+                  <span className="dark:text-zinc-200 font-bold">{formData.paymentMethod}</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Amount</span>
+                  <span className="font-black text-lg text-red-600 dark:text-rose-400">₦{Number(formData.amount).toLocaleString()}</span>
+                </div>
+                <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
+                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Paid To</span>
+                  <span className="dark:text-zinc-200 font-bold">{formData.paidTo || "—"}</span>
+                </div>
+                <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
+                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Status</span>
+                  <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black", formData.status === "Paid" ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400")}>{formData.status}</span>
+                </div>
+                <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1">
+                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Description</span>
+                  <span className="dark:text-zinc-300 font-medium leading-relaxed">{formData.description}</span>
+                </div>
+                {formData.receiptUrl && (
+                  <div className="col-span-2 border-t pt-2 mt-1 text-center">
+                    <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-1">Receipt Preview</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={formData.receiptUrl} alt="Receipt" className="max-h-40 mx-auto rounded-lg shadow-sm border dark:border-zinc-800" />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
           <DialogFooter className="p-4 bg-gray-50 dark:bg-zinc-900 border-t dark:border-white/5 flex flex-row gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirmModal(false)}
-              className="flex-1 h-12 text-sm dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400"
-            >
-              Edit
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-sm font-bold shadow-lg shadow-primary/20 dark:shadow-none"
-            >
-              Confirm Save
-            </Button>
+            <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">Edit</Button>
+            {batchItems.length > 0 ? (
+              <Button onClick={handleSaveBatch} disabled={isSaving} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-sm font-bold shadow-lg shadow-primary/20 dark:shadow-none">Save {batchItems.length} Items</Button>
+            ) : (
+              <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-sm font-bold shadow-lg shadow-primary/20 dark:shadow-none">Confirm Save</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
