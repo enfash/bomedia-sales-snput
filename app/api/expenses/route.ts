@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
+import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
 export const dynamic = 'force-dynamic';
 
 const SHEET_TITLE = 'Expenses';
 const EXPENSES_HEADERS = [
-  'DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION', 'PAID TO',
+  'DATE', 'EXPENSE ID', 'AMOUNT', 'CATEGORY', 'DESCRIPTION', 'PAID TO',
   'PAYMENT METHOD', 'RECEIPT URL', 'Logged By', 'STATUS',
   'PAID BY', 'PAID AT', 'TIMESTAMP',
 ];
@@ -30,10 +31,26 @@ export async function POST(request: Request) {
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
     await ensureHeaders(sheet, EXPENSES_HEADERS);
 
-    const rowData = Array.isArray(body)
-      ? [...body, new Date().toISOString()]
-      : { ...body, TIMESTAMP: new Date().toISOString() };
-    await sheet.addRow(rowData);
+    // Support both single expense objects and batch posts from the client.
+    // For batch posts, client sends { batch: true, items: [...], transactionId }
+    if (body && body.batch === true && Array.isArray(body.items)) {
+      const txId = body.transactionId || new Date().toISOString();
+      const rows = body.items.map((it: any) => ({
+        // prefer provided EXPENSE ID per-item, otherwise use transaction id
+        'EXPENSE ID': it['EXPENSE ID'] || txId,
+        ...it,
+        TIMESTAMP: new Date().toISOString(),
+      }));
+      // addRows writes multiple rows at once
+      await sheet.addRows(rows);
+    } else {
+      const rowData = { ...body, TIMESTAMP: new Date().toISOString() };
+      // If caller included a transactionId, map it to EXPENSE ID if not present
+      if (rowData.transactionId && !rowData['EXPENSE ID']) {
+        rowData['EXPENSE ID'] = rowData.transactionId;
+      }
+      await sheet.addRow(rowData);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

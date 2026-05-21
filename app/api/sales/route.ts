@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { deductFromInventory } from '@/lib/inventory-deduction';
+import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,8 +24,8 @@ export async function GET() {
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[0];
-    const rows = await sheet.getRows();
-    
+    const rows = await getCachedRows(SHEET_TITLE, () => sheet.getRows());
+
     const data = rows.map(row => ({
       ...row.toObject(),
       _rowIndex: row.rowNumber
@@ -92,7 +93,7 @@ export async function PATCH(request: Request) {
     }
 
     await sheet.saveUpdatedCells();
-    
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("PATCH Sales Error:", error);
@@ -314,7 +315,8 @@ export async function POST(request: Request) {
       const rowData = Array.isArray(body) ? [...body, new Date().toISOString()] : { ...body, TIMESTAMP: new Date().toISOString() };
       await sheet.addRow(rowData);
     }
-    
+
+    invalidateSheet(SHEET_TITLE, 'Materials', 'Inventory');
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("POST Sales Error:", error);
