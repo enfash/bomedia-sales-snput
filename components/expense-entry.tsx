@@ -92,7 +92,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     category: "",
     description: "",
     paidTo: "",
-    paymentMethod: "Cash",
+    paymentMethod: "Bank Transfer",
     receiptUrl: "",
     status: "Unpaid" as "Paid" | "Unpaid",
   });
@@ -196,7 +196,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       category: "",
       description: "",
       paidTo: "",
-      paymentMethod: "Cash",
+      paymentMethod: "Bank Transfer",
       receiptUrl: "",
       status: "Unpaid",
     });
@@ -292,7 +292,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
         category: "",
         description: "",
         paidTo: "",
-        paymentMethod: "Cash",
+        paymentMethod: "Bank Transfer",
         receiptUrl: "",
         status: "Unpaid",
       });
