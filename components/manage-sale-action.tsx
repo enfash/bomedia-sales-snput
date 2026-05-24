@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Drawer } from "vaul";
+import { useSyncStore } from "@/lib/store";
 import {
   Dialog,
   DialogContent,
@@ -118,40 +119,67 @@ export function ManageSaleAction({
         newPaymentType = "Additional Payment 2";
       }
 
-      const res = await fetch("/api/sales", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        // Log payment if there's a new payment
-        if (newPaymentAmount > 0) {
-          try {
-            await fetch("/api/payments", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                salesId: record.salesId || record.id || '',
-                clientName: record.client || '',
-                amount: newPaymentAmount,
-                paymentType: newPaymentType,
-                balanceBefore: record.balance || 0,
-                balanceAfter: Math.max(0, (record.balance || 0) - newPaymentAmount),
-                collectedBy: "System", // Ideally from auth context
-                notes: `Logged via Manage Sale Action`
-              })
-            });
-          } catch (e) {
-            console.error("Failed to log payment event", e);
-          }
-        }
+      const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
 
-        toast.success("Record updated successfully!");
+      if (isOnline) {
+        const res = await fetch("/api/sales", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          // Log payment if there's a new payment
+          if (newPaymentAmount > 0) {
+            try {
+              const loggedBy = localStorage.getItem("userName") || "System";
+              await fetch("/api/payments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  salesId: record.salesId || record.id || '',
+                  clientName: record.client || '',
+                  amount: newPaymentAmount,
+                  paymentType: newPaymentType,
+                  balanceBefore: record.balance || 0,
+                  balanceAfter: Math.max(0, (record.balance || 0) - newPaymentAmount),
+                  collectedBy: loggedBy,
+                  notes: `Logged via Manage Sale Action`
+                })
+              });
+            } catch (e) {
+              console.error("Failed to log payment event", e);
+            }
+          }
+
+          toast.success("Record updated successfully!");
+          setIsOpen(false);
+          onUpdate();
+        } else {
+          const error = await res.json();
+          toast.error(error.error || "Failed to update record");
+        }
+      } else {
+        // Offline: Add to pending queue
+        const loggedBy = localStorage.getItem("userName") || "System";
+        const paymentPayload = {
+          salesId: record.salesId || record.id || '',
+          clientName: record.client || '',
+          amount: newPaymentAmount,
+          paymentType: newPaymentType,
+          balanceBefore: record.balance || 0,
+          balanceAfter: Math.max(0, (record.balance || 0) - newPaymentAmount),
+          collectedBy: loggedBy,
+          notes: `Logged via Manage Sale Action (Offline)`
+        };
+
+        useSyncStore.getState().addPendingEntry("payment", {
+          salesUpdate: payload,
+          paymentLog: paymentPayload,
+        });
+
+        toast.success("Record update saved locally (offline). It will sync automatically.");
         setIsOpen(false);
         onUpdate();
-      } else {
-        const error = await res.json();
-        toast.error(error.error || "Failed to update record");
       }
     } catch (err) {
       toast.error("Network error");

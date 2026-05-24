@@ -215,7 +215,15 @@ export default function RecordsPage() {
     }, true, item.timestamp);
   });
 
-  const pendingExpenses = pendingQueue.filter(item => item.type === 'expense').map(item => mapExpense(item.data, true, item.timestamp));
+  const pendingExpenses = pendingQueue
+    .filter(item => item.type === 'expense')
+    .flatMap(item => {
+      // Support both single-object pending expense and batched pending entries
+      if (item.data && (item.data as any).batch === true && Array.isArray((item.data as any).items)) {
+        return (item.data as any).items.map((it: any) => mapExpense(it, true, item.timestamp));
+      }
+      return [mapExpense(item.data as any, true, item.timestamp)];
+    });
 
   const syncedSales = salesData.map(r => mapSale(r, false));
   const syncedExpenses = expensesData.map(r => mapExpense(r, false));

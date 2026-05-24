@@ -4,8 +4,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type QueueItem = {
   id: string;
-  type: 'sale' | 'expense';
-  data: any; // The payload as an array (for sales) or object (for expenses)
+  type: 'sale' | 'expense' | 'payment';
+  data: any; // The payload as an array (for sales) or object (for expenses/payments)
   timestamp: number;
   retryCount?: number;
   lastRetryAt?: number;
@@ -18,7 +18,7 @@ interface SyncState {
   errorMessage: string | null;
   
   // Actions
-  addPendingEntry: (type: 'sale' | 'expense', data: any) => void;
+  addPendingEntry: (type: 'sale' | 'expense' | 'payment', data: any) => void;
   removeEntry: (id: string) => void;
   setSyncStatus: (status: 'idle' | 'syncing' | 'error', error?: string) => void;
   setLastSyncTime: (time: number) => void;
@@ -34,6 +34,12 @@ interface SyncState {
   updateEntryRetry: (id: string, retryCount: number, lastRetryAt: number) => void;
 }
 
+const parseAmountLocal = (val: any): number => {
+  if (val === undefined || val === null) return 0;
+  const str = val.toString().replace(/[₦, \s]/g, "");
+  return parseFloat(str) || 0;
+};
+
 export const useSyncStore = create<SyncState>()(
   persist(
     (set) => ({
@@ -47,17 +53,110 @@ export const useSyncStore = create<SyncState>()(
       cachedMaterials: [],
       cachedPayments: [],
 
-      addPendingEntry: (type, data) => set((state) => ({
-        pendingQueue: [
-          ...state.pendingQueue,
-          {
-            id: crypto.randomUUID(),
-            type,
-            data,
-            timestamp: Date.now(),
-          }
-        ]
-      })),
+      addPendingEntry: (type, data) => set((state) => {
+        let updatedMaterials = [...state.cachedMaterials];
+        let updatedSales = [...state.cachedSales];
+        let updatedPayments = [...state.cachedPayments];
+
+        // 1. Optimistic Offline Inventory updates for sales
+        if (type === 'sale' && data.batch === true && Array.isArray(data.items)) {
+          data.items.forEach((item: any) => {
+            const matId = item.canonicalItemName;
+            const consumedLength = parseFloat(item.jobLengthFt) || 0;
+            if (matId && consumedLength > 0) {
+              updatedMaterials = updatedMaterials.map((m) => {
+                if (m["Material ID"] === matId) {
+                  const currentRemaining = parseFloat(m["Total Remaining (ft)"] || "0") || 0;
+                  const newRemaining = Math.max(0, currentRemaining - consumedLength);
+                  
+                  let newStatus = 'Active';
+                  const threshold = parseFloat(m["Low Stock Threshold (ft)"] || "20") || 20;
+                  if (newRemaining <= 0.1) newStatus = 'Out of Stock';
+                  else if (newRemaining <= threshold) newStatus = 'Low Stock';
+
+                  return {
+                    ...m,
+                    "Total Remaining (ft)": newRemaining.toFixed(2),
+                    "Status": newStatus,
+                  };
+                }
+                return m;
+              });
+            }
+          });
+        } 
+        
+        // 2. Optimistic Offline payments/balance updates
+        else if (type === 'payment') {
+          const { salesUpdate, paymentLog } = data;
+          const { rowIndex, additionalPayment1, additionalPayment2 } = salesUpdate;
+
+          // Update the balance inside the cachedSales matching record
+          updatedSales = updatedSales.map((s: any) => {
+            if (s._rowIndex === rowIndex || s.rowNumber === rowIndex) {
+              const updatedRow = { ...s };
+              if (additionalPayment1 !== undefined) {
+                updatedRow["ADDITIONAL PAYMENT 1"] = additionalPayment1;
+              }
+              if (additionalPayment2 !== undefined) {
+                updatedRow["ADDITIONAL PAYMENT 2"] = additionalPayment2;
+              }
+
+              // Recalculate financial balance and payment status (mimics Google Sheets formulas locally)
+              const amount = parseAmountLocal(updatedRow["AMOUNT (₦)"] || updatedRow["Amount (₦)"]);
+              const initialPay = parseAmountLocal(updatedRow["INITIAL PAYMENT (₦)"] || updatedRow["Initial Payment (₦)"]);
+              const addl1 = parseAmountLocal(updatedRow["ADDITIONAL PAYMENT 1"] || updatedRow["Additional Payment 1"]);
+              const addl2 = parseAmountLocal(updatedRow["ADDITIONAL PAYMENT 2"] || updatedRow["Additional Payment 2"]);
+              const balance = Math.max(0, amount - initialPay - addl1 - addl2);
+
+              updatedRow["AMOUNT DIFFERENCES"] = balance;
+              updatedRow["PAYMENT STATUS"] = amount === 0 
+                ? "Unpaid" 
+                : balance <= 0 
+                  ? "Paid" 
+                  : balance < amount 
+                    ? "Part-payment" 
+                    : "Unpaid";
+              
+              return updatedRow;
+            }
+            return s;
+          });
+
+          // Prepend optimistic payment to cachedPayments feed
+          updatedPayments = [
+            {
+              "PAYMENT ID": `PAY-PENDING-${Date.now()}`,
+              "SALES ID": paymentLog.salesId || '',
+              "CLIENT NAME": paymentLog.clientName || '',
+              "DATE": paymentLog.date || new Date().toISOString().split('T')[0],
+              "AMOUNT": paymentLog.amount || 0,
+              "PAYMENT TYPE": paymentLog.paymentType || 'Additional Payment',
+              "BALANCE BEFORE": paymentLog.balanceBefore || 0,
+              "BALANCE AFTER": paymentLog.balanceAfter || 0,
+              "COLLECTED BY": paymentLog.collectedBy || 'System',
+              "NOTES": (paymentLog.notes || '') + " (Offline Pending)",
+              "TIMESTAMP": new Date().toISOString(),
+            },
+            ...updatedPayments,
+          ];
+        }
+
+        return {
+          pendingQueue: [
+            ...state.pendingQueue,
+            {
+              id: crypto.randomUUID(),
+              type,
+              data,
+              timestamp: Date.now(),
+            }
+          ],
+          cachedMaterials: updatedMaterials,
+          cachedSales: updatedSales,
+          cachedPayments: updatedPayments,
+        };
+      }),
 
       removeEntry: (id) => set((state) => ({
         pendingQueue: state.pendingQueue.filter(item => item.id !== id)

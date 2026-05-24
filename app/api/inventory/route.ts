@@ -24,6 +24,9 @@ const INVENTORY_HEADERS = [
   'Status',
   'Date Added',
   'Material ID',
+  'Expected Revenue',
+  'Remaining Asset Value',
+  'Remaining Expected Revenue',
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -83,6 +86,10 @@ export async function POST(request: Request) {
       cost,
       lowStockThreshold = 20,
       quantity = 1,
+      supplier = '—',
+      purchaseDate,
+      poReference = '—',
+      loggedBy = 'Unknown',
     } = body;
 
     if (!itemName || !widthFt || !rawLengthFt) {
@@ -112,8 +119,9 @@ export async function POST(request: Request) {
 
     const priceNum = parseFloat(price) || 0;
     const costNum = parseFloat(cost) || 0;
+    const costPerRoll = qty > 0 ? costNum / qty : costNum;
     const totalAreaSqft = widthNum * totalUsable;
-    const costPerSqft = totalAreaSqft > 0 ? costNum / totalAreaSqft : 0;
+    const costPerSqft = totalAreaSqft > 0 ? costPerRoll / totalAreaSqft : 0;
 
     const prefix = `${itemName} ${widthNum}ft - Roll `;
     let maxNum = 0;
@@ -132,6 +140,8 @@ export async function POST(request: Request) {
       const rollId = `${prefix}${String(maxNum + i).padStart(3, '0')}`;
       rollIds.push(rollId);
 
+      const nextRow = existingRows.length + 2 + (i - 1);
+
       await sheet.addRow({
         'Roll ID': rollId,
         'Item Name': itemName,
@@ -143,14 +153,47 @@ export async function POST(request: Request) {
         'Waste Logged (ft)': 0,
         'Unit': unit,
         'Price': priceNum,
-        'Cost': costNum,
+        'Cost': costPerRoll,
         'Waste Factor': EXPECTED_WASTE_FT,
         'Cost per Sqft': costPerSqft.toFixed(4),
         'Low Stock Threshold (ft)': threshold,
         'Status': computeStatus(totalUsable, threshold),
         'Date Added': new Date().toISOString().split('T')[0],
         'Material ID': materialId,
+        'Expected Revenue': `=(D${nextRow}*F${nextRow})*J${nextRow}`,
+        'Remaining Asset Value': `=(G${nextRow}/F${nextRow})*K${nextRow}`,
+        'Remaining Expected Revenue': `=(D${nextRow}*G${nextRow})*J${nextRow}`,
       });
+    }
+
+    // Automatically log to Expenses sheet if cost > 0
+    if (costNum > 0) {
+      try {
+        const expensesSheet = doc.sheetsByTitle['Expenses'] || doc.sheetsByIndex[1];
+        if (expensesSheet) {
+          const expenseId = poReference && poReference !== '—'
+            ? `EXP-${poReference.trim().toUpperCase()}`
+            : `EXP-INV-${Date.now()}`;
+
+          await expensesSheet.addRow({
+            'DATE': purchaseDate || new Date().toISOString().split('T')[0],
+            'EXPENSE ID': expenseId,
+            'AMOUNT': costNum,
+            'CATEGORY': 'Inventory Purchase',
+            'DESCRIPTION': `[RESTOCK] ${itemName} · ${widthNum}ft x ${rawLength}ft · Qty: ${qty} · Roll ID(s): ${rollIds.join(', ')}`,
+            'PAID TO': supplier || '—',
+            'PAYMENT METHOD': '—',
+            'RECEIPT URL': '',
+            'Logged By': loggedBy || 'Unknown',
+            'STATUS': 'Paid',
+            'PAID BY': '—',
+            'PAID AT': new Date().toISOString(),
+            'TIMESTAMP': new Date().toISOString(),
+          });
+        }
+      } catch (expErr) {
+        console.error('Failed to log inventory purchase to Expenses sheet:', expErr);
+      }
     }
 
     // Refresh or create material profile

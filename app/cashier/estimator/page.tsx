@@ -39,7 +39,7 @@ interface QuoteItem {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/,/g, "")) || 0;
+const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
 const fmtMoney = (n: number) => `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 const uid = () => Math.random().toString(36).slice(2, 8);
 

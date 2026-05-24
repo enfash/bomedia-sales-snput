@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
 import { computeWaterfall } from "@/lib/financial-utils";
+import { useSyncStore } from "@/lib/store";
 
 interface ManageBatchActionProps {
   records: UnifiedRecord[];
@@ -53,35 +54,91 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
     setIsSubmitting(true);
     let allOk = true;
 
-    for (const step of steps) {
-      const payload: Record<string, any> = {
-        rowIndex: step.record.rowIndex,
-      };
-      if (step.slot === 1) payload.additionalPayment1 = step.toApply;
-      else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
+    const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
 
-      try {
-        const res = await fetch("/api/sales", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          toast.error(`Failed for ${step.record.client}: ${err.error || "Unknown error"}`);
+    if (isOnline) {
+      for (const step of steps) {
+        const payload: Record<string, any> = {
+          rowIndex: step.record.rowIndex,
+        };
+        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
+        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
+
+        try {
+          const res = await fetch("/api/sales", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            toast.error(`Failed for ${step.record.client}: ${err.error || "Unknown error"}`);
+            allOk = false;
+            break;
+          }
+
+          // Create payment event log for Payments sheet
+          try {
+            const loggedBy = localStorage.getItem("userName") || "System";
+            await fetch("/api/payments", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                salesId: step.record.salesId || step.record.id || '',
+                clientName: step.record.client || '',
+                amount: step.toApply,
+                paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
+                balanceBefore: step.record.balance || 0,
+                balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
+                collectedBy: loggedBy,
+                notes: `Logged via Batch Payment distribution (${salesId})`
+              })
+            });
+          } catch (e) {
+            console.error("Failed to log payment event", e);
+          }
+        } catch {
+          toast.error("Network error — some payments may not have been saved.");
           allOk = false;
           break;
         }
-      } catch {
-        toast.error("Network error — some payments may not have been saved.");
-        allOk = false;
-        break;
       }
+    } else {
+      // Offline: Add each waterfall slice to the pendingQueue!
+      const loggedBy = localStorage.getItem("userName") || "System";
+      
+      steps.forEach((step) => {
+        const payload: Record<string, any> = {
+          rowIndex: step.record.rowIndex,
+        };
+        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
+        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
+
+        const paymentPayload = {
+          salesId: step.record.salesId || step.record.id || '',
+          clientName: step.record.client || '',
+          amount: step.toApply,
+          paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
+          balanceBefore: step.record.balance || 0,
+          balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
+          collectedBy: loggedBy,
+          notes: `Logged via Offline Batch Payment distribution (${salesId})`
+        };
+
+        useSyncStore.getState().addPendingEntry("payment", {
+          salesUpdate: payload,
+          paymentLog: paymentPayload,
+        });
+      });
+
+      toast.success(`Batch payment of ₦${lumpSum.toLocaleString()} saved locally. Syncing will run in background.`);
     }
 
     setIsSubmitting(false);
     if (allOk) {
-      toast.success(`Payment of ₦${lumpSum.toLocaleString()} distributed successfully!`);
+      if (isOnline) {
+        toast.success(`Payment of ₦${lumpSum.toLocaleString()} distributed successfully!`);
+      }
       setPaymentInput("");
       setIsOpen(false);
       onUpdate();
