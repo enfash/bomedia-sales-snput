@@ -75,8 +75,18 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
   return (
     <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-black text-foreground">Sales vs Expenses</CardTitle>
-        <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-black">Daily Performance Trend</CardDescription>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="text-base font-black text-foreground">Sales vs Expenses</CardTitle>
+            <CardDescription className="text-[11px] text-muted-foreground uppercase tracking-widest font-black">Daily Performance Trend</CardDescription>
+          </div>
+          {hasData && avgDailySales > 0 && (
+            <div className="bg-primary/10 text-primary text-[10px] font-black px-3 py-1 rounded-full border border-primary/20 uppercase tracking-wider flex items-center gap-1 animate-in fade-in slide-in-from-right-2 duration-300">
+              <TrendingUp className="w-3.5 h-3.5" />
+              Daily Avg: ₦{avgDailySales.toLocaleString()}
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="px-2 pb-4">
         <div className="h-[280px] w-full">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, ChevronDown, ChevronUp, Info, Zap, ArrowLeft } from "lucide-react";
+import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, ChevronDown, ChevronUp, Info, Zap, ArrowLeft, CircleDollarSign, TrendingUp, Coins, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,7 +17,7 @@ import { WasteLogModal, type InventoryRollForWaste } from "@/components/waste-lo
 type Roll = Record<string, any> & { _rowIndex: number; "Material ID"?: string };
 type Material = Record<string, any> & { "Material ID": string };
 
-const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/,/g, "")) || 0;
+const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
 const METERS_TO_FEET = 3.28084;
 
 function StatusPill({ status }: { status: string }) {
@@ -39,7 +39,20 @@ function StatusPill({ status }: { status: string }) {
 function AddRollDialog({ onAdded }: { onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ itemName: "", category: "General", widthFt: "", rawLength: "", lengthUnit: "m" as "m" | "ft", price: "", cost: "", lowStockThreshold: "20", quantity: "1" });
+  const [form, setForm] = useState({
+    itemName: "",
+    category: "General",
+    widthFt: "",
+    rawLength: "",
+    lengthUnit: "m" as "m" | "ft",
+    price: "",
+    cost: "",
+    lowStockThreshold: "20",
+    quantity: "1",
+    supplier: "",
+    purchaseDate: new Date().toISOString().split("T")[0],
+    poReference: "",
+  });
 
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -50,7 +63,9 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
 
   const usableLength = Math.max(0, rawLengthFt - 10);
   const totalAreaSqft = (parseFloat(form.widthFt) || 0) * usableLength;
-  const costPerSqft = totalAreaSqft > 0 ? (parseFloat(form.cost) || 0) / totalAreaSqft : 0;
+  const qty = Math.max(1, parseInt(form.quantity, 10) || 1);
+  const costPerRoll = qty > 0 ? (parseFloat(form.cost) || 0) / qty : 0;
+  const costPerSqft = totalAreaSqft > 0 ? costPerRoll / totalAreaSqft : 0;
 
   const handleSave = async () => {
     if (!form.itemName || !form.widthFt || !form.rawLength) {
@@ -63,17 +78,45 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
     }
     setSaving(true);
     try {
+      const loggedBy = typeof window !== "undefined" ? localStorage.getItem("userName") || "Unknown" : "Unknown";
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemName: form.itemName.trim(), category: form.category.trim(), widthFt: parseFloat(form.widthFt), rawLengthFt: rawLengthFt.toFixed(2), unit: form.lengthUnit, price: form.price, cost: form.cost, lowStockThreshold: form.lowStockThreshold, quantity: parseInt(form.quantity) || 1 }),
+        body: JSON.stringify({
+          itemName: form.itemName.trim(),
+          category: form.category.trim(),
+          widthFt: parseFloat(form.widthFt),
+          rawLengthFt: rawLengthFt.toFixed(2),
+          unit: form.lengthUnit,
+          price: form.price,
+          cost: form.cost,
+          lowStockThreshold: form.lowStockThreshold,
+          quantity: qty,
+          supplier: form.supplier.trim() || undefined,
+          purchaseDate: form.purchaseDate,
+          poReference: form.poReference.trim() || undefined,
+          loggedBy,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to add roll");
       const ids = json.rollIds ? json.rollIds.join(", ") : json.rollId;
       toast.success(`Roll(s) added — IDs: ${ids}`);
       setOpen(false);
-      setForm({ itemName: "", category: "General", widthFt: "", rawLength: "", lengthUnit: "m", price: "", cost: "", lowStockThreshold: "20", quantity: "1" });
+      setForm({
+        itemName: "",
+        category: "General",
+        widthFt: "",
+        rawLength: "",
+        lengthUnit: "m",
+        price: "",
+        cost: "",
+        lowStockThreshold: "20",
+        quantity: "1",
+        supplier: "",
+        purchaseDate: new Date().toISOString().split("T")[0],
+        poReference: "",
+      });
       onAdded();
     } catch (err: any) {
       toast.error(err.message);
@@ -160,11 +203,31 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
               <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
             </div>
           </div>
+
+          {/* Auditing & Purchase Details */}
+          <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 rounded-2xl space-y-3 border border-gray-100 dark:border-zinc-800">
+            <p className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest border-b border-gray-100 dark:border-zinc-800 pb-2">Auditing & Purchase Details</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Supplier / Vendor</Label>
+                <Input placeholder="e.g. Star Graphics, Avery Supplier" value={form.supplier} onChange={e => set("supplier", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">PO / Invoice Reference</Label>
+                <Input placeholder="e.g. PO-2026-001" value={form.poReference} onChange={e => set("poReference", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Purchase Date</Label>
+                <Input type="date" value={form.purchaseDate} onChange={e => set("purchaseDate", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+              </div>
+            </div>
+          </div>
+
           {costPerSqft > 0 && (
             <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
               <Info className="w-4 h-4 text-gray-400 shrink-0" />
               <p className="text-xs text-gray-500 dark:text-zinc-400">
-                Cost per sqft: <span className="font-black text-gray-800 dark:text-zinc-100">₦{costPerSqft.toFixed(2)}</span> based on {totalAreaSqft.toFixed(0)} usable sqft
+                Cost per sqft: <span className="font-black text-gray-800 dark:text-zinc-100">₦{costPerSqft.toFixed(2)}</span> based on {totalAreaSqft.toFixed(0)} usable sqft per roll (unit cost: ₦{costPerRoll.toFixed(2)})
               </p>
             </div>
           )}
@@ -264,46 +327,84 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
 // ─── Restock Dialog ───────────────────────────────────────────────────────────
 
 function RestockDialog({ material, onClose, onDone }: { material: Material | null; onClose: () => void; onDone: () => void }) {
-  const [form, setForm] = useState({ quantity: "1", rawLength: "", lengthUnit: "m" as "m" | "ft", price: "", cost: "" });
+  const [form, setForm] = useState({
+    itemName: "",
+    category: "General",
+    widthFt: "",
+    rawLength: "",
+    lengthUnit: "m" as "m" | "ft",
+    price: "",
+    cost: "",
+    lowStockThreshold: "20",
+    quantity: "1",
+    supplier: "",
+    purchaseDate: new Date().toISOString().split("T")[0],
+    poReference: "",
+  });
   const [saving, setSaving] = useState(false);
 
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    if (material) setForm({ quantity: "1", rawLength: "", lengthUnit: "m", price: String(parseNum(material["Selling Price"]) || ""), cost: "" });
-  }, [material?.["Material ID"]]);
+    if (material) {
+      setForm({
+        itemName: material["Material Name"] || "",
+        category: material["Category"] || "General",
+        widthFt: String(parseNum(material["Width (ft)"]) || ""),
+        rawLength: "",
+        lengthUnit: "m",
+        price: String(parseNum(material["Selling Price"]) || ""),
+        cost: "",
+        lowStockThreshold: String(parseNum(material["Low Stock Threshold (ft)"]) || "20"),
+        quantity: "1",
+        supplier: "",
+        purchaseDate: new Date().toISOString().split("T")[0],
+        poReference: "",
+      });
+    }
+  }, [material]);
 
   const rawLengthFt = useMemo(() => {
     const raw = parseFloat(form.rawLength) || 0;
     return form.lengthUnit === "m" ? raw * METERS_TO_FEET : raw;
   }, [form.rawLength, form.lengthUnit]);
 
-  const widthFt = parseNum(material?.["Width (ft)"]);
+  const widthFt = parseFloat(form.widthFt) || 0;
   const usableLength = Math.max(0, rawLengthFt - 10);
   const totalAreaSqft = widthFt * usableLength;
-  const costPerSqft = totalAreaSqft > 0 ? (parseFloat(form.cost) || 0) / totalAreaSqft : 0;
+  const qty = Math.max(1, parseInt(form.quantity, 10) || 1);
+  const costPerRoll = qty > 0 ? (parseFloat(form.cost) || 0) / qty : 0;
+  const costPerSqft = totalAreaSqft > 0 ? costPerRoll / totalAreaSqft : 0;
 
   const handleSave = async () => {
-    if (!form.rawLength) { toast.error("Roll length is required."); return; }
+    if (!form.rawLength) {
+      toast.error("Roll length is required.");
+      return;
+    }
     if (rawLengthFt <= 10) {
       toast.error("Roll length must exceed 10ft (the reserved waste factor). Usable stock would be zero or negative.");
       return;
     }
     setSaving(true);
     try {
+      const loggedBy = typeof window !== "undefined" ? localStorage.getItem("userName") || "Unknown" : "Unknown";
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          itemName: material!["Material Name"],
-          category: material!["Category"] || "General",
-          widthFt,
+          itemName: form.itemName.trim(),
+          category: form.category.trim(),
+          widthFt: widthFt,
           rawLengthFt: rawLengthFt.toFixed(2),
           unit: form.lengthUnit,
           price: form.price,
           cost: form.cost,
-          lowStockThreshold: material!["Low Stock Threshold (ft)"] || "20",
-          quantity: parseInt(form.quantity) || 1,
+          lowStockThreshold: form.lowStockThreshold,
+          quantity: qty,
+          supplier: form.supplier.trim() || undefined,
+          purchaseDate: form.purchaseDate,
+          poReference: form.poReference.trim() || undefined,
+          loggedBy,
         }),
       });
       const json = await res.json();
@@ -321,65 +422,108 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
   return (
     <Dialog open={!!material} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-6 bg-amber-500 text-white">
-          <DialogTitle className="text-xl font-black">Restock: {material?.["Material Name"]}</DialogTitle>
-          <p className="text-white/80 text-xs mt-1">Creates a new roll — existing roll history is preserved.</p>
+        <DialogHeader className="p-6 bg-brand-700 text-white">
+          <DialogTitle className="text-xl font-black">Restock Material</DialogTitle>
+          <p className="text-white/75 text-xs mt-1">Creates new rolls inheriting parent material properties.</p>
         </DialogHeader>
         <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-          {/* Inherited properties — read-only */}
-          <div className="p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-zinc-400">
-            <span><span className="font-black">Width:</span> {widthFt}ft</span>
-            <span><span className="font-black">Category:</span> {material?.["Category"] || "General"}</span>
-            <span><span className="font-black">Selling Price:</span> ₦{form.price || "—"}/sqft</span>
-            <span><span className="font-black">Low stock alert:</span> {material?.["Low Stock Threshold (ft)"] || 20}ft</span>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Quantity of Rolls</Label>
-            <Input type="number" min="1" value={form.quantity} onChange={e => set("quantity", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-          </div>
-
-          <div className="p-4 bg-brand-50/50 dark:bg-brand-900/20 rounded-2xl space-y-3 border border-brand-100 dark:border-brand-800/50">
-            <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest border-b border-brand-100 dark:border-brand-700/50 pb-2">Roll Dimensions</p>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Roll Length *</Label>
-              <div className="flex gap-2">
-                <Input type="number" placeholder={form.lengthUnit === "m" ? "e.g. 50" : "e.g. 164"} value={form.rawLength} onChange={e => set("rawLength", e.target.value)} className="rounded-xl flex-1 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-                <Button variant="ghost" size="sm" onClick={() => set("lengthUnit", form.lengthUnit === "m" ? "ft" : "m")} className="px-4 font-black text-xs h-10 border border-brand-100 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 dark:text-zinc-300 uppercase">{form.lengthUnit}</Button>
+          {/* Inherited Fields (Disabled/Read-only inputs) */}
+          <div className="space-y-4 p-4 bg-gray-50/50 dark:bg-zinc-800/30 rounded-2xl border border-gray-100 dark:border-zinc-800">
+            <p className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest border-b border-gray-100 dark:border-zinc-800 pb-2">Inherited Profile Properties</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Material Name</Label>
+                <Input value={form.itemName} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Category</Label>
+                <Input value={form.category} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Width (ft)</Label>
+                <Input value={form.widthFt ? `${form.widthFt} ft` : ""} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Selling Price (₦/sqft)</Label>
+                <Input value={form.price ? `₦ ${parseFloat(form.price).toLocaleString()}` : ""} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Low Stock Threshold (ft)</Label>
+                <Input value={form.lowStockThreshold ? `${form.lowStockThreshold} ft` : ""} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
               </div>
             </div>
-            {rawLengthFt > 0 && (
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {[
-                  { label: "Full Length", value: `${rawLengthFt.toFixed(1)}ft`, highlight: false, accent: false },
-                  { label: "−10ft Waste", value: "−10ft", highlight: false, accent: true },
-                  { label: "Usable Stock", value: `${usableLength.toFixed(1)}ft`, highlight: true, accent: false },
-                ].map(({ label, value, highlight, accent }) => (
-                  <div key={label} className={cn("p-2 rounded-xl", highlight ? "bg-brand-600 text-white" : accent ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600" : "bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300")}>
-                    <p className={cn("text-[9px] font-bold uppercase", highlight ? "text-white/70" : "text-gray-400 dark:text-zinc-500")}>{label}</p>
-                    <p className="text-sm font-black leading-tight">{value}</p>
-                  </div>
-                ))}
+          </div>
+
+          {/* New inputs form */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest border-b border-brand-100 dark:border-zinc-800 pb-2">New Roll Details</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Quantity of Rolls *</Label>
+                <Input type="number" min="1" value={form.quantity} onChange={e => set("quantity", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Total Buy Cost (₦) *</Label>
+                <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+              </div>
+            </div>
+
+            <div className="p-4 bg-brand-50/50 dark:bg-brand-900/20 rounded-2xl space-y-3 border border-brand-100 dark:border-brand-800/50">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Roll Length *</Label>
+                <div className="flex gap-2">
+                  <Input type="number" placeholder={form.lengthUnit === "m" ? "e.g. 50" : "e.g. 164"} value={form.rawLength} onChange={e => set("rawLength", e.target.value)} className="rounded-xl flex-1 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+                  <Button variant="ghost" size="sm" onClick={() => set("lengthUnit", form.lengthUnit === "m" ? "ft" : "m")} className="px-4 font-black text-xs h-10 border border-brand-100 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 dark:text-zinc-300 uppercase">{form.lengthUnit}</Button>
+                </div>
+              </div>
+              {rawLengthFt > 0 && (
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: "Full Length", value: `${rawLengthFt.toFixed(1)}ft`, highlight: false, accent: false },
+                    { label: "−10ft Waste", value: "−10ft", highlight: false, accent: true },
+                    { label: "Usable Stock", value: `${usableLength.toFixed(1)}ft`, highlight: true, accent: false },
+                  ].map(({ label, value, highlight, accent }) => (
+                    <div key={label} className={cn("p-2 rounded-xl", highlight ? "bg-brand-600 text-white" : accent ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600" : "bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300")}>
+                      <p className={cn("text-[9px] font-bold uppercase", highlight ? "text-white/70" : "text-gray-400 dark:text-zinc-500")}>{label}</p>
+                      <p className="text-sm font-black leading-tight">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Auditing & Purchase Details */}
+            <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 rounded-2xl space-y-3 border border-gray-100 dark:border-zinc-800">
+              <p className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest border-b border-gray-100 dark:border-zinc-800 pb-2">Auditing & Purchase Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Supplier / Vendor</Label>
+                  <Input placeholder="e.g. Star Graphics, Avery Supplier" value={form.supplier} onChange={e => set("supplier", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">PO / Invoice Reference</Label>
+                  <Input placeholder="e.g. PO-2026-001" value={form.poReference} onChange={e => set("poReference", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Purchase Date</Label>
+                  <Input type="date" value={form.purchaseDate} onChange={e => set("purchaseDate", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+                </div>
+              </div>
+            </div>
+
+            {costPerSqft > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
+                <Info className="w-4 h-4 text-gray-400 shrink-0" />
+                <p className="text-xs text-gray-500 dark:text-zinc-400">
+                  Cost per sqft: <span className="font-black text-gray-800 dark:text-zinc-100">₦{costPerSqft.toFixed(2)}</span> based on {totalAreaSqft.toFixed(0)} usable sqft per roll (unit cost: ₦{costPerRoll.toFixed(2)})
+                </p>
               </div>
             )}
           </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Total Buy Cost (₦)</Label>
-            <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-          </div>
-          {costPerSqft > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
-              <Info className="w-4 h-4 text-gray-400 shrink-0" />
-              <p className="text-xs text-gray-500 dark:text-zinc-400">
-                Cost per sqft: <span className="font-black text-gray-800 dark:text-zinc-100">₦{costPerSqft.toFixed(2)}</span> based on {totalAreaSqft.toFixed(0)} usable sqft
-              </p>
-            </div>
-          )}
         </div>
         <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-800/50 flex gap-3 border-t dark:border-zinc-800">
           <Button variant="outline" onClick={onClose} className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black">{saving ? "Adding Roll..." : "Confirm Restock"}</Button>
+          <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black">{saving ? "Adding Roll..." : "Confirm Restock"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -434,12 +578,39 @@ export default function InventoryPage() {
     );
   }, [materials, search]);
 
-  const stats = useMemo(() => ({
-    active: materials.filter(m => m.Status === "Active").length,
-    lowStock: materials.filter(m => m.Status === "Low Stock").length,
-    outOfStock: materials.filter(m => m.Status === "Out of Stock" || m.Status === "Depleted").length,
-    totalFt: materials.reduce((acc, m) => acc + parseNum(m["Total Remaining (ft)"]), 0),
-  }), [materials]);
+  const stats = useMemo(() => {
+    let active = 0;
+    let lowStock = 0;
+    let outOfStock = 0;
+    let totalFt = 0;
+    let totalSpent = 0;
+    let totalRemainingAsset = 0;
+    let totalRemainingRevenue = 0;
+    let totalRealisedRevenue = 0;
+
+    materials.forEach(m => {
+      if (m.Status === "Active") active++;
+      else if (m.Status === "Low Stock") lowStock++;
+      else if (m.Status === "Out of Stock" || m.Status === "Depleted") outOfStock++;
+
+      totalFt += parseNum(m["Total Remaining (ft)"]);
+      totalSpent += parseNum(m["Total Spent"]);
+      totalRemainingAsset += parseNum(m["Total Remaining Asset Value"]);
+      totalRemainingRevenue += parseNum(m["Total Remaining Revenue"]);
+      totalRealisedRevenue += parseNum(m["Total Realised Revenue"]);
+    });
+
+    return {
+      active,
+      lowStock,
+      outOfStock,
+      totalFt,
+      totalSpent,
+      totalRemainingAsset,
+      totalRemainingRevenue,
+      totalRealisedRevenue
+    };
+  }, [materials]);
 
   if (loading) {
     return (
@@ -470,24 +641,112 @@ export default function InventoryPage() {
         <AddRollDialog onAdded={fetchData} />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        {[
-          { title: "Active Rolls", val: stats.active, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
-          { title: "Low Stock", val: stats.lowStock, icon: AlertTriangle, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
-          { title: "Out of Stock", val: stats.outOfStock, icon: XCircle, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
-          { title: "Total Remaining", val: `${Math.round(stats.totalFt).toLocaleString()}ft`, icon: Ruler, color: "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30" },
-        ].map((s, i) => (
-          <Card key={i} className="bg-white dark:bg-zinc-900 border-none shadow-sm [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{s.title}</p>
-                <p className="text-2xl font-black text-gray-900 dark:text-white">{s.val}</p>
+      {/* Overview Analytics Banner */}
+      <div className="flex flex-col gap-6 mb-8">
+        
+        {/* Top Row: Health & Assets */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="bg-white dark:bg-zinc-900 border-none shadow-sm md:col-span-1">
+            <CardContent className="p-5 space-y-4">
+              <p className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest border-b pb-2 dark:border-zinc-800">Warehouse Health</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[
+                  { label: "Active", val: stats.active, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
+                  { label: "Low", val: stats.lowStock, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
+                  { label: "Out", val: stats.outOfStock, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
+                ].map((s) => (
+                  <div key={s.label} className={cn("p-3 rounded-2xl", s.color)}>
+                    <p className="text-2xl font-black">{s.val}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 opacity-80">{s.label}</p>
+                  </div>
+                ))}
               </div>
-              <div className={`p-3 rounded-2xl ${s.color}`}><s.icon className="w-5 h-5" /></div>
             </CardContent>
           </Card>
-        ))}
+
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { 
+                title: "Capital Invested", 
+                val: `₦${stats.totalSpent.toLocaleString()}`, 
+                icon: Coins, 
+                color: "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30",
+                sub: "Total Spent on Roll Assets"
+              },
+              { 
+                title: "Remaining Asset Cost", 
+                val: `₦${stats.totalRemainingAsset.toLocaleString()}`, 
+                icon: CircleDollarSign, 
+                color: "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/30",
+                sub: `${Math.round(stats.totalFt).toLocaleString()} ft remaining`
+              },
+            ].map((s, i) => (
+              <Card key={i} className="bg-white dark:bg-zinc-900 border-none shadow-sm h-full">
+                <CardContent className="p-5 flex items-center justify-between h-full">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1.5">{s.title}</p>
+                    <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">{s.val}</p>
+                    <p className="text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase mt-1.5 tracking-wider leading-none">{s.sub}</p>
+                  </div>
+                  <div className={`p-3 rounded-2xl ${s.color}`}><s.icon className="w-5 h-5" /></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom Row: Revenue */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="bg-white dark:bg-zinc-900 border-none shadow-sm md:col-span-2 overflow-hidden">
+            <CardContent className="p-0 h-full flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-zinc-800">
+              {[
+                { 
+                  title: "Realised Revenue", 
+                  val: `₦${stats.totalRealisedRevenue.toLocaleString()}`, 
+                  icon: CheckCircle2, 
+                  color: "text-sky-600 bg-sky-50 dark:text-sky-400 dark:bg-sky-900/30",
+                  sub: "Revenue from Used Stock"
+                },
+                { 
+                  title: "Expected Revenue", 
+                  val: `₦${stats.totalRemainingRevenue.toLocaleString()}`, 
+                  icon: TrendingUp, 
+                  color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30",
+                  sub: "Estimated Sales Potential"
+                },
+              ].map((s, i) => (
+                <div key={i} className="flex-1 p-5 flex items-center justify-between hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1.5">{s.title}</p>
+                    <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">{s.val}</p>
+                    <p className="text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase mt-1.5 tracking-wider leading-none">{s.sub}</p>
+                  </div>
+                  <div className={`p-3 rounded-2xl ${s.color}`}><s.icon className="w-5 h-5" /></div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-brand-700 dark:bg-brand-900 border-none shadow-lg shadow-brand-700/20 md:col-span-1 text-white relative overflow-hidden group">
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-all duration-700" />
+            <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-black/10 rounded-full blur-xl pointer-events-none" />
+            <CardContent className="p-6 h-full flex flex-col justify-center relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-brand-100/80">Total Est. Revenue</p>
+                <div className="p-2 bg-white/10 rounded-xl">
+                  <Sparkles className="w-4 h-4 text-brand-100" />
+                </div>
+              </div>
+              <p className="text-3xl lg:text-4xl font-black leading-tight tracking-tight mb-2">
+                ₦{(stats.totalRealisedRevenue + stats.totalRemainingRevenue).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-brand-200 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Realised + Expected
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Table */}
@@ -522,7 +781,7 @@ export default function InventoryPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredMaterials.map(mat => {
+              ) : filteredMaterials.map((mat, index) => {
                 const matId = mat["Material ID"];
                 const total = parseNum(mat["Total Capacity (ft)"]);
                 const remaining = parseNum(mat["Total Remaining (ft)"]);
@@ -534,10 +793,13 @@ export default function InventoryPage() {
                 const barColor = mat.Status === "Out of Stock" || mat.Status === "Depleted" ? "bg-rose-500" : mat.Status === "Low Stock" ? "bg-amber-500" : "bg-emerald-500";
                 const isExpanded = expandedMaterialId === matId;
                 const rollCountDisplay = rollCount || displayRolls.length;
+                const bgClass = index % 2 === 0
+                  ? "bg-white dark:bg-zinc-900"
+                  : "bg-slate-50/50 dark:bg-zinc-900/30";
 
                 return (
                   <Fragment key={matId}>
-                    <TableRow className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/30 dark:hover:bg-zinc-800/50 cursor-pointer" onClick={() => setExpandedMaterialId(isExpanded ? null : matId)}>
+                    <TableRow className={cn("border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/30 dark:hover:bg-zinc-800/50 cursor-pointer", bgClass)} onClick={() => setExpandedMaterialId(isExpanded ? null : matId)}>
                       <TableCell className="font-bold py-4 pl-6">
                         <div className="flex items-center gap-2">
                           {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
@@ -569,6 +831,22 @@ export default function InventoryPage() {
                       <TableRow className="bg-gray-50/50 dark:bg-zinc-800/20 border-b border-gray-50 dark:border-zinc-800">
                         <TableCell colSpan={5} className="p-0">
                           <div className="p-4 md:p-6">
+                            {/* Material Valuation Sub-Panel */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 dark:bg-zinc-900/30 border border-gray-100 dark:border-zinc-800 rounded-2xl shadow-inner">
+                              <div>
+                                <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-black text-[9px]">Spent on Material</span>
+                                <span className="font-black text-base text-gray-900 dark:text-white">₦{parseNum(mat["Total Spent"]).toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-black text-[9px]">Remaining Cost Value</span>
+                                <span className="font-black text-base text-purple-600 dark:text-purple-400">₦{parseNum(mat["Total Remaining Asset Value"]).toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-black text-[9px]">Expected Sales Revenue</span>
+                                <span className="font-black text-base text-emerald-600 dark:text-emerald-400">₦{parseNum(mat["Total Remaining Revenue"]).toLocaleString()}</span>
+                              </div>
+                            </div>
+
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest flex items-center gap-2">
                                 <Package className="w-3 h-3" /> Physical Roll Log
@@ -583,7 +861,7 @@ export default function InventoryPage() {
                                   variant="outline"
                                   size="sm"
                                   className="h-7 rounded-lg text-[10px] font-black border-amber-200 dark:border-amber-800/40 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 whitespace-nowrap"
-                                  onClick={() => setRestockTarget(mat)}
+                                  onClick={(e) => { e.stopPropagation(); setRestockTarget(mat); }}
                                 >
                                   Restock Material
                                 </Button>

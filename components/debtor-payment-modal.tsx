@@ -110,52 +110,87 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
     setIsSubmitting(true);
     let allOk = true;
 
-    for (const step of steps) {
-      const payload: Record<string, any> = {
-        rowIndex: step.record.rowIndex,
-      };
-      if (step.slot === 1) payload.additionalPayment1 = step.toApply;
-      else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
+    const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
 
-      try {
-        const res = await fetch("/api/sales", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
+    if (isOnline) {
+      for (const step of steps) {
+        const payload: Record<string, any> = {
+          rowIndex: step.record.rowIndex,
+        };
+        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
+        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
+
+        try {
+          const res = await fetch("/api/sales", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            allOk = false;
+            break;
+          }
+
+          try {
+            await fetch("/api/payments", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                salesId: step.record.salesId || step.record.id || '',
+                clientName: step.record.client || '',
+                amount: step.toApply,
+                paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
+                balanceBefore: step.record.balance || 0,
+                balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
+                collectedBy: localStorage.getItem("userName") || "System",
+                notes: `Auto-distributed lump sum`
+              })
+            });
+          } catch (e) {
+            console.error("Failed to log payment event", e);
+          }
+
+        } catch {
           allOk = false;
           break;
         }
-
-        try {
-          await fetch("/api/payments", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              salesId: step.record.salesId || step.record.id || '',
-              clientName: step.record.client || '',
-              amount: step.toApply,
-              paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
-              balanceBefore: step.record.balance || 0,
-              balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
-              collectedBy: "System",
-              notes: `Auto-distributed lump sum`
-            })
-          });
-        } catch (e) {
-          console.error("Failed to log payment event", e);
-        }
-
-      } catch {
-        allOk = false;
-        break;
       }
+    } else {
+      // Offline: Add each waterfall slice to the pendingQueue!
+      const loggedBy = localStorage.getItem("userName") || "System";
+      
+      steps.forEach((step) => {
+        const payload: Record<string, any> = {
+          rowIndex: step.record.rowIndex,
+        };
+        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
+        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
+
+        const paymentPayload = {
+          salesId: step.record.salesId || step.record.id || '',
+          clientName: step.record.client || '',
+          amount: step.toApply,
+          paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
+          balanceBefore: step.record.balance || 0,
+          balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
+          collectedBy: loggedBy,
+          notes: `Auto-distributed lump sum (Offline)`
+        };
+
+        useSyncStore.getState().addPendingEntry("payment", {
+          salesUpdate: payload,
+          paymentLog: paymentPayload,
+        });
+      });
+
+      toast.success(`₦${lumpSum.toLocaleString()} applied to ${clientName}'s account locally (offline). Syncing in background.`);
     }
 
     setIsSubmitting(false);
     if (allOk) {
-      toast.success(`₦${lumpSum.toLocaleString()} applied to ${clientName}'s account.`);
+      if (isOnline) {
+        toast.success(`₦${lumpSum.toLocaleString()} applied to ${clientName}'s account.`);
+      }
       setPaymentInput("");
       onUpdate();
       onClose();

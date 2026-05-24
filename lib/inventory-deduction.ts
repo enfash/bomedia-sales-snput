@@ -4,9 +4,28 @@
  */
 
 import { GoogleSpreadsheet } from "google-spreadsheet";
+import { ensureHeaders } from "./google-sheets";
 
 const INVENTORY_SHEET = "Inventory";
 const MATERIALS_SHEET = "Materials";
+
+const MATERIALS_HEADERS = [
+  'Material ID',
+  'Material Name',
+  'Width (ft)',
+  'Selling Price',
+  'Total Remaining (ft)',
+  'Total Capacity (ft)',
+  'Active Roll ID',
+  'Roll Count',
+  'Status',
+  'Low Stock Threshold (ft)',
+  'Last Updated',
+  'Notes',
+  'Total Spent',
+  'Total Remaining Asset Value',
+  'Total Remaining Revenue'
+];
 
 /**
  * Updates the aggregate material profile in the 'Materials' sheet based on its constituent rolls.
@@ -16,6 +35,8 @@ export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId:
   const mSheet = doc.sheetsByTitle[MATERIALS_SHEET];
   const iSheet = doc.sheetsByTitle[INVENTORY_SHEET];
   if (!mSheet || !iSheet) return;
+
+  await ensureHeaders(mSheet, MATERIALS_HEADERS);
 
   const [mRows, iRows] = await Promise.all([mSheet.getRows(), iSheet.getRows()]);
 
@@ -43,6 +64,12 @@ export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId:
   if (totalRemaining <= 0.1) status = 'Out of Stock';
   else if (totalRemaining <= threshold) status = 'Low Stock';
 
+  const nextRow = mRow ? mRow.rowNumber : mRows.length + 2;
+
+  const totalSpentFormula = `=SUMIF(Inventory!Q:Q, A${nextRow}, Inventory!K:K)`;
+  const remainingAssetFormula = `=SUMIF(Inventory!Q:Q, A${nextRow}, Inventory!S:S)`;
+  const remainingRevenueFormula = `=SUMIF(Inventory!Q:Q, A${nextRow}, Inventory!T:T)`;
+
   if (!mRow) {
     // First roll for this material — create the Materials row
     await mSheet.addRow({
@@ -58,6 +85,9 @@ export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId:
       'Low Stock Threshold (ft)': threshold,
       'Last Updated': new Date().toISOString(),
       'Notes': '',
+      'Total Spent': totalSpentFormula,
+      'Total Remaining Asset Value': remainingAssetFormula,
+      'Total Remaining Revenue': remainingRevenueFormula,
     });
     return;
   }
@@ -69,6 +99,9 @@ export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId:
   mRow.set('Status', status);
   mRow.set('Selling Price', priceRoll.get('Price'));
   mRow.set('Last Updated', new Date().toISOString());
+  mRow.set('Total Spent', totalSpentFormula);
+  mRow.set('Total Remaining Asset Value', remainingAssetFormula);
+  mRow.set('Total Remaining Revenue', remainingRevenueFormula);
 
   await mRow.save();
 }

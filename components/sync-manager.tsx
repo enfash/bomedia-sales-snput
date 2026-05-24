@@ -85,30 +85,57 @@ export function SyncManager() {
 
       for (const item of itemsToSync) {
         try {
-          const endpoint = item.type === "sale" ? "/api/sales" : "/api/expenses";
-          // For batch sales, the payload is already correctly structured ({ batch: true, items: [...] }).
-          // Injecting type:"array" would override the batch flag and send it to the wrong server branch.
-          const payload =
-            item.type === "sale"
-              ? item.data.batch === true
-                ? { ...item.data, transactionId: item.id }
-                : { ...item.data, type: "array", transactionId: item.id }
-              : { ...item.data, transactionId: item.id };
+          if (item.type === "payment") {
+            // 1. PATCH the sales record balance
+            const salesRes = await fetch("/api/sales", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(item.data.salesUpdate),
+            });
+            if (!salesRes.ok) {
+              const errData = await salesRes.json();
+              throw new Error(errData.error || "Sales PATCH failed during sync");
+            }
 
-          const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
+            // 2. POST the payment log to Payments sheet
+            const paymentsRes = await fetch("/api/payments", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(item.data.paymentLog),
+            });
+            if (!paymentsRes.ok) {
+              const errData = await paymentsRes.json();
+              throw new Error(errData.error || "Payments POST failed during sync");
+            }
 
-          if (res.ok) {
             removeEntry(item.id);
             successCount++;
           } else {
-            const errData = await res.json();
-            throw new Error(errData.error || "Server error");
+            const endpoint = item.type === "sale" ? "/api/sales" : "/api/expenses";
+            // For batch sales, the payload is already correctly structured ({ batch: true, items: [...] }).
+            // Injecting type:"array" would override the batch flag and send it to the wrong server branch.
+            const payload =
+              item.type === "sale"
+                ? item.data.batch === true
+                  ? { ...item.data, transactionId: item.id }
+                  : { ...item.data, type: "array", transactionId: item.id }
+                : { ...item.data, transactionId: item.id };
+
+            const res = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+            if (res.ok) {
+              removeEntry(item.id);
+              successCount++;
+            } else {
+              const errData = await res.json();
+              throw new Error(errData.error || "Server error");
+            }
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error(`Failed to sync item ${item.id}:`, err);
           errorCount++;
           const newRetryCount = (item.retryCount || 0) + 1;

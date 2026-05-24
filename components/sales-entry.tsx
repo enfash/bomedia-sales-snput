@@ -91,7 +91,7 @@ interface BatchMeta {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const parseNum = (v: string | number | undefined) =>
-  parseFloat(String(v ?? "0").replace(/,/g, "")) || 0;
+  parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
 
 const fmtCurrency = (n: number) =>
   `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
