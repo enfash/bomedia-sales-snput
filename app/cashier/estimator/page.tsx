@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Ruler, Calculator, RefreshCw, Share2, Copy, Check,
   ChevronRight, Package, AlertTriangle, Plus, Trash2,
-  ArrowLeft, ChevronDown, ChevronUp,
+  ArrowLeft, ChevronDown, ChevronUp, Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,19 +12,11 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSyncStore } from "@/lib/store";
+import { MaterialSelector } from "@/components/material-selector";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface InventoryRoll {
-  "Roll ID": string;
-  "Item Name": string;
-  "Width (ft)": string | number;
-  "Remaining Length (ft)": string | number;
-  "Price": string | number;
-  "Status": string;
-  _rowIndex: number;
-}
 
 interface QuoteItem {
   id: string;
@@ -33,7 +25,7 @@ interface QuoteItem {
   height: string;
   qty: string;
   dimUnit: "ft" | "in";
-  rollId: string;
+  materialId: string;
   open: boolean;
 }
 
@@ -58,132 +50,33 @@ const PRESETS = [
 ];
 
 function newItem(): QuoteItem {
-  return { id: uid(), description: "", width: "", height: "", qty: "1", dimUnit: "ft", rollId: "", open: true };
+  return { id: uid(), description: "", width: "", height: "", qty: "1", dimUnit: "ft", materialId: "", open: true };
 }
 
 // ─── Per-item calculation ─────────────────────────────────────────────────────
 
-function calcItem(item: QuoteItem, roll: InventoryRoll | null) {
+function calcItem(item: QuoteItem, material: any) {
   const wFt = toFt(item.width, item.dimUnit);
   const hFt = toFt(item.height, item.dimUnit);
   const qty = parseInt(item.qty) || 1;
-  const price = roll ? parseNum(roll["Price"]) : 0;
-  const rollWidth = roll ? parseNum(roll["Width (ft)"]) : 0;
-  const fitsNormal  = !roll || wFt <= rollWidth;
-  const fitsFlipped = !roll || hFt <= rollWidth;
+  const price = material ? parseNum(material["Selling Price"]) : 0;
+  const rollWidth = material ? parseNum(material["Width (ft)"]) : 0;
+  
+  const fitsNormal  = !material || wFt <= rollWidth;
+  const fitsFlipped = !material || hFt <= rollWidth;
   const isFlipped   = !fitsNormal && fitsFlipped;
   const widthOk     = fitsNormal || fitsFlipped;
+  
   const unitSqft    = wFt * hFt;
   const unitCost    = unitSqft * price;
   const totalCost   = unitCost * qty;
+  
   const totalLength = (isFlipped ? wFt : hFt) * qty;
-  const remaining   = roll ? parseNum(roll["Remaining Length (ft)"]) : 0;
+  const remaining   = material ? parseNum(material["Total Remaining (ft)"]) : 0;
   const remainAfter = remaining - totalLength;
   const stockOk     = totalLength === 0 || remainAfter >= 0;
+  
   return { wFt, hFt, qty, rollWidth, isFlipped, widthOk, unitSqft, unitCost, totalCost, stockOk, remainAfter };
-}
-
-// ─── Material picker for one item ─────────────────────────────────────────────
-
-function MaterialPicker({
-  item,
-  inventory,
-  onChange,
-}: {
-  item: QuoteItem;
-  inventory: InventoryRoll[];
-  onChange: (rollId: string) => void;
-}) {
-  const wFt = toFt(item.width, item.dimUnit);
-  const hFt = toFt(item.height, item.dimUnit);
-  const hasDims = wFt > 0 && hFt > 0;
-  const minDim = Math.min(wFt, hFt);
-
-  // Only show rolls that can fit in at least one orientation
-  const eligible = useMemo(() =>
-    hasDims
-      ? inventory.filter(r => parseNum(r["Width (ft)"]) >= minDim)
-      : inventory,
-    [inventory, hasDims, minDim],
-  );
-
-  const grouped = useMemo(() => {
-    const map: Record<string, InventoryRoll[]> = {};
-    eligible.forEach(r => {
-      const k = r["Item Name"] || "Other";
-      if (!map[k]) map[k] = [];
-      map[k].push(r);
-    });
-    return map;
-  }, [eligible]);
-
-  if (eligible.length === 0 && hasDims) {
-    return (
-      <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-200 dark:border-rose-900/40">
-        <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-        <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
-          No roll wide enough for {wFt.toFixed(1)}×{hFt.toFixed(1)}ft. Try a smaller size.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {hasDims && inventory.length !== eligible.length && (
-        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-          <AlertTriangle className="w-3 h-3" />
-          Showing {eligible.length} of {inventory.length} rolls that fit this size
-        </p>
-      )}
-      {Object.entries(grouped).map(([material, rolls]) => (
-        <div key={material}>
-          <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-600 mb-2">
-            {material}
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {rolls.map(roll => {
-              const remaining = parseNum(roll["Remaining Length (ft)"]);
-              const isOut  = remaining <= 0 || roll.Status === "Out of Stock";
-              const isLow  = !isOut && roll.Status === "Low Stock";
-              const isSel  = roll["Roll ID"] === item.rollId;
-              return (
-                <button
-                  key={roll["Roll ID"]}
-                  type="button"
-                  disabled={isOut}
-                  onClick={() => onChange(roll["Roll ID"])}
-                  className={cn(
-                    "p-3 rounded-xl border-2 text-left transition-[border-color,background-color]",
-                    isSel
-                      ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
-                      : isOut
-                      ? "border-gray-100 dark:border-zinc-800 opacity-40 cursor-not-allowed"
-                      : "border-gray-100 dark:border-zinc-800 hover:border-orange-300 dark:hover:border-orange-700",
-                  )}
-                >
-                  <p className="text-xs font-black text-gray-900 dark:text-white">
-                    {parseNum(roll["Width (ft)"])}ft wide
-                  </p>
-                  <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-0.5">
-                    ₦{parseNum(roll["Price"]).toLocaleString()}/sqft
-                  </p>
-                  <div className="flex items-center gap-1 mt-1.5">
-                    <div className={cn("w-1.5 h-1.5 rounded-full",
-                      isOut ? "bg-rose-400" : isLow ? "bg-amber-400" : "bg-emerald-400"
-                    )} />
-                    <span className="text-[9px] text-gray-400 dark:text-zinc-500">
-                      {isOut ? "Out" : isLow ? "Low" : "Available"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // ─── Single quote item row ────────────────────────────────────────────────────
@@ -191,21 +84,21 @@ function MaterialPicker({
 function QuoteItemCard({
   item,
   index,
-  inventory,
+  materials,
   canRemove,
   onChange,
   onRemove,
 }: {
   item: QuoteItem;
   index: number;
-  inventory: InventoryRoll[];
+  materials: any[];
   canRemove: boolean;
   onChange: (patch: Partial<QuoteItem>) => void;
   onRemove: () => void;
 }) {
-  const roll = inventory.find(r => r["Roll ID"] === item.rollId) ?? null;
-  const { wFt, hFt, qty, rollWidth, isFlipped, widthOk, unitSqft, unitCost, totalCost, stockOk } = calcItem(item, roll);
-  const hasResult = roll && unitSqft > 0;
+  const material = materials.find(m => m["Material ID"] === item.materialId) ?? null;
+  const { wFt, hFt, qty, rollWidth, isFlipped, widthOk, unitSqft, unitCost, totalCost, stockOk } = calcItem(item, material);
+  const hasResult = material && unitSqft > 0;
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
@@ -319,7 +212,7 @@ function QuoteItemCard({
             </div>
 
             {/* Orientation warnings */}
-            {roll && wFt > 0 && hFt > 0 && isFlipped && (
+            {material && wFt > 0 && hFt > 0 && isFlipped && (
               <div className="mt-2 flex items-center gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-900/40">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
@@ -327,7 +220,7 @@ function QuoteItemCard({
                 </p>
               </div>
             )}
-            {roll && wFt > 0 && !widthOk && (
+            {material && wFt > 0 && !widthOk && (
               <div className="mt-2 flex items-center gap-2 p-2.5 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-200 dark:border-rose-900/40">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                 <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
@@ -339,13 +232,11 @@ function QuoteItemCard({
 
           {/* Material */}
           <div>
-            <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-2 block">
-              Material
-            </Label>
-            <MaterialPicker
-              item={item}
-              inventory={inventory}
-              onChange={rollId => onChange({ rollId })}
+            <MaterialSelector 
+              materials={materials}
+              selectedMaterialId={item.materialId}
+              onSelect={mat => onChange({ materialId: mat["Material ID"] })}
+              loading={false}
             />
           </div>
 
@@ -390,31 +281,33 @@ function QuoteItemCard({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CashierEstimatorPage() {
-  const { cachedInventory, setCachedData, cachedSales, cachedExpenses, cachedPayments, cachedMaterials } = useSyncStore();
+  const router = useRouter();
+  const { cachedMaterials, setCachedData, cachedSales, cachedExpenses, cachedPayments, cachedInventory } = useSyncStore();
   const [mounted, setMounted] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [clientName, setClientName] = useState("");
   const [items, setItems] = useState<QuoteItem[]>([newItem()]);
   const [copied, setCopied] = useState(false);
+  const [savingQuote, setSavingQuote] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
-  const inventory = useMemo(() =>
-    mounted ? (cachedInventory as InventoryRoll[]).filter(r => r["Status"] !== "Out of Stock") : [],
-    [cachedInventory, mounted],
+  const materials = useMemo(() =>
+    mounted ? cachedMaterials : [],
+    [cachedMaterials, mounted],
   );
 
-  const refreshInventory = useCallback(async () => {
+  const refreshMaterials = useCallback(async () => {
     setSyncing(true);
     try {
-      const r = await fetch("/api/inventory");
+      const r = await fetch("/api/materials");
       const j = await r.json();
-      if (j.data) setCachedData(cachedSales, cachedExpenses, j.data, cachedPayments, cachedMaterials);
+      if (j.data) setCachedData(cachedSales, cachedExpenses, cachedInventory, cachedPayments, j.data);
     } catch { /* silent */ }
     finally { setSyncing(false); }
-  }, [cachedSales, cachedExpenses, cachedPayments, cachedMaterials, setCachedData]);
+  }, [cachedSales, cachedExpenses, cachedPayments, cachedInventory, setCachedData]);
 
-  useEffect(() => { refreshInventory(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshMaterials(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateItem = (id: string, patch: Partial<QuoteItem>) =>
     setItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
@@ -428,10 +321,10 @@ export default function CashierEstimatorPage() {
   // Grand total
   const grandTotal = useMemo(() =>
     items.reduce((sum, item) => {
-      const roll = inventory.find(r => r["Roll ID"] === item.rollId) ?? null;
-      return sum + calcItem(item, roll).totalCost;
+      const mat = materials.find(m => m["Material ID"] === item.materialId) ?? null;
+      return sum + calcItem(item, mat).totalCost;
     }, 0),
-    [items, inventory],
+    [items, materials],
   );
 
   // Multi-item quote text
@@ -442,29 +335,29 @@ export default function CashierEstimatorPage() {
 
     let hasAny = false;
     items.forEach((item, i) => {
-      const roll = inventory.find(r => r["Roll ID"] === item.rollId) ?? null;
-      const { wFt, hFt, qty, unitCost, totalCost } = calcItem(item, roll);
-      if (!roll || !wFt || !hFt) return;
+      const mat = materials.find(m => m["Material ID"] === item.materialId) ?? null;
+      const { wFt, hFt, qty, unitCost, totalCost } = calcItem(item, mat);
+      if (!mat || !wFt || !hFt) return;
       hasAny = true;
       lines.push(`*Item ${i + 1}${item.description ? ` — ${item.description}` : ""}*`);
       lines.push(`📐 ${item.width}${item.dimUnit} × ${item.height}${item.dimUnit} × ${qty} pcs`);
-      lines.push(`🎨 ${roll["Item Name"]} (${parseNum(roll["Width (ft)"])}ft roll)`);
+      lines.push(`🎨 ${mat["Material ID"]} (${parseNum(mat["Width (ft)"])}ft)`);
       lines.push(`💰 ₦${unitCost.toLocaleString()} × ${qty} = *${fmtMoney(totalCost)}*`);
       lines.push("");
     });
 
     if (!hasAny) return "";
     if (items.filter(it => {
-      const roll = inventory.find(r => r["Roll ID"] === it.rollId) ?? null;
-      const { wFt, hFt } = calcItem(it, roll);
-      return roll && wFt && hFt;
+      const mat = materials.find(m => m["Material ID"] === it.materialId) ?? null;
+      const { wFt, hFt } = calcItem(it, mat);
+      return mat && wFt && hFt;
     }).length > 1) {
       lines.push(`✅ *Grand Total: ${fmtMoney(grandTotal)}*`);
       lines.push("");
     }
     lines.push("_BOMedia — Large Format Printing_");
     return lines.join("\n");
-  }, [items, inventory, clientName, grandTotal]);
+  }, [items, materials, clientName, grandTotal]);
 
   const handleCopy = async () => {
     if (!quoteText) return;
@@ -479,10 +372,58 @@ export default function CashierEstimatorPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(quoteText)}`, "_blank");
   };
 
+  const handleSaveQuote = async () => {
+    if (!clientName.trim()) {
+      toast.error("Please enter a Client Name to save a quote.");
+      return;
+    }
+    if (grandTotal === 0) {
+      toast.error("Add at least one valid item to save a quote.");
+      return;
+    }
+
+    setSavingQuote(true);
+    const quoteId = `QT-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    try {
+      const res = await fetch("/api/estimates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quoteId,
+          clientName,
+          cartData: items
+        })
+      });
+      
+      const json = await res.json();
+      if (res.ok) {
+        toast.success(`Quote saved! ID: ${quoteId}`);
+        // Copy to clipboard to make it easier for them
+        navigator.clipboard.writeText(`Quote ID: ${quoteId}\n` + quoteText);
+      } else {
+        toast.error(json.error || "Failed to save quote");
+      }
+    } catch (e) {
+      toast.error("Network error saving quote");
+    } finally {
+      setSavingQuote(false);
+    }
+  };
+
+  const handleLogSale = () => {
+    // Save to local storage for the new-entry page to pick up
+    localStorage.setItem("estimatorCart", JSON.stringify({
+      clientName,
+      items
+    }));
+    router.push("/cashier/new-entry");
+  };
+
   const hasAnyResult = grandTotal > 0;
   const allStockOk = items.every(item => {
-    const roll = inventory.find(r => r["Roll ID"] === item.rollId) ?? null;
-    return calcItem(item, roll).stockOk;
+    const mat = materials.find(m => m["Material ID"] === item.materialId) ?? null;
+    return calcItem(item, mat).stockOk;
   });
 
   return (
@@ -504,9 +445,9 @@ export default function CashierEstimatorPage() {
               <h1 className="text-2xl font-black tracking-tight">Price Estimator</h1>
               <p className="text-white/70 text-xs font-medium">Multi-item quote builder · no sale logged</p>
             </div>
-            <button type="button" onClick={refreshInventory}
+            <button type="button" onClick={refreshMaterials}
               className="ml-auto p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
-              title="Refresh stock">
+              title="Refresh materials">
               <RefreshCw className={cn("w-4 h-4 text-white", syncing && "animate-spin")} />
             </button>
           </div>
@@ -529,25 +470,25 @@ export default function CashierEstimatorPage() {
         </div>
 
         {/* ── Quote items ── */}
-        {inventory.length === 0 && syncing && (
+        {materials.length === 0 && syncing && (
           <div className="text-center py-10 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800">
             <RefreshCw className="w-6 h-6 text-orange-400 animate-spin mx-auto mb-2" />
-            <p className="text-xs text-gray-400 dark:text-zinc-600 font-medium">Loading stock…</p>
+            <p className="text-xs text-gray-400 dark:text-zinc-600 font-medium">Loading materials…</p>
           </div>
         )}
-        {inventory.length === 0 && !syncing && (
+        {materials.length === 0 && !syncing && (
           <div className="text-center py-10 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800">
             <Package className="w-8 h-8 text-gray-200 dark:text-zinc-700 mx-auto mb-2" />
             <p className="text-sm text-gray-400 dark:text-zinc-600 font-medium">No materials available. Contact your manager.</p>
           </div>
         )}
 
-        {inventory.length > 0 && items.map((item, idx) => (
+        {materials.length > 0 && items.map((item, idx) => (
           <QuoteItemCard
             key={item.id}
             item={item}
             index={idx}
-            inventory={inventory}
+            materials={materials}
             canRemove={items.length > 1}
             onChange={patch => updateItem(item.id, patch)}
             onRemove={() => removeItem(item.id)}
@@ -555,7 +496,7 @@ export default function CashierEstimatorPage() {
         ))}
 
         {/* ── Add item ── */}
-        {inventory.length > 0 && (
+        {materials.length > 0 && (
           <button
             type="button"
             onClick={addItem}
@@ -578,9 +519,9 @@ export default function CashierEstimatorPage() {
             {items.length > 1 && (
               <div className="space-y-1.5 border-t border-gray-50 dark:border-zinc-800 pt-3">
                 {items.map((item, idx) => {
-                  const roll = inventory.find(r => r["Roll ID"] === item.rollId) ?? null;
-                  const { totalCost } = calcItem(item, roll);
-                  if (!roll || totalCost === 0) return null;
+                  const mat = materials.find(m => m["Material ID"] === item.materialId) ?? null;
+                  const { totalCost } = calcItem(item, mat);
+                  if (!mat || totalCost === 0) return null;
                   return (
                     <div key={item.id} className="flex items-center justify-between text-xs">
                       <span className="text-gray-500 dark:text-zinc-400 font-medium">
@@ -593,24 +534,33 @@ export default function CashierEstimatorPage() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={handleWhatsApp}
-                className="flex-1 h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black shadow-sm flex items-center justify-center gap-2"
+                className="h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black shadow-sm flex items-center justify-center gap-2"
               >
-                <Share2 className="w-4 h-4" /> Send via WhatsApp
+                <Share2 className="w-4 h-4" /> WhatsApp
               </Button>
-              <Button onClick={handleCopy} variant="outline"
-                className="h-11 px-4 rounded-xl font-black dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300">
-                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+              <Button
+                onClick={handleSaveQuote}
+                disabled={savingQuote}
+                variant="outline"
+                className="h-11 rounded-xl text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 font-black flex items-center justify-center gap-2"
+              >
+                <Save className={cn("w-4 h-4", savingQuote && "animate-pulse")} /> 
+                {savingQuote ? "Saving..." : "Save Estimate"}
               </Button>
             </div>
+            <Button onClick={handleCopy} variant="outline"
+              className="w-full h-11 px-4 rounded-xl font-black dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300">
+              {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <><Copy className="w-4 h-4 mr-2" /> Copy to Clipboard</>}
+            </Button>
           </div>
         )}
 
         {/* ── Log sale CTA ── */}
         {hasAnyResult && allStockOk && (
-          <Link href="/cashier/new-entry">
+          <button type="button" onClick={handleLogSale} className="w-full text-left">
             <div className="flex items-center justify-between p-4 bg-orange-500 hover:bg-orange-600 rounded-2xl text-white transition-[background-color] shadow-lg shadow-orange-500/20 cursor-pointer">
               <div>
                 <p className="text-sm font-black">Ready to log as a sale?</p>
@@ -618,7 +568,7 @@ export default function CashierEstimatorPage() {
               </div>
               <ChevronRight className="w-5 h-5 text-white/70" />
             </div>
-          </Link>
+          </button>
         )}
       </div>
     </div>

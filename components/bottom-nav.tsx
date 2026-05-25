@@ -11,6 +11,7 @@ export function BottomNav() {
   const isCashier = pathname?.startsWith("/cashier") || isAdmin;
 
   if (!isCashier) return null;
+  if (pathname === "/bom03/login" || pathname === "/cashier/login") return null;
   // SummaryBar occupies the bottom on new-entry — hide to avoid overlap
   if (pathname?.endsWith("/new-entry")) return null;
 

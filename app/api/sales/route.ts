@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { deductFromInventory } from '@/lib/inventory-deduction';
 import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
+import { verifyToken } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,23 +43,37 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { rowIndex, additionalPayment1, additionalPayment2, jobStatus } = body;
+    const { rowIndex, saleId, additionalPayment1, additionalPayment2, jobStatus } = body;
     
-    if (!rowIndex) {
-      return NextResponse.json({ error: "rowIndex is required" }, { status: 400 });
+    if (!rowIndex && !saleId) {
+      return NextResponse.json({ error: "rowIndex or saleId is required" }, { status: 400 });
     }
 
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[0];
     await ensureHeaders(sheet, SALES_HEADERS);
-    await sheet.loadCells(`A${rowIndex}:W${rowIndex}`);
+    
+    let targetRowIndex = rowIndex;
+    
+    if (saleId) {
+      const rows = await sheet.getRows();
+      const targetRow = rows.find((r: any) => r.get('Sales ID') === saleId);
+      if (!targetRow) {
+        return NextResponse.json({ error: `Sale not found with ID ${saleId}` }, { status: 404 });
+      }
+      targetRowIndex = targetRow.rowNumber;
+    }
+
+    await sheet.loadCells(`A${targetRowIndex}:W${targetRowIndex}`);
     
     // Role-based Access Control: Cashiers cannot edit records older than 24 hours
     const cookieStore = cookies();
-    const isAdmin = cookieStore.get('admin_session');
+    const adminToken = cookieStore.get('admin_session')?.value;
+    const adminPayload = adminToken ? await verifyToken(adminToken) : null;
+    const isAdmin = adminPayload && adminPayload.role === 'admin';
     
     if (!isAdmin) {
-      const dateCell = sheet.getCellByA1(`A${rowIndex}`);
+      const dateCell = sheet.getCellByA1(`A${targetRowIndex}`);
       const recordDateStr = dateCell.value;
       if (recordDateStr) {
         const recordDate = new Date(recordDateStr.toString()).getTime();
@@ -73,23 +88,23 @@ export async function PATCH(request: Request) {
 
     // Update fields if provided
     if (additionalPayment1 !== undefined) {
-      sheet.getCellByA1(`Q${rowIndex}`).value = additionalPayment1;
+      sheet.getCellByA1(`Q${targetRowIndex}`).value = additionalPayment1;
     }
     if (additionalPayment2 !== undefined) {
-      sheet.getCellByA1(`R${rowIndex}`).value = additionalPayment2;
+      sheet.getCellByA1(`R${targetRowIndex}`).value = additionalPayment2;
     }
     if (jobStatus !== undefined) {
-      sheet.getCellByA1(`U${rowIndex}`).value = jobStatus;
+      sheet.getCellByA1(`U${targetRowIndex}`).value = jobStatus;
     }
 
     // Re-stamp the balance and payment-status formulas so that old/static rows
     // (Col S previously had =P-O instead of =P-SUM(O,Q,R)) are corrected whenever
     // a payment is recorded.
     if (additionalPayment1 !== undefined || additionalPayment2 !== undefined) {
-      sheet.getCellByA1(`S${rowIndex}`).formula =
-        `=(P${rowIndex}-SUM(O${rowIndex},Q${rowIndex},R${rowIndex}))`;
-      sheet.getCellByA1(`T${rowIndex}`).formula =
-        `=IF(P${rowIndex}=0,"Unpaid",IF(S${rowIndex}<=0,"Paid",IF(S${rowIndex}<P${rowIndex},"Part-payment","Unpaid")))`;
+      sheet.getCellByA1(`S${targetRowIndex}`).formula =
+        `=(P${targetRowIndex}-SUM(O${targetRowIndex},Q${targetRowIndex},R${targetRowIndex}))`;
+      sheet.getCellByA1(`T${targetRowIndex}`).formula =
+        `=IF(P${targetRowIndex}=0,"Unpaid",IF(S${targetRowIndex}<=0,"Paid",IF(S${targetRowIndex}<P${targetRowIndex},"Part-payment","Unpaid")))`;
     }
 
     await sheet.saveUpdatedCells();

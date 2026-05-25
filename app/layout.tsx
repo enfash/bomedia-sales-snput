@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { NamePrompt } from "@/components/name-prompt";
 import { Toaster } from "@/components/ui/sonner";
 import { cookies } from "next/headers";
 import { Sidebar } from "@/components/sidebar";
@@ -52,7 +51,6 @@ export default async function RootLayout({
         >
           <PWAManager />
           <NotificationManager />
-          <NamePrompt isAdmin={isAdmin} />
           <PresenceManager isAdmin={isAdmin} />
           <SyncManager />
           <ThemeWrapper>

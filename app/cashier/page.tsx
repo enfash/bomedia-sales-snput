@@ -500,7 +500,9 @@ function DesktopSidePanel({
     const rem = parseFloat(
       item["Remaining Length (ft)"] || item.Stock || "0"
     );
-    return rem <= 50;
+    const threshold = parseFloat(item["Low Stock Threshold (ft)"] || "50");
+    // Only show rolls that are low on stock, but exclude completely finished (0ft) rolls
+    return rem > 0 && rem <= threshold;
   });
 
   return (

@@ -4,8 +4,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type QueueItem = {
   id: string;
-  type: 'sale' | 'expense' | 'payment';
-  data: any; // The payload as an array (for sales) or object (for expenses/payments)
+  type: 'sale' | 'expense' | 'payment' | 'sale_status';
+  data: any; // The payload as an array (for sales) or object (for expenses/payments/sale_status)
   timestamp: number;
   retryCount?: number;
   lastRetryAt?: number;
@@ -32,6 +32,7 @@ interface SyncState {
   cachedPayments: any[];
   setCachedData: (sales: any[], expenses: any[], inventory?: any[], payments?: any[], materials?: any[]) => void;
   updateEntryRetry: (id: string, retryCount: number, lastRetryAt: number) => void;
+  updateSaleStatus: (saleId: string, rowIndex: number | undefined, newStatus: string) => void;
 }
 
 const parseAmountLocal = (val: any): number => {
@@ -155,6 +156,31 @@ export const useSyncStore = create<SyncState>()(
           cachedMaterials: updatedMaterials,
           cachedSales: updatedSales,
           cachedPayments: updatedPayments,
+        };
+      }),
+
+      updateSaleStatus: (saleId, rowIndex, newStatus) => set((state) => {
+        const updatedSales = state.cachedSales.map(sale => {
+          if (
+            (saleId && (sale["Sales ID"] === saleId || sale["SALES ID"] === saleId)) || 
+            (rowIndex && (sale._rowIndex === rowIndex || sale.rowNumber === rowIndex))
+          ) {
+            return { ...sale, "JOB STATUS": newStatus, "Job Status": newStatus };
+          }
+          return sale;
+        });
+
+        return {
+          cachedSales: updatedSales,
+          pendingQueue: [
+            ...state.pendingQueue,
+            {
+              id: crypto.randomUUID(),
+              type: 'sale_status',
+              data: { saleId, rowIndex, jobStatus: newStatus },
+              timestamp: Date.now(),
+            }
+          ]
         };
       }),
 
