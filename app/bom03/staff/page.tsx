@@ -18,6 +18,7 @@ import {
   UserX,
   ShieldCheck,
   Loader2,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,8 @@ interface Cashier {
   Status: string;
   "Last Login": string;
   "Last Active": string;
+  Passcode?: string;
+  HasPasscode?: boolean;
   _rowIndex?: number;
 }
 
@@ -213,30 +216,69 @@ function StaffCard({ stats }: { stats: StaffStats }) {
 function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newPasscode, setNewPasscode] = useState("");
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Cashier | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // States for PIN editing
+  const [pinEditTarget, setPinEditTarget] = useState<Cashier | null>(null);
+  const [editPinValue, setEditPinValue] = useState("");
+  const [updatingPin, setUpdatingPin] = useState(false);
+
   const handleCreate = async () => {
     const name = newName.trim();
+    const passcode = newPasscode.trim();
     if (!name) return;
+    if (passcode !== "" && !/^\d{4}$/.test(passcode)) {
+      toast.error("PIN must be exactly 4 digits");
+      return;
+    }
     setCreating(true);
     try {
       const res = await fetch("/api/cashiers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, passcode }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to create");
       toast.success(`${name} added as cashier`);
       setNewName("");
+      setNewPasscode("");
       setShowForm(false);
       onRefresh();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleUpdatePin = async () => {
+    if (!pinEditTarget) return;
+    const pin = editPinValue.trim();
+    if (pin !== "" && !/^\d{4}$/.test(pin)) {
+      toast.error("PIN must be exactly 4 digits");
+      return;
+    }
+    setUpdatingPin(true);
+    try {
+      const res = await fetch("/api/cashiers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: pinEditTarget.Name, passcode: pin }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update PIN");
+      toast.success(`PIN updated for ${pinEditTarget.Name}`);
+      setPinEditTarget(null);
+      setEditPinValue("");
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setUpdatingPin(false);
     }
   };
 
@@ -275,7 +317,7 @@ function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: 
         </p>
         <Button
           size="sm"
-          onClick={() => { setShowForm(v => !v); setNewName(""); }}
+          onClick={() => { setShowForm(v => !v); setNewName(""); setNewPasscode(""); }}
           className={cn(
             "h-9 px-4 rounded-xl font-black text-[12px] flex items-center gap-1.5 transition-colors shadow-md",
             showForm
@@ -290,30 +332,43 @@ function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: 
 
       {/* Create form */}
       {showForm && (
-        <div className="animate-in slide-in-from-top-2 duration-200 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 p-4 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-3">
+        <div className="animate-in slide-in-from-top-2 duration-200 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 p-4 shadow-sm space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
             Add New Cashier / User
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col md:flex-row gap-3">
             <Input
               placeholder="Full name (e.g. Amara Okafor)"
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleCreate()}
-              className="h-11 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold"
+              className="h-11 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold flex-1"
               disabled={creating}
               autoFocus
+            />
+            <Input
+              placeholder="PIN (e.g. 1234)"
+              value={newPasscode}
+              onChange={e => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                setNewPasscode(v);
+              }}
+              className="h-11 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold w-full md:w-36"
+              disabled={creating}
+              maxLength={4}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
             />
             <Button
               onClick={handleCreate}
               disabled={!newName.trim() || creating}
               className="h-11 px-5 rounded-xl font-black shrink-0"
             >
-              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add User"}
             </Button>
           </div>
-          <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-2">
-            The cashier will use this name to log in from the cashier portal.
+          <p className="text-[10px] text-gray-400 dark:text-zinc-500">
+            The cashier will select their name and type this 4-digit PIN to access their dashboard.
           </p>
         </div>
       )}
@@ -354,11 +409,28 @@ function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: 
                         }
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium mt-0.5 flex items-center gap-1">
+                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium mt-0.5 flex items-center gap-1 flex-wrap">
                       <Clock className="w-3 h-3" />
                       {isOnline ? "Active now" : `Last seen: ${lastSeenLabel(cashier)}`}
+                      <span className="mx-1 text-gray-200 dark:text-zinc-800">|</span>
+                      <span className={cn(
+                        "font-bold rounded-md px-1 py-0.2",
+                        cashier.Passcode ? "text-orange-500 dark:text-orange-400" : "text-amber-500 font-bold bg-amber-500/10 px-1.5"
+                      )}>
+                        PIN: {cashier.Passcode ? cashier.Passcode : "None set"}
+                      </span>
                     </p>
                   </div>
+
+                  {/* Edit PIN Action */}
+                  <button
+                    type="button"
+                    onClick={() => { setPinEditTarget(cashier); setEditPinValue(cashier.Passcode || ""); }}
+                    className="p-2 rounded-xl text-gray-300 dark:text-zinc-600 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors shrink-0"
+                    title="Change PIN"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                  </button>
 
                   <button
                     type="button"
@@ -382,6 +454,57 @@ function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: 
           Removing a user only deletes their login access. All sales they logged remain in the records.
         </p>
       </div>
+
+      {/* PIN Edit Dialog */}
+      <Dialog open={!!pinEditTarget} onOpenChange={(o) => { if (!o) setPinEditTarget(null); }}>
+        <DialogContent className="max-w-sm rounded-2xl bg-white dark:bg-zinc-900 border-none shadow-2xl p-6">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/40 flex items-center justify-center mb-3">
+              <KeyRound className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <DialogTitle className="text-lg font-black text-gray-900 dark:text-white">
+              Change PIN for {pinEditTarget?.Name}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+              Set a 4-digit PIN for cashier login. Leave it completely empty to allow login without a passcode.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-3 space-y-4">
+            <Input
+              placeholder="Enter 4-Digit PIN (e.g. 1234)"
+              value={editPinValue}
+              onChange={e => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                setEditPinValue(v);
+              }}
+              className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold text-center text-lg tracking-widest"
+              maxLength={4}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              disabled={updatingPin}
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setPinEditTarget(null)}
+              className="flex-1 rounded-xl h-11 font-black border-gray-200 dark:border-zinc-700"
+              disabled={updatingPin}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdatePin}
+              disabled={updatingPin}
+              className="flex-1 rounded-xl h-11 font-black bg-orange-600 hover:bg-orange-700 text-white border-none shadow-none"
+            >
+              {updatingPin ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save PIN"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>

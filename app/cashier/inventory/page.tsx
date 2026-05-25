@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Package, RefreshCw, Search, AlertTriangle, CheckCircle2, XCircle, Ruler, ArrowLeft, CircleDollarSign, TrendingUp } from "lucide-react";
+import { Package, RefreshCw, Search, AlertTriangle, CheckCircle2, XCircle, Ruler, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,24 +65,6 @@ export default function CashierInventoryPage() {
     outOfStock: materials.filter(m => m.Status === "Out of Stock").length,
   }), [materials]);
 
-  const financialStats = useMemo(() => {
-    let totalSpent = 0;
-    let totalRemainingAsset = 0;
-    let totalRemainingFt = 0;
-
-    materials.forEach(m => {
-      totalSpent += parseNum(m["Total Spent"]);
-      totalRemainingAsset += parseNum(m["Total Remaining Asset Value"]);
-      totalRemainingFt += parseNum(m["Total Remaining (ft)"]);
-    });
-
-    return {
-      totalSpent,
-      totalRemainingAsset,
-      totalRemainingFt
-    };
-  }, [materials]);
-
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
@@ -125,56 +107,22 @@ export default function CashierInventoryPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        {/* Stock counts */}
-        <div className="md:col-span-3 grid grid-cols-3 gap-4">
-          {[
-            { title: "Available", val: stats.active, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
-            { title: "Low Stock", val: stats.lowStock, icon: AlertTriangle, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
-            { title: "Out of Stock", val: stats.outOfStock, icon: XCircle, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
-          ].map((s) => (
-            <Card key={s.title} className="bg-white dark:bg-zinc-900 border-none shadow-sm">
-              <CardContent className="p-4 flex items-center justify-between h-full">
-                <div>
-                  <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{s.title}</p>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white">{s.val}</p>
-                </div>
-                <div className={`p-3 rounded-2xl ${s.color} hidden sm:block`}><s.icon className="w-5 h-5" /></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Valuation summary */}
-        <div className="md:col-span-2 grid grid-cols-2 gap-4">
-          {[
-            { 
-              title: "Total Spent", 
-              val: `₦${financialStats.totalSpent.toLocaleString()}`, 
-              icon: CircleDollarSign, 
-              color: "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30",
-              sub: "Total Spent on Inventory"
-            },
-            { 
-              title: "Est. Remaining Value", 
-              val: `₦${financialStats.totalRemainingAsset.toLocaleString()}`, 
-              icon: TrendingUp, 
-              color: "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/30",
-              sub: `${financialStats.totalRemainingFt.toFixed(1)} ft remaining`
-            },
-          ].map((s) => (
-            <Card key={s.title} className="bg-white dark:bg-zinc-900 border-none shadow-sm">
-              <CardContent className="p-4 flex items-center justify-between h-full">
-                <div>
-                  <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{s.title}</p>
-                  <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white leading-tight">{s.val}</p>
-                  <p className="text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase mt-1 tracking-wider leading-none">{s.sub}</p>
-                </div>
-                <div className={`p-3 rounded-2xl ${s.color} hidden sm:block`}><s.icon className="w-5 h-5" /></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        {[
+          { title: "Available", val: stats.active, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
+          { title: "Low Stock", val: stats.lowStock, icon: AlertTriangle, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
+          { title: "Out of Stock", val: stats.outOfStock, icon: XCircle, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
+        ].map((s) => (
+          <Card key={s.title} className="bg-white dark:bg-zinc-900 border-none shadow-sm">
+            <CardContent className="p-4 flex items-center justify-between h-full">
+              <div>
+                <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{s.title}</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-white">{s.val}</p>
+              </div>
+              <div className={`p-3 rounded-2xl ${s.color} hidden sm:block`}><s.icon className="w-5 h-5" /></div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Search */}
@@ -202,8 +150,6 @@ export default function CashierInventoryPage() {
           const barColor =
             mat.Status === "Out of Stock" ? "bg-rose-500" :
             mat.Status === "Low Stock"    ? "bg-amber-500" : "bg-emerald-500";
-          const spent = parseNum(mat["Total Spent"]);
-          const remAsset = parseNum(mat["Total Remaining Asset Value"]);
 
           return (
             <Card
@@ -240,22 +186,11 @@ export default function CashierInventoryPage() {
                   </span>
                 </div>
 
-                <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
+                <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden mt-3 mb-1">
                   <div
                     className={cn("h-full rounded-full [transition:width_500ms_ease-out]", barColor)}
                     style={{ width: `${pct.toFixed(1)}%` }}
                   />
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-zinc-800 grid grid-cols-2 gap-2 text-[11px]">
-                  <div>
-                    <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-bold text-[9px]">Spent</span>
-                    <span className="font-extrabold text-gray-700 dark:text-zinc-300">₦{spent.toLocaleString()}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-bold text-[9px]">Remaining Value</span>
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400">₦{remAsset.toLocaleString()}</span>
-                  </div>
                 </div>
 
                 {mat.Status === "Low Stock" && (

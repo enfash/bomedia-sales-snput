@@ -110,6 +110,18 @@ export function SyncManager() {
 
             removeEntry(item.id);
             successCount++;
+          } else if (item.type === "sale_status") {
+            const res = await fetch("/api/sales", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(item.data),
+            });
+            if (!res.ok) {
+              const errData = await res.json();
+              throw new Error(errData.error || "Sales Status PATCH failed during sync");
+            }
+            removeEntry(item.id);
+            successCount++;
           } else {
             const endpoint = item.type === "sale" ? "/api/sales" : "/api/expenses";
             // For batch sales, the payload is already correctly structured ({ batch: true, items: [...] }).

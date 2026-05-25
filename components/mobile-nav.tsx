@@ -76,7 +76,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
     }
   }, [isOpen]);
 
-  if (pathname === "/bom03/login" || pathname === "/") return null;
+  if (pathname === "/bom03/login" || pathname === "/cashier/login" || pathname === "/") return null;
 
   const isInCashierView = pathname.startsWith("/cashier") || !isAdmin;
 

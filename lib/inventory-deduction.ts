@@ -193,26 +193,64 @@ export async function deductFromInventory(
     const totalConsumedLength = isFlipped ? flippedLen : normalLen;
     console.log(`[Inventory] Tiling (${isFlipped ? 'flipped' : 'normal'}): ${qty}× ${jW.toFixed(2)}ft×${jH.toFixed(2)}ft → ${totalConsumedLength.toFixed(2)}ft on ${rollWidth}ft roll`);
 
-    // 3. Read current stock (no hard block — sales are always logged; inventory depletes to 0)
-    const currentRemaining = parseFloat(rollRow.get("Remaining Length (ft)") || "0") || 0;
-    if (totalConsumedLength > currentRemaining + 0.1) {
-      console.warn(
-        `[Inventory] Over-deduction on ${rollRow.get("Roll ID")}: need ${totalConsumedLength.toFixed(1)}ft, have ${currentRemaining.toFixed(1)}ft. Depleting to 0.`
-      );
+    // 3. Cascade Logic: Find all rolls for this material, sorted by Roll ID (FIFO)
+    const mId = materialRow.get('Material ID');
+    let allRolls = iRows.filter(r => r.get('Material ID') === mId);
+    allRolls.sort((a, b) => (a.get('Roll ID') || '').localeCompare(b.get('Roll ID') || ''));
+
+    // If a specific roll was manually selected, start the cascade from there.
+    // Otherwise, filter to rolls that actually have stock.
+    if (rollId) {
+      const startIndex = allRolls.findIndex(r => r.get('Roll ID') === rollId);
+      if (startIndex > -1) {
+        allRolls = allRolls.slice(startIndex);
+      }
+    } else {
+      allRolls = allRolls.filter(r => (parseFloat(r.get("Remaining Length (ft)") || "0") || 0) > 0.1);
     }
 
-    // 4. Update Roll (Math.max clamps to 0 when over-consumed)
-    const newRemaining = Math.max(0, currentRemaining - totalConsumedLength);
-    const threshold = parseFloat(rollRow.get("Low Stock Threshold (ft)") || "20") || 20;
-    
-    // Status logic: if 0, mark Depleted.
-    let newStatus = 'Active';
-    if (newRemaining <= 0.1) newStatus = 'Depleted';
-    else if (newRemaining <= threshold) newStatus = 'Low Stock';
+    // 4. Execute the cross-roll deduction
+    let remainingToDeduct = totalConsumedLength;
+    const modifiedRolls = [];
+    let finalStatus = 'Active';
 
-    rollRow.set("Remaining Length (ft)", newRemaining.toFixed(2));
-    rollRow.set("Status", newStatus);
-    await rollRow.save();
+    for (const currentRoll of allRolls) {
+      if (remainingToDeduct <= 0) break;
+
+      const currentRemaining = parseFloat(currentRoll.get("Remaining Length (ft)") || "0") || 0;
+      if (currentRemaining <= 0) continue;
+
+      // Take what we need, or exhaust the roll entirely
+      const amountToTake = Math.min(currentRemaining, remainingToDeduct);
+      const newRemaining = currentRemaining - amountToTake;
+      remainingToDeduct -= amountToTake;
+
+      const threshold = parseFloat(currentRoll.get("Low Stock Threshold (ft)") || "20") || 20;
+      
+      let newStatus = 'Active';
+      if (newRemaining <= 0.1) newStatus = 'Depleted';
+      else if (newRemaining <= threshold) newStatus = 'Low Stock';
+
+      currentRoll.set("Remaining Length (ft)", newRemaining.toFixed(2));
+      currentRoll.set("Status", newStatus);
+      await currentRoll.save();
+
+      modifiedRolls.push({
+        id: currentRoll.get("Roll ID"),
+        deducted: amountToTake.toFixed(2)
+      });
+      
+      finalStatus = newStatus;
+    }
+
+    if (remainingToDeduct > 0.1) {
+      console.warn(`[Inventory] System completely out of stock for ${mId}. ${remainingToDeduct.toFixed(2)}ft unfulfilled.`);
+    }
+
+    console.log(`[Inventory] Deduction cascaded:`, modifiedRolls);
+
+    const newRemaining = parseFloat(rollRow.get("Remaining Length (ft)") || "0") || 0;
+    const newStatus = rollRow.get("Status") || "Active";
 
     // 5. Update Material Profile (handles auto-promotion)
     await refreshMaterialProfile(doc, materialRow.get('Material ID'));

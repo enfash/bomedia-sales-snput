@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { WasteLogModal, type InventoryRollForWaste } from "@/components/waste-log-modal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Roll = Record<string, any> & { _rowIndex: number; "Material ID"?: string };
 type Material = Record<string, any> & { "Material ID": string };
@@ -578,6 +579,49 @@ export default function InventoryPage() {
     );
   }, [materials, search]);
 
+  const formatRollGroupKey = (width: any, itemName: string) => {
+    const w = parseFloat(String(width)) || 0;
+    const name = String(itemName || "").trim();
+    const formattedName = name
+      .toLowerCase()
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+    return `${w}ft ${formattedName}`;
+  };
+
+  const activeRollGroups = useMemo(() => {
+    const groups: Record<string, number> = {};
+    inventory.forEach(roll => {
+      const remaining = parseNum(roll["Remaining Length (ft)"]);
+      if (remaining > 0.1) {
+        const key = formatRollGroupKey(roll["Width (ft)"], roll["Item Name"]);
+        groups[key] = (groups[key] || 0) + 1;
+      }
+    });
+    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+  }, [inventory]);
+
+  const depletedRollGroups = useMemo(() => {
+    const groups: Record<string, number> = {};
+    inventory.forEach(roll => {
+      const remaining = parseNum(roll["Remaining Length (ft)"]);
+      if (remaining <= 0.1) {
+        const key = formatRollGroupKey(roll["Width (ft)"], roll["Item Name"]);
+        groups[key] = (groups[key] || 0) + 1;
+      }
+    });
+    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+  }, [inventory]);
+
+  const totalActiveRollsCount = useMemo(() => {
+    return inventory.filter(r => parseNum(r["Remaining Length (ft)"]) > 0.1).length;
+  }, [inventory]);
+
+  const totalDepletedRollsCount = useMemo(() => {
+    return inventory.filter(r => parseNum(r["Remaining Length (ft)"]) <= 0.1).length;
+  }, [inventory]);
+
   const stats = useMemo(() => {
     let active = 0;
     let lowStock = 0;
@@ -648,18 +692,91 @@ export default function InventoryPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="bg-white dark:bg-zinc-900 border-none shadow-sm md:col-span-1">
             <CardContent className="p-5 space-y-4">
-              <p className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest border-b pb-2 dark:border-zinc-800">Warehouse Health</p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {[
-                  { label: "Active", val: stats.active, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
-                  { label: "Low", val: stats.lowStock, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
-                  { label: "Out", val: stats.outOfStock, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
-                ].map((s) => (
-                  <div key={s.label} className={cn("p-3 rounded-2xl", s.color)}>
-                    <p className="text-2xl font-black">{s.val}</p>
-                    <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 opacity-80">{s.label}</p>
-                  </div>
-                ))}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest border-b pb-2 dark:border-zinc-800">Warehouse Health</p>
+                <div className="grid grid-cols-3 gap-2 text-center mt-3">
+                  {[
+                    { label: "Active Mat", val: stats.active, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
+                    { label: "Low Stock", val: stats.lowStock, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
+                    { label: "Out of Stock", val: stats.outOfStock, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
+                  ].map((s) => (
+                    <div key={s.label} className={cn("p-2 rounded-xl", s.color)}>
+                      <p className="text-xl font-black">{s.val}</p>
+                      <p className="text-[8px] font-black uppercase tracking-normal mt-0.5 opacity-80">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 border-t dark:border-zinc-800">
+                <p className="text-[9px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest mb-3">Live Roll Analytics</p>
+                <div className="grid grid-cols-2 gap-3">
+                  
+                  {/* Active Rolls Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="flex flex-col items-center justify-center p-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white w-full active:scale-[0.97] transition-all shadow-md shadow-emerald-500/10">
+                        <span className="text-2xl font-black">{totalActiveRollsCount}</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider mt-0.5 opacity-90 flex items-center gap-1">
+                          Active Rolls <ChevronDown className="w-2.5 h-2.5" />
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-4 rounded-2xl bg-white dark:bg-zinc-900 shadow-xl border border-gray-100 dark:border-zinc-800" align="center">
+                      <div className="space-y-3">
+                        <div className="border-b dark:border-zinc-800 pb-2 flex items-center justify-between">
+                          <h4 className="text-xs font-black uppercase text-gray-500 dark:text-zinc-400 tracking-wider">Active Rolls</h4>
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">{totalActiveRollsCount} total</span>
+                        </div>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                          {activeRollGroups.length === 0 ? (
+                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 italic py-2 text-center">No active rolls.</p>
+                          ) : (
+                            activeRollGroups.map(([key, count]) => (
+                              <div key={key} className="flex justify-between items-center text-xs py-1">
+                                <span className="font-bold text-gray-700 dark:text-zinc-300">{key}</span>
+                                <span className="font-black text-gray-900 dark:text-white bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded-md">{count} {count === 1 ? 'roll' : 'rolls'}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Depleted/Used Rolls Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-500 hover:bg-gray-600 dark:bg-zinc-700 dark:hover:bg-zinc-650 text-white w-full active:scale-[0.97] transition-all shadow-md shadow-gray-500/10">
+                        <span className="text-2xl font-black">{totalDepletedRollsCount}</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider mt-0.5 opacity-90 flex items-center gap-1">
+                          Used Rolls <ChevronDown className="w-2.5 h-2.5" />
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-4 rounded-2xl bg-white dark:bg-zinc-900 shadow-xl border border-gray-100 dark:border-zinc-800" align="center">
+                      <div className="space-y-3">
+                        <div className="border-b dark:border-zinc-800 pb-2 flex items-center justify-between">
+                          <h4 className="text-xs font-black uppercase text-gray-500 dark:text-zinc-400 tracking-wider">Used / Depleted</h4>
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400">{totalDepletedRollsCount} total</span>
+                        </div>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                          {depletedRollGroups.length === 0 ? (
+                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 italic py-2 text-center">No depleted rolls.</p>
+                          ) : (
+                            depletedRollGroups.map(([key, count]) => (
+                              <div key={key} className="flex justify-between items-center text-xs py-1">
+                                <span className="font-bold text-gray-700 dark:text-zinc-300">{key}</span>
+                                <span className="font-black text-gray-900 dark:text-white bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded-md">{count} {count === 1 ? 'roll' : 'rolls'}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                </div>
               </div>
             </CardContent>
           </Card>
