@@ -4,7 +4,18 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX, CalendarRange, FileText, Users, Calculator, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: (delay: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
+  }),
+};
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
 import { SalesExpenseChart, OutstandingDebtChart, PaymentStatusWidget, TopClientsWidget } from "@/components/dashboard-charts";
@@ -307,10 +318,50 @@ export default function DashboardPage() {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-brand-700 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 font-medium">Loading Dashboard...</p>
+      <div className="p-4 md:p-8 space-y-6 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-24">
+        {/* Time range tabs placeholder */}
+        <Skeleton className="h-10 w-72 rounded-xl" />
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-1.5 sm:gap-4">
+          <div className="col-span-2 lg:col-span-2 rounded-2xl bg-white dark:bg-zinc-900 border border-border p-5 shadow-sm">
+            <Skeleton className="h-3 w-20 mb-4" />
+            <Skeleton className="h-9 w-36 mb-2" />
+            <Skeleton className="h-8 w-full mt-3 opacity-30" />
+          </div>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="col-span-1 rounded-2xl bg-white dark:bg-zinc-900 border border-border p-3 sm:p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="w-7 h-7 rounded-lg" />
+              </div>
+              <Skeleton className="h-6 w-20 mb-1" />
+              <Skeleton className="h-3 w-24 mt-3 pt-3" />
+            </div>
+          ))}
+        </div>
+        {/* Inventory + quick actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl border border-border shadow-sm p-5 space-y-3">
+            <Skeleton className="h-5 w-40 mb-2" />
+            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+          </div>
+          <div className="md:col-span-1 flex flex-col gap-2">
+            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
+          </div>
+        </div>
+        {/* AI banner */}
+        <Skeleton className="h-20 w-full rounded-2xl" />
+        {/* Charts row 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <Skeleton className="lg:col-span-2 h-64 rounded-2xl" />
+          <Skeleton className="lg:col-span-1 h-64 rounded-2xl" />
+        </div>
+        {/* Charts row 2 */}
+        <Skeleton className="h-56 w-full rounded-2xl" />
+        {/* Charts row 3 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl" />
         </div>
       </div>
     );
@@ -318,7 +369,9 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-6 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
-      <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} salesCount={todayJobCount} />
+      <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
+        <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} salesCount={todayJobCount} />
+      </motion.div>
 
       {/* Mobile Time Range Selector */}
       <div className="md:hidden space-y-2">
@@ -471,6 +524,7 @@ export default function DashboardPage() {
         </div>
       )}
 
+      <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
       <DashboardMetrics
         totalSales={totalSalesVal}
         totalExpenses={totalExpensesVal}
@@ -487,8 +541,10 @@ export default function DashboardPage() {
         prevGrossMarginPct={prevGrossMarginPct}
         sparkData={chartData.slice(-7).map(d => d.sales)}
       />
+      </motion.div>
 
       {/* Inventory Alerts & Shortcuts */}
+      <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Inventory Alerts Widget */}
         {(() => {
@@ -655,8 +711,10 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+      </motion.div>
 
       {/* AI Banner */}
+      <motion.div variants={sectionVariants} custom={0.22} initial="hidden" animate="show">
       {/* Quick Actions / AI Banner */}
       <div
         className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg bg-brand-700 bg-gradient-to-br from-brand-600 to-brand-800"
@@ -722,8 +780,10 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+      </motion.div>
 
       {/* Charts — Row 1: Sales vs Expenses + Recent Payments Pulse */}
+      <motion.div variants={sectionVariants} custom={0.28} initial="hidden" animate="show">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
           <SalesExpenseChart data={chartData} />
@@ -732,11 +792,15 @@ export default function DashboardPage() {
           <RecentPaymentsPulse payments={cachedPayments} />
         </div>
       </div>
+      </motion.div>
 
       {/* Charts — Row 2: Outstanding Debt (full width) */}
-      <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} ageMap={debtAgeMap} />
+      <motion.div variants={sectionVariants} custom={0.34} initial="hidden" animate="show">
+        <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} ageMap={debtAgeMap} />
+      </motion.div>
 
       {/* Charts — Row 3: Payment Status + Top Clients */}
+      <motion.div variants={sectionVariants} custom={0.38} initial="hidden" animate="show">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <PaymentStatusWidget
           paid={paymentStats.paid}
@@ -749,9 +813,12 @@ export default function DashboardPage() {
         />
         <TopClientsWidget clients={topClients} />
       </div>
+      </motion.div>
 
       {/* Material Profitability Widget */}
-      <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
+      <motion.div variants={sectionVariants} custom={0.42} initial="hidden" animate="show">
+        <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
+      </motion.div>
 
       <DebtorPaymentModal 
         clientName={selectedDebtor} 

@@ -1,8 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { motion, animate } from "framer-motion";
+
+const cardContainerVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07 } },
+};
+const cardItemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
+};
 
 // Inline micro-sparkline rendered as SVG — no extra dependencies
 function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: string }) {
@@ -61,6 +71,20 @@ export function MetricCard({
   const isHero = variant === 'hero';
   const isAlert = variant === 'alert' && value > 0;
 
+  const [animatedNum, setAnimatedNum] = useState(0);
+  useEffect(() => {
+    const controls = animate(0, value, {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: (v) => setAnimatedNum(v),
+    });
+    return () => controls.stop();
+  }, [value]);
+
+  const animatedDisplay = displayValue
+    ? (/^[\d.]+%$/.test(displayValue) ? `${animatedNum.toFixed(1)}%` : displayValue)
+    : `₦${Math.round(animatedNum).toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
+
   return (
     <div
       className={cn(
@@ -102,7 +126,7 @@ export function MetricCard({
           "font-black tracking-tight text-foreground leading-none truncate",
           isHero ? "text-2xl sm:text-4xl" : "text-base sm:text-xl lg:text-2xl"
         )}>
-          {displayValue ?? `₦${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}`}
+          {animatedDisplay}
         </p>
         {(subLabel || (isHero && change)) && (
           <div className="flex items-center gap-2 mt-1 sm:mt-2">
@@ -184,9 +208,14 @@ export function DashboardMetrics({
   const isMarginUp = grossMarginPct >= prevGrossMarginPct;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-6 gap-1.5 sm:gap-4">
+    <motion.div
+      className="grid grid-cols-2 lg:grid-cols-6 gap-1.5 sm:gap-4"
+      variants={cardContainerVariants}
+      initial="hidden"
+      animate="show"
+    >
       {/* Hero Card — full width on mobile, 2 cols on desktop */}
-      <div className="col-span-2 lg:col-span-2">
+      <motion.div className="col-span-2 lg:col-span-2" variants={cardItemVariants}>
         <MetricCard
           variant="hero"
           title="Total Sales"
@@ -196,9 +225,9 @@ export function DashboardMetrics({
           icon={ShoppingBag}
           sparkData={sparkData}
         />
-      </div>
+      </motion.div>
 
-      <div className="col-span-1">
+      <motion.div className="col-span-1" variants={cardItemVariants}>
         <MetricCard
           title="Expenses"
           value={totalExpenses}
@@ -206,9 +235,9 @@ export function DashboardMetrics({
           isPositive={isExpensesDown}
           icon={DollarSign}
         />
-      </div>
+      </motion.div>
 
-      <div className="col-span-1">
+      <motion.div className="col-span-1" variants={cardItemVariants}>
         <MetricCard
           title="Net Profit"
           value={netProfit}
@@ -216,9 +245,9 @@ export function DashboardMetrics({
           isPositive={isProfitUp}
           icon={BarChart2}
         />
-      </div>
+      </motion.div>
 
-      <div className="col-span-1">
+      <motion.div className="col-span-1" variants={cardItemVariants}>
         <MetricCard
           variant="alert"
           title="Outstanding Debt"
@@ -226,9 +255,9 @@ export function DashboardMetrics({
           icon={AlertCircle}
           subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
         />
-      </div>
+      </motion.div>
 
-      <div className="col-span-1">
+      <motion.div className="col-span-1" variants={cardItemVariants}>
         <MetricCard
           title="Gross Margin"
           value={grossMarginPct}
@@ -238,7 +267,7 @@ export function DashboardMetrics({
           icon={Percent}
           subLabel={totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet"}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

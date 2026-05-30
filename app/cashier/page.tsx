@@ -23,6 +23,17 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: (delay: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
+  }),
+};
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { OutstandingDebtChart } from "@/components/dashboard-charts";
@@ -787,12 +798,146 @@ export default function CashierDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-orange-50/20 dark:bg-zinc-950">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
-            Loading your shift…
-          </p>
+      <div className="bg-orange-50/30 dark:bg-zinc-950 min-h-screen pb-28">
+        {/* Mobile skeleton */}
+        <div className="md:hidden p-4 space-y-4">
+          {/* ShiftHero skeleton */}
+          <div className="rounded-[2rem] bg-orange-100 dark:bg-orange-900/20 p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-24 bg-orange-200 dark:bg-orange-800/40" />
+                <Skeleton className="h-6 w-36 bg-orange-200 dark:bg-orange-800/40" />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-14 rounded-2xl bg-orange-200 dark:bg-orange-800/40" />
+              ))}
+            </div>
+            <Skeleton className="h-2 w-full rounded-full bg-orange-200 dark:bg-orange-800/40" />
+          </div>
+
+          {/* ActionGrid skeleton */}
+          <div className="grid grid-cols-3 gap-2.5">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-20 rounded-2xl" />
+            ))}
+          </div>
+
+          {/* Job feed skeleton */}
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-4 rounded" />
+            </div>
+            <div className="p-3 space-y-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex items-start gap-3 p-3.5 bg-gray-50 dark:bg-zinc-800 rounded-2xl">
+                  <Skeleton className="w-6 h-6 rounded-lg shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex items-start justify-between">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                    <Skeleton className="h-3 w-40" />
+                    <div className="flex gap-1.5 mt-1">
+                      <Skeleton className="h-4 w-12 rounded-md" />
+                      <Skeleton className="h-4 w-12 rounded-md" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop skeleton */}
+        <div className="hidden md:block p-6 lg:p-8 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-7 w-56" />
+            </div>
+            <Skeleton className="h-9 w-24 rounded-xl" />
+          </div>
+
+          {/* 5 metric cards */}
+          <div className="grid grid-cols-5 gap-4 mb-6">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl border border-gray-100 dark:border-zinc-800 p-5 shadow-sm bg-white dark:bg-zinc-900">
+                <Skeleton className="w-8 h-8 rounded-xl mb-3" />
+                <Skeleton className="h-3 w-20 mb-2" />
+                <Skeleton className="h-6 w-24 mb-1" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            ))}
+          </div>
+
+          {/* Two-column layout */}
+          <div className="grid grid-cols-3 gap-5">
+            {/* Left: action row + job feed */}
+            <div className="col-span-2 space-y-5">
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-16 rounded-2xl" />
+                ))}
+              </div>
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 dark:border-zinc-800">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+                <div className="p-4 space-y-2">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-start gap-3 p-3.5 rounded-2xl bg-gray-50 dark:bg-zinc-800">
+                      <Skeleton className="w-6 h-6 rounded-lg shrink-0 mt-0.5" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-start justify-between">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-4 w-20" />
+                        </div>
+                        <Skeleton className="h-3 w-48" />
+                        <div className="flex gap-1.5 mt-1">
+                          <Skeleton className="h-4 w-14 rounded-md" />
+                          <Skeleton className="h-4 w-14 rounded-md" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: side panel */}
+            <div className="col-span-1 space-y-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-gray-50 dark:border-zinc-800 flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-5 w-6 rounded-full" />
+                </div>
+                <div className="p-4 space-y-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center justify-between p-2">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="w-7 h-7 rounded-lg" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-3 space-y-1">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-3">
+                    <Skeleton className="w-7 h-7 rounded-lg shrink-0" />
+                    <Skeleton className="h-4 w-full max-w-[140px]" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -805,97 +950,107 @@ export default function CashierDashboardPage() {
       <div className="md:hidden p-4 space-y-4">
 
         {/* Shift hero */}
-        <ShiftHero
-          cashierName={cashierName}
-          jobsToday={todaySales.length}
-          revenueToday={todayRevenue}
-          collectedToday={todayCollected}
-          pendingCount={pendingQueue.length}
-          inProgressCount={inProgressJobs.length}
-        />
+        <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
+          <ShiftHero
+            cashierName={cashierName}
+            jobsToday={todaySales.length}
+            revenueToday={todayRevenue}
+            collectedToday={todayCollected}
+            pendingCount={pendingQueue.length}
+            inProgressCount={inProgressJobs.length}
+          />
+        </motion.div>
 
         {/* Action grid */}
-        <ActionGrid />
+        <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
+          <ActionGrid />
+        </motion.div>
 
         {/* Today's debtors — only if there are any */}
         {todayDebtors.length > 0 && (
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-500" />
-                <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
-                  Collect Today
-                </p>
+          <motion.div variants={sectionVariants} custom={0.14} initial="hidden" animate="show">
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500" />
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
+                    Collect Today
+                  </p>
+                </div>
+                <Badge className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-none text-[9px] font-black">
+                  {todayDebtors.length} client{todayDebtors.length !== 1 ? "s" : ""}
+                </Badge>
               </div>
-              <Badge className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-none text-[9px] font-black">
-                {todayDebtors.length} client{todayDebtors.length !== 1 ? "s" : ""}
-              </Badge>
+              <div className="px-4 py-1">
+                {todayDebtors.map((d, i) => (
+                  <DebtRow
+                    key={i}
+                    client={d.client}
+                    amount={d.amount}
+                    description={d.description}
+                    contact={d.contact}
+                    onClick={() => setSelectedDebtor(d.client)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="px-4 py-1">
-              {todayDebtors.map((d, i) => (
-                <DebtRow
-                  key={i}
-                  client={d.client}
-                  amount={d.amount}
-                  description={d.description}
-                  contact={d.contact}
-                  onClick={() => setSelectedDebtor(d.client)}
-                />
-              ))}
-            </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Today's job feed */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-orange-500" />
-              <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
-                Today's Jobs
-              </p>
+        <motion.div variants={sectionVariants} custom={0.19} initial="hidden" animate="show">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-orange-500" />
+                <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
+                  Today's Jobs
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchData(true)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-zinc-800 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
+                >
+                  <RefreshCw
+                    className={cn(
+                      "w-3.5 h-3.5 text-gray-400",
+                      refreshing && "animate-spin"
+                    )}
+                  />
+                </button>
+                <Link href="/cashier/records">
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                </Link>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => fetchData(true)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-zinc-800 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
-              >
-                <RefreshCw
-                  className={cn(
-                    "w-3.5 h-3.5 text-gray-400",
-                    refreshing && "animate-spin"
-                  )}
-                />
-              </button>
-              <Link href="/cashier/records">
-                <ChevronRight className="w-4 h-4 text-gray-300" />
-              </Link>
+            <div className="p-3">
+              <JobFeed jobs={todaySales} />
             </div>
           </div>
-          <div className="p-3">
-            <JobFeed jobs={todaySales} />
-          </div>
-        </div>
+        </motion.div>
 
         {/* Weekly debt summary */}
         {weeklyDebt > 0 && (
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
-                7-Day Debt Summary
+          <motion.div variants={sectionVariants} custom={0.24} initial="hidden" animate="show">
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
+                  7-Day Debt Summary
+                </p>
+                <p className="text-sm font-black text-rose-600 dark:text-rose-400">
+                  {fmtMoneyFull(weeklyDebt)}
+                </p>
+              </div>
+              <p className="text-[10px] text-gray-400 dark:text-zinc-600 mb-3">
+                Tap a bar to log a payment
               </p>
-              <p className="text-sm font-black text-rose-600 dark:text-rose-400">
-                {fmtMoneyFull(weeklyDebt)}
-              </p>
+              <OutstandingDebtChart
+                data={debtChart}
+                onClientClick={setSelectedDebtor}
+              />
             </div>
-            <p className="text-[10px] text-gray-400 dark:text-zinc-600 mb-3">
-              Tap a bar to log a payment
-            </p>
-            <OutstandingDebtChart
-              data={debtChart}
-              onClientClick={setSelectedDebtor}
-            />
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -940,6 +1095,7 @@ export default function CashierDashboardPage() {
         </div>
 
         {/* Desktop metric strip */}
+        <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
         <div className="grid grid-cols-5 gap-4 mb-6">
           {[
             {
@@ -1028,8 +1184,10 @@ export default function CashierDashboardPage() {
             );
           })}
         </div>
+        </motion.div>
 
         {/* Desktop two-column layout */}
+        <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
         <div className="grid grid-cols-3 gap-5">
           {/* Left: Main content (2/3) */}
           <div className="col-span-2 space-y-5">
@@ -1138,6 +1296,7 @@ export default function CashierDashboardPage() {
             />
           </div>
         </div>
+        </motion.div>
       </div>
 
       {/* ── Debtor payment modal ──────────────────────────────────────────── */}

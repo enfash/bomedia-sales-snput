@@ -16,7 +16,9 @@ import {
   ArrowUpDown,
   Printer,
   Loader2,
+  CalendarRange,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,7 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSyncStore } from "@/lib/store";
 import { RecordCard, type RecordStatus } from "@/components/record-card";
-import { subDays, isWithinInterval } from "date-fns";
+import { subDays, isWithinInterval, startOfDay } from "date-fns";
 import { ManageSaleAction, type UnifiedRecord } from "@/components/manage-sale-action";
 import { ManageBatchAction } from "@/components/manage-batch-action";
 import { format } from "date-fns";
@@ -89,6 +91,9 @@ export default function RecordsPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [groupReceiptRecords, setGroupReceiptRecords] = useState<UnifiedRecord[]>([]);
+  const [dateRange, setDateRange] = useState<"all" | "7d" | "30d" | "custom">("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   const fetchData = async () => {
     // Only show loader if we have zero cached data
@@ -231,8 +236,24 @@ export default function RecordsPage() {
   const allRecords = [...pendingSales, ...pendingExpenses, ...syncedSales, ...syncedExpenses];
   const allSalesRecords = [...pendingSales, ...syncedSales];
 
+  // --- Date filter ---
+  const now = new Date();
+
+  const dateFilterFn = (r: UnifiedRecord): boolean => {
+    if (dateRange === "all") return true;
+    const d = new Date(r.date);
+    if (isNaN(d.getTime())) return true;
+    if (dateRange === "7d") return isWithinInterval(d, { start: subDays(now, 7), end: now });
+    if (dateRange === "30d") return isWithinInterval(d, { start: subDays(now, 30), end: now });
+    if (dateRange === "custom" && customStart && customEnd)
+      return isWithinInterval(d, { start: startOfDay(new Date(customStart)), end: new Date(customEnd + "T23:59:59") });
+    return true;
+  };
+
+  const dateFilteredRecords = allRecords.filter(dateFilterFn);
+
   // --- Filtering ---
-  const filtered = allRecords.filter(r => {
+  const filtered = dateFilteredRecords.filter(r => {
     const matchesSearch =
       r.client.toLowerCase().includes(search.toLowerCase()) ||
       r.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -281,7 +302,7 @@ export default function RecordsPage() {
   // Reset page when filtering changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, activeTab, sortBy, sortOrder]);
+  }, [search, activeTab, sortBy, sortOrder, dateRange, customStart, customEnd]);
 
   const groupStatus = (items: UnifiedRecord[]): RecordStatus => {
     if (items.some(r => r.status === "Syncing")) return "Syncing";
@@ -295,28 +316,11 @@ export default function RecordsPage() {
     setIsReceiptModalOpen(true);
   };
 
-  // --- Metrics (Last 30 Days) ---
-  const now = new Date();
-  const thirtyDaysAgo = subDays(now, 30);
-
-  const inLast30Days = (dateStr: string) => {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return false;
-    return isWithinInterval(d, { start: thirtyDaysAgo, end: now });
-  };
-
-  const currentRecords = allRecords.filter(r => inLast30Days(r.date));
-  const last30Sales = currentRecords.filter(r => r.type === "Sale").reduce((sum, r) => sum + r.amount, 0);
-  const last30Expenses = currentRecords.filter(r => r.type === "Expense").reduce((sum, r) => sum + r.amount, 0);
-
-  // Total Metric logic
-  const totalSales = allRecords.filter(r => r.type === "Sale").reduce((sum, r) => sum + r.amount, 0);
-  const totalExpenses = allRecords.filter(r => r.type === "Expense").reduce((sum, r) => sum + r.amount, 0);
+  // Metrics reflect the active date range
+  const totalSales = dateFilteredRecords.filter(r => r.type === "Sale").reduce((sum, r) => sum + r.amount, 0);
+  const totalExpenses = dateFilteredRecords.filter(r => r.type === "Expense").reduce((sum, r) => sum + r.amount, 0);
   const netProfit = totalSales - totalExpenses;
-
-  // Outstanding Debt logic (Sales Price - Initial Payment)
-  // Need to fetch INITIAL PAYMENT from raw data
-  const outstandingDebt = allRecords
+  const outstandingDebt = dateFilteredRecords
     .filter(r => r.type === "Sale")
     .reduce((sum, r) => {
       const balance = parseAmount(r.raw["AMOUNT DIFFERENCES"] || r.raw["Amount Differences"]);
@@ -394,13 +398,13 @@ export default function RecordsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-4 mb-8">
         {[
-          { title: "Total Sales", val: totalSales, trend: last30Sales, color: "border-brand-500", icon: ArrowUpRight, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
-          { title: "Total Expenses", val: totalExpenses, trend: last30Expenses, color: "border-brand-500", icon: Wallet, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
+          { title: "Total Sales", val: totalSales, color: "border-brand-500", icon: ArrowUpRight, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
+          { title: "Total Expenses", val: totalExpenses, color: "border-brand-500", icon: Wallet, iconColor: "text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30" },
           { title: "Net Profit", val: netProfit, color: "border-emerald-500", icon: TrendingUp, iconColor: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
           { title: "Outstanding Debt", val: outstandingDebt, color: "border-rose-500", icon: ArrowDownRight, iconColor: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
         ].map((card, idx) => (
-          <Card 
-            key={idx} 
+          <Card
+            key={idx}
             className={cn(
               "bg-white dark:bg-zinc-900 border-none border-l-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between",
               card.color,
@@ -420,14 +424,59 @@ export default function RecordsPage() {
               )}>
                 ₦{card.val.toLocaleString(undefined, { minimumFractionDigits: 0 })}
               </p>
-              {card.trend !== undefined && (
-                <p className="text-[8px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5 sm:mt-1 truncate">
-                  <span className="hidden sm:inline">Last 30 Days: </span><span className="opacity-70">+₦{card.trend.toLocaleString()}</span>
-                </p>
-              )}
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800 shrink-0">
+          {(["all", "7d", "30d"] as const).map((id) => (
+            <button
+              key={id}
+              onClick={() => setDateRange(id)}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-black transition-[background-color,color] active:scale-[0.97]",
+                dateRange === id
+                  ? "bg-primary/10 dark:bg-primary/20 text-primary"
+                  : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
+              )}
+            >
+              {id === "all" ? "All" : id === "7d" ? "7D" : "30D"}
+            </button>
+          ))}
+          <button
+            onClick={() => setDateRange("custom")}
+            className={cn(
+              "px-3 py-2 rounded-lg text-xs font-black flex items-center gap-1 transition-[background-color,color] active:scale-[0.97]",
+              dateRange === "custom"
+                ? "bg-primary/10 dark:bg-primary/20 text-primary"
+                : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
+            )}
+          >
+            <CalendarRange className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        {dateRange === "custom" && (
+          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+            <input
+              type="date"
+              value={customStart}
+              max={customEnd || undefined}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="h-9 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold px-3 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:text-zinc-100"
+            />
+            <span className="text-gray-300 dark:text-zinc-600">→</span>
+            <input
+              type="date"
+              value={customEnd}
+              min={customStart || undefined}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="h-9 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold px-3 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:text-zinc-100"
+            />
+          </div>
+        )}
       </div>
 
       {/* Filter & Sort Bar */}
@@ -453,7 +502,7 @@ export default function RecordsPage() {
               <button
                 key={option.id}
                 onClick={() => setSortBy(option.id as any)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-[background-color,color] ${sortBy === option.id
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-[background-color,color] active:scale-[0.97] ${sortBy === option.id
                     ? "bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-foreground"
                     : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
@@ -479,7 +528,7 @@ export default function RecordsPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`px-6 py-2 rounded-lg text-xs font-bold transition-[background-color,color] ${activeTab === tab
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-[background-color,color] active:scale-[0.97] ${activeTab === tab
                     ? "bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-foreground"
                     : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300"
                   }`}
@@ -510,7 +559,22 @@ export default function RecordsPage() {
           </TableHeader>
           <TableBody>
             {loading && paginatedUnits.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-20 text-gray-400 dark:text-zinc-500 italic">Finding records...</TableCell></TableRow>
+              <>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                    <TableCell className="text-center"><Skeleton className="h-5 w-16 mx-auto rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell className="text-center"><Skeleton className="h-5 w-16 mx-auto rounded-full" /></TableCell>
+                    <TableCell className="text-center"><Skeleton className="h-7 w-16 mx-auto rounded-lg" /></TableCell>
+                  </TableRow>
+                ))}
+              </>
             ) : paginatedUnits.length === 0 ? (
               <TableRow><TableCell colSpan={9} className="text-center py-20 text-gray-400 dark:text-zinc-500">No records found matching your search.</TableCell></TableRow>
             ) : (
@@ -643,7 +707,22 @@ export default function RecordsPage() {
 
       <div className="md:hidden space-y-1">
         {loading && paginatedUnits.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">Loading records...</div>
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-gray-100 dark:border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-full" />
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-7 w-7 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : paginatedUnits.length === 0 ? (
           <div className="text-center py-20 text-gray-400">No records found.</div>
         ) : (
