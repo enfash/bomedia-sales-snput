@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -67,10 +68,40 @@ export default function CashierInventoryPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 text-orange-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Loading Stock...</p>
+      <div className="p-4 md:p-8 min-h-screen pb-32">
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-44" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-11 w-28 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm">
+              <Skeleton className="h-3 w-16 mb-3" />
+              <Skeleton className="h-7 w-10" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-11 w-full rounded-xl mb-6" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-transparent">
+              <div className="flex items-start justify-between mb-3">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-4 w-14" />
+              </div>
+              <Skeleton className="h-2 w-full rounded-full mt-3" />
+            </div>
+          ))}
         </div>
       </div>
     );

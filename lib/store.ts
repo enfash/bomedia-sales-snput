@@ -215,7 +215,7 @@ export const useSyncStore = create<SyncState>()(
           cachedExpenses: expenses,
           // ?? so only undefined/null falls back — an explicit [] correctly empties the slice
           cachedInventory: inventory ?? state.cachedInventory,
-          cachedPayments: payments ?? state.cachedPayments,
+          cachedPayments: payments?.length ? payments : state.cachedPayments,
           cachedMaterials: materials ?? state.cachedMaterials,
         }));
       },

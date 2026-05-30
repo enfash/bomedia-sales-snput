@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Printer,
   Loader2,
+  CalendarRange,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -27,12 +28,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useSyncStore } from "@/lib/store";
 import { RecordCard, type RecordStatus } from "@/components/record-card";
-import { isSameDay, format, subDays, isWithinInterval } from "date-fns";
+import { isSameDay, format, subDays, isWithinInterval, startOfDay } from "date-fns";
 import { ManageSaleAction, type UnifiedRecord } from "@/components/manage-sale-action";
 import { ManageBatchAction } from "@/components/manage-batch-action";
 import { WhatsAppReminder } from "@/components/whatsapp-reminder";
 import { ReceiptModal } from "@/components/receipt-modal";
 import { BatchCard } from "@/components/batch-card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -81,6 +83,9 @@ export default function CashierRecordsPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [groupReceiptRecords, setGroupReceiptRecords] = useState<UnifiedRecord[]>([]);
+  const [dateRange, setDateRange] = useState<"today" | "7d" | "30d" | "custom">("today");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   const fetchData = async () => {
     if (salesData.length === 0) setLoading(true);
@@ -183,28 +188,32 @@ export default function CashierRecordsPage() {
   const syncedSales = salesData.map(r => mapSale(r, false));
   const allSales = [...pendingSales, ...syncedSales];
 
-  // --- Filtering (Current Day + Past 7 Days Debtors) ---
+  // --- Date filter ---
   const now = new Date();
   const sevenDaysAgo = subDays(now, 7);
-  
-  const visibleRecords = allSales.filter(r => {
+
+  const dateFilterFn = (r: UnifiedRecord): boolean => {
     const dateStr = r.raw.DATE || r.raw.Date;
     if (!dateStr) return false;
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return false;
-    
-    // Always show today's records
-    if (isSameDay(d, now)) return true;
-    
-    // Show records from the past 7 days ONLY if they have an outstanding balance (debtors)
-    if (isWithinInterval(d, { start: sevenDaysAgo, end: now }) && (r.balance || 0) > 0) {
-      return true;
+
+    if (dateRange === "today") {
+      // Today's records + past-7-day debtors
+      if (isSameDay(d, now)) return true;
+      if (isWithinInterval(d, { start: sevenDaysAgo, end: now }) && (r.balance || 0) > 0) return true;
+      return false;
     }
-
+    if (dateRange === "7d") return isWithinInterval(d, { start: subDays(now, 7), end: now });
+    if (dateRange === "30d") return isWithinInterval(d, { start: subDays(now, 30), end: now });
+    if (dateRange === "custom" && customStart && customEnd)
+      return isWithinInterval(d, { start: startOfDay(new Date(customStart)), end: new Date(customEnd + "T23:59:59") });
     return false;
-  });
+  };
 
-  const filtered = visibleRecords.filter(r => {
+  const dateFilteredRecords = allSales.filter(dateFilterFn);
+
+  const filtered = dateFilteredRecords.filter(r => {
     const matchesSearch =
       r.client.toLowerCase().includes(search.toLowerCase()) ||
       r.description.toLowerCase().includes(search.toLowerCase());
@@ -286,7 +295,7 @@ export default function CashierRecordsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, activeTab, sortBy, sortOrder]);
+  }, [search, activeTab, sortBy, sortOrder, dateRange, customStart, customEnd]);
 
   return (
     <div className="p-3 md:p-8 bg-orange-50/20 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
@@ -320,6 +329,56 @@ export default function CashierRecordsPage() {
         </Button>
       </div>
 
+      {/* Date Range Filter */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800 shrink-0">
+          {(["today", "7d", "30d"] as const).map((id) => (
+            <button
+              key={id}
+              onClick={() => setDateRange(id)}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-black transition-[background-color,color] active:scale-[0.97]",
+                dateRange === id
+                  ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                  : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
+              )}
+            >
+              {id === "today" ? "Today" : id === "7d" ? "7D" : "30D"}
+            </button>
+          ))}
+          <button
+            onClick={() => setDateRange("custom")}
+            className={cn(
+              "px-3 py-2 rounded-lg text-xs font-black flex items-center gap-1 transition-[background-color,color] active:scale-[0.97]",
+              dateRange === "custom"
+                ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
+            )}
+          >
+            <CalendarRange className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        {dateRange === "custom" && (
+          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+            <input
+              type="date"
+              value={customStart}
+              max={customEnd || undefined}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="h-9 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold px-3 focus:outline-none focus:ring-2 focus:ring-orange-400/40 dark:text-zinc-100"
+            />
+            <span className="text-gray-300 dark:text-zinc-600">→</span>
+            <input
+              type="date"
+              value={customEnd}
+              min={customStart || undefined}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="h-9 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold px-3 focus:outline-none focus:ring-2 focus:ring-orange-400/40 dark:text-zinc-100"
+            />
+          </div>
+        )}
+      </div>
+
       {/* Filter & Sort Bar */}
       <div className="flex flex-col lg:flex-row gap-4 mb-6">
         <div className="relative flex-1">
@@ -343,7 +402,7 @@ export default function CashierRecordsPage() {
               <button
                 key={option.id}
                 onClick={() => setSortBy(option.id as any)}
-                className={`px-4 py-2 rounded-lg text-xs font-black transition-[background-color,color] ${sortBy === option.id
+                className={`px-4 py-2 rounded-lg text-xs font-black transition-[background-color,color] active:scale-[0.97] ${sortBy === option.id
                     ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                     : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
                   }`}
@@ -369,7 +428,7 @@ export default function CashierRecordsPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`px-6 py-2 rounded-lg text-xs font-black transition-[background-color,color] ${activeTab === tab
+                className={`px-6 py-2 rounded-lg text-xs font-black transition-[background-color,color] active:scale-[0.97] ${activeTab === tab
                     ? "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                     : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
                   }`}
@@ -397,7 +456,19 @@ export default function CashierRecordsPage() {
           </TableHeader>
           <TableBody>
             {loading && paginatedUnits.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400 dark:text-zinc-600 italic font-medium">Finding records...</TableCell></TableRow>
+              <>
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <TableRow key={i} className="border-b border-gray-50 dark:border-zinc-800">
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                    <TableCell className="text-center"><Skeleton className="h-5 w-20 rounded-full mx-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell className="text-center"><Skeleton className="h-8 w-20 rounded-lg mx-auto" /></TableCell>
+                  </TableRow>
+                ))}
+              </>
             ) : paginatedUnits.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center py-20 text-gray-400 dark:text-zinc-600 font-medium">No records found matching your search.</TableCell></TableRow>
             ) : (
@@ -507,7 +578,23 @@ export default function CashierRecordsPage() {
 
       <div className="md:hidden space-y-1">
         {loading && paginatedUnits.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">Loading records...</div>
+          <div className="space-y-3 pt-1">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-zinc-800">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-44" />
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : paginatedUnits.length === 0 ? (
           <div className="text-center py-20 text-gray-400">No records found.</div>
         ) : (
