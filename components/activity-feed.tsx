@@ -1,21 +1,19 @@
 "use client";
 
 import { useSyncStore } from "@/lib/store";
-import { Bell, Package, Receipt, Clock, AlertTriangle, User, TrendingUp, TrendingDown, CheckCircle2, WifiOff, AlertCircle } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { Bell, Clock, AlertTriangle, User, TrendingUp, TrendingDown, CheckCircle2, WifiOff, AlertCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { format, isToday, isYesterday, parseISO } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { toast } from "sonner";
+import IconButton from "@mui/material/IconButton";
+import Drawer from "@mui/material/Drawer";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 
 type ActivityType = "sale" | "expense" | "inventory";
 
@@ -40,6 +38,8 @@ interface ActivityItem {
 export function ActivityFeed() {
   const { cachedSales, cachedExpenses, cachedInventory, cachedMaterials, pendingQueue } = useSyncStore();
   const [isRestocking, setIsRestocking] = useState<number | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
 
   const activityItems = useMemo(() => {
     const parseVal = (val: any) => {
@@ -87,7 +87,6 @@ export function ActivityFeed() {
       return parseFloat(str) || 0;
     };
 
-    // 1. Inventory Warnings (calculated at the Material aggregate level)
     const inventory = (cachedMaterials || [])
       .filter((mat) => {
         const remaining = parseVal(mat["Total Remaining (ft)"]);
@@ -96,10 +95,9 @@ export function ActivityFeed() {
       })
       .map((mat) => {
         const remaining = parseVal(mat["Total Remaining (ft)"]);
-        // Find the active roll in cachedInventory to get its rowIndex for restocking
         const activeRollId = mat["Active Roll ID"];
         const activeRoll = cachedInventory.find(r => r["Roll ID"] === activeRollId);
-        
+
         return {
           type: "inventory" as const,
           id: `m-${mat["Material ID"]}`,
@@ -111,7 +109,6 @@ export function ActivityFeed() {
         };
       });
 
-    // 2. Pending Sync Items
     const pending = pendingQueue.map((item) => ({
       type: "pending" as const,
       id: item.id,
@@ -128,10 +125,9 @@ export function ActivityFeed() {
     };
   }, [cachedInventory, cachedMaterials, pendingQueue]);
 
-  // Grouping by Date
   const groupedActivities = useMemo(() => {
     const groups: Record<string, ActivityItem[]> = {};
-    
+
     activityItems.forEach((item) => {
       let dateKey = "";
       try {
@@ -180,259 +176,519 @@ export function ActivityFeed() {
   };
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-10 w-10 rounded-full text-gray-500 hover:text-primary hover:bg-primary/10 transition-[background-color,color,transform] active:scale-[0.97]"
+    <>
+      <IconButton
+        onClick={() => setDrawerOpen(true)}
+        sx={{
+          position: "relative",
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          color: "text.secondary",
+          "&:hover": { color: "primary.main", bgcolor: "primary.main" + "1A" },
+          transition: "background-color 0.2s, color 0.2s, transform 0.2s",
+          "&:active": { transform: "scale(0.97)" },
+        }}
+      >
+        <Bell size={20} />
+        {alerts.totalCount > 0 && (
+          <Box
+            component="span"
+            sx={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              bgcolor: "#f43f5e",
+              border: "2px solid white",
+              animation: "bounce 1s infinite",
+            }}
+          />
+        )}
+      </IconButton>
+
+      <Drawer
+        anchor="right"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: "100%", sm: 420 },
+              display: "flex",
+              flexDirection: "column",
+              bgcolor: "background.paper",
+              color: "text.primary",
+              borderLeft: "1px solid",
+              borderColor: "divider",
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{
+            p: 3,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            bgcolor: "grey.50",
+            flexShrink: 0,
+          }}
         >
-          <Bell className="h-5 w-5" />
-          {alerts.totalCount > 0 && (
-            <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-rose-500 border-2 border-white dark:border-zinc-950 animate-bounce" />
-          )}
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col border-l dark:border-zinc-800 bg-white dark:bg-zinc-950">
-        <SheetHeader className="p-6 border-b dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50 shrink-0">
-          <SheetTitle className="text-xl font-black tracking-tight flex items-center gap-2 text-gray-900 dark:text-white">
-            <Clock className="w-5 h-5 text-primary" />
-            Activity & System Alerts
-          </SheetTitle>
-          <SheetDescription className="text-xs font-bold uppercase tracking-widest text-gray-500">
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 0.5 }}>
+            <Clock size={20} color="#C8472E" />
+            <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: "-0.02em", color: "text.primary" }}>
+              Activity & System Alerts
+            </Typography>
+          </Stack>
+          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.secondary" }}>
             Recent updates & warnings
-          </SheetDescription>
-        </SheetHeader>
+          </Typography>
+        </Box>
 
-        <Tabs defaultValue="activities" className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 pt-4 shrink-0">
-            <TabsList className="bg-gray-100 dark:bg-zinc-900 p-1 rounded-xl border border-gray-200 dark:border-zinc-800 gap-1 flex">
-              <TabsTrigger
-                value="activities"
-                className="flex-1 rounded-lg text-xs font-black uppercase py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm data-[state=active]:text-gray-900 dark:data-[state=active]:text-white transition-all"
-              >
-                <Clock className="w-3.5 h-3.5 mr-1.5" />
-                Updates ({activityItems.length})
-              </TabsTrigger>
-              <TabsTrigger
-                value="alerts"
-                className="flex-1 rounded-lg text-xs font-black uppercase py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm data-[state=active]:text-gray-900 dark:data-[state=active]:text-white transition-all relative"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
-                Alerts
-                {alerts.totalCount > 0 && (
-                  <span className={cn(
-                    "ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black text-white leading-none flex items-center justify-center min-w-[16px] h-4",
-                    alerts.criticalCount > 0 ? "bg-rose-500 animate-pulse" : "bg-amber-500"
-                  )}>
-                    {alerts.totalCount}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        <Box sx={{ px: 2, pt: 2, flexShrink: 0 }}>
+          <Tabs
+            value={tabValue}
+            onChange={(_, v) => setTabValue(v)}
+            variant="fullWidth"
+            sx={{
+              bgcolor: "grey.100",
+              borderRadius: 3,
+              p: 0.5,
+              minHeight: 0,
+              "& .MuiTabs-indicator": { display: "none" },
+              "& .MuiTab-root": {
+                minHeight: 36,
+                borderRadius: 2,
+                fontSize: "0.7rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                color: "text.secondary",
+                "&.Mui-selected": {
+                  bgcolor: "background.paper",
+                  color: "text.primary",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                },
+              },
+            }}
+          >
+            <Tab
+              label={
+                <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                  <Clock size={14} />
+                  <span>Updates ({activityItems.length})</span>
+                </Stack>
+              }
+            />
+            <Tab
+              label={
+                <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                  <AlertTriangle size={14} />
+                  <span>Alerts</span>
+                  {alerts.totalCount > 0 && (
+                    <Chip
+                      label={alerts.totalCount}
+                      size="small"
+                      sx={{
+                        height: 16,
+                        fontSize: "0.55rem",
+                        fontWeight: 900,
+                        bgcolor: alerts.criticalCount > 0 ? "#f43f5e" : "#f59e0b",
+                        color: "white",
+                        "& .MuiChip-label": { px: 0.75 },
+                        animation: alerts.criticalCount > 0 ? "pulse 2s infinite" : "none",
+                      }}
+                    />
+                  )}
+                </Stack>
+              }
+            />
+          </Tabs>
+        </Box>
 
-          <TabsContent value="activities" className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0 outline-none">
+        {tabValue === 0 && (
+          <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
             {Object.keys(groupedActivities).length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 mt-12">
-                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-zinc-900 flex items-center justify-center mb-4">
-                  <Bell className="w-8 h-8 text-gray-400" />
-                </div>
-                <p className="text-base font-black text-gray-900 dark:text-zinc-100 uppercase tracking-tight">Quiet on the front</p>
-                <p className="text-xs text-gray-500 mt-2 font-medium">New transactions will appear here.</p>
-              </div>
+              <Stack sx={{ alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", p: 4, mt: 6 }}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    bgcolor: "grey.100",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 2,
+                  }}
+                >
+                  <Bell size={32} color="#9ca3af" />
+                </Box>
+                <Typography sx={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", color: "text.primary" }}>
+                  Quiet on the front
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, fontWeight: 500 }}>
+                  New transactions will appear here.
+                </Typography>
+              </Stack>
             ) : (
               Object.entries(groupedActivities).map(([date, items]) => (
-                <div key={date} className="space-y-3">
-                  <div className="sticky top-0 z-10 flex items-center gap-2 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm py-1">
-                    <div className="h-[1px] flex-1 bg-gray-100 dark:bg-zinc-800" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-zinc-500 whitespace-nowrap">
+                <Box key={date} sx={{ mb: 3 }}>
+                  <Stack
+                    direction="row"
+                    sx={{
+                      alignItems: "center",
+                      gap: 1,
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 10,
+                      bgcolor: "background.paper",
+                      backdropFilter: "blur(8px)",
+                      py: 0.5,
+                    }}
+                  >
+                    <Box sx={{ flex: 1, height: 1, bgcolor: "grey.100" }} />
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.6rem" }}
+                    >
                       {date}
-                    </span>
-                    <div className="h-[1px] flex-1 bg-gray-100 dark:bg-zinc-800" />
-                  </div>
+                    </Typography>
+                    <Box sx={{ flex: 1, height: 1, bgcolor: "grey.100" }} />
+                  </Stack>
 
-                  <div className="space-y-3">
+                  <Stack sx={{ gap: 1.5, mt: 1 }}>
                     {items.map((item) => (
-                      <div
+                      <Box
                         key={item.id}
-                        className="group p-4 rounded-2xl border border-gray-100 dark:border-zinc-800/50 bg-white dark:bg-zinc-900 [@media(hover:hover)]:hover:shadow-md transition-[box-shadow] duration-200"
+                        sx={{
+                          p: 2,
+                          borderRadius: 3,
+                          border: "1px solid",
+                          borderColor: "grey.100",
+                          bgcolor: "background.paper",
+                          "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.08)" },
+                          transition: "box-shadow 0.2s",
+                        }}
                       >
-                        <div className="flex gap-4">
-                          <div className={cn(
-                            "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm",
-                            item.type === "sale" 
-                              ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20" 
-                              : "bg-amber-500/10 text-amber-600 dark:bg-amber-500/20"
-                          )}>
-                            {item.type === "sale" ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-gray-400 dark:text-zinc-500 font-bold uppercase tracking-wider">
-                                {item.type} • {formatTime(item.timestamp)}
-                              </span>
-                              {item.user && (
-                                <div className="flex items-center gap-1 text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/5">
-                                  <User className="w-3 h-3" />
-                                  {item.user}
-                                </div>
-                              )}
-                            </div>
+                        <Stack direction="row" sx={{ gap: 2 }}>
+                          <Box
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 3,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              bgcolor: item.type === "sale" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
+                              color: item.type === "sale" ? "#059669" : "#d97706",
+                            }}
+                          >
+                            {item.type === "sale" ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                          </Box>
 
-                            <p className="text-sm font-black text-gray-900 dark:text-zinc-100 mt-1 leading-tight tracking-tight">
-                              {item.type === "sale" 
-                                ? `New Sale for ${item.client}` 
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", fontSize: "0.6rem" }}>
+                                {item.type} • {formatTime(item.timestamp)}
+                              </Typography>
+                              {item.user && (
+                                <Stack
+                                  direction="row"
+                                  sx={{
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                    bgcolor: "primary.main" + "0D",
+                                    px: 1,
+                                    py: 0.25,
+                                    borderRadius: 100,
+                                  }}
+                                >
+                                  <User size={10} color="#C8472E" />
+                                  <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main", fontSize: "0.6rem" }}>
+                                    {item.user}
+                                  </Typography>
+                                </Stack>
+                              )}
+                            </Stack>
+
+                            <Typography sx={{ fontWeight: 900, fontSize: "0.875rem", mt: 0.5, lineHeight: 1.3, letterSpacing: "-0.01em", color: "text.primary" }}>
+                              {item.type === "sale"
+                                ? `New Sale for ${item.client}`
                                 : `Expense: ${item.category}`}
-                            </p>
-                            
-                            <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1 font-medium italic">
+                            </Typography>
+
+                            <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: "block", fontStyle: "italic", fontWeight: 500 }}>
                               {item.description}
-                            </p>
+                            </Typography>
 
                             {item.type === "sale" && (
-                              <div className="flex items-center gap-2 mt-3">
-                                <div className="px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase">
+                              <Stack direction="row" sx={{ alignItems: "center", gap: 1, mt: 1.5 }}>
+                                <Box
+                                  sx={{
+                                    px: 1,
+                                    py: 0.5,
+                                    borderRadius: 1,
+                                    bgcolor: "rgba(16,185,129,0.08)",
+                                    color: "#059669",
+                                    fontSize: "0.6rem",
+                                    fontWeight: 900,
+                                    textTransform: "uppercase",
+                                    fontFamily: "monospace",
+                                  }}
+                                >
                                   Paid: ₦{item.paid?.toLocaleString()}
-                                </div>
-                                <div className={cn(
-                                  "px-2 py-1 rounded-lg text-[10px] font-black uppercase",
-                                  item.balance! > 0 
-                                    ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400" 
-                                    : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
-                                )}>
+                                </Box>
+                                <Box
+                                  sx={{
+                                    px: 1,
+                                    py: 0.5,
+                                    borderRadius: 1,
+                                    bgcolor: item.balance! > 0 ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)",
+                                    color: item.balance! > 0 ? "#d97706" : "#059669",
+                                    fontSize: "0.6rem",
+                                    fontWeight: 900,
+                                    textTransform: "uppercase",
+                                    fontFamily: "monospace",
+                                  }}
+                                >
                                   Bal: ₦{item.balance?.toLocaleString()}
-                                </div>
-                              </div>
+                                </Box>
+                              </Stack>
                             )}
 
                             {item.type === "expense" && (
-                              <div className="mt-3 px-2 py-1 w-fit rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase">
+                              <Box
+                                sx={{
+                                  mt: 1.5,
+                                  px: 1,
+                                  py: 0.5,
+                                  width: "fit-content",
+                                  borderRadius: 1,
+                                  bgcolor: "rgba(245,158,11,0.08)",
+                                  color: "#d97706",
+                                  fontSize: "0.6rem",
+                                  fontWeight: 900,
+                                  textTransform: "uppercase",
+                                  fontFamily: "monospace",
+                                }}
+                              >
                                 Amount: ₦{item.amount.toLocaleString()}
-                              </div>
+                              </Box>
                             )}
-                          </div>
-                        </div>
-                      </div>
+                          </Box>
+                        </Stack>
+                      </Box>
                     ))}
-                  </div>
-                </div>
+                  </Stack>
+                </Box>
               ))
             )}
-          </TabsContent>
+          </Box>
+        )}
 
-          <TabsContent value="alerts" className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0 outline-none">
+        {tabValue === 1 && (
+          <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
             {alerts.totalCount === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 mt-12">
-                <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                </div>
-                <p className="text-base font-black text-gray-900 dark:text-zinc-100 uppercase tracking-tight">All systems operational</p>
-                <p className="text-xs text-gray-500 mt-2 font-medium">No low stock warnings or pending offline actions.</p>
-              </div>
+              <Stack sx={{ alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", p: 4, mt: 6 }}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    bgcolor: "rgba(16,185,129,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 2,
+                  }}
+                >
+                  <CheckCircle2 size={32} color="#10b981" />
+                </Box>
+                <Typography sx={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", color: "text.primary" }}>
+                  All systems operational
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, fontWeight: 500 }}>
+                  No low stock warnings or pending offline actions.
+                </Typography>
+              </Stack>
             ) : (
-              <div className="space-y-6">
-                {/* Offline Sync alerts */}
+              <Stack sx={{ gap: 3 }}>
                 {alerts.pending.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-full flex items-center gap-1.5">
-                        <WifiOff className="w-3.5 h-3.5" />
-                        Offline Sync Queue ({alerts.pending.length})
-                      </span>
-                    </div>
-                    <div className="space-y-2">
+                  <Box>
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                        fontSize: "0.6rem",
+                        fontWeight: 900,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "#d97706",
+                        bgcolor: "rgba(245,158,11,0.08)",
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 100,
+                        mb: 1.5,
+                      }}
+                    >
+                      <WifiOff size={14} />
+                      Offline Sync Queue ({alerts.pending.length})
+                    </Box>
+                    <Stack sx={{ gap: 1 }}>
                       {alerts.pending.map((p) => (
-                        <div key={p.id} className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/30 bg-amber-50/20 dark:bg-amber-900/5 flex items-center justify-between">
-                          <div>
-                            <p className="text-xs font-bold text-gray-800 dark:text-zinc-200">
+                        <Stack
+                          key={p.id}
+                          direction="row"
+                          sx={{
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            p: 1.75,
+                            borderRadius: 3,
+                            border: "1px solid rgba(245,158,11,0.3)",
+                            bgcolor: "rgba(245,158,11,0.04)",
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary" }}>
                               {p.description}
-                            </p>
-                            <p className="text-[9px] text-gray-400 dark:text-zinc-500 font-mono mt-0.5">
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.55rem", fontFamily: "monospace", color: "text.disabled", mt: 0.25 }}>
                               Queued: {format(new Date(p.timestamp), "h:mm a")}
-                            </p>
-                          </div>
-                          <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded-full animate-pulse">
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              fontSize: "0.55rem",
+                              fontWeight: 900,
+                              color: "#d97706",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.15em",
+                              bgcolor: "rgba(245,158,11,0.12)",
+                              px: 1,
+                              py: 0.25,
+                              borderRadius: 100,
+                              animation: "pulse 2s infinite",
+                            }}
+                          >
                             Pending Sync
-                          </span>
-                        </div>
+                          </Box>
+                        </Stack>
                       ))}
-                    </div>
-                  </div>
+                    </Stack>
+                  </Box>
                 )}
 
-                {/* Stock alerts */}
                 {alerts.inventory.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-2.5 py-1 rounded-full flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        Material Stock Alerts ({alerts.inventory.length})
-                      </span>
-                    </div>
-                    <div className="space-y-3">
+                  <Box>
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                        fontSize: "0.6rem",
+                        fontWeight: 900,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "#e11d48",
+                        bgcolor: "rgba(244,63,94,0.08)",
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 100,
+                        mb: 1.5,
+                      }}
+                    >
+                      <AlertCircle size={14} />
+                      Material Stock Alerts ({alerts.inventory.length})
+                    </Box>
+                    <Stack sx={{ gap: 1.5 }}>
                       {alerts.inventory.map((item) => (
-                        <div
+                        <Box
                           key={item.id}
-                          className={cn(
-                            "p-4 rounded-2xl border bg-white dark:bg-zinc-900 shadow-sm transition-[box-shadow] duration-200",
-                            item.critical 
-                              ? "border-rose-200 dark:border-rose-900/40 bg-rose-50/10 dark:bg-rose-900/5" 
-                              : "border-amber-200 dark:border-amber-900/40 bg-amber-50/10 dark:bg-amber-900/5"
-                          )}
+                          sx={{
+                            p: 2,
+                            borderRadius: 3,
+                            border: "1px solid",
+                            borderColor: item.critical ? "rgba(244,63,94,0.3)" : "rgba(245,158,11,0.3)",
+                            bgcolor: item.critical ? "rgba(244,63,94,0.04)" : "rgba(245,158,11,0.04)",
+                          }}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className={cn(
-                                  "w-2 h-2 rounded-full",
-                                  item.critical ? "bg-rose-500 animate-ping" : "bg-amber-500"
-                                )} />
-                                <p className="text-xs font-black text-gray-900 dark:text-zinc-100">
+                          <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", gap: 1.5 }}>
+                            <Box>
+                              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                                <Box
+                                  sx={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: "50%",
+                                    bgcolor: item.critical ? "#f43f5e" : "#f59e0b",
+                                    animation: item.critical ? "ping 1s infinite" : "none",
+                                  }}
+                                />
+                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary" }}>
                                   {item.itemName}
-                                </p>
-                              </div>
-                              <p className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium mt-1 leading-relaxed">
+                                </Typography>
+                              </Stack>
+                              <Typography sx={{ fontSize: "0.7rem", color: "text.secondary", fontWeight: 500, mt: 0.5, lineHeight: 1.5 }}>
                                 {item.description}
-                              </p>
-                              <div className="mt-3 flex items-center gap-2">
-                                <span className={cn(
-                                  "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase",
-                                  item.critical
-                                    ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
-                                    : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-                                )}>
-                                  Stock: {item.stock.toFixed(1)} ft remaining
-                                </span>
-                              </div>
-                            </div>
+                              </Typography>
+                              <Box
+                                sx={{
+                                  mt: 1.5,
+                                  display: "inline-block",
+                                  px: 1,
+                                  py: 0.25,
+                                  borderRadius: 1,
+                                  fontSize: "0.55rem",
+                                  fontWeight: 900,
+                                  textTransform: "uppercase",
+                                  bgcolor: item.critical ? "rgba(244,63,94,0.1)" : "rgba(245,158,11,0.1)",
+                                  color: item.critical ? "#e11d48" : "#d97706",
+                                }}
+                              >
+                                Stock: {item.stock.toFixed(1)} ft remaining
+                              </Box>
+                            </Box>
 
                             <Button
-                              size="sm"
-                              variant="outline"
+                              size="small"
+                              variant="outlined"
                               disabled={isRestocking === item.rowIndex}
                               onClick={() => handleRestock(item.rowIndex!, item.itemName!)}
-                              className={cn(
-                                "h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-tighter border shadow-sm shrink-0",
-                                item.critical
-                                  ? "border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white dark:border-rose-900/50"
-                                  : "border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white dark:border-amber-900/50"
-                              )}
+                              sx={{
+                                flexShrink: 0,
+                                height: 32,
+                                px: 1.5,
+                                borderRadius: 2,
+                                fontSize: "0.6rem",
+                                fontWeight: 900,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                borderColor: item.critical ? "rgba(244,63,94,0.4)" : "rgba(245,158,11,0.4)",
+                                color: item.critical ? "#e11d48" : "#d97706",
+                                "&:hover": {
+                                  bgcolor: item.critical ? "#e11d48" : "#d97706",
+                                  color: "white",
+                                  borderColor: "transparent",
+                                },
+                              }}
                             >
                               {isRestocking === item.rowIndex ? "Restocking..." : "Restock Roll"}
                             </Button>
-                          </div>
-                        </div>
+                          </Stack>
+                        </Box>
                       ))}
-                    </div>
-                  </div>
+                    </Stack>
+                  </Box>
                 )}
-              </div>
+              </Stack>
             )}
-          </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+          </Box>
+        )}
+      </Drawer>
+    </>
   );
 }

@@ -1,10 +1,14 @@
 "use client";
 
 import { type UnifiedRecord } from "@/components/manage-sale-action";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Printer, Loader2, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import Paper from "@mui/material/Paper";
+import { ChevronRight, Printer, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { ReceiptModal } from "./receipt-modal";
 import { ManageBatchAction } from "./manage-batch-action";
@@ -40,11 +44,11 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
     toast.success("Item removed from batch");
   };
 
-  const statusColors: Record<RecordStatus, string> = {
-    Settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    "Part-payment": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    Syncing: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground animate-pulse",
+  const statusChipSx: Record<RecordStatus, object> = {
+    Settled: { bgcolor: "#d1fae5", color: "#065f46" },
+    "Part-payment": { bgcolor: "#fef3c7", color: "#92400e" },
+    "In Progress": { bgcolor: "#dbeafe", color: "#1e40af" },
+    Syncing: { bgcolor: "primary.light", color: "primary.contrastText", animation: "pulse 1.5s infinite" },
   };
 
   const handleGenerateReceipt = (e: React.MouseEvent) => {
@@ -57,94 +61,125 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
   }
 
   return (
-    <div className={cn(
-      "bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm mb-2.5 overflow-hidden transition-[box-shadow,border-color] duration-300",
-      isExpanded ? "ring-1 ring-primary/20" : ""
-    )}>
-      {/* Header / Summary Section */}
-      <div 
-        className="p-5 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-zinc-800/30"
+    <Paper
+      variant="outlined"
+      sx={{
+        borderRadius: 3,
+        mb: 1.25,
+        overflow: "hidden",
+        transition: "box-shadow 0.3s, border-color 0.3s",
+        boxShadow: isExpanded ? "0 0 0 1px rgba(200,71,46,0.2)" : undefined,
+        borderColor: isExpanded ? "primary.light" : "grey.100",
+      }}
+    >
+      <Box
         onClick={() => setIsExpanded(!isExpanded)}
+        sx={{ p: 2.5, cursor: "pointer", "&:hover": { bgcolor: "grey.50" } }}
       >
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "p-1 rounded-md bg-gray-100 dark:bg-zinc-800 text-gray-500 transition-transform duration-200",
-              isExpanded ? "rotate-90" : ""
-            )}>
-              <ChevronRight className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[10px] font-black text-primary uppercase tracking-wider">{firstItem.date}</span>
-              <h3 className="text-sm font-black text-gray-900 dark:text-white leading-tight">{firstItem.client}</h3>
-              <p className="text-[10px] text-gray-500 font-medium">{salesId}</p>
-            </div>
-          </div>
-          <Badge className={cn("text-[9px] px-2 py-0.5 rounded-full font-black border-none", statusColors[status])}>
-            {status}
-          </Badge>
-        </div>
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+            <Box
+              sx={{
+                p: 0.5,
+                borderRadius: 1,
+                bgcolor: "grey.100",
+                color: "text.secondary",
+                display: "flex",
+                transition: "transform 0.2s",
+                transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+              }}
+            >
+              <ChevronRight size={16} />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", textTransform: "uppercase", letterSpacing: 1 }}>
+                {firstItem.date}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 900, color: "text.primary", lineHeight: 1.2 }}>
+                {firstItem.client}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
+                {salesId}
+              </Typography>
+            </Box>
+          </Stack>
+          <Chip
+            label={status}
+            size="small"
+            sx={{ fontSize: "0.6rem", fontWeight: 900, height: 20, borderRadius: 10, ...statusChipSx[status] }}
+          />
+        </Stack>
 
-        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-50 dark:border-zinc-800/50">
-          <div>
-            <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider mb-0.5">Total Amount</p>
-            <p className="text-sm font-black text-gray-900 dark:text-white">₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[9px] font-bold uppercase text-rose-400 tracking-wider mb-0.5">Total Balance</p>
-            <p className="text-sm font-black text-rose-600 dark:text-rose-400">₦{totalBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
+        <Stack direction="row" sx={{ gap: 2, pt: 1.5, borderTop: "1px solid", borderColor: "grey.50" }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "text.disabled", letterSpacing: 1, display: "block", mb: 0.25 }}>
+              Total Amount
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 900, color: "text.primary", fontFamily: "monospace" }}>
+              ₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: "right" }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "error.light", letterSpacing: 1, display: "block", mb: 0.25 }}>
+              Total Balance
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 900, color: "error.main", fontFamily: "monospace" }}>
+              ₦{totalBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </Typography>
+          </Box>
+        </Stack>
 
-        <div className="mt-3 flex items-center justify-between">
-            <Badge variant="outline" className="bg-primary/5 dark:bg-primary/10 text-primary border-primary/20 text-[9px] font-black">
-                {localRecords.length} ITEMS IN BATCH
-            </Badge>
-            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 text-primary border-primary/20"
-                    onClick={handleGenerateReceipt}
-                >
-                    <Printer className="w-4 h-4" />
-                </Button>
-                <ManageBatchAction records={localRecords} salesId={salesId} onUpdate={onUpdate} />
-            </div>
-        </div>
-      </div>
+        <Stack direction="row" sx={{ mt: 1.5, alignItems: "center", justifyContent: "space-between" }}>
+          <Chip
+            label={`${localRecords.length} ITEMS IN BATCH`}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: "0.6rem", fontWeight: 900, height: 20, borderRadius: 10, color: "primary.main", borderColor: "primary.light", bgcolor: "primary.50" }}
+          />
+          <Stack direction="row" sx={{ gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+            <IconButton
+              size="small"
+              onClick={handleGenerateReceipt}
+              sx={{ width: 32, height: 32, color: "primary.main", border: "1px solid", borderColor: "primary.light" }}
+            >
+              <Printer size={16} />
+            </IconButton>
+            <ManageBatchAction records={localRecords} salesId={salesId} onUpdate={onUpdate} />
+          </Stack>
+        </Stack>
+      </Box>
 
-      {/* Expanded Content */}
       {isExpanded && (
-        <div className="bg-gray-50/50 dark:bg-zinc-950/30 p-3 space-y-2 border-t border-gray-50 dark:border-zinc-800/50">
-          {localRecords.map((r, idx) => (
-            <div key={r.id || idx} className="flex items-start gap-2">
-              <div className="flex-1">
-                <RecordCard
-                  date={r.date}
-                  type={r.type}
-                  client={r.client}
-                  description={r.description}
-                  amount={`₦${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                  status={r.status}
-                  isPending={r.isPending}
-                  record={r}
-                  onUpdate={onUpdate}
-                  allSalesContext={localRecords}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 dark:hover:text-rose-400 flex-shrink-0 mt-2"
-                onClick={() => handleDeleteItem(r.id)}
-                title="Remove from batch"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
+        <Box sx={{ bgcolor: "grey.50", p: 1.5, borderTop: "1px solid", borderColor: "grey.100" }}>
+          <Stack sx={{ gap: 1 }}>
+            {localRecords.map((r, idx) => (
+              <Stack key={r.id || idx} direction="row" sx={{ alignItems: "flex-start", gap: 1 }}>
+                <Box sx={{ flex: 1 }}>
+                  <RecordCard
+                    date={r.date}
+                    type={r.type}
+                    client={r.client}
+                    description={r.description}
+                    amount={`₦${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                    status={r.status}
+                    isPending={r.isPending}
+                    record={r}
+                    onUpdate={onUpdate}
+                    allSalesContext={localRecords}
+                  />
+                </Box>
+                <IconButton
+                  size="small"
+                  onClick={() => handleDeleteItem(r.id)}
+                  title="Remove from batch"
+                  sx={{ width: 32, height: 32, color: "error.main", mt: 1, flexShrink: 0, "&:hover": { bgcolor: "error.50" } }}
+                >
+                  <Trash2 size={16} />
+                </IconButton>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
       )}
 
       <ReceiptModal
@@ -153,6 +188,6 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
         records={localRecords}
         salesId={salesId}
       />
-    </div>
+    </Paper>
   );
 }

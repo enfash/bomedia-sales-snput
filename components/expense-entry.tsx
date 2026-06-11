@@ -1,49 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useSyncStore } from "@/lib/store";
-import { Camera, Check, ChevronsUpDown, Loader2, Receipt } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Camera, Check, Loader2, Receipt } from "lucide-react";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
+
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Stack from "@mui/material/Stack";
+import Divider from "@mui/material/Divider";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
 
 type RecentExpense = {
   id: string;
@@ -55,27 +37,7 @@ type RecentExpense = {
   paidTo: string;
 };
 
-const EXPENSE_CATEGORIES = [
-  "Raw Materials",
-  "SAV 3ft",
-  "SAV 4ft",
-  "SAV 5ft",
-  "Flex 3ft",
-  "Flex 4ft",
-  "Flex 5ft",
-  "Flex 6ft",
-  "Flex 8ft",
-  "Flex 10ft",
-  "Ink",
-  "Equipment",
-  "Utilities",
-  "Salaries",
-  "Transport",
-  "Maintenance",
-  "Marketing",
-  "Office Supplies",
-  "Miscellaneous",
-];
+import { EXPENSE_CATEGORIES, PAYMENT_METHODS, STORAGE_KEYS, SYSTEM_DEFAULTS } from "@/lib/constants";
 
 export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -84,15 +46,13 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>([]);
   const [batchItems, setBatchItems] = useState<any[]>([]);
 
-  const [open, setOpen] = useState(false);
-  const [showVendorSuggestions, setShowVendorSuggestions] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     amount: "",
     category: "",
     description: "",
     paidTo: "",
-    paymentMethod: "Bank Transfer",
+    paymentMethod: PAYMENT_METHODS[0],
     receiptUrl: "",
     status: "Unpaid" as "Paid" | "Unpaid",
   });
@@ -108,16 +68,11 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     return Array.from(names).sort();
   }, [cachedExpenses]);
 
-  const filteredVendors = useMemo(() => {
-    const q = formData.paidTo.toLowerCase();
-    return uniqueVendors.filter(v => v.toLowerCase().includes(q)).slice(0, 6);
-  }, [uniqueVendors, formData.paidTo]);
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > SYSTEM_DEFAULTS.MAX_UPLOAD_SIZE_BYTES) {
       toast.error("File is too large. Max 5MB.");
       return;
     }
@@ -172,7 +127,6 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       'PAYMENT METHOD': formData.paymentMethod,
       'RECEIPT URL': formData.receiptUrl,
       STATUS: formData.status,
-      // TIMESTAMP will be added server-side
     };
 
     setBatchItems((prev) => [item, ...prev]);
@@ -195,9 +149,8 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       amount: "",
       category: "",
       description: "",
-      // Preserve vendor name so user can add multiple items for same vendor
       paidTo: formData.paidTo,
-      paymentMethod: "Bank Transfer",
+      paymentMethod: PAYMENT_METHODS[0],
       receiptUrl: "",
       status: "Unpaid",
     });
@@ -210,7 +163,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     }
 
     try {
-      const loggedBy = localStorage.getItem("userName") || "Unknown";
+      const loggedBy = localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown";
       const items = batchItems.map((it) => ({ ...it, 'Logged By': loggedBy }));
 
       useSyncStore.getState().addPendingEntry("expense", { batch: true, items });
@@ -238,7 +191,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   };
 
   const handleSave = async () => {
-    const loggedBy = localStorage.getItem("userName") || "Unknown";
+    const loggedBy = localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown";
     const payload = {
       DATE: formData.date,
       AMOUNT: formData.amount,
@@ -256,7 +209,6 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     try {
       useSyncStore.getState().addPendingEntry("expense", payload);
 
-      // Capture the ID synchronously — addPendingEntry is a sync Zustand set
       const queue = useSyncStore.getState().pendingQueue;
       const entryId = queue[queue.length - 1]?.id ?? "";
 
@@ -293,7 +245,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
         category: "",
         description: "",
         paidTo: "",
-        paymentMethod: "Bank Transfer",
+        paymentMethod: PAYMENT_METHODS[0],
         receiptUrl: "",
         status: "Unpaid",
       });
@@ -302,440 +254,508 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     }
   };
 
+  const fieldLabelSx = {
+    fontSize: "0.625rem",
+    fontWeight: 900,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.06em",
+    color: "text.secondary",
+    mb: 0.5,
+    display: "block",
+  };
+
   return (
     <>
-      <div className="w-full max-w-2xl mx-auto p-2 md:p-4">
-        <Card className="border-primary/20 dark:border-zinc-800 shadow-sm overflow-hidden dark:bg-zinc-900 transition-colors">
-          <CardHeader className="bg-primary/5 dark:bg-zinc-800/50 border-b border-primary/20 dark:border-zinc-800 p-4">
-            <CardTitle className="text-primary dark:text-primary-foreground/90 text-lg font-black">
+      <Box sx={{ width: "100%", maxWidth: 672, mx: "auto", p: { xs: 1, md: 2 } }}>
+        <Card>
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderBottom: "1px solid",
+              borderColor: "divider",
+              bgcolor: "grey.50",
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 900, color: "primary.main" }}>
               Expense Entry
-            </CardTitle>
-            <CardDescription className="text-xs dark:text-zinc-400 font-medium">
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
               Record expenditures to the Expenses sheet.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 px-4">
-            <div className="space-y-1">
-              <Label
-                htmlFor="exp-date"
-                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
-              >
-                Date
-              </Label>
-              <Input
-                id="exp-date"
-                type="date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label
-                htmlFor="exp-amount"
-                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
-              >
-                Amount (₦)
-              </Label>
-              <Input
-                id="exp-amount"
-                type="number"
-                placeholder="0.00"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData({ ...formData, amount: e.target.value })
-                }
-                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-500 dark:placeholder:text-zinc-500 font-bold"
-              />
-            </div>
-            <div className="space-y-1 flex flex-col">
-              <Label
-                htmlFor="exp-category"
-                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
-              >
-                Category
-              </Label>
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="exp-category"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="justify-between rounded-xl border-primary/20 dark:border-zinc-800 font-bold h-10 px-3 bg-white dark:bg-zinc-950 hover:bg-white dark:hover:bg-zinc-900 transition-[background-color] text-sm"
-                  >
-                    <span
-                      className={
-                        formData.category
-                          ? "text-gray-900 dark:text-zinc-100"
-                          : "text-gray-500 dark:text-zinc-400"
-                      }
-                    >
-                      {formData.category || "Select category..."}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-[var(--anchor-width)] p-0 dark:bg-zinc-950 dark:border-zinc-800 rounded-xl overflow-hidden shadow-2xl"
-                  align="start"
-                >
-                  <Command className="dark:bg-zinc-950">
-                    <CommandInput
-                      placeholder="Search category..."
-                      className="dark:text-zinc-100"
-                    />
-                    <CommandList>
-                      <CommandEmpty>No category found.</CommandEmpty>
-                      <CommandGroup>
-                        {EXPENSE_CATEGORIES.map((cat) => (
-                          <CommandItem
-                            key={cat}
-                            value={cat}
-                            onSelect={() => {
-                              setFormData({ ...formData, category: cat });
-                              setOpen(false);
-                            }}
-                            className="flex items-center justify-between font-bold dark:text-zinc-300 data-[selected=true]:bg-primary/10 dark:data-[selected=true]:bg-zinc-800 dark:data-[selected=true]:text-white"
-                          >
-                            <span>{cat}</span>
-                            <Check
-                              className={cn(
-                                "h-4 w-4 text-primary",
-                                formData.category === cat
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1">
-              <Label
-                htmlFor="exp-method"
-                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
-              >
-                Method
-              </Label>
-              <Select
-                value={formData.paymentMethod}
-                onValueChange={(val: string) =>
-                  setFormData({ ...formData, paymentMethod: val })
-                }
-              >
-                <SelectTrigger
-                  id="exp-method"
-                  className="rounded-xl border-primary/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 font-bold"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="dark:bg-zinc-950 dark:border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
-                  <SelectItem
-                    value="Cash"
-                    className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white"
-                  >
-                    Cash
-                  </SelectItem>
-                  <SelectItem
-                    value="Bank Transfer"
-                    className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white"
-                  >
-                    Bank Transfer
-                  </SelectItem>
-                  <SelectItem
-                    value="POS"
-                    className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white"
-                  >
-                    POS
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400">
-                Payment Status
-              </Label>
-              <div className="flex items-center gap-2 h-10">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, status: "Unpaid" })}
-                  className={cn(
-                    "flex-1 h-10 rounded-xl text-sm font-black border transition-colors",
-                    formData.status === "Unpaid"
-                      ? "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400"
-                      : "bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-400 dark:text-zinc-500"
-                  )}
-                >
-                  Unpaid
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, status: "Paid" })}
-                  className={cn(
-                    "flex-1 h-10 rounded-xl text-sm font-black border transition-colors",
-                    formData.status === "Paid"
-                      ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400"
-                      : "bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-400 dark:text-zinc-500"
-                  )}
-                >
-                  Paid
-                </button>
-              </div>
-            </div>
+            </Typography>
+          </Box>
 
-            <div className="space-y-1 relative">
-              <Label
-                htmlFor="exp-paidto"
-                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
-              >
-                Paid To
-              </Label>
-              <Input
-                id="exp-paidto"
-                placeholder="Vendor/Person"
-                value={formData.paidTo}
-                onFocus={() => setShowVendorSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowVendorSuggestions(false), 180)}
-                onChange={(e) => {
-                  setFormData({ ...formData, paidTo: e.target.value });
-                  setShowVendorSuggestions(true);
-                }}
-                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-500 dark:placeholder:text-zinc-500 font-bold"
-              />
-              {showVendorSuggestions && filteredVendors.length > 0 && (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-xl overflow-hidden">
-                  {filteredVendors.map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      className="w-full px-4 py-3 text-sm font-bold text-left text-gray-700 dark:text-zinc-300 hover:bg-primary/5 dark:hover:bg-zinc-800 transition-colors border-b border-gray-50 dark:border-zinc-800 last:border-0"
-                      onMouseDown={() => {
-                        setFormData({ ...formData, paidTo: v });
-                        setShowVendorSuggestions(false);
+          <CardContent>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Typography component="label" htmlFor="exp-date" sx={fieldLabelSx}>
+                  Date
+                </Typography>
+                <DatePicker
+                  value={formData.date ? dayjs(formData.date) : null}
+                  onChange={(val) => setFormData({ ...formData, date: val?.format("YYYY-MM-DD") ?? "" })}
+                  slotProps={{ textField: { size: "small", fullWidth: true, id: "exp-date" } }}
+                />
+              </Box>
+
+              <Box>
+                <Typography component="label" htmlFor="exp-amount" sx={fieldLabelSx}>
+                  Amount (₦)
+                </Typography>
+                <TextField
+                  id="exp-amount"
+                  type="number"
+                  fullWidth
+                  size="small"
+                  placeholder="0.00"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                />
+              </Box>
+
+              <Box>
+                <Typography component="label" sx={fieldLabelSx}>
+                  Category
+                </Typography>
+                <Autocomplete
+                  options={EXPENSE_CATEGORIES}
+                  value={formData.category || null}
+                  onChange={(_, newValue) =>
+                    setFormData({ ...formData, category: newValue ?? "" })
+                  }
+                  size="small"
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="Select category..." />
+                  )}
+                />
+              </Box>
+
+              <Box>
+                <Typography component="label" htmlFor="exp-method" sx={fieldLabelSx}>
+                  Method
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    id="exp-method"
+                    value={formData.paymentMethod}
+                    onChange={(e) =>
+                      setFormData({ ...formData, paymentMethod: e.target.value })
+                    }
+                    sx={{ fontWeight: 700 }}
+                  >
+                    {PAYMENT_METHODS.map((method) => (
+                      <MenuItem key={method} value={method}>
+                        {method}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box>
+                <Typography component="label" sx={fieldLabelSx}>
+                  Payment Status
+                </Typography>
+                <Stack direction="row" sx={{ gap: 1, height: 40 }}>
+                  <Button
+                    fullWidth
+                    variant={formData.status === "Unpaid" ? "contained" : "outlined"}
+                    color={formData.status === "Unpaid" ? "primary" : "inherit"}
+                    onClick={() => setFormData({ ...formData, status: "Unpaid" })}
+                    sx={{ fontWeight: 900, fontSize: "0.85rem" }}
+                  >
+                    Unpaid
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant={formData.status === "Paid" ? "contained" : "outlined"}
+                    color={formData.status === "Paid" ? "success" : "inherit"}
+                    onClick={() => setFormData({ ...formData, status: "Paid" })}
+                    sx={{ fontWeight: 900, fontSize: "0.85rem" }}
+                  >
+                    Paid
+                  </Button>
+                </Stack>
+              </Box>
+
+              <Box>
+                <Typography component="label" htmlFor="exp-paidto" sx={fieldLabelSx}>
+                  Paid To
+                </Typography>
+                <Autocomplete
+                  freeSolo
+                  options={uniqueVendors}
+                  value={formData.paidTo}
+                  onInputChange={(_, newValue) =>
+                    setFormData({ ...formData, paidTo: newValue })
+                  }
+                  onChange={(_, newValue) =>
+                    setFormData({ ...formData, paidTo: (newValue as string) ?? "" })
+                  }
+                  size="small"
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      id="exp-paidto"
+                      placeholder="Vendor/Person"
+                      sx={{ "& input": { fontWeight: 700 } }}
+                    />
+                  )}
+                />
+              </Box>
+
+              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
+                <Typography component="label" htmlFor="exp-desc" sx={fieldLabelSx}>
+                  Description
+                </Typography>
+                <TextField
+                  id="exp-desc"
+                  fullWidth
+                  size="small"
+                  placeholder="Reason for expense"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                />
+              </Box>
+
+              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
+                <Typography component="label" htmlFor="exp-photo" sx={{ ...fieldLabelSx, color: "text.disabled" }}>
+                  Receipt Photo (Optional)
+                </Typography>
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+                  <Box sx={{ position: "relative", flex: 1 }}>
+                    <input
+                      id="exp-photo"
+                      type="file"
+                      accept="image/*"
+                      {...({ capture: "environment" } as any)}
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                      style={{
+                        opacity: 0,
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        cursor: "pointer",
+                        zIndex: 1,
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 1,
+                        border: "2px dashed",
+                        borderRadius: 2,
+                        p: 1.5,
+                        borderColor: formData.receiptUrl ? "success.light" : "divider",
+                        bgcolor: formData.receiptUrl ? "success.50" : "grey.50",
+                        color: formData.receiptUrl ? "success.main" : "text.secondary",
+                        transition: "all 0.2s",
                       }}
                     >
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label
-                htmlFor="exp-desc"
-                className="text-[10px] uppercase font-black text-gray-800 dark:text-zinc-400"
-              >
-                Description
-              </Label>
-              <Input
-                id="exp-desc"
-                placeholder="Reason for expense"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 font-bold"
-              />
-            </div>
-
-            <div className="space-y-1 md:col-span-2">
-              <Label
-                htmlFor="exp-photo"
-                className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-500"
-              >
-                Receipt Photo (Optional)
-              </Label>
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Input
-                    id="exp-photo"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileUpload}
-                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
-                    disabled={isUploading}
-                  />
-                  <div
-                    className={cn(
-                      "flex items-center justify-center gap-2 border-2 border-dashed rounded-xl p-3 transition-colors",
-                       formData.receiptUrl
-                        ? "bg-green-50 dark:bg-emerald-950/20 border-green-200 dark:border-emerald-900/30 text-green-800 dark:text-emerald-400"
-                        : "bg-gray-50 dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-900",
-                    )}
-                  >
-                    {isUploading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : formData.receiptUrl ? (
-                      <Check className="w-5 h-5" />
-                    ) : (
-                      <Camera className="w-5 h-5" />
-                    )}
-                    <span className="text-sm font-medium">
-                      {isUploading
-                        ? "Uploading..."
-                        : formData.receiptUrl
-                          ? "Photo Attached"
-                          : "Take Photo / Upload"}
-                    </span>
-                  </div>
-                </div>
-                {formData.receiptUrl && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setFormData({ ...formData, receiptUrl: "" })}
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            </div>
+                      {isUploading ? (
+                        <Loader2 style={{ width: 20, height: 20, animation: "spin 1s linear infinite" }} />
+                      ) : formData.receiptUrl ? (
+                        <Check style={{ width: 20, height: 20 }} />
+                      ) : (
+                        <Camera style={{ width: 20, height: 20 }} />
+                      )}
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {isUploading
+                          ? "Uploading..."
+                          : formData.receiptUrl
+                            ? "Photo Attached"
+                            : "Take Photo / Upload"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  {formData.receiptUrl && (
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => setFormData({ ...formData, receiptUrl: "" })}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            </Box>
           </CardContent>
-          <CardFooter className="p-4 border-t dark:border-white/5 bg-gray-50/50 dark:bg-zinc-900/50 flex gap-3">
-            <Button
-              variant="outline"
-              onClick={handleAddToBatch}
-              className="flex-1 h-12 text-sm font-bold rounded-xl"
-            >
-              Add to Batch
-            </Button>
-            <Button
-              onClick={handleReview}
-              className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground py-3 text-base font-bold rounded-xl shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
-            >
-              Review & Save
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
 
-      {/* Recent Expenses — session only, cleared on page reload */}
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderTop: "1px solid",
+              borderColor: "divider",
+              bgcolor: "grey.50",
+            }}
+          >
+            <Stack direction="row" sx={{ gap: 1.5 }}>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={handleAddToBatch}
+                sx={{ height: 48, fontWeight: 700 }}
+              >
+                Add to Batch
+              </Button>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={handleReview}
+                sx={{ height: 48, fontWeight: 700 }}
+              >
+                Review & Save
+              </Button>
+            </Stack>
+          </Box>
+        </Card>
+      </Box>
+
       {recentExpenses.length > 0 && (
-        <div className="w-full max-w-2xl mx-auto px-2 md:px-4 pb-8">
-          <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/60 dark:bg-zinc-800/40">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-zinc-400">
+        <Box sx={{ width: "100%", maxWidth: 672, mx: "auto", px: { xs: 1, md: 2 }, pb: 4 }}>
+          <Card>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 2,
+                py: 1.5,
+                borderBottom: "1px solid",
+                borderColor: "divider",
+                bgcolor: "grey.50",
+              }}
+            >
+              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                <Receipt style={{ width: 14, height: 14, color: "#6B7480" }} />
+                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
                   This Session
-                </span>
-              </div>
-              <span className="text-[10px] font-black text-gray-400 dark:text-zinc-500">
+                </Typography>
+              </Stack>
+              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.disabled" }}>
                 {recentExpenses.length} logged
-              </span>
-            </div>
-            <ul className="divide-y divide-gray-50 dark:divide-zinc-800">
-              {recentExpenses.map((exp) => (
-                <li key={exp.id} className="flex items-center justify-between px-4 py-3 gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+              </Typography>
+            </Box>
+            <List disablePadding>
+              {recentExpenses.map((exp, i) => (
+                <ListItem
+                  key={exp.id}
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    borderBottom: i < recentExpenses.length - 1 ? "1px solid" : "none",
+                    borderColor: "divider",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 1.5,
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {exp.category}
-                    </p>
-                    <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
                       {exp.description}{exp.paidTo ? ` · ${exp.paidTo}` : ""} · {exp.paymentMethod}
-                    </p>
-                  </div>
-                  <span className="text-sm font-black text-rose-600 dark:text-rose-400 shrink-0">
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main", flexShrink: 0 }}>
                     ₦{Number(exp.amount).toLocaleString()}
-                  </span>
-                </li>
+                  </Typography>
+                </ListItem>
               ))}
-            </ul>
-          </div>
-        </div>
+            </List>
+          </Card>
+        </Box>
       )}
 
-      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-        <DialogContent className="max-w-[calc(100%-2rem)] w-full rounded-2xl p-0 overflow-hidden bg-white dark:bg-zinc-950 border border-gray-100 dark:border-zinc-800 shadow-2xl">
-          <DialogHeader className="p-4 border-b dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50">
-            <DialogTitle className="text-xl font-black text-primary">
-              {batchItems.length > 0 ? "Confirm Expenses" : "Confirm Expense"}
-            </DialogTitle>
-            <DialogDescription className="text-xs dark:text-zinc-400 font-medium">
-              Review before pushing to Google Sheets.
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog
+        open={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        fullWidth
+        maxWidth="sm"
+        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 900,
+            color: "primary.main",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            bgcolor: "grey.50",
+            fontSize: "1.25rem",
+          }}
+        >
+          {batchItems.length > 0 ? "Confirm Expenses" : "Confirm Expense"}
+          <Typography variant="caption" sx={{ display: "block", color: "text.secondary", fontWeight: 500 }}>
+            Review before pushing to Google Sheets.
+          </Typography>
+        </DialogTitle>
 
-          <div className="p-4">
-            {batchItems.length > 0 ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-black">Batch Preview</h3>
-                    <p className="text-xs text-gray-500 dark:text-zinc-400">{batchItems.length} items ready to save</p>
-                  </div>
-                </div>
-                <ul className="divide-y divide-gray-100 dark:divide-zinc-800 rounded-xl border border-gray-100 dark:border-zinc-800 overflow-hidden">
-                  {batchItems.map((b, i) => (
-                    <li key={i} className="px-4 py-3 flex items-center justify-between">
-                      <div className="min-w-0">
-                        <p className="text-sm font-black text-gray-900 dark:text-white truncate">{b.CATEGORY}</p>
-                        <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">{b.DESCRIPTION}</p>
-                      </div>
-                      <span className="text-sm font-black text-rose-600 dark:text-rose-400">₦{Number(b.AMOUNT).toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-sm bg-gray-50 dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
-                <div className="col-span-1">
-                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Date</span>
-                  <span className="dark:text-zinc-200 font-bold">{formData.date}</span>
-                </div>
-                <div className="col-span-1">
-                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Category</span>
-                  <span className="dark:text-zinc-200 font-bold">{formData.category}</span>
-                </div>
-                <div className="col-span-1">
-                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Method</span>
-                  <span className="dark:text-zinc-200 font-bold">{formData.paymentMethod}</span>
-                </div>
-                <div className="col-span-1">
-                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Amount</span>
-                  <span className="font-black text-lg text-red-600 dark:text-rose-400">₦{Number(formData.amount).toLocaleString()}</span>
-                </div>
-                <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Paid To</span>
-                  <span className="dark:text-zinc-200 font-bold">{formData.paidTo || "—"}</span>
-                </div>
-                <div className="col-span-1 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Status</span>
-                  <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black", formData.status === "Paid" ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400")}>{formData.status}</span>
-                </div>
-                <div className="col-span-2 border-t dark:border-zinc-800/80 pt-3 mt-1">
-                  <span className="text-[10px] text-gray-600 dark:text-zinc-400 uppercase font-black block mb-0.5 tracking-wider">Description</span>
-                  <span className="dark:text-zinc-300 font-medium leading-relaxed">{formData.description}</span>
-                </div>
-                {formData.receiptUrl && (
-                  <div className="col-span-2 border-t pt-2 mt-1 text-center">
-                    <span className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase font-black block mb-1">Receipt Preview</span>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={formData.receiptUrl} alt="Receipt" className="max-h-40 mx-auto rounded-lg shadow-sm border dark:border-zinc-800" />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="p-4 bg-gray-50 dark:bg-zinc-900 border-t dark:border-white/5 flex flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 text-sm dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">Edit</Button>
-            {batchItems.length > 0 ? (
-              <Button onClick={handleSaveBatch} disabled={isSaving} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-sm font-bold shadow-lg shadow-primary/20 dark:shadow-none">Save {batchItems.length} Items</Button>
-            ) : (
-              <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-sm font-bold shadow-lg shadow-primary/20 dark:shadow-none">Confirm Save</Button>
-            )}
-          </DialogFooter>
+        <DialogContent sx={{ p: 2, mt: 1 }}>
+          {batchItems.length > 0 ? (
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                <Box>
+                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900 }}>Batch Preview</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {batchItems.length} items ready to save
+                  </Typography>
+                </Box>
+              </Box>
+              <List disablePadding sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+                {batchItems.map((b, i) => (
+                  <ListItem
+                    key={i}
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      borderBottom: i < batchItems.length - 1 ? "1px solid" : "none",
+                      borderColor: "divider",
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {b.CATEGORY}
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
+                        {b.DESCRIPTION}
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
+                      ₦{Number(b.AMOUNT).toLocaleString()}
+                    </Typography>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 2,
+                bgcolor: "grey.50",
+                p: 2,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Box>
+                <Typography sx={fieldLabelSx}>Date</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{formData.date}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={fieldLabelSx}>Category</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{formData.category}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={fieldLabelSx}>Method</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{formData.paymentMethod}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={fieldLabelSx}>Amount</Typography>
+                <Typography sx={{ fontWeight: 900, fontSize: "1.125rem", color: "error.main" }}>
+                  ₦{Number(formData.amount).toLocaleString()}
+                </Typography>
+              </Box>
+              <Box sx={{ gridColumn: "1 / 2", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
+                <Typography sx={fieldLabelSx}>Paid To</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{formData.paidTo || "—"}</Typography>
+              </Box>
+              <Box sx={{ gridColumn: "2 / 3", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
+                <Typography sx={fieldLabelSx}>Status</Typography>
+                <Box
+                  component="span"
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 10,
+                    fontSize: "0.75rem",
+                    fontWeight: 900,
+                    bgcolor: formData.status === "Paid" ? "success.50" : "primary.50",
+                    color: formData.status === "Paid" ? "success.main" : "primary.main",
+                  }}
+                >
+                  {formData.status}
+                </Box>
+              </Box>
+              <Box sx={{ gridColumn: "1 / -1", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
+                <Typography sx={fieldLabelSx}>Description</Typography>
+                <Typography sx={{ fontWeight: 500, lineHeight: 1.6 }}>{formData.description}</Typography>
+              </Box>
+              {formData.receiptUrl && (
+                <Box sx={{ gridColumn: "1 / -1", borderTop: "1px solid", borderColor: "divider", pt: 1.5, textAlign: "center" }}>
+                  <Typography sx={{ ...fieldLabelSx, mb: 1 }}>Receipt Preview</Typography>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={formData.receiptUrl}
+                    alt="Receipt"
+                    style={{ maxHeight: 160, margin: "0 auto", display: "block", borderRadius: 8, border: "1px solid #ECE7E0" }}
+                  />
+                </Box>
+              )}
+            </Box>
+          )}
         </DialogContent>
+
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderTop: "1px solid",
+            borderColor: "divider",
+            bgcolor: "grey.50",
+            gap: 1,
+          }}
+        >
+          <Button
+            variant="outlined"
+            onClick={() => setShowConfirmModal(false)}
+            sx={{ flex: 1, height: 48, fontWeight: 700 }}
+          >
+            Edit
+          </Button>
+          {batchItems.length > 0 ? (
+            <Button
+              variant="contained"
+              onClick={handleSaveBatch}
+              disabled={isSaving}
+              sx={{ flex: 1, height: 48, fontWeight: 700 }}
+            >
+              Save {batchItems.length} Items
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              disabled={isSaving}
+              sx={{ flex: 1, height: 48, fontWeight: 700 }}
+            >
+              Confirm Save
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
     </>
   );

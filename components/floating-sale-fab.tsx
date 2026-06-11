@@ -1,16 +1,10 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Fab, Box } from "@mui/material";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 
-/**
- * Pages where the mobile BottomNav already renders a prominent "New Sale" /
- * "New Entry" centre button. The FAB must be hidden on these routes to prevent
- * a double-button overlap on mobile.
- */
 const BOTTOM_NAV_HANDLES_NEW_ENTRY = [
   "/cashier",
   "/cashier/records",
@@ -23,7 +17,6 @@ export function FloatingSaleActionButton() {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/bom03");
 
-  // Hide on any cashier page where the BottomNav already provides a New Sale button
   const isHandledByBottomNav = BOTTOM_NAV_HANDLES_NEW_ENTRY.some(
     (p) => pathname === p || pathname?.startsWith(p + "/")
   );
@@ -31,21 +24,40 @@ export function FloatingSaleActionButton() {
   if (isHandledByBottomNav && !isAdmin) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 md:hidden">
+    <Box
+      sx={{
+        position: "fixed",
+        bottom: 24,
+        right: 24,
+        zIndex: 40,
+        display: { xs: "block", md: "none" },
+      }}
+    >
       <Link href="/new-entry">
-        <Button
-          size="icon"
-          className={cn(
-            "h-14 w-14 rounded-full text-white shadow-2xl border-4 border-white dark:border-zinc-900 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-110 active:scale-[0.97]",
-            isAdmin
-              ? "bg-brand-700 hover:bg-brand-800 shadow-brand-700/40"
-              : "bg-orange-500 hover:bg-orange-600 shadow-orange-500/40",
-          )}
+        <Fab
+          sx={{
+            width: 56,
+            height: 56,
+            bgcolor: isAdmin ? "primary.main" : "warning.main",
+            color: "white",
+            border: "4px solid",
+            borderColor: "background.paper",
+            boxShadow: isAdmin
+              ? "0 8px 32px rgba(200,71,46,0.4)"
+              : "0 8px 32px rgba(232,161,58,0.4)",
+            "&:hover": {
+              bgcolor: isAdmin ? "primary.dark" : "warning.dark",
+              transform: "scale(1.1)",
+            },
+            "&:active": {
+              transform: "scale(0.97)",
+            },
+            transition: "background-color 0.2s, transform 0.15s",
+          }}
         >
-          <Plus className="w-8 h-8" />
-        </Button>
+          <Plus size={32} />
+        </Fab>
       </Link>
-    </div>
+    </Box>
   );
 }
-

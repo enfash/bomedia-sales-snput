@@ -89,6 +89,7 @@ export async function POST(request: Request) {
       supplier = '—',
       purchaseDate,
       poReference = '—',
+      paymentMethod = 'Bank Transfer',
       loggedBy = 'Unknown',
     } = body;
 
@@ -182,7 +183,7 @@ export async function POST(request: Request) {
             'CATEGORY': 'Inventory Purchase',
             'DESCRIPTION': `[RESTOCK] ${itemName} · ${widthNum}ft x ${rawLength}ft · Qty: ${qty} · Roll ID(s): ${rollIds.join(', ')}`,
             'PAID TO': supplier || '—',
-            'PAYMENT METHOD': '—',
+            'PAYMENT METHOD': paymentMethod || '—',
             'RECEIPT URL': '',
             'Logged By': loggedBy || 'Unknown',
             'STATUS': 'Paid',

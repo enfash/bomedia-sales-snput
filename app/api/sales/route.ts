@@ -67,7 +67,7 @@ export async function PATCH(request: Request) {
     await sheet.loadCells(`A${targetRowIndex}:W${targetRowIndex}`);
     
     // Role-based Access Control: Cashiers cannot edit records older than 24 hours
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const adminToken = cookieStore.get('admin_session')?.value;
     const adminPayload = adminToken ? await verifyToken(adminToken) : null;
     const isAdmin = adminPayload && adminPayload.role === 'admin';

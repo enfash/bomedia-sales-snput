@@ -4,16 +4,19 @@ import {
   ManageSaleAction,
   type UnifiedRecord,
 } from "@/components/manage-sale-action";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Printer, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import Paper from "@mui/material/Paper";
+import { MoreHorizontal, Printer } from "lucide-react";
 import { MaterialBadge } from "./material-badge";
 import { useState } from "react";
 import { ReceiptModal } from "./receipt-modal";
 import { WhatsAppReminder } from "./whatsapp-reminder";
 import { useSyncStore } from "@/lib/store";
-import { toast } from "sonner";
 
 export type RecordStatus =
   | "Settled"
@@ -31,7 +34,6 @@ interface RecordCardProps {
   isPending?: boolean;
   record?: UnifiedRecord;
   onUpdate?: () => void;
-  /** All sales records available on the current page — used for batch grouping by Sales ID */
   allSalesContext?: UnifiedRecord[];
 }
 
@@ -51,15 +53,25 @@ export function RecordCard({
   const { pendingQueue } = useSyncStore();
   const [batchRecords, setBatchRecords] = useState<UnifiedRecord[]>([]);
 
-  const statusColors: Record<RecordStatus, string> = {
-    Settled:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40",
-    "Part-payment":
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40",
-    "In Progress":
-      "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/40",
-    Syncing:
-      "bg-primary/10 text-primary dark:bg-primary/20 animate-pulse hover:bg-primary/10 dark:hover:bg-primary/20",
+  const statusChipSx: Record<RecordStatus, object> = {
+    Settled: { bgcolor: "#d1fae5", color: "#065f46" },
+    "Part-payment": { bgcolor: "#fef3c7", color: "#92400e" },
+    "In Progress": { bgcolor: "#e0f2fe", color: "#075985" },
+    Syncing: { bgcolor: "primary.light", color: "primary.contrastText" },
+  };
+
+  const jobStatusChipSx = (jobStatus: string): object => {
+    if (jobStatus === "Quoted" || jobStatus === "Pending")
+      return { bgcolor: "grey.100", color: "text.secondary" };
+    if (jobStatus === "Printing")
+      return { bgcolor: "#fef3c7", color: "#92400e" };
+    if (jobStatus === "Finishing" || jobStatus === "In Progress")
+      return { bgcolor: "#e0f2fe", color: "#075985" };
+    if (jobStatus === "Ready")
+      return { bgcolor: "#d1fae5", color: "#065f46" };
+    if (jobStatus === "Delivered" || jobStatus === "Completed")
+      return { bgcolor: "primary.50", color: "primary.main" };
+    return { bgcolor: "grey.100", color: "text.secondary" };
   };
 
   const handleGenerateReceipt = async (e: React.MouseEvent) => {
@@ -70,12 +82,10 @@ export function RecordCard({
     const salesId = String(record.salesId || "").trim();
 
     if (salesId) {
-      // 1. Search the page-level context (synced + pending already mapped to UnifiedRecord)
       const fromContext = (allSalesContext || []).filter(
         (s) => String(s.salesId || "").trim() === salesId && s.type === "Sale"
       );
 
-      // 2. Also search pendingQueue items that share the same salesId (not yet in context)
       const fromPending: UnifiedRecord[] = pendingQueue
         .filter((item) => item.type === "sale" && item.data?.[22] === salesId)
         .map((item) => {
@@ -98,7 +108,6 @@ export function RecordCard({
           } as UnifiedRecord;
         });
 
-      // Merge: context first (avoids duplicates from pending already being in context)
       const contextIds = new Set(fromContext.map((r) => r.id));
       const merged = [
         ...fromContext,
@@ -145,113 +154,93 @@ export function RecordCard({
     }
   }
 
-  // Left accent border by record type
   const isExpense = type === "Expense";
-  const accentBorder = isPending
-    ? "border-l-[3px] border-l-primary/60"
+  const accentColor = isPending
+    ? "rgba(200,71,46,0.6)"
     : isExpense
-      ? "border-l-[3px] border-l-primary/40"
-      : "border-l-[3px] border-l-primary/50";
+      ? "rgba(200,71,46,0.4)"
+      : "rgba(200,71,46,0.5)";
 
   return (
-    <div
-      className={cn(
-        "p-5 bg-white dark:bg-zinc-900 border rounded-xl shadow-sm mb-2.5 transition-colors duration-300",
-        accentBorder,
-        isPending
-          ? "border-primary/20 dark:border-primary/20 bg-primary/5 dark:bg-primary/10"
-          : "border-gray-100 dark:border-zinc-800",
-      )}
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2.5,
+        borderRadius: 3,
+        mb: 1.25,
+        borderLeft: `3px solid ${accentColor}`,
+        borderColor: isPending ? "primary.light" : "grey.100",
+        bgcolor: isPending ? "primary.50" : "background.paper",
+        transition: "background 0.3s",
+      }}
     >
-      <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-50 dark:border-zinc-800/80">
-        <div>
-          <span className="text-xs font-semibold text-gray-600 dark:text-zinc-400 block leading-none mb-3">
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1.5, pb: 1.5, borderBottom: "1px solid", borderColor: "grey.50" }}>
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", display: "block", lineHeight: 1, mb: 1.5 }}>
             {date}
-          </span>
-          <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase text-gray-600 block leading-none mb-1 tracking-wider">
-              Amount
-            </span>
-            <span className="text-sm font-black text-gray-900 dark:text-white leading-none">
-              ₦{amount.replace("₦", "").trim()}
-            </span>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className="text-[9px] font-bold uppercase text-rose-500 dark:text-rose-400 block leading-none mb-1 tracking-wider">
+          </Typography>
+          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "text.secondary", display: "block", lineHeight: 1, mb: 0.5, letterSpacing: 1 }}>
+            Amount
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 900, color: "text.primary", lineHeight: 1, fontFamily: "monospace" }}>
+            ₦{amount.replace("₦", "").trim()}
+          </Typography>
+        </Box>
+        <Box sx={{ textAlign: "right" }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "error.light", display: "block", lineHeight: 1, mb: 0.5, letterSpacing: 1 }}>
             Difference
-          </span>
-          <span className="text-sm font-black text-rose-600 dark:text-rose-400 leading-none">
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 900, color: "error.main", lineHeight: 1, fontFamily: "monospace" }}>
             {record?.type === "Sale"
               ? `₦${(record.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
               : "—"}
-          </span>
-        </div>
-      </div>
+          </Typography>
+        </Box>
+      </Stack>
 
-      <div className="flex justify-between items-end">
-        <div className="space-y-1">
-          <div>
-            <p className="text-[10px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-tight leading-none mb-0.5">
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: 1, display: "block", lineHeight: 1, mb: 0.25 }}>
               Client/Payee
-            </p>
-            <p className="text-sm font-bold text-gray-800 dark:text-zinc-100">
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
               {client}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-600 dark:text-zinc-400">
-              <span className="font-bold text-gray-700 dark:text-zinc-300">
-                Description:
-              </span>{" "}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              <Box component="span" sx={{ fontWeight: 700, color: "text.primary" }}>Description:</Box>{" "}
               {displayDescription}
-            </p>
+            </Typography>
             {rollSize && sqft > 0 && (
-              <p className="text-[10px] text-gray-500 font-bold mt-1">
-                Roll: {rollSize} (
-                {extractedDimension ? extractedDimension : `${sqft} sqft`}) •
-                Qty: {qty}
-              </p>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", display: "block", mt: 0.5 }}>
+                Roll: <Box component="span" sx={{ fontFamily: "monospace" }}>{rollSize}</Box> ({extractedDimension ? <Box component="span" sx={{ fontFamily: "monospace" }}>{extractedDimension}</Box> : <Box component="span" sx={{ fontFamily: "monospace" }}>{sqft} sqft</Box>}) • Qty: <Box component="span" sx={{ fontFamily: "monospace" }}>{qty}</Box>
+              </Typography>
             )}
-          </div>
-        </div>
+          </Box>
+        </Box>
 
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap justify-end gap-2">
+        <Stack sx={{ alignItems: "flex-end", gap: 1 }}>
+          <Stack direction="row" sx={{ flexWrap: "wrap", justifyContent: "flex-end", gap: 0.5 }}>
             {record?.type === "Sale" && record?.material && (
               <MaterialBadge material={record.material} />
             )}
             {record?.type === "Sale" && record?.jobStatus && (
-              <Badge
-                className={cn(
-                  "text-[10px] px-2 py-0 rounded-full font-semibold border-none",
-                  record.jobStatus === "Quoted" ||
-                    record.jobStatus === "Pending"
-                    ? "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"
-                    : record.jobStatus === "Printing"
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                      : record.jobStatus === "Finishing" ||
-                          record.jobStatus === "In Progress"
-                        ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                        : record.jobStatus === "Ready"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : record.jobStatus === "Delivered" ||
-                              record.jobStatus === "Completed"
-                            ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
-                            : "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400",
-                )}
-              >
-                {record.jobStatus}
-              </Badge>
+              <Chip
+                label={record.jobStatus}
+                size="small"
+                sx={{ fontSize: "0.625rem", fontWeight: 600, height: 20, borderRadius: 10, ...jobStatusChipSx(record.jobStatus) }}
+              />
             )}
-            <Badge
-              className={`text-[10px] px-2 py-0 rounded-full font-semibold border-none ${statusColors[status] || "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"}`}
-            >
-              {status}
-            </Badge>
-          </div>
+            <Chip
+              label={status}
+              size="small"
+              sx={{ fontSize: "0.625rem", fontWeight: 600, height: 20, borderRadius: 10, ...(statusChipSx[status] || { bgcolor: "grey.100", color: "text.secondary" }) }}
+            />
+          </Stack>
 
-          <div className="flex items-center gap-1">
+          <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
             {record?.type === "Sale" && (
               <WhatsAppReminder
                 clientName={record.client || client}
@@ -262,15 +251,14 @@ export function RecordCard({
               />
             )}
             {record?.type === "Sale" && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 text-gray-500 hover:text-primary dark:text-zinc-400"
+              <IconButton
+                size="small"
                 onClick={handleGenerateReceipt}
                 title="Download PDF Receipt"
+                sx={{ width: 32, height: 32, color: "text.secondary", border: "1px solid", borderColor: "grey.200", "&:hover": { color: "primary.main" } }}
               >
-                <Printer className="w-4 h-4" />
-              </Button>
+                <Printer size={16} />
+              </IconButton>
             )}
 
             {record && onUpdate ? (
@@ -280,23 +268,22 @@ export function RecordCard({
                 variant="button"
               />
             ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-gray-400 dark:text-zinc-600"
+              <IconButton
+                size="small"
+                sx={{ width: 32, height: 32, color: "text.disabled" }}
               >
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
+                <MoreHorizontal size={16} />
+              </IconButton>
             )}
-          </div>
-        </div>
-      </div>
-      <ReceiptModal 
+          </Stack>
+        </Stack>
+      </Stack>
+      <ReceiptModal
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
         records={batchRecords.length > 0 ? batchRecords : record ? [record] : []}
         salesId={record?.salesId}
       />
-    </div>
+    </Paper>
   );
 }

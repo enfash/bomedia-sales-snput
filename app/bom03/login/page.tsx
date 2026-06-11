@@ -3,12 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Lock, User, KeyRound, Fingerprint, ScanFace, Building2, LogIn, Store } from "lucide-react";
+import { LogIn, Store } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Divider from "@mui/material/Divider";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,14 +23,12 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-
       if (res.ok) {
         localStorage.setItem("userName", "Admin");
         toast.success("Welcome back!");
@@ -36,7 +38,7 @@ export default function LoginPage() {
         const data = await res.json();
         toast.error(data.error || "Invalid credentials");
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to connect to server");
     } finally {
       setLoading(false);
@@ -44,90 +46,63 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 relative overflow-hidden">
-      {/* Decorative background */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-brand-500/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+    <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "background.default", p: 2, position: "relative", overflow: "hidden" }}>
+      <Box sx={{ position: "absolute", top: "-20%", left: "-10%", width: "50%", height: "50%", borderRadius: "50%", bgcolor: "rgba(200,71,46,0.06)", filter: "blur(80px)", pointerEvents: "none" }} />
+      <Box sx={{ position: "absolute", bottom: "-20%", right: "-10%", width: "50%", height: "50%", borderRadius: "50%", bgcolor: "rgba(59,130,246,0.06)", filter: "blur(80px)", pointerEvents: "none" }} />
 
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 p-8 relative z-10">
-        {/* Logo Container */}
-        <div className="flex justify-center mb-6">
-          <div className="bg-white p-2 rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            <Image src="/bomedia-icon.svg" alt="BOMedia Logo" width={48} height={48} className="object-contain" />
-          </div>
-        </div>
+      <Paper elevation={2} sx={{ width: "100%", maxWidth: 448, borderRadius: 4, p: 4, position: "relative", zIndex: 1 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+          <Paper variant="outlined" sx={{ p: 1, borderRadius: 2.5, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
+            <Image src="/bomedia-icon.svg" alt="BOMedia Logo" width={48} height={48} style={{ objectFit: "contain", display: "block" }} />
+          </Paper>
+        </Box>
 
-        <h1 className="text-2xl font-black text-center text-gray-900 mb-2">Admin Portal</h1>
-        <p className="text-sm text-center text-gray-500 mb-8 font-medium">
+        <Typography variant="h4" sx={{ fontWeight: 800, textAlign: "center", mb: 0.75 }}>Admin Portal</Typography>
+        <Typography variant="body2" sx={{ textAlign: "center", color: "text.secondary", mb: 4 }}>
           Sign in to access secure financial records.
-        </p>
+        </Typography>
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-gray-700 font-bold">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="admin@bomedia.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="h-12 bg-gray-50 border-gray-100 focus:bg-white transition-colors"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-gray-700 font-bold">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="h-12 bg-gray-50 border-gray-100 focus:bg-white transition-colors"
-            />
-          </div>
-          
-          <Button
-            type="submit"
-            className="w-full h-12 bg-brand-700 hover:bg-brand-800 text-white font-heavy rounded-xl text-base shadow-lg shadow-brand-700/20 transition-[background-color,transform] active:scale-[0.97]"
-            disabled={loading}
-          >
-            {loading ? "Verifying..." : (
-              <>
-                <LogIn className="w-4 h-4 mr-2" />
-                Sign In
-              </>
-            )}
+        <Box component="form" onSubmit={handleLogin} sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+          <TextField
+            fullWidth
+            id="email"
+            label="Email"
+            type="email"
+            autoComplete="email"
+            placeholder="admin@bomedia.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <TextField
+            fullWidth
+            id="password"
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+          <Button type="submit" variant="contained" fullWidth size="large" disabled={loading} startIcon={loading ? undefined : <LogIn size={16} />} sx={{ height: 48, fontWeight: 800 }}>
+            {loading ? "Verifying..." : "Sign In"}
           </Button>
-        </form>
+        </Box>
 
-        <div className="mt-10">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-100" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase cursor-default">
-              <span className="bg-white px-2 text-gray-400 font-black tracking-widest">or continued access</span>
-            </div>
-          </div>
+        <Box sx={{ mt: 4 }}>
+          <Divider>
+            <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.disabled", px: 1 }}>
+              or continued access
+            </Typography>
+          </Divider>
+        </Box>
 
-          <div className="mt-6">
-            <Link href="/cashier" tabIndex={-1}>
-              <Button
-                variant="outline"
-                className="w-full h-12 bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200 font-bold rounded-xl"
-                type="button"
-              >
-                <Store className="w-4 h-4 mr-2" />
-                Continue as Cashier
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
+        <Box sx={{ mt: 2.5 }}>
+          <Button component={Link} href="/cashier" variant="outlined" fullWidth size="large" startIcon={<Store size={16} />} sx={{ height: 48, fontWeight: 700 }}>
+            Continue as Cashier
+          </Button>
+        </Box>
+      </Paper>
+    </Box>
   );
 }

@@ -3,12 +3,28 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Ruler, Package, Calculator, ArrowLeftRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard, PlusCircle, Receipt, BarChart3,
+  Cloud, CloudOff, LogOut, Users, KanbanSquare,
+  Ruler, Package, Calculator, ArrowLeftRight, Menu, ChevronLeft
+} from "lucide-react";
+import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 import { ActivityFeed } from "./activity-feed";
+
+import Drawer from "@mui/material/Drawer";
+import Box from "@mui/material/Box";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Avatar from "@mui/material/Avatar";
+import IconButton from "@mui/material/IconButton";
+import Typography from "@mui/material/Typography";
+import Divider from "@mui/material/Divider";
+import CircularProgress from "@mui/material/CircularProgress";
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -19,10 +35,22 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
   const router = useRouter();
   const [userName, setUserName] = useState("");
   const { pendingQueue, syncStatus, lastSyncTime } = useSyncStore();
+  
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
+    const saved = localStorage.getItem("sidebarCollapsed");
+    if (saved === "true") setIsCollapsed(true);
     setUserName(localStorage.getItem("userName") || "Staff");
   }, []);
+
+  const toggleSidebar = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebarCollapsed", String(next));
+      return next;
+    });
+  };
 
   const handleLogout = async () => {
     const userName = localStorage.getItem("userName");
@@ -39,7 +67,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch {
-      // Ignore — cookie is cleared server-side; redirect anyway
+      // cookie cleared server-side; redirect anyway
     }
 
     window.location.href = "/";
@@ -51,15 +79,15 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
   const currentNavItems = isInCashierView
     ? [
-        { href: "/cashier",           label: "Dashboard",  icon: LayoutDashboard },
-        { href: "/cashier/new-entry", label: "New Sale",   icon: PlusCircle },
-        { href: "/cashier/board",     label: "Job Board",  icon: KanbanSquare },
-        { href: "/cashier/customers", label: "Customers",  icon: Users },
-        { href: "/cashier/inventory", label: "Stock",      icon: Package },
-        { href: "/cashier/estimator", label: "Estimator",  icon: Calculator },
+        { href: "/cashier",           label: "Dashboard",   icon: LayoutDashboard },
+        { href: "/cashier/new-entry", label: "New Sale",    icon: PlusCircle },
+        { href: "/cashier/board",     label: "Job Board",   icon: KanbanSquare },
+        { href: "/cashier/customers", label: "Customers",   icon: Users },
+        { href: "/cashier/inventory", label: "Stock",       icon: Package },
+        { href: "/cashier/estimator", label: "Estimator",   icon: Calculator },
         { href: "/quick-check",       label: "Quick-Check", icon: Ruler },
-        { href: "/cashier/records",   label: "Records",    icon: BarChart3 },
-        { href: "/cashier/expenses",  label: "Expenses", icon: Receipt },
+        { href: "/cashier/records",   label: "Records",     icon: BarChart3 },
+        { href: "/cashier/expenses",  label: "Expenses",    icon: Receipt },
       ]
     : [
         { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
@@ -68,104 +96,189 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         { href: "/bom03/customers", label: "Customers",    icon: Users },
         { href: "/quick-check",     label: "Quick-Check",  icon: Ruler },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
-        { href: "/bom03/expenses",  label: "Expenses",  icon: Receipt },
-        { href: "/bom03/staff",     label: "Staff Manager", icon: Users },
+        { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
+        { href: "/bom03/staff",     label: "Staff Manager",icon: Users },
       ];
 
-  return (
-    <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-60 bg-gray-900 dark:bg-zinc-950 text-white flex-col shadow-xl transition-colors duration-500">
-      {/* Logo */}
-      <div className="flex items-center justify-between px-5 py-6 border-b border-gray-700/60 dark:border-zinc-800/50">
-        <Logo className="text-white" />
-        <div className="flex items-center gap-1">
-          <ActivityFeed />
-          <ThemeToggle />
-        </div>
-      </div>
+  const DRAWER_WIDTH = isCollapsed ? 80 : 240;
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+  return (
+    <Drawer
+      variant="permanent"
+      anchor="left"
+      sx={{
+        display: { xs: "none", md: "flex" },
+        width: DRAWER_WIDTH,
+        flexShrink: 0,
+        transition: "width 0.2s",
+        "& .MuiDrawer-paper": { 
+          width: DRAWER_WIDTH, 
+          boxSizing: "border-box", 
+          transition: "width 0.2s",
+          overflowX: "hidden" 
+        },
+      }}
+    >
+      {/* Logo row */}
+      <Box sx={{ 
+        display: "flex", 
+        flexDirection: isCollapsed ? "column" : "row",
+        alignItems: "center", 
+        justifyContent: "space-between", 
+        px: isCollapsed ? 1 : 2.5, 
+        py: isCollapsed ? 2 : 3, 
+        gap: isCollapsed ? 2 : 0,
+        borderBottom: "1px solid rgba(255,255,255,0.08)" 
+      }}>
+        {isCollapsed ? (
+          <>
+            <Tooltip title="Expand sidebar" placement="right" arrow>
+              <IconButton onClick={toggleSidebar} sx={{ color: "rgba(255,255,255,0.7)" }}>
+                <Menu size={20} />
+              </IconButton>
+            </Tooltip>
+            <Logo showText={false} />
+          </>
+        ) : (
+          <>
+            <Logo />
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <ActivityFeed />
+              <Tooltip title="Collapse sidebar" placement="right" arrow>
+                <IconButton onClick={toggleSidebar} sx={{ color: "rgba(255,255,255,0.7)", mr: -1 }}>
+                  <ChevronLeft size={20} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </>
+        )}
+      </Box>
+
+      {/* Nav links */}
+      <List sx={{ flex: 1, px: 1, py: 1.5, overflowY: "auto" }}>
         {currentNavItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
-                active
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                  : "text-gray-300 hover:bg-white/5 hover:text-white"
-              )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {label}
-            </Link>
+            <Tooltip key={href} title={isCollapsed ? label : ""} placement="right" arrow disableHoverListener={!isCollapsed}>
+              <ListItemButton
+                component={Link}
+                href={href}
+                selected={active}
+                sx={{
+                  mb: 0.5,
+                  gap: 1,
+                  justifyContent: isCollapsed ? "center" : "flex-start",
+                  px: isCollapsed ? 1 : 2,
+                  color: active ? "primary.contrastText" : "rgba(255,255,255,0.65)",
+                  "&.Mui-selected": {
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    "&:hover": { bgcolor: "primary.dark" },
+                  },
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 32, mr: isCollapsed ? 0 : 1, justifyContent: "center", color: "inherit" }}>
+                  <Icon size={isCollapsed ? 22 : 16} />
+                </ListItemIcon>
+                {!isCollapsed && <ListItemText primary={label} sx={{ "& .MuiListItemText-primary": { fontSize: "0.875rem", fontWeight: 500 } }} />}
+              </ListItemButton>
+            </Tooltip>
           );
         })}
-      </nav>
+      </List>
 
-      {/* Sync Status Section */}
-      <div className="px-4 py-4 border-t border-gray-700/60 dark:border-zinc-800/50 bg-gray-800/20 dark:bg-zinc-900/20">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sync Status</span>
-          {syncStatus === 'syncing' ? (
-            <RefreshCw className="w-3 h-3 text-primary animate-spin" />
-          ) : pendingQueue.length > 0 ? (
-            <CloudOff className="w-3 h-3 text-amber-500 dark:text-amber-400" />
-          ) : (
-            <Cloud className="w-3 h-3 text-green-400" />
-          )}
-        </div>
-        <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <p className="text-xs text-gray-300">{pendingQueue.length} pending items</p>
-            {pendingQueue.length > 0 && (
-              <span className="flex h-2 w-2 rounded-full bg-amber-500" />
+      {/* Sync status */}
+      <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, borderTop: "1px solid rgba(255,255,255,0.08)", bgcolor: "rgba(255,255,255,0.03)" }}>
+        {isCollapsed ? (
+          <Tooltip title={`${pendingQueue.length} pending items. Status: ${syncStatus}`} placement="right" arrow>
+            <Box sx={{ display: "flex", justifyContent: "center" }}>
+              {syncStatus === "syncing" ? <CircularProgress size={16} /> : pendingQueue.length > 0 ? <CloudOff size={16} style={{ color: "#f59e0b" }} /> : <Cloud size={16} style={{ color: "#4ade80" }} />}
+            </Box>
+          </Tooltip>
+        ) : (
+          <>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.1em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", fontSize: "0.6rem" }}>
+                Sync Status
+              </Typography>
+              {syncStatus === "syncing" ? (
+                <CircularProgress size={12} />
+              ) : pendingQueue.length > 0 ? (
+                <CloudOff size={12} style={{ color: "#f59e0b" }} />
+              ) : (
+                <Cloud size={12} style={{ color: "#4ade80" }} />
+              )}
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem" }}>
+                {pendingQueue.length} pending items
+              </Typography>
+              {pendingQueue.length > 0 && (
+                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#f59e0b" }} />
+              )}
+            </Box>
+            {lastSyncTime && (
+              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.3)", fontSize: "0.625rem", display: "block", mt: 0.5 }}>
+                Last sync: {new Date(lastSyncTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </Typography>
             )}
-          </div>
-          {lastSyncTime && (
-            <p className="text-[10px] text-gray-500">Last sync: {new Date(lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-          )}
-        </div>
-      </div>
+          </>
+        )}
+      </Box>
 
       {/* Portal switcher — admin only */}
       {isAdmin && (
-        <div className="px-3 pb-2">
-          <button
-            onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-brand-300 hover:bg-white/5 hover:text-white transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]"
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
-            {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
-          </button>
-        </div>
+        <Box sx={{ px: 1, pb: 1 }}>
+          <Tooltip title={isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"} placement="right" arrow disableHoverListener={!isCollapsed}>
+            <ListItemButton
+              onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
+              sx={{ color: "rgba(255,255,255,0.5)", "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" }, justifyContent: isCollapsed ? "center" : "flex-start" }}
+            >
+              <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 28, justifyContent: "center", color: "inherit" }}>
+                <ArrowLeftRight size={isCollapsed ? 18 : 14} />
+              </ListItemIcon>
+              {!isCollapsed && <ListItemText primary={isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"} sx={{ "& .MuiListItemText-primary": { fontSize: "0.75rem", fontWeight: 600 } }} />}
+            </ListItemButton>
+          </Tooltip>
+        </Box>
       )}
 
       {/* User badge */}
       {userName && (
-        <div className="px-4 py-4 border-t border-gray-700/60 dark:border-zinc-800/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold shrink-0">
+        <>
+          <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
+          <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, display: "flex", flexDirection: isCollapsed ? "column" : "row", alignItems: "center", justifyContent: isCollapsed ? "center" : "space-between", gap: isCollapsed ? 2 : 0 }}>
+            {isCollapsed ? (
+              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.875rem", fontWeight: 700 }}>
                 {userName[0]?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white truncate">{userName}</p>
-                <p className="text-[10px] text-gray-400 font-medium">{isAdmin ? "Admin" : "Cashier"}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
-              title="Log out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+              </Avatar>
+            ) : (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.875rem", fontWeight: 700 }}>
+                  {userName[0]?.toUpperCase()}
+                </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ color: "#fff", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {userName}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.4)", fontSize: "0.625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    {isAdmin ? "Admin" : "Cashier"}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+            <Box sx={{ display: "flex", flexDirection: isCollapsed ? "column" : "row", gap: 0.5, alignItems: "center" }}>
+              <ThemeToggle />
+              <Tooltip title="Log out" placement={isCollapsed ? "right" : "top"}>
+                <IconButton onClick={handleLogout} size="small" aria-label="Log out" sx={{ color: "rgba(255,255,255,0.4)", "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.08)" } }}>
+                  <LogOut size={isCollapsed ? 20 : 16} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        </>
       )}
-    </aside>
+    </Drawer>
   );
 }

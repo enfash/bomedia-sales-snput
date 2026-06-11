@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2, Percent } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { motion, animate } from "framer-motion";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 
 const cardContainerVariants = {
   hidden: {},
@@ -14,7 +15,6 @@ const cardItemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-// Inline micro-sparkline rendered as SVG — no extra dependencies
 function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: string }) {
   if (!data || data.length < 2) return null;
   const max = Math.max(...data, 1);
@@ -28,11 +28,10 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
     return `${x},${y}`;
   });
   const polyline = pts.join(" ");
-  // Fill path: close below
   const fill = `M${pts[0]} L${pts.join(" L")} L${w},${h} L0,${h} Z`;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-8 overflow-visible" preserveAspectRatio="none">
+    <Box component="svg" viewBox={`0 0 ${w} ${h}`} sx={{ width: '100%', height: 32, overflow: 'visible' }} preserveAspectRatio="none">
       <defs>
         <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -41,7 +40,7 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
       </defs>
       <path d={fill} fill="url(#spark-fill)" />
       <polyline points={polyline} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    </Box>
   );
 }
 
@@ -86,88 +85,110 @@ export function MetricCard({
     : `₦${Math.round(animatedNum).toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
   return (
-    <div
-      className={cn(
-        "relative overflow-hidden h-full bg-card rounded-2xl shadow-sm border border-border p-2 sm:p-5 transition-[box-shadow,transform] duration-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:-translate-y-1 flex flex-col justify-between",
-        isHero && "metric-hero border-primary/20 bg-primary/[0.03] p-5",
-        isAlert && "border-destructive/50 ring-2 ring-destructive/20"
-      )}
+    <Box
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        height: '100%',
+        bgcolor: isHero ? 'primary.main' : 'background.paper',
+        opacity: isHero ? 0.97 : 1, // approximate bg-primary/[0.03] -> wait, isHero in tailwind was bg-primary/[0.03] which is almost transparent. Let's use alpha.
+        backgroundColor: isHero ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.03)' : 'background.paper',
+        borderRadius: "16px",
+        boxShadow: 1,
+        border: '1px solid',
+        borderColor: isHero ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.2)' : (isAlert ? 'error.main' : 'divider'),
+        p: { xs: 1.5, sm: 2.5 },
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        transition: 'box-shadow 0.3s, transform 0.3s',
+        '&:hover': {
+          '@media (hover: hover)': {
+            boxShadow: 4,
+            transform: 'translateY(-4px)',
+          }
+        },
+        ...(isAlert && {
+          borderColor: 'error.main',
+          outline: '2px solid',
+          outlineColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.2)',
+        })
+      }}
     >
-      {/* Background Decor for Hero */}
       {isHero && (
-        <div className="absolute -right-4 -top-4 h-28 w-28 rounded-full bg-primary/5 blur-2xl" />
+        <Box sx={{
+          position: 'absolute', right: -16, top: -16, height: 112, width: 112,
+          borderRadius: '50%', bgcolor: 'rgba(var(--mui-palette-primary-mainChannel) / 0.05)',
+          filter: 'blur(24px)'
+        }} />
       )}
 
-      <div className="flex items-center justify-between mb-2 sm:mb-4 gap-1">
-        <div className="flex items-center gap-1.5">
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 1, sm: 2 }, gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           {isAlert && (
-            <motion.div
+            <Box
+              component={motion.div}
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ repeat: Infinity, duration: 1.2 }}
-              className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-destructive shadow-sm shadow-destructive/50 shrink-0"
+              sx={{ width: { xs: 6, sm: 8 }, height: { xs: 6, sm: 8 }, borderRadius: '50%', bgcolor: 'error.main', boxShadow: '0 0 4px rgba(239,68,68,0.5)', flexShrink: 0 }}
             />
           )}
-          <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-muted-foreground line-clamp-1">{title}</p>
-        </div>
-        <div
-          className={cn(
-            "rounded-xl flex items-center justify-center transition-colors shrink-0",
-            isHero ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 w-10 h-10" 
-              : isAlert ? "bg-destructive/10 text-destructive w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
-              : "bg-muted text-foreground w-6 h-6 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl"
-          )}
+          <Typography sx={{ fontSize: { xs: '9px', sm: '10px' }, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {title}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            borderRadius: { xs: 1.5, sm: 2 },
+            width: isHero ? 40 : { xs: 24, sm: 40 }, height: isHero ? 40 : { xs: 24, sm: 40 },
+            ...(isHero ? { bgcolor: 'primary.main', color: 'primary.contrastText', boxShadow: '0 4px 12px rgba(var(--mui-palette-primary-mainChannel) / 0.2)' }
+              : isAlert ? { bgcolor: 'rgba(var(--mui-palette-error-mainChannel) / 0.1)', color: 'error.main' }
+              : { bgcolor: 'action.hover', color: 'text.primary' })
+          }}
         >
-          <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-        </div>
-      </div>
+          <Icon size={isHero ? 20 : 16} />
+        </Box>
+      </Box>
 
-      <div className="space-y-1">
-        <p className={cn(
-          "font-black tracking-tight text-foreground leading-none truncate",
-          isHero ? "text-2xl sm:text-4xl" : "text-base sm:text-xl lg:text-2xl"
-        )}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography sx={{ fontWeight: 900, letterSpacing: '-0.02em', color: 'text.primary', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: isHero ? { xs: '1.5rem', sm: '2.25rem' } : { xs: '1rem', sm: '1.25rem', lg: '1.5rem' } }}>
           {animatedDisplay}
-        </p>
-        {(subLabel || (isHero && change)) && (
-          <div className="flex items-center gap-2 mt-1 sm:mt-2">
-            {subLabel && (
-              <p className="text-[9px] sm:text-xs text-muted-foreground font-semibold truncate">{subLabel}</p>
-            )}
-            {isHero && change && (
-              <div className={cn(
-                "flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border",
-                isPositive 
-                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
-                  : "bg-destructive/10 text-destructive border-destructive/20"
-              )}>
-                {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {change}
-              </div>
-            )}
-          </div>
+        </Typography>
+        {(isHero && change) && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.5, sm: 1 } }}>
+            <Box sx={{
+              display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '10px', fontWeight: 700, px: 1, py: 0.25, borderRadius: 10, border: '1px solid',
+              ...(isPositive ? { bgcolor: 'rgba(16,185,129,0.1)', color: '#059669', borderColor: 'rgba(16,185,129,0.2)' }
+                : { bgcolor: 'rgba(239,68,68,0.1)', color: '#dc2626', borderColor: 'rgba(239,68,68,0.2)' })
+            }}>
+              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {change}
+            </Box>
+          </Box>
         )}
-      </div>
+      </Box>
 
-      {/* Sparkline for hero card */}
       {isHero && sparkData && sparkData.length >= 2 && (
-        <div className="mt-3 opacity-60">
-          <Sparkline data={sparkData} color="hsl(var(--primary))" />
-        </div>
+        <Box sx={{ mt: 1.5, opacity: 0.6 }}>
+          <Sparkline data={sparkData} color="var(--primary)" />
+        </Box>
       )}
 
-      {!isHero && change && (
-        <div className="mt-2 sm:mt-4 pt-2 sm:pt-4 border-t border-border flex items-center justify-between">
-          <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase hidden sm:inline-block">Performance</span>
-          <div className={cn(
-            "flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-xs font-bold",
-            isPositive ? "text-emerald-600" : "text-destructive"
-          )}>
-            {isPositive ? <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : <TrendingDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
-            {change}
-          </div>
-        </div>
+      {!isHero && (change || subLabel) && (
+        <Box sx={{ mt: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 }, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography sx={{ fontSize: { xs: '8px', sm: '10px' }, fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase' }}>
+            {subLabel || "Performance"}
+          </Typography>
+          {change && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 0.5 }, fontSize: { xs: '9px', sm: '0.75rem' }, fontWeight: 700, color: isPositive ? '#059669' : '#dc2626' }}>
+              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {change}
+            </Box>
+          )}
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
@@ -208,14 +229,18 @@ export function DashboardMetrics({
   const isMarginUp = grossMarginPct >= prevGrossMarginPct;
 
   return (
-    <motion.div
-      className="grid grid-cols-2 lg:grid-cols-6 gap-1.5 sm:gap-4"
+    <Box
+      component={motion.div}
       variants={cardContainerVariants}
       initial="hidden"
       animate="show"
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(2, 1fr)', lg: 'repeat(6, 1fr)' },
+        gap: { xs: 0.75, sm: 2 }
+      }}
     >
-      {/* Hero Card — full width on mobile, 2 cols on desktop */}
-      <motion.div className="col-span-2 lg:col-span-2" variants={cardItemVariants}>
+      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: { xs: 'span 2', lg: 'span 2' } }}>
         <MetricCard
           variant="hero"
           title="Total Sales"
@@ -225,9 +250,9 @@ export function DashboardMetrics({
           icon={ShoppingBag}
           sparkData={sparkData}
         />
-      </motion.div>
+      </Box>
 
-      <motion.div className="col-span-1" variants={cardItemVariants}>
+      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
         <MetricCard
           title="Expenses"
           value={totalExpenses}
@@ -235,9 +260,9 @@ export function DashboardMetrics({
           isPositive={isExpensesDown}
           icon={DollarSign}
         />
-      </motion.div>
+      </Box>
 
-      <motion.div className="col-span-1" variants={cardItemVariants}>
+      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
         <MetricCard
           title="Net Profit"
           value={netProfit}
@@ -245,9 +270,9 @@ export function DashboardMetrics({
           isPositive={isProfitUp}
           icon={BarChart2}
         />
-      </motion.div>
+      </Box>
 
-      <motion.div className="col-span-1" variants={cardItemVariants}>
+      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
         <MetricCard
           variant="alert"
           title="Outstanding Debt"
@@ -255,9 +280,9 @@ export function DashboardMetrics({
           icon={AlertCircle}
           subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
         />
-      </motion.div>
+      </Box>
 
-      <motion.div className="col-span-1" variants={cardItemVariants}>
+      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
         <MetricCard
           title="Gross Margin"
           value={grossMarginPct}
@@ -267,7 +292,7 @@ export function DashboardMetrics({
           icon={Percent}
           subLabel={totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet"}
         />
-      </motion.div>
-    </motion.div>
+      </Box>
+    </Box>
   );
 }

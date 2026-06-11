@@ -1,30 +1,84 @@
 "use client";
+import { LoadingAnimation } from "@/components/loading-animation";
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Package, RefreshCw, Search, AlertTriangle, CheckCircle2, XCircle, Ruler, ArrowLeft } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import {
+  Package,
+  RefreshCw,
+  Search,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Ruler,
+  ArrowLeft,
+} from "lucide-react";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Skeleton from "@mui/material/Skeleton";
+import LinearProgress from "@mui/material/LinearProgress";
+import InputAdornment from "@mui/material/InputAdornment";
 import { toast } from "sonner";
 
 type Material = Record<string, any>;
 
-const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
+const parseNum = (v: any) =>
+  parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
 
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    Active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    "Low Stock": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    "Out of Stock": "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
-  };
+  if (status === "Low Stock") {
+    return (
+      <Chip
+        label={status}
+        size="small"
+        sx={{
+          fontSize: "0.6rem",
+          fontWeight: 900,
+          bgcolor: "primary.light",
+          color: "primary.dark",
+          border: "none",
+          height: 20,
+        }}
+      />
+    );
+  }
+  if (status === "Out of Stock") {
+    return (
+      <Chip
+        label={status}
+        size="small"
+        sx={{
+          fontSize: "0.6rem",
+          fontWeight: 900,
+          bgcolor: "error.light",
+          color: "error.dark",
+          border: "none",
+          height: 20,
+        }}
+      />
+    );
+  }
+  // Active (default)
   return (
-    <Badge className={cn("text-[9px] font-black border-none px-2 py-0.5", map[status] ?? map["Active"])}>
-      {status}
-    </Badge>
+    <Chip
+      label={status}
+      size="small"
+      sx={{
+        fontSize: "0.6rem",
+        fontWeight: 900,
+        bgcolor: "success.light",
+        color: "success.dark",
+        border: "none",
+        height: 20,
+      }}
+    />
   );
 }
 
@@ -50,197 +104,346 @@ export default function CashierInventoryPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return materials.filter(m =>
-      (m["Material Name"] || "").toLowerCase().includes(q) ||
-      (m["Material ID"] || "").toLowerCase().includes(q)
+    return materials.filter(
+      (m) =>
+        (m["Material Name"] || "").toLowerCase().includes(q) ||
+        (m["Material ID"] || "").toLowerCase().includes(q)
     );
   }, [materials, search]);
 
-  const stats = useMemo(() => ({
-    active: materials.filter(m => m.Status === "Active").length,
-    lowStock: materials.filter(m => m.Status === "Low Stock").length,
-    outOfStock: materials.filter(m => m.Status === "Out of Stock").length,
-  }), [materials]);
+  const stats = useMemo(
+    () => ({
+      active: materials.filter((m) => m.Status === "Active").length,
+      lowStock: materials.filter((m) => m.Status === "Low Stock").length,
+      outOfStock: materials.filter((m) => m.Status === "Out of Stock").length,
+    }),
+    [materials]
+  );
 
   if (loading) {
     return (
-      <div className="p-4 md:p-8 min-h-screen pb-32">
-        <div className="flex items-center justify-between gap-4 mb-8">
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-44" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-          <Skeleton className="h-11 w-28 rounded-xl" />
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm">
-              <Skeleton className="h-3 w-16 mb-3" />
-              <Skeleton className="h-7 w-10" />
-            </div>
-          ))}
-        </div>
-        <Skeleton className="h-11 w-full rounded-xl mb-6" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-transparent">
-              <div className="flex items-start justify-between mb-3">
-                <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
-                <Skeleton className="h-5 w-16 rounded-full" />
-              </div>
-              <div className="flex items-center justify-between mb-1.5">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-4 w-14" />
-              </div>
-              <Skeleton className="h-2 w-full rounded-full mt-3" />
-            </div>
-          ))}
-        </div>
-      </div>
+      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <LoadingAnimation text="Loading..." />
+      </Box>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 min-h-screen pb-32">
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", pb: 16 }}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}
-              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        sx={{ alignItems: { md: "center" }, justifyContent: "space-between", gap: 2, mb: 4 }}
+      >
+        <Box>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+            <IconButton
+              onClick={() => router.back()}
+              size="small"
+              sx={{
+                display: { md: "none" },
+                borderRadius: "10px",
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+                transition: "transform 0.15s ease-out",
+                "&:active": { transform: "scale(0.97)" },
+              }}
+            >
+              <ArrowLeft size={16} />
+            </IconButton>
+            <Typography
+              variant="h2"
+              sx={{ fontWeight: 900, letterSpacing: "-0.02em", lineHeight: 1.2 }}
+            >
               Material Stock
-            </h1>
-            {refreshing && <RefreshCw className="w-4 h-4 text-orange-500 animate-spin" />}
-          </div>
-          <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">
+            </Typography>
+            {refreshing && (
+              <Box
+                component={RefreshCw}
+                size={16}
+                sx={{ color: "primary.main", animation: "spin 1s linear infinite",
+                  "@keyframes spin": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } },
+                }}
+              />
+            )}
+          </Stack>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
             Check available materials before logging a sale.
-          </p>
-        </div>
+          </Typography>
+        </Box>
+
         <Button
-          variant="outline"
+          variant="outlined"
           onClick={fetchData}
           disabled={refreshing}
-          className="w-full md:w-auto rounded-xl h-11 px-6 font-bold"
+          startIcon={
+            <Box
+              component={RefreshCw}
+              size={16}
+              sx={refreshing
+                ? { animation: "spin 1s linear infinite", "@keyframes spin": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } } }
+                : undefined}
+            />
+          }
+          sx={{ width: { xs: "100%", md: "auto" }, borderRadius: "10px", height: 44, px: 3, fontWeight: 700 }}
         >
-          <RefreshCw className={cn("w-4 h-4 mr-2", refreshing && "animate-spin")} />
           Refresh
         </Button>
-      </div>
+      </Stack>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 2,
+          mb: 4,
+        }}
+      >
         {[
-          { title: "Available", val: stats.active, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
-          { title: "Low Stock", val: stats.lowStock, icon: AlertTriangle, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
-          { title: "Out of Stock", val: stats.outOfStock, icon: XCircle, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
+          {
+            title: "Available",
+            val: stats.active,
+            Icon: CheckCircle2,
+            iconBg: "success.light",
+            iconColor: "success.main",
+          },
+          {
+            title: "Low Stock",
+            val: stats.lowStock,
+            Icon: AlertTriangle,
+            iconBg: "primary.light",
+            iconColor: "primary.main",
+          },
+          {
+            title: "Out of Stock",
+            val: stats.outOfStock,
+            Icon: XCircle,
+            iconBg: "error.light",
+            iconColor: "error.main",
+          },
         ].map((s) => (
-          <Card key={s.title} className="bg-white dark:bg-zinc-900 border-none shadow-sm">
-            <CardContent className="p-4 flex items-center justify-between h-full">
-              <div>
-                <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{s.title}</p>
-                <p className="text-2xl font-black text-gray-900 dark:text-white">{s.val}</p>
-              </div>
-              <div className={`p-3 rounded-2xl ${s.color} hidden sm:block`}><s.icon className="w-5 h-5" /></div>
+          <Card key={s.title} sx={{ border: "none" }}>
+            <CardContent
+              sx={{
+                p: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                "&:last-child": { pb: 2 },
+              }}
+            >
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.625rem",
+                    fontWeight: 900,
+                    color: "text.secondary",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    mb: 0.5,
+                  }}
+                >
+                  {s.title}
+                </Typography>
+                <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, lineHeight: 1 }}>
+                  {s.val}
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: "16px",
+                  bgcolor: s.iconBg,
+                  color: s.iconColor,
+                  display: { xs: "none", sm: "flex" },
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <s.Icon size={20} />
+              </Box>
             </CardContent>
           </Card>
         ))}
-      </div>
+      </Box>
 
       {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <Input
-          placeholder="Search by material name..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-10 h-11 rounded-xl bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800"
-        />
-      </div>
+      <TextField
+        fullWidth
+        placeholder="Search by material name..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        size="small"
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={16} />
+              </InputAdornment>
+            ),
+          },
+        }}
+        sx={{
+          mb: 3,
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "10px",
+            height: 44,
+            bgcolor: "background.paper",
+          },
+        }}
+      />
 
       {/* Materials grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" },
+          gap: 2,
+        }}
+      >
         {filtered.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
-            <Package className="w-10 h-10 mb-3 opacity-30" />
-            <p className="font-bold">No materials found.</p>
-          </div>
-        ) : filtered.map(mat => {
-          const remaining = parseNum(mat["Total Remaining (ft)"]);
-          const capacity  = parseNum(mat["Total Capacity (ft)"]);
-          const pct = capacity > 0 ? Math.min(100, (remaining / capacity) * 100) : 0;
-          const barColor =
-            mat.Status === "Out of Stock" ? "bg-rose-500" :
-            mat.Status === "Low Stock"    ? "bg-amber-500" : "bg-emerald-500";
+          <Box
+            sx={{
+              gridColumn: "1 / -1",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              py: 10,
+              color: "text.secondary",
+            }}
+          >
+            <Box component={Package} size={40} sx={{ mb: 1.5, opacity: 0.3 }} />
+            <Typography sx={{ fontWeight: 700 }}>No materials found.</Typography>
+          </Box>
+        ) : (
+          filtered.map((mat) => {
+            const remaining = parseNum(mat["Total Remaining (ft)"]);
+            const capacity = parseNum(mat["Total Capacity (ft)"]);
+            const pct =
+              capacity > 0 ? Math.min(100, (remaining / capacity) * 100) : 0;
 
-          return (
-            <Card
-              key={mat["Material ID"]}
-              className={cn(
-                "bg-white dark:bg-zinc-900 border-2 shadow-sm transition-[border-color,opacity]",
-                mat.Status === "Out of Stock"
-                  ? "border-rose-100 dark:border-rose-900/30 opacity-70"
-                  : mat.Status === "Low Stock"
-                  ? "border-amber-100 dark:border-amber-900/30"
-                  : "border-transparent"
-              )}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="font-black text-gray-900 dark:text-white text-sm">
-                      {mat["Material Name"]}
-                    </p>
-                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono mt-0.5">
-                      {mat["Material ID"]}
-                    </p>
-                  </div>
-                  <StatusPill status={mat.Status || "Active"} />
-                </div>
+            const progressColor =
+              mat.Status === "Out of Stock"
+                ? "error"
+                : mat.Status === "Low Stock"
+                ? "warning"
+                : "success";
 
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                    <Ruler className="w-3 h-3" />
-                    {parseNum(mat["Width (ft)"])}ft wide
-                  </span>
-                  <span className="text-sm font-black text-gray-900 dark:text-white">
-                    {remaining.toFixed(1)}ft left
-                  </span>
-                </div>
+            const cardBorderColor =
+              mat.Status === "Out of Stock"
+                ? "error.light"
+                : mat.Status === "Low Stock"
+                ? "primary.light"
+                : "transparent";
 
-                <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden mt-3 mb-1">
-                  <div
-                    className={cn("h-full rounded-full [transition:width_500ms_ease-out]", barColor)}
-                    style={{ width: `${pct.toFixed(1)}%` }}
+            return (
+              <Card
+                key={mat["Material ID"]}
+                sx={{
+                  border: "2px solid",
+                  borderColor: cardBorderColor,
+                  opacity: mat.Status === "Out of Stock" ? 0.7 : 1,
+                  transition: "border-color 0.2s, opacity 0.2s",
+                }}
+              >
+                <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
+                  {/* Name + status */}
+                  <Stack
+                    direction="row"
+                    sx={{ alignItems: "flex-start", justifyContent: "space-between", mb: 1.5 }}
+                  >
+                    <Box>
+                      <Typography sx={{ fontWeight: 900, fontSize: "0.875rem" }}>
+                        {mat["Material Name"]}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "0.625rem",
+                          color: "text.secondary",
+                          fontFamily: "monospace",
+                          mt: 0.25,
+                        }}
+                      >
+                        {mat["Material ID"]}
+                      </Typography>
+                    </Box>
+                    <StatusPill status={mat.Status || "Active"} />
+                  </Stack>
+
+                  {/* Width + remaining */}
+                  <Stack
+                    direction="row"
+                    sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.75 }}
+                  >
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                      <Ruler size={12} />
+                      <Typography
+                        sx={{
+                          fontSize: "0.625rem",
+                          fontWeight: 900,
+                          color: "text.secondary",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        {parseNum(mat["Width (ft)"])}ft wide
+                      </Typography>
+                    </Stack>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900 }}>
+                      {remaining.toFixed(1)}ft left
+                    </Typography>
+                  </Stack>
+
+                  {/* Progress bar */}
+                  <LinearProgress
+                    variant="determinate"
+                    value={pct}
+                    color={progressColor as "success" | "warning" | "error"}
+                    sx={{
+                      mt: 1.5,
+                      mb: 0.5,
+                      height: 8,
+                      borderRadius: "16px",
+                      bgcolor: "action.hover",
+                    }}
                   />
-                </div>
 
-                {mat.Status === "Low Stock" && (
-                  <p className="mt-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    Running low — inform admin
-                  </p>
-                )}
-                {mat.Status === "Out of Stock" && (
-                  <p className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                    <XCircle className="w-3 h-3" />
-                    Not available
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
+                  {/* Status messages */}
+                  {mat.Status === "Low Stock" && (
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
+                      <AlertTriangle size={12} color="var(--mui-palette-primary-main)" />
+                      <Typography
+                        sx={{ fontSize: "0.625rem", fontWeight: 700, color: "primary.main" }}
+                      >
+                        Running low — inform admin
+                      </Typography>
+                    </Stack>
+                  )}
+                  {mat.Status === "Out of Stock" && (
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
+                      <XCircle size={12} color="var(--mui-palette-error-main)" />
+                      <Typography
+                        sx={{ fontSize: "0.625rem", fontWeight: 700, color: "error.main" }}
+                      >
+                        Not available
+                      </Typography>
+                    </Stack>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </Box>
+    </Box>
   );
 }

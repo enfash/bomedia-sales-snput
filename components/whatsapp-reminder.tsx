@@ -1,8 +1,7 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button, IconButton } from "@mui/material";
 
 interface WhatsAppReminderProps {
   clientName: string;
@@ -21,9 +20,10 @@ function buildMessage(clientName: string, balance: number, jobDescription?: stri
     minimumFractionDigits: 2,
   });
 
-  const jobLine = jobDescription && jobDescription !== "—"
-    ? `regarding your job: *${jobDescription}*`
-    : "regarding your recent order";
+  const jobLine =
+    jobDescription && jobDescription !== "—"
+      ? `regarding your job: *${jobDescription}*`
+      : "regarding your recent order";
 
   return (
     `Hello *${clientName}*, this is a gentle reminder from *BOMedia* ${jobLine}.\n\n` +
@@ -33,10 +33,9 @@ function buildMessage(clientName: string, balance: number, jobDescription?: stri
 }
 
 function sanitizePhone(contact: string): string {
-  // Strip everything except digits, then normalise Nigerian numbers to intl format
   let digits = contact.replace(/\D/g, "");
   if (digits.startsWith("0") && digits.length === 11) {
-    digits = "234" + digits.slice(1); // 0801... → 2348011...
+    digits = "234" + digits.slice(1);
   }
   return digits;
 }
@@ -49,28 +48,41 @@ export function WhatsAppReminder({
   variant = "icon",
   className,
 }: WhatsAppReminderProps) {
-  // Only render if there's an actual outstanding balance
   if (!balance || balance <= 0) return null;
 
   const phone = sanitizePhone(contact || "");
   const message = buildMessage(clientName, balance, jobDescription);
   const url = phone
     ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-    : `https://wa.me/?text=${encodeURIComponent(message)}`; // No number → opens WA picker
+    : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  const emeraldSx = {
+    borderColor: "#6ee7b7",
+    color: "#059669",
+    bgcolor: "rgba(236,253,245,0.8)",
+    "&:hover": {
+      bgcolor: "rgba(209,250,229,0.9)",
+      borderColor: "#34d399",
+      color: "#047857",
+    },
+  };
 
   if (variant === "full") {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className={className}>
         <Button
-          variant="outline"
-          size="sm"
-          className={cn(
-            "h-8 gap-1.5 text-[10px] font-black rounded-lg border-emerald-200 dark:border-emerald-800/60",
-            "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20",
-            "hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:text-emerald-800"
-          )}
+          variant="outlined"
+          size="small"
+          startIcon={<MessageCircle size={14} />}
+          sx={{
+            height: 32,
+            fontSize: "10px",
+            fontWeight: 900,
+            borderRadius: 2,
+            textTransform: "none",
+            ...emeraldSx,
+          }}
         >
-          <MessageCircle className="w-3.5 h-3.5" />
           Remind
         </Button>
       </a>
@@ -78,19 +90,25 @@ export function WhatsAppReminder({
   }
 
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" title={`WhatsApp reminder → ${clientName}`}>
-      <Button
-        variant="outline"
-        size="icon"
-        className={cn(
-          "h-8 w-8 rounded-lg border-emerald-200 dark:border-emerald-800/60",
-          "text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10",
-          "hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:text-emerald-700",
-          className
-        )}
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`WhatsApp reminder → ${clientName}`}
+      className={className}
+    >
+      <IconButton
+        size="small"
+        sx={{
+          width: 32,
+          height: 32,
+          borderRadius: 2,
+          border: "1px solid",
+          ...emeraldSx,
+        }}
       >
-        <MessageCircle className="w-4 h-4" />
-      </Button>
+        <MessageCircle size={16} />
+      </IconButton>
     </a>
   );
 }

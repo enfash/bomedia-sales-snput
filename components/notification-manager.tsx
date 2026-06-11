@@ -112,7 +112,7 @@ export function NotificationManager() {
         if (remaining <= threshold && !alertedInventoryRows.current.has(matId)) {
           toast.error(`Low Stock: ${mat["Material Name"]}`, {
             description: `Only ${remaining.toFixed(1)} ft remaining across all rolls.`,
-            icon: <Package className="w-4 h-4" />,
+            icon: <Package size={16} />,
             duration: 8000,
           });
           alertedInventoryRows.current.add(matId);

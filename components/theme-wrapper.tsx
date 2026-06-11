@@ -1,20 +1,22 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import Box from "@mui/material/Box";
 
 export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isCashier = pathname?.startsWith("/cashier");
 
   return (
-    <div className={cn(
-      "flex min-h-screen transition-colors duration-500",
-      isCashier
-        ? "theme-amber bg-orange-50/40 dark:bg-zinc-950"
-        : "bg-slate-50 dark:bg-zinc-950"
-    )}>
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        transition: "background-color 0.5s",
+        bgcolor: "background.default",
+      }}
+    >
       {children}
-    </div>
+    </Box>
   );
 }

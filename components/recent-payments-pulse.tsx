@@ -1,20 +1,24 @@
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import Divider from "@mui/material/Divider";
 import { formatDistanceToNow } from "date-fns";
 import { Activity, ArrowRight, CircleDollarSign, User, TrendingDown } from "lucide-react";
 import { parseAmount } from "@/lib/financial-utils";
 
 const PAYMENT_TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  "Initial Payment":      { bg: "bg-blue-100 dark:bg-blue-900/30",   text: "text-blue-700 dark:text-blue-300",   label: "Initial" },
-  "Additional Payment 1": { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-300", label: "Addl. 1" },
-  "Additional Payment 2": { bg: "bg-violet-100 dark:bg-violet-900/30",text: "text-violet-700 dark:text-violet-300",label: "Addl. 2" },
+  "Initial Payment":      { bg: "#dbeafe", text: "#1d4ed8", label: "Initial" },
+  "Additional Payment 1": { bg: "#fef3c7", text: "#b45309", label: "Addl. 1" },
+  "Additional Payment 2": { bg: "#ede9fe", text: "#7c3aed", label: "Addl. 2" },
 };
 
 function getPaymentStyle(type: string) {
   return (
     PAYMENT_TYPE_STYLES[type] ?? {
-      bg: "bg-emerald-100 dark:bg-emerald-900/30",
-      text: "text-emerald-700 dark:text-emerald-300",
+      bg: "#d1fae5",
+      text: "#065f46",
       label: type || "Payment",
     }
   );
@@ -29,8 +33,8 @@ function getInitials(name: string) {
 }
 
 const AVATAR_COLORS = [
-  "bg-rose-500", "bg-blue-500", "bg-emerald-500",
-  "bg-violet-500", "bg-amber-500", "bg-cyan-500", "bg-orange-500",
+  "#ef4444", "#3b82f6", "#10b981",
+  "#8b5cf6", "#f59e0b", "#06b6d4", "#f97316",
 ];
 function getAvatarColor(name: string) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
@@ -47,30 +51,38 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
   const hasData = recent.length > 0;
 
   return (
-    <Card className="glass overflow-hidden rounded-2xl transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-xl flex flex-col h-[420px]">
-      <CardHeader className="pb-3 border-b border-border/50">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-brand-50 dark:bg-brand-900/30 rounded-lg text-brand-600 dark:text-brand-400">
-            <Activity className="w-4 h-4" />
-          </div>
-          <div>
-            <CardTitle className="text-sm font-bold text-foreground">Recent Payments Pulse</CardTitle>
-            <CardDescription className="text-[10px] uppercase tracking-widest font-bold">Latest Incoming Cash</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
+    <Card sx={{ overflow: "hidden", height: 420, display: "flex", flexDirection: "column" }}>
+      <Box sx={{ px: 2.5, pt: 2, pb: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+          <Box sx={{ p: 0.75, bgcolor: "primary.50", borderRadius: 2, color: "primary.main", display: "flex" }}>
+            <Activity size={16} />
+          </Box>
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
+              Recent Payments Pulse
+            </Typography>
+            <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, color: "text.secondary" }}>
+              Latest Incoming Cash
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
 
-      <CardContent className="p-0 flex-1 overflow-y-auto">
+      <CardContent sx={{ p: 0, flexGrow: 1, overflowY: "auto", "&:last-child": { pb: 0 } }}>
         {!hasData ? (
-          <div className="flex flex-col items-center justify-center h-[200px] text-center px-4">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <CircleDollarSign className="w-6 h-6 text-muted-foreground/50" />
-            </div>
-            <p className="text-xs font-bold text-muted-foreground">No recent payments.</p>
-            <p className="text-[10px] text-muted-foreground/70 mt-1">Payments will appear here when logged.</p>
-          </div>
+          <Stack sx={{ alignItems: "center", justifyContent: "center", height: 200, textAlign: "center", px: 2 }}>
+            <Box sx={{ width: 48, height: 48, borderRadius: "50%", bgcolor: "action.hover", display: "flex", alignItems: "center", justifyContent: "center", mb: 1.5 }}>
+              <CircleDollarSign size={24} color="#9ca3af" />
+            </Box>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", display: "block" }}>
+              No recent payments.
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
+              Payments will appear here when logged.
+            </Typography>
+          </Stack>
         ) : (
-          <div className="divide-y divide-border/50">
+          <Box>
             {recent.map((payment, idx) => {
               const amount        = parseAmount(payment.AMOUNT || payment.Amount);
               const balanceBefore = parseAmount(payment["BALANCE BEFORE"] || payment["Balance Before"]);
@@ -87,89 +99,78 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
               const debtDropped   = balanceBefore > 0 && balanceAfter < balanceBefore;
 
               return (
-                <div
+                <Box
                   key={payment["PAYMENT ID"] || idx}
-                  className="p-4 hover:bg-muted/30 transition-colors group"
+                  sx={{ p: 2, borderBottom: idx < recent.length - 1 ? "1px solid" : "none", borderColor: "divider", "&:hover": { bgcolor: "action.hover" }, transition: "background 0.2s" }}
                 >
-                  {/* Row 1: Avatar + Client name + Amount */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-9 h-9 rounded-full ${getAvatarColor(clientName)} flex items-center justify-center shrink-0`}
+                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 1.5 }}>
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, minWidth: 0 }}>
+                      <Box
+                        sx={{ width: 36, height: 36, borderRadius: "50%", bgcolor: getAvatarColor(clientName), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                       >
-                        <span className="text-[11px] font-black text-white leading-none">
-                          {getInitials(clientName) || <User className="w-4 h-4" />}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-foreground truncate">{clientName}</p>
-                        {/* Payment type badge */}
-                        <span
-                          className={`inline-block mt-0.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${style.bg} ${style.text}`}
+                        <Typography sx={{ fontSize: "0.6875rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>
+                          {getInitials(clientName) || <User size={16} />}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 900, color: "text.primary", display: "block" }} noWrap>
+                          {clientName}
+                        </Typography>
+                        <Box
+                          component="span"
+                          sx={{ display: "inline-block", mt: 0.25, fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, px: 0.75, py: 0.25, borderRadius: 1, bgcolor: style.bg, color: style.text }}
                         >
                           {style.label}
-                        </span>
-                      </div>
-                    </div>
+                        </Box>
+                      </Box>
+                    </Stack>
 
-                    {/* Amount */}
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                        +₦{amount.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
+                    <Typography variant="body2" sx={{ fontWeight: 900, color: "#059669", flexShrink: 0, fontFamily: "monospace" }}>
+                      +₦{amount.toLocaleString()}
+                    </Typography>
+                  </Stack>
 
-                  {/* Row 2: Balance before → after */}
                   {(balanceBefore > 0 || balanceAfter >= 0) && (
-                    <div className="mt-2 flex items-center gap-1.5 pl-12">
-                      <TrendingDown className="w-3 h-3 text-muted-foreground shrink-0" />
-                      <span className="text-[10px] text-muted-foreground font-medium">
-                        Debt:
-                      </span>
-                      <span className="text-[10px] font-bold text-rose-500 dark:text-rose-400">
+                    <Stack direction="row" sx={{ mt: 1, pl: 6, alignItems: "center", gap: 0.5 }}>
+                      <TrendingDown size={12} color="#9ca3af" />
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>Debt:</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444", fontFamily: "monospace" }}>
                         ₦{balanceBefore.toLocaleString()}
-                      </span>
-                      <ArrowRight className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
-                      <span
-                        className={`text-[10px] font-bold ${
-                          balanceAfter <= 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-amber-600 dark:text-amber-400"
-                        }`}
-                      >
+                      </Typography>
+                      <ArrowRight size={10} color="#9ca3af" />
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: balanceAfter <= 0 ? "#059669" : "#d97706", fontFamily: "monospace" }}>
                         {balanceAfter <= 0 ? "Cleared" : `₦${balanceAfter.toLocaleString()}`}
-                      </span>
-                    </div>
+                      </Typography>
+                    </Stack>
                   )}
 
-                  {/* Row 3: Notes (if any) */}
                   {notes && notes !== `Logged via Manage Sale Action` && (
-                    <p className="mt-1.5 pl-12 text-[10px] text-muted-foreground italic truncate">
+                    <Typography variant="caption" sx={{ display: "block", mt: 0.75, pl: 6, color: "text.secondary", fontStyle: "italic" }} noWrap>
                       "{notes}"
-                    </p>
+                    </Typography>
                   )}
 
-                  {/* Row 4: Meta — collected by, time ago, sales ID */}
-                  <div className="mt-2 pl-12 flex items-center gap-2 flex-wrap">
+                  <Stack direction="row" sx={{ mt: 1, pl: 6, alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
                     {collectedBy && (
-                      <span className="text-[9px] font-bold text-muted-foreground">
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", fontSize: "0.5625rem" }}>
                         By {collectedBy}
-                      </span>
+                      </Typography>
                     )}
-                    {collectedBy && <span className="text-muted-foreground/40 text-[9px]">·</span>}
-                    <span className="text-[9px] text-muted-foreground">{timeAgo}</span>
+                    {collectedBy && (
+                      <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.5625rem" }}>·</Typography>
+                    )}
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.5625rem" }}>{timeAgo}</Typography>
                     {salesId && (
                       <>
-                        <span className="text-muted-foreground/40 text-[9px]">·</span>
-                        <span className="text-[9px] text-muted-foreground/60 font-mono">{salesId}</span>
+                        <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.5625rem" }}>·</Typography>
+                        <Typography variant="caption" sx={{ color: "text.disabled", fontFamily: "monospace", fontSize: "0.5625rem" }}>{salesId}</Typography>
                       </>
                     )}
-                  </div>
-                </div>
+                  </Stack>
+                </Box>
               );
             })}
-          </div>
+          </Box>
         )}
       </CardContent>
     </Card>

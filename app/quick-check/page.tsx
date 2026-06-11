@@ -2,22 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  ArrowLeft, 
-  RefreshCw, 
-  AlertTriangle, 
-  CheckCircle2, 
-  XCircle,
-  Ruler,
-  Package,
-  Sparkles
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, Package, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import Chip from "@mui/material/Chip";
 
 type InventoryItem = {
   "Item Name": string;
@@ -34,8 +31,7 @@ export default function QuickCheckPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Form inputs
+
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [width, setWidth] = useState("");
   const [length, setLength] = useState("");
@@ -50,13 +46,11 @@ export default function QuickCheckPage() {
       if (res.ok) {
         const data = json.data || [];
         setItems(data);
-        if (data.length > 0 && !selectedItem) {
-          setSelectedItem(data[0]);
-        }
+        if (data.length > 0 && !selectedItem) setSelectedItem(data[0]);
       } else {
         toast.error("Failed to load materials");
       }
-    } catch (error) {
+    } catch {
       toast.error("Network error");
     } finally {
       setLoading(false);
@@ -64,244 +58,224 @@ export default function QuickCheckPage() {
     }
   };
 
-  useEffect(() => {
-    fetchInventory();
-  }, []);
+  useEffect(() => { fetchInventory(); }, []);
 
   const handleSelectMaterial = (rowIndexStr: string) => {
     const item = items.find(i => i._rowIndex.toString() === rowIndexStr) || null;
     setSelectedItem(item);
   };
 
-  // Calculations
-  const parsedWidth = parseFloat(width) || 0;
+  const parsedWidth  = parseFloat(width) || 0;
   const parsedLength = parseFloat(length) || 0;
-  const parsedWaste = parseFloat(wasteFactor) || 0;
-  
-  // Conversion
-  const lengthInFeet = lengthUnit === "m" ? parsedLength * 3.28084 : parsedLength;
-  const requestedArea = parsedWidth * lengthInFeet;
-  const wasteArea = requestedArea * (parsedWaste / 100);
+  const parsedWaste  = parseFloat(wasteFactor) || 0;
+
+  const lengthInFeet      = lengthUnit === "m" ? parsedLength * 3.28084 : parsedLength;
+  const requestedArea     = parsedWidth * lengthInFeet;
+  const wasteArea         = requestedArea * (parsedWaste / 100);
   const totalRequiredArea = requestedArea + wasteArea;
 
-  // Fulfillment parameters for the SELECTED roll
-  const rollWidth = parseFloat(selectedItem?.["Width (ft)"]?.toString() || "0") || 0;
-  const rollStock = parseFloat(selectedItem?.["Stock"]?.toString() || "0") || 0;
+  const rollWidth  = parseFloat(selectedItem?.["Width (ft)"]?.toString() || "0") || 0;
+  const rollStock  = parseFloat(selectedItem?.["Stock"]?.toString() || "0") || 0;
 
-  const widthOk = rollWidth >= parsedWidth;
-  const stockOk = rollStock >= totalRequiredArea;
-  const netStockOk = rollStock >= requestedArea;
-
-  const isFulfilled = widthOk && stockOk;
+  const widthOk      = rollWidth >= parsedWidth;
+  const stockOk      = rollStock >= totalRequiredArea;
+  const netStockOk   = rollStock >= requestedArea;
+  const isFulfilled  = widthOk && stockOk;
   const canFulfillNet = widthOk && netStockOk;
 
-  // List alternative rolls that CAN fulfill dimensions
   const alternativeFulfillments = items.filter(item => {
     const rWidth = parseFloat(item["Width (ft)"]?.toString() || "0") || 0;
     const rStock = parseFloat(item["Stock"]?.toString() || "0") || 0;
     return rWidth >= parsedWidth && rStock >= totalRequiredArea && item._rowIndex !== selectedItem?._rowIndex;
   });
 
+  const resultBg = isFulfilled
+    ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+    : canFulfillNet
+    ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+    : "linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)";
+
+  const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+    <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+      {children}
+    </Typography>
+  );
+
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen bg-orange-50/20 dark:bg-zinc-950 transition-colors duration-500">
-        <div className="text-center">
-          <RefreshCw className="w-10 h-10 text-orange-600 dark:text-orange-400 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-zinc-400 font-black uppercase tracking-widest text-xs">Loading inventory nodes...</p>
-        </div>
-      </div>
+      <Box sx={{ p: 4, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", bgcolor: "rgba(232,161,58,0.02)" }}>
+        <Box sx={{ textAlign: "center" }}>
+          <RefreshCw size={40} color="#E8A13A" className="animate-spin" style={{ margin: "0 auto 16px" }} />
+          <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
+            Loading inventory nodes...
+          </Typography>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 bg-orange-50/20 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
-      <div className="max-w-2xl mx-auto">
-        
-        {/* Navigation Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
-              <ArrowLeft className="w-4 h-4 text-gray-700 dark:text-zinc-300" />
-            </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Quick-Check</h1>
-                {refreshing && <RefreshCw className="w-3 h-3 text-orange-600 dark:text-orange-400 animate-spin" />}
-              </div>
-              <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium">Evaluate physical inventory roll capacities.</p>
-            </div>
-          </div>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "rgba(232,161,58,0.02)", minHeight: "100vh", pb: 16 }}>
+      <Box sx={{ maxWidth: 672, mx: "auto" }}>
 
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={fetchInventory} 
-            disabled={refreshing}
-            className="rounded-full bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-sm"
-          >
-            <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-zinc-300 ${refreshing ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
+        {/* Header */}
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 4 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <IconButton size="small" onClick={() => router.back()} sx={{ bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 99 }}>
+              <ArrowLeft size={16} />
+            </IconButton>
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 800 }}>Quick-Check</Typography>
+                {refreshing && <RefreshCw size={14} color="#E8A13A" className="animate-spin" />}
+              </Box>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Evaluate physical inventory roll capacities.
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton size="small" onClick={fetchInventory} disabled={refreshing} sx={{ bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 99 }}>
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+          </IconButton>
+        </Box>
 
-        <div className="grid grid-cols-1 gap-6">
-          {/* Input Panel */}
-          <Card className="bg-white dark:bg-zinc-900 border-none shadow-lg rounded-[2rem] overflow-hidden p-6">
-            <CardContent className="p-0 space-y-6">
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest" htmlFor="material-select">
-                  Select Target Material Roll
-                </Label>
-                <select
-                  id="material-select"
-                  value={selectedItem?._rowIndex.toString() || ""}
-                  onChange={(e) => handleSelectMaterial(e.target.value)}
-                  className="w-full h-12 px-4 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-[border-color,box-shadow,background-color] shadow-inner"
-                >
-                  {items.map((item) => (
-                    <option key={item._rowIndex} value={item._rowIndex.toString()}>
-                      {item["Item Name"]} | {parseFloat(item["Width (ft)"]?.toString() || "0").toFixed(1)}ft Width ({parseFloat(item["Stock"]?.toString() || "0").toFixed(0)} sqft)
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest" htmlFor="width-input">
-                    Print Job Width (Ft)
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="width-input"
-                      type="number"
-                      placeholder="e.g. 4"
+          {/* Input panel */}
+          <Card sx={{ borderRadius: "2rem", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {/* Material select */}
+                <Box>
+                  <FieldLabel>Select Target Material Roll</FieldLabel>
+                  <Box
+                    component="select"
+                    id="material-select"
+                    value={selectedItem?._rowIndex.toString() || ""}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleSelectMaterial(e.target.value)}
+                    sx={{
+                      width: "100%", height: 48, px: 2, borderRadius: 2.5,
+                      border: "1px solid", borderColor: "divider",
+                      bgcolor: "grey.50", color: "text.primary",
+                      fontWeight: 700, fontSize: "0.875rem",
+                      outline: "none", cursor: "pointer",
+                      "&:focus": { borderColor: "warning.main", boxShadow: "0 0 0 2px rgba(232,161,58,0.2)" },
+                    }}
+                  >
+                    {items.map(item => (
+                      <option key={item._rowIndex} value={item._rowIndex.toString()}>
+                        {item["Item Name"]} | {parseFloat(item["Width (ft)"]?.toString() || "0").toFixed(1)}ft Width ({parseFloat(item["Stock"]?.toString() || "0").toFixed(0)} sqft)
+                      </option>
+                    ))}
+                  </Box>
+                </Box>
+
+                {/* Width + Length */}
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  <Box>
+                    <FieldLabel>Print Job Width (Ft)</FieldLabel>
+                    <TextField
+                      fullWidth type="number" placeholder="e.g. 4"
                       value={width}
-                      onChange={(e) => setWidth(e.target.value)}
-                      className="h-12 rounded-2xl font-bold dark:bg-zinc-800/50 dark:border-zinc-800 dark:text-zinc-100 shadow-inner pl-10 focus-visible:ring-orange-500"
+                      onChange={e => setWidth(e.target.value)}
+                      slotProps={{ input: { startAdornment: <InputAdornment position="start"><Ruler size={16} /></InputAdornment> } }}
                     />
-                    <Ruler className="w-4 h-4 text-gray-400 absolute left-4 top-4" />
-                  </div>
-                </div>
+                  </Box>
+                  <Box>
+                    <FieldLabel>Print Job Length</FieldLabel>
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <TextField
+                        fullWidth type="number" placeholder="e.g. 10"
+                        value={length}
+                        onChange={e => setLength(e.target.value)}
+                        sx={{ flex: 1 }}
+                      />
+                      <Button
+                        variant="outlined"
+                        onClick={() => setLengthUnit(u => u === "m" ? "ft" : "m")}
+                        sx={{ minWidth: 48, fontWeight: 800, textTransform: "uppercase", borderRadius: 2.5, px: 1.5 }}
+                      >
+                        {lengthUnit}
+                      </Button>
+                    </Box>
+                  </Box>
+                </Box>
 
-                <div className="space-y-2">
-                  <Label className="text-xs font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest" htmlFor="length-input">
-                    Print Job Length
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="length-input"
-                      type="number"
-                      placeholder="e.g. 10"
-                      value={length}
-                      onChange={(e) => setLength(e.target.value)}
-                      className="h-12 rounded-2xl font-bold dark:bg-zinc-800/50 dark:border-zinc-800 dark:text-zinc-100 shadow-inner flex-1 focus-visible:ring-orange-500"
-                    />
-                    <Button
-                      variant="ghost"
-                      onClick={() => setLengthUnit(lengthUnit === "m" ? "ft" : "m")}
-                      className="h-12 px-4 font-black uppercase border border-gray-100 dark:border-zinc-800 rounded-2xl bg-gray-50 dark:bg-zinc-800/50 text-gray-600 dark:text-zinc-300 hover:bg-gray-100 shadow-sm"
-                    >
-                      {lengthUnit}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest" htmlFor="waste-input">
-                  Waste Safety Buffer (%)
-                </Label>
-                <Input
-                  id="waste-input"
-                  type="number"
-                  value={wasteFactor}
-                  onChange={(e) => setWasteFactor(e.target.value)}
-                  className="h-12 rounded-2xl font-bold dark:bg-zinc-800/50 dark:border-zinc-800 dark:text-zinc-100 shadow-inner focus-visible:ring-orange-500"
-                />
-              </div>
+                {/* Waste buffer */}
+                <Box>
+                  <FieldLabel>Waste Safety Buffer (%)</FieldLabel>
+                  <TextField fullWidth type="number" value={wasteFactor} onChange={e => setWasteFactor(e.target.value)} />
+                </Box>
+              </Box>
             </CardContent>
           </Card>
 
-          {/* Selected Results Card */}
+          {/* Result card */}
           {parsedWidth > 0 && parsedLength > 0 && selectedItem && (
-            <Card className={`border-none shadow-2xl rounded-[2rem] overflow-hidden transition-[box-shadow] duration-300 bg-gradient-to-br ${
-              isFulfilled 
-                ? "from-emerald-500 to-emerald-600 text-white" 
-                : canFulfillNet 
-                  ? "from-amber-500 to-amber-600 text-white"
-                  : "from-rose-500 to-rose-600 text-white"
-            }`}>
-              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3.5 bg-white/20 rounded-2xl shadow-inner">
-                    {isFulfilled ? (
-                      <CheckCircle2 className="w-10 h-10 text-white" />
-                    ) : canFulfillNet ? (
-                      <AlertTriangle className="w-10 h-10 text-white" />
-                    ) : (
-                      <XCircle className="w-10 h-10 text-white" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-black tracking-tight leading-none">
-                      {isFulfilled 
-                        ? "Fulfillment Guaranteed" 
-                        : canFulfillNet 
-                          ? "Width Matches, Tight Margin" 
-                          : !widthOk 
-                            ? "Roll Too Narrow" 
-                            : "Insufficient Material Area"}
-                    </h2>
-                    <p className="text-xs mt-2 text-white/80 font-medium max-w-xs">
-                      {!widthOk 
+            <Box sx={{ borderRadius: "2rem", overflow: "hidden", background: resultBg, color: "#fff", boxShadow: "0 20px 40px rgba(0,0,0,0.15)" }}>
+              <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, alignItems: "center", justifyContent: "space-between", gap: 3, p: 3 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Box sx={{ p: 1.75, bgcolor: "rgba(255,255,255,0.2)", borderRadius: 3 }}>
+                    {isFulfilled ? <CheckCircle2 size={40} /> : canFulfillNet ? <AlertTriangle size={40} /> : <XCircle size={40} />}
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: "1.5rem", fontWeight: 800, lineHeight: 1.1 }}>
+                      {isFulfilled ? "Fulfillment Guaranteed"
+                        : canFulfillNet ? "Width Matches, Tight Margin"
+                        : !widthOk ? "Roll Too Narrow"
+                        : "Insufficient Material Area"}
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)", mt: 1, maxWidth: 320 }}>
+                      {!widthOk
                         ? `Job requires ${parsedWidth}ft but roll width is only ${rollWidth}ft.`
-                        : isFulfilled 
-                          ? "Roll satisfies print size and waste coverage." 
-                          : "Meets square foot totals but exceeds safety boundaries."}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-center md:text-right shrink-0 bg-white/10 p-4 rounded-2xl border border-white/10 min-w-[150px] shadow-inner">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-white/70">Required Sqft</p>
-                  <p className="text-3xl font-black tracking-tight leading-tight">{totalRequiredArea.toFixed(1)}</p>
-                  <p className="text-[10px] font-bold text-white/80 mt-1">Out of {rollStock.toFixed(0)} left</p>
-                </div>
-              </CardContent>
-            </Card>
+                        : isFulfilled
+                        ? "Roll satisfies print size and waste coverage."
+                        : "Meets square foot totals but exceeds safety boundaries."}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ textAlign: "center", bgcolor: "rgba(255,255,255,0.1)", p: 2, borderRadius: 3, border: "1px solid rgba(255,255,255,0.1)", minWidth: 150, flexShrink: 0 }}>
+                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.7)" }}>Required Sqft</Typography>
+                  <Typography sx={{ fontSize: "2rem", fontWeight: 800, lineHeight: 1.1 }}>{totalRequiredArea.toFixed(1)}</Typography>
+                  <Typography sx={{ fontSize: "0.625rem", color: "rgba(255,255,255,0.8)", mt: 0.5 }}>Out of {rollStock.toFixed(0)} left</Typography>
+                </Box>
+              </Box>
+            </Box>
           )}
 
-          {/* Alternatives list */}
+          {/* Alternatives */}
           {parsedWidth > 0 && parsedLength > 0 && alternativeFulfillments.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500 flex items-center gap-2 px-1">
-                <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-                Alternative Fulfilling Rolls
-              </h3>
-              <div className="grid grid-cols-1 gap-2">
-                {alternativeFulfillments.map((alt) => (
-                  <Card key={alt._rowIndex} className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800/60 shadow-sm rounded-2xl p-4 flex items-center justify-between transition-[box-shadow] duration-300 [@media(hover:hover)]:hover:shadow-md">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-50 dark:bg-zinc-800 rounded-xl text-orange-600 dark:text-orange-400">
-                        <Package className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-gray-900 dark:text-white">{alt["Item Name"]}</h4>
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium">Width: {parseFloat(alt["Width (ft)"].toString()).toFixed(1)}ft</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="secondary" className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-100 dark:border-emerald-900">
-                        {parseFloat(alt["Stock"].toString()).toFixed(0)} sqft
-                      </Badge>
-                    </div>
-                  </Card>
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5, px: 0.5 }}>
+                <Sparkles size={14} color="#E8A13A" />
+                <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary" }}>
+                  Alternative Fulfilling Rolls
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {alternativeFulfillments.map(alt => (
+                  <Paper key={alt._rowIndex} variant="outlined" sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 2, borderRadius: 3, "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }, transition: "box-shadow 0.2s" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Box sx={{ p: 1, bgcolor: "rgba(232,161,58,0.1)", borderRadius: 2 }}>
+                        <Package size={20} color="#E8A13A" />
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{alt["Item Name"]}</Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>Width: {parseFloat(alt["Width (ft)"].toString()).toFixed(1)}ft</Typography>
+                      </Box>
+                    </Box>
+                    <Chip
+                      label={`${parseFloat(alt["Stock"].toString()).toFixed(0)} sqft`}
+                      size="small"
+                      sx={{ bgcolor: "#d1fae5", color: "#065f46", fontWeight: 700, borderRadius: 2 }}
+                    />
+                  </Paper>
                 ))}
-              </div>
-            </div>
+              </Box>
+            </Box>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 }

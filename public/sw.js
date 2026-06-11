@@ -41,7 +41,8 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((res) => {
           if (res.ok) {
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+            const cloned = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, cloned));
           }
           return res;
         })
@@ -65,7 +66,8 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((res) => {
           if (res.status === 200) {
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+            const cloned = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, cloned));
           }
           return res;
         })
@@ -83,7 +85,8 @@ self.addEventListener('fetch', (event) => {
       const networkFetch = fetch(event.request)
         .then((res) => {
           if (res.status === 200) {
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+            const cloned = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, cloned));
           }
           return res;
         })

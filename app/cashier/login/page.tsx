@@ -3,18 +3,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Lock, User, Store, LogIn, ChevronLeft, ArrowRight, Delete, AlertCircle } from "lucide-react";
+import { LogIn, ChevronLeft, ArrowRight, Delete, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import FormControl from "@mui/material/FormControl";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import Chip from "@mui/material/Chip";
 
 type Cashier = {
   Name: string;
@@ -31,44 +31,25 @@ export default function CashierLoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState<"select" | "pin">("select");
 
-  // Fetch cashiers list on load
   useEffect(() => {
     fetch("/api/cashiers")
-      .then((res) => res.json())
-      .then((data) => {
-        setCashiers(data.data || []);
-      })
-      .catch(() => {
-        toast.error("Failed to load cashier list");
-      })
-      .finally(() => {
-        setLoadingCashiers(false);
-      });
+      .then(res => res.json())
+      .then(data => { setCashiers(data.data || []); })
+      .catch(() => { toast.error("Failed to load cashier list"); })
+      .finally(() => { setLoadingCashiers(false); });
   }, []);
 
   const handleSelectNext = () => {
-    if (!selectedCashier) {
-      toast.error("Please select your name first");
-      return;
-    }
-    
-    if (selectedCashier.HasPasscode) {
-      setStep("pin");
-    } else {
-      // If no PIN is configured, login immediately
-      handleLoginDirect();
-    }
+    if (!selectedCashier) { toast.error("Please select your name first"); return; }
+    if (selectedCashier.HasPasscode) { setStep("pin"); }
+    else { handleLoginDirect(); }
   };
 
   const handleKeyPress = (num: string) => {
-    if (pin.length < 4) {
-      setPin((prev) => prev + num);
-    }
+    if (pin.length < 4) setPin(prev => prev + num);
   };
 
-  const handleDelete = () => {
-    setPin((prev) => prev.slice(0, -1));
-  };
+  const handleDelete = () => setPin(prev => prev.slice(0, -1));
 
   const handleLoginDirect = async () => {
     if (!selectedCashier) return;
@@ -79,20 +60,16 @@ export default function CashierLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: selectedCashier.Name, passcode: "" }),
       });
-
       if (res.ok) {
         localStorage.setItem("userName", selectedCashier.Name);
         toast.success(`Welcome back, ${selectedCashier.Name}!`);
-        
-        // Heartbeat to mark active
         await fetch("/api/cashiers", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: selectedCashier.Name, status: "Online" }),
         }).catch(() => {});
-
         window.location.href = "/cashier";
-        return; // Prevents the finally block from clearing the loading state which can cancel navigation
+        return;
       } else {
         const errData = await res.json();
         toast.error(errData.error || "Login failed");
@@ -105,10 +82,7 @@ export default function CashierLoginPage() {
 
   const handleSubmitPin = async () => {
     if (!selectedCashier) return;
-    if (pin.length !== 4) {
-      toast.error("Please enter a 4-digit PIN");
-      return;
-    }
+    if (pin.length !== 4) { toast.error("Please enter a 4-digit PIN"); return; }
     setSubmitting(true);
     try {
       const res = await fetch("/api/auth/cashier-login", {
@@ -116,24 +90,20 @@ export default function CashierLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: selectedCashier.Name, passcode: pin }),
       });
-
       if (res.ok) {
         localStorage.setItem("userName", selectedCashier.Name);
         toast.success(`Welcome back, ${selectedCashier.Name}!`);
-
-        // Update cashier status to Online
         await fetch("/api/cashiers", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: selectedCashier.Name, status: "Online" }),
         }).catch(() => {});
-
         window.location.href = "/cashier";
-        return; // Prevents finally block
+        return;
       } else {
         const errData = await res.json();
         toast.error(errData.error || "Incorrect PIN");
-        setPin(""); // Clear PIN on failure
+        setPin("");
       }
     } catch {
       toast.error("Failed to authenticate PIN");
@@ -142,216 +112,179 @@ export default function CashierLoginPage() {
     setSubmitting(false);
   };
 
-  // Triggers submission automatically when PIN reaches 4 digits
   useEffect(() => {
-    if (pin.length === 4 && step === "pin") {
-      handleSubmitPin();
-    }
+    if (pin.length === 4 && step === "pin") handleSubmitPin();
   }, [pin, step]);
 
+  const keypadBtnSx = {
+    width: 64, height: 64, borderRadius: "50%", justifySelf: "center",
+    bgcolor: "background.paper", border: "1px solid", borderColor: "divider",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: "1.25rem", fontWeight: 800, color: "text.primary",
+    cursor: "pointer", transition: "all 0.15s",
+    "&:hover": { bgcolor: "rgba(247,104,8,0.06)", borderColor: "primary.light", transform: "scale(1.05)" },
+    "&:active": { transform: "scale(0.9)" },
+    "&:disabled": { opacity: 0.5, cursor: "not-allowed" },
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-amber-100 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 p-4 relative overflow-hidden">
-      {/* Visual background lights */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-orange-300/20 dark:bg-orange-950/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-yellow-300/20 dark:bg-yellow-950/10 blur-3xl pointer-events-none" />
+    <Box sx={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      bgcolor: "background.default",
+      p: 2, position: "relative", overflow: "hidden",
+    }}>
+      <Box sx={{ position: "absolute", top: "-20%", left: "-10%", width: "60%", height: "60%", borderRadius: "50%", bgcolor: "rgba(247,104,8,0.12)", filter: "blur(80px)", pointerEvents: "none" }} />
+      <Box sx={{ position: "absolute", bottom: "-20%", right: "-10%", width: "60%", height: "60%", borderRadius: "50%", bgcolor: "rgba(253,224,71,0.1)", filter: "blur(80px)", pointerEvents: "none" }} />
 
-      <div className="w-full max-w-md bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/40 dark:border-zinc-800/40 p-8 relative z-10 transition-all duration-300">
-        
-        {/* Header Section */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="bg-white dark:bg-zinc-800 p-3 rounded-2xl shadow-md border border-orange-100 dark:border-zinc-700/50 mb-4 transition-transform hover:scale-105 duration-300">
-            <Image
-              src="/bomedia-icon.svg"
-              alt="BOMedia Logo"
-              width={56}
-              height={56}
-              className="object-contain"
-            />
-          </div>
-          <h1 className="text-2xl font-black text-center text-gray-900 dark:text-white tracking-tight leading-none">
+      <Paper
+        elevation={0}
+        sx={{
+          width: "100%", maxWidth: 448, borderRadius: "16px",
+          boxShadow: "0 25px 50px rgba(0,0,0,0.12)",
+          border: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          p: 4, position: "relative", zIndex: 1,
+        }}
+      >
+        {/* Header */}
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 3 }}>
+          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: "10px", mb: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.08)", transition: "transform 0.3s", "&:hover": { transform: "scale(1.05)" } }}>
+            <Image src="/bomedia-icon.svg" alt="BOMedia Logo" width={56} height={56} style={{ objectFit: "contain", display: "block" }} />
+          </Paper>
+          <Typography variant="h4" sx={{ fontWeight: 800, textAlign: "center", letterSpacing: "-0.02em", lineHeight: 1 }}>
             BOMedia Cashier Portal
-          </h1>
-          <p className="text-xs text-center text-gray-400 dark:text-zinc-500 font-bold uppercase tracking-wider mt-2">
+          </Typography>
+          <Typography variant="caption" sx={{ textAlign: "center", color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", mt: 1 }}>
             Secure Shift Access
-          </p>
-        </div>
+          </Typography>
+        </Box>
 
-        {/* STEP 1: SELECT CASHIER NAME */}
+        {/* Step 1: Select cashier */}
         {step === "select" && (
-          <div className="space-y-6 animate-in fade-in-50 duration-300">
-            <div className="space-y-2">
-              <label htmlFor="cashier-select" className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 block pl-1">
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 1 }}>
                 Who is signing in?
-              </label>
-              
-              <Select
-                value={selectedCashier?.Name || ""}
-                onValueChange={(val) => {
-                  const found = cashiers.find((c) => c.Name === val);
-                  if (found) setSelectedCashier(found);
-                }}
-                disabled={loadingCashiers}
-              >
-                <SelectTrigger
-                  id="cashier-select"
-                  className="h-14 rounded-2xl border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 font-bold text-gray-800 dark:text-zinc-100 focus:ring-orange-500 focus:border-orange-500 shadow-sm transition-colors text-base"
+              </Typography>
+              <FormControl fullWidth>
+                <Select
+                  value={selectedCashier?.Name || ""}
+                  onChange={e => {
+                    const found = cashiers.find(c => c.Name === e.target.value);
+                    if (found) setSelectedCashier(found);
+                  }}
+                  disabled={loadingCashiers}
+                  displayEmpty
+                  sx={{ height: 56, borderRadius: "10px", fontWeight: 700 }}
                 >
-                  <SelectValue
-                    placeholder={
-                      loadingCashiers ? "Loading cashiers list..." : "Choose your name..."
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-gray-100 dark:border-zinc-800 shadow-xl">
-                  {cashiers.map((c) => (
-                    <SelectItem
-                      key={c.Name}
-                      value={c.Name}
-                      className="font-bold py-3 text-base"
-                    >
-                      {c.Name}
-                    </SelectItem>
+                  <MenuItem value="" disabled>
+                    <Typography sx={{ color: "text.disabled" }}>
+                      {loadingCashiers ? "Loading cashiers list..." : "Choose your name..."}
+                    </Typography>
+                  </MenuItem>
+                  {cashiers.map(c => (
+                    <MenuItem key={c.Name} value={c.Name} sx={{ fontWeight: 700, py: 1.5 }}>{c.Name}</MenuItem>
                   ))}
                   {cashiers.length === 0 && !loadingCashiers && (
-                    <div className="px-4 py-6 text-center text-sm text-gray-400">
-                      No cashiers registered.
-                    </div>
+                    <MenuItem disabled><Typography variant="body2" sx={{ color: "text.disabled", py: 1 }}>No cashiers registered.</Typography></MenuItem>
                   )}
-                </SelectContent>
-              </Select>
-            </div>
+                </Select>
+              </FormControl>
+            </Box>
 
             {selectedCashier && !selectedCashier.HasPasscode && (
-              <div className="flex gap-2 p-3 bg-amber-500/10 dark:bg-amber-500/5 rounded-2xl border border-amber-500/20 text-amber-600 dark:text-amber-400">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="text-xs font-semibold leading-relaxed">
-                  No PIN is configured for your name. You can sign in instantly. Please ask your administrator to set up a 4-digit PIN for your account.
-                </p>
-              </div>
+              <Box sx={{ display: "flex", gap: 1, p: 1.5, borderRadius: "10px", bgcolor: "rgba(247,104,8,0.08)", border: "1px solid rgba(247,104,8,0.2)" }}>
+                <AlertCircle size={18} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
+                <Typography variant="caption" sx={{ color: "primary.dark", lineHeight: 1.5 }}>
+                  No PIN is configured for your name. You can sign in instantly. Please ask your administrator to set up a 4-digit PIN.
+                </Typography>
+              </Box>
             )}
 
             <Button
               onClick={handleSelectNext}
-              className="w-full h-14 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-heavy rounded-2xl text-base shadow-lg shadow-orange-500/25 active:scale-[0.97] transition-all"
+              variant="contained"
+              color="primary"
+              fullWidth
+              size="large"
               disabled={!selectedCashier || submitting}
+              endIcon={selectedCashier?.HasPasscode ? <ArrowRight size={18} /> : <LogIn size={18} />}
+              sx={{ height: 56, fontWeight: 800, fontSize: "1rem", borderRadius: "10px"}}
             >
-              {selectedCashier?.HasPasscode ? (
-                <>
-                  Enter PIN Code
-                  <ArrowRight className="w-5 h-5 ml-2 shrink-0" />
-                </>
-              ) : (
-                <>
-                  {submitting ? "Signing in..." : "Get Started Now"}
-                  <LogIn className="w-5 h-5 ml-2 shrink-0" />
-                </>
-              )}
+              {selectedCashier?.HasPasscode ? "Enter PIN Code" : submitting ? "Signing in..." : "Get Started Now"}
             </Button>
-          </div>
+          </Box>
         )}
 
-        {/* STEP 2: ENTER 4-DIGIT PIN */}
+        {/* Step 2: PIN entry */}
         {step === "pin" && selectedCashier && (
-          <div className="space-y-6 animate-in slide-in-from-right duration-300">
-            
-            {/* Back to Name Select */}
-            <button
-              onClick={() => {
-                setStep("select");
-                setPin("");
-              }}
-              className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-orange-500 dark:text-zinc-500 dark:hover:text-orange-400 font-black uppercase tracking-widest transition-colors pl-1"
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <Box
+              component="button"
+              onClick={() => { setStep("select"); setPin(""); }}
+              sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", bgcolor: "transparent", border: "none", cursor: "pointer", "&:hover": { color: "primary.main" }, transition: "color 0.15s", p: 0 }}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft size={16} />
               Not {selectedCashier.Name}?
-            </button>
+            </Box>
 
-            <div className="text-center">
-              <p className="text-sm font-bold text-gray-600 dark:text-zinc-300">
-                Hi <span className="text-orange-500 font-black">{selectedCashier.Name}</span>,
-              </p>
-              <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+            <Box sx={{ textAlign: "center" }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "text.secondary" }}>
+                Hi <Box component="span" sx={{ color: "primary.main", fontWeight: 800 }}>{selectedCashier.Name}</Box>,
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
                 Enter your 4-digit PIN code to secure your shift
-              </p>
-            </div>
+              </Typography>
+            </Box>
 
-            {/* PIN Dot Indicators */}
-            <div className="flex justify-center gap-5 my-4">
-              {[0, 1, 2, 3].map((idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "w-5 h-5 rounded-full border-2 transition-all duration-150 scale-100",
-                    idx < pin.length
-                      ? "bg-orange-500 border-orange-500 shadow-md shadow-orange-500/20 scale-110"
-                      : "bg-transparent border-gray-300 dark:border-zinc-700"
-                  )}
-                />
+            {/* PIN dot indicators */}
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 2.5, my: 0.5 }}>
+              {[0, 1, 2, 3].map(idx => (
+                <Box key={idx} sx={{
+                  width: 20, height: 20, borderRadius: "50%", border: "2px solid",
+                  transition: "all 0.15s",
+                  transform: idx < pin.length ? "scale(1.1)" : "scale(1)",
+                  bgcolor: idx < pin.length ? "primary.main" : "transparent",
+                  borderColor: idx < pin.length ? "primary.main" : "divider",
+                  boxShadow: idx < pin.length ? "0 2px 8px rgba(247,104,8,0.3)" : "none",
+                }} />
               ))}
-            </div>
+            </Box>
 
-            {/* Premium Virtual Keyboard (Sleek Numeric Keypad) */}
-            <div className="grid grid-cols-3 gap-3 max-w-[280px] mx-auto pt-2">
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => handleKeyPress(num)}
-                  disabled={submitting}
-                  className="w-16 h-16 rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700/50 shadow-sm flex items-center justify-center text-xl font-black text-gray-800 dark:text-zinc-200 transition-all hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-zinc-700 hover:scale-105 active:scale-90"
-                >
+            {/* Numeric keypad */}
+            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5, maxWidth: 280, mx: "auto", pt: 0.5 }}>
+              {["1","2","3","4","5","6","7","8","9"].map(num => (
+                <Box key={num} component="button" type="button" onClick={() => handleKeyPress(num)} disabled={submitting} sx={{ ...keypadBtnSx, justifySelf: "center" }}>
                   {num}
-                </button>
+                </Box>
               ))}
-              
-              {/* Backspace Button */}
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={submitting}
-                className="w-16 h-16 rounded-full bg-gray-50 dark:bg-zinc-800/40 hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 flex items-center justify-center transition-all active:scale-90"
-                aria-label="Delete last digit"
-              >
-                <Delete className="w-5 h-5" />
-              </button>
-
-              {/* Zero Button */}
-              <button
-                type="button"
-                onClick={() => handleKeyPress("0")}
-                disabled={submitting}
-                className="w-16 h-16 rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700/50 shadow-sm flex items-center justify-center text-xl font-black text-gray-800 dark:text-zinc-200 transition-all hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-zinc-700 hover:scale-105 active:scale-90"
-              >
-                0
-              </button>
-
-              {/* Login Submit Indicator / Spinner */}
-              <div className="w-16 h-16 flex items-center justify-center">
-                {submitting && (
-                  <div className="w-6 h-6 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                )}
-              </div>
-            </div>
-          </div>
+              {/* Backspace */}
+              <Box component="button" type="button" onClick={handleDelete} disabled={submitting} aria-label="Delete last digit"
+                sx={{ width: 64, height: 64, borderRadius: "50%", justifySelf: "center", bgcolor: "grey.100", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "text.secondary", transition: "all 0.15s", "&:hover": { bgcolor: "rgba(192,57,43,0.08)", color: "error.main" }, "&:active": { transform: "scale(0.9)" } }}>
+                <Delete size={20} />
+              </Box>
+              {/* Zero */}
+              <Box component="button" type="button" onClick={() => handleKeyPress("0")} disabled={submitting} sx={{ ...keypadBtnSx, justifySelf: "center" }}>0</Box>
+              {/* Spinner */}
+              <Box sx={{ width: 64, height: 64, justifySelf: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {submitting && <Box sx={{ width: 24, height: 24, border: "3px solid", borderColor: "primary.main", borderTopColor: "transparent", borderRadius: "50%" }} className="animate-spin" />}
+              </Box>
+            </Box>
+          </Box>
         )}
 
-        {/* Footer Links */}
-        <div className="mt-8 border-t border-gray-100 dark:border-zinc-800/60 pt-6 flex justify-between items-center text-xs">
-          <Link
-            href="/bom03/login"
-            className="text-gray-400 dark:text-zinc-500 hover:text-orange-500 dark:hover:text-orange-400 font-bold transition-colors"
-          >
+        {/* Footer */}
+        <Box sx={{ mt: 4, pt: 3, borderTop: "1px solid", borderColor: "divider", display: "flex", justifyContent: "space-between" }}>
+          <Box component={Link} href="/bom03/login" sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary", textDecoration: "none", "&:hover": { color: "primary.main" }, transition: "color 0.15s" }}>
             Owner / Admin Login
-          </Link>
-          <Link
-            href="/"
-            className="text-gray-400 dark:text-zinc-500 hover:text-orange-500 dark:hover:text-orange-400 font-bold transition-colors"
-          >
+          </Box>
+          <Box component={Link} href="/" sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary", textDecoration: "none", "&:hover": { color: "primary.main" }, transition: "color 0.15s" }}>
             Main Site
-          </Link>
-        </div>
-
-      </div>
-    </div>
+          </Box>
+        </Box>
+      </Paper>
+    </Box>
   );
 }

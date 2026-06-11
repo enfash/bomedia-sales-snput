@@ -8,15 +8,21 @@ import {
   TrendingUp, AlertCircle, CheckCircle2, Calendar,
   Activity, Download, Filter, PhoneCall, ArrowLeft,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Table, TableBody, TableCell, TableHead,
-  TableHeader, TableRow,
-} from "@/components/ui/table";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Skeleton from "@mui/material/Skeleton";
+import InputAdornment from "@mui/material/InputAdornment";
 import { useSyncStore } from "@/lib/store";
 import { WhatsAppReminder } from "@/components/whatsapp-reminder";
 import { formatDistanceToNow } from "date-fns";
@@ -40,12 +46,12 @@ const formatDate = (dateStr: string): string => {
 const getInitials = (name: string) =>
   name.split(" ").slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
 
-const AVATAR_COLORS = [
-  "bg-violet-500", "bg-blue-500", "bg-emerald-500",
-  "bg-orange-500", "bg-rose-500", "bg-cyan-500", "bg-amber-500",
+const AVATAR_BG_COLORS = [
+  "#7C3AED", "#3B82F6", "#10B981",
+  "#F97316", "#F43F5E", "#06B6D4", "#F59E0B",
 ];
-const getAvatarColor = (name: string) =>
-  AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+const getAvatarBg = (name: string) =>
+  AVATAR_BG_COLORS[name.charCodeAt(0) % AVATAR_BG_COLORS.length];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -192,65 +198,92 @@ function useCustomers() {
 // ── Skeleton components ───────────────────────────────────────────────────────
 
 function SkeletonRow() {
-  const cell = "h-4 rounded bg-gray-200 dark:bg-zinc-700 animate-pulse";
   return (
-    <TableRow className="border-b border-gray-50 dark:border-zinc-800/60">
-      <TableCell className="pl-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 animate-pulse shrink-0" />
-          <div className={cn(cell, "w-28")} />
-        </div>
+    <TableRow>
+      <TableCell sx={{ pl: 3, py: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Skeleton variant="circular" width={32} height={32} />
+          <Skeleton variant="text" width={112} />
+        </Box>
       </TableCell>
-      <TableCell><div className={cn(cell, "w-24")} /></TableCell>
-      <TableCell className="text-center"><div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-zinc-700 animate-pulse mx-auto" /></TableCell>
-      <TableCell><div className={cn(cell, "w-20 ml-auto")} /></TableCell>
-      <TableCell><div className={cn(cell, "w-16 ml-auto")} /></TableCell>
-      <TableCell><div className={cn(cell, "w-20 mx-auto")} /></TableCell>
-      <TableCell><div className={cn(cell, "w-16 mx-auto")} /></TableCell>
+      <TableCell><Skeleton variant="text" width={96} /></TableCell>
+      <TableCell align="center"><Skeleton variant="circular" width={28} height={28} sx={{ mx: "auto" }} /></TableCell>
+      <TableCell align="right"><Skeleton variant="text" width={80} sx={{ ml: "auto" }} /></TableCell>
+      <TableCell align="right"><Skeleton variant="text" width={64} sx={{ ml: "auto" }} /></TableCell>
+      <TableCell align="center"><Skeleton variant="text" width={80} sx={{ mx: "auto" }} /></TableCell>
+      <TableCell align="center"><Skeleton variant="text" width={64} sx={{ mx: "auto" }} /></TableCell>
     </TableRow>
   );
 }
 
 function SkeletonCard() {
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-zinc-700 animate-pulse shrink-0" />
-        <div className="flex-1 space-y-1.5">
-          <div className="h-4 w-32 rounded bg-gray-200 dark:bg-zinc-700 animate-pulse" />
-          <div className="h-3 w-24 rounded bg-gray-200 dark:bg-zinc-700 animate-pulse" />
-        </div>
-        <div className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-zinc-800 animate-pulse" />
-      </div>
-      <div className="h-14 rounded-xl bg-gray-100 dark:bg-zinc-800/60 animate-pulse" />
-    </div>
+    <Card>
+      <CardContent>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
+          <Skeleton variant="circular" width={40} height={40} />
+          <Box sx={{ flex: 1 }}>
+            <Skeleton variant="text" width={128} />
+            <Skeleton variant="text" width={96} />
+          </Box>
+          <Skeleton variant="rounded" width={32} height={32} />
+        </Box>
+        <Skeleton variant="rounded" height={56} />
+      </CardContent>
+    </Card>
   );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function ContactChip({ contact }: { contact: string }) {
-  if (!contact) return <span className="text-gray-300 dark:text-zinc-600 text-xs">—</span>;
+  if (!contact) return (
+    <Typography sx={{ fontSize: "0.7rem", color: "text.disabled" }}>—</Typography>
+  );
   return (
-    <a
+    <Box
+      component="a"
       href={`tel:${contact}`}
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-zinc-400 hover:text-primary dark:hover:text-primary transition-colors group"
-      onClick={e => e.stopPropagation()}
+      onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      sx={{
+        display: "inline-flex", alignItems: "center", gap: 0.5,
+        fontSize: "0.7rem", fontWeight: 600, color: "text.secondary",
+        textDecoration: "none",
+        "&:hover": { color: "primary.main" },
+        transition: "color .15s ease",
+      }}
     >
-      <PhoneCall className="w-3 h-3 text-gray-400 group-hover:text-primary transition-colors" />
+      <PhoneCall size={12} />
       {contact}
-    </a>
+    </Box>
   );
 }
 
 function EmptyState({ filtered }: { filtered: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-2 py-20 text-gray-400">
-      <Users className="w-10 h-10 opacity-20" />
-      <p className="text-sm font-medium">
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, py: 10, color: "text.disabled" }}>
+      <Users size={40} opacity={0.2} />
+      <Typography sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
         {filtered ? "No clients match your filters." : "No clients yet."}
-      </p>
-    </div>
+      </Typography>
+    </Box>
+  );
+}
+
+// ── Avatar ────────────────────────────────────────────────────────────────────
+
+function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+  return (
+    <Box sx={{
+      width: size, height: size, borderRadius: "50%",
+      bgcolor: getAvatarBg(name),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, color: "#fff",
+      fontSize: size <= 32 ? "0.65rem" : "0.8rem",
+      fontWeight: 900,
+    }}>
+      {getInitials(name)}
+    </Box>
   );
 }
 
@@ -275,189 +308,247 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
   const isFiltered = !!search || debtorsOnly;
 
   return (
-    <div className="p-3 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-32 transition-colors duration-500">
+    <Box sx={{ p: { xs: 1.5, md: 4 }, bgcolor: "background.default", minHeight: "100vh", pb: 16 }}>
 
       {/* ── Header ── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}
-              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <h1 className="text-3xl font-black text-primary flex items-center gap-2">
-              <Users className="w-8 h-8" /> Customer Manager
-            </h1>
+      <Box sx={{
+        display: "flex", flexDirection: { xs: "column", md: "row" },
+        alignItems: { md: "center" }, justifyContent: "space-between",
+        gap: 2, mb: 4,
+      }}>
+        <Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <IconButton
+              size="small"
+              onClick={() => router.back()}
+              sx={{
+                display: { md: "none" },
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 2,
+              }}
+            >
+              <ArrowLeft size={16} />
+            </IconButton>
+            <Typography variant="h3" sx={{ fontWeight: 900, color: "primary.main", display: "flex", alignItems: "center", gap: 1 }}>
+              <Users size={28} /> Customer Manager
+            </Typography>
             {refreshing && (
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/5 dark:bg-primary/20 px-2 py-0.5 rounded-full animate-pulse border border-primary/20">
-                <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Updating…
-              </span>
+              <Chip
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <RefreshCw size={10} style={{ animation: "spin 1s linear infinite" }} />
+                    Updating…
+                  </Box>
+                }
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ fontSize: "0.6rem", fontWeight: 700 }}
+              />
             )}
-          </div>
-          <p className="text-gray-500 dark:text-zinc-400 text-xs font-medium mt-1">
+          </Box>
+          <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 600, mt: 0.5 }}>
             {stats.totalClients} clients · {stats.clientsWithDebt} with outstanding balance
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportCSV}
+          </Typography>
+        </Box>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={exportCSV}
             disabled={loading || sorted.length === 0}
-            className="bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300 shadow-sm rounded-xl h-11 px-4 font-bold hover:bg-gray-50 dark:hover:bg-zinc-800">
-            <Download className="w-4 h-4 mr-2" /> Export
+            startIcon={<Download size={16} />}
+            sx={{ borderRadius: 3, height: 44, px: 2, fontWeight: 700 }}
+          >
+            Export
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchData}
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={fetchData}
             disabled={loading || refreshing}
-            className="bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300 shadow-sm rounded-xl h-11 px-5 font-bold hover:bg-gray-50 dark:hover:bg-zinc-800">
-            <RefreshCw className={cn("w-4 h-4 mr-2", (loading || refreshing) && "animate-spin")} />
+            startIcon={<RefreshCw size={16} style={{ animation: (loading || refreshing) ? "spin 1s linear infinite" : undefined }} />}
+            sx={{ borderRadius: 3, height: 44, px: 2.5, fontWeight: 700 }}
+          >
             {loading ? "Loading…" : refreshing ? "Updating…" : "Refresh"}
           </Button>
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* ── Summary Cards ── */}
-      <div className={cn("grid grid-cols-2 gap-4 mb-8", isAdmin ? "md:grid-cols-3" : "md:grid-cols-2")}>
-
+      <Box sx={{
+        display: "grid",
+        gridTemplateColumns: isAdmin ? { xs: "1fr 1fr", md: "repeat(3, 1fr)" } : { xs: "1fr 1fr" },
+        gap: 2, mb: 4,
+      }}>
         {/* Total Clients */}
-        <Card className="bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent dark:from-primary/10" />
-          <div className="absolute top-0 left-0 w-1 h-full bg-primary rounded-l" />
-          <div className="relative p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest">Total Clients</span>
-              <div className="p-2 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary">
-                <Users className="w-4 h-4" />
-              </div>
-            </div>
-            <p className="text-3xl font-black text-gray-900 dark:text-white">{stats.totalClients}</p>
-            <p className="text-[10px] text-primary font-bold mt-1 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> All-time unique clients
-            </p>
-          </div>
+        <Card sx={{ overflow: "hidden", position: "relative" }}>
+          <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(200,71,46,.05) 0%, transparent 100%)" }} />
+          <Box sx={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", bgcolor: "primary.main", borderRadius: "4px 0 0 4px" }} />
+          <CardContent sx={{ position: "relative", p: 2, "&:last-child": { pb: 2 } }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+              <Typography sx={{ fontSize: "0.6rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                Total Clients
+              </Typography>
+              <Box sx={{ p: 0.75, borderRadius: 2, bgcolor: "rgba(200,71,46,.1)", color: "primary.main", display: "flex" }}>
+                <Users size={16} />
+              </Box>
+            </Box>
+            <Typography sx={{ fontSize: "1.875rem", fontWeight: 900, color: "text.primary" }}>{stats.totalClients}</Typography>
+            <Typography sx={{ fontSize: "0.6rem", color: "primary.main", fontWeight: 700, mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
+              <TrendingUp size={12} /> All-time unique clients
+            </Typography>
+          </CardContent>
         </Card>
 
         {/* Unpaid Debt */}
-        <Card className="bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
-          <div className="absolute inset-0 bg-gradient-to-br from-rose-50 to-transparent dark:from-rose-950/20" />
-          <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 rounded-l" />
-          <div className="relative p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest">Unpaid Debt</span>
-              <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400">
-                <Wallet className="w-4 h-4" />
-              </div>
-            </div>
-            <p className="text-2xl font-black text-gray-900 dark:text-white">₦{stats.aggregateDebt.toLocaleString()}</p>
-            <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold mt-1 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" /> Across {stats.clientsWithDebt} clients
-            </p>
-          </div>
+        <Card sx={{ overflow: "hidden", position: "relative" }}>
+          <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(244,63,94,.05) 0%, transparent 100%)" }} />
+          <Box sx={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", bgcolor: "#F43F5E", borderRadius: "4px 0 0 4px" }} />
+          <CardContent sx={{ position: "relative", p: 2, "&:last-child": { pb: 2 } }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+              <Typography sx={{ fontSize: "0.6rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                Unpaid Debt
+              </Typography>
+              <Box sx={{ p: 0.75, borderRadius: 2, bgcolor: "rgba(244,63,94,.1)", color: "#F43F5E", display: "flex" }}>
+                <Wallet size={16} />
+              </Box>
+            </Box>
+            <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, color: "text.primary" }}>₦{stats.aggregateDebt.toLocaleString()}</Typography>
+            <Typography sx={{ fontSize: "0.6rem", color: "#E11D48", fontWeight: 700, mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
+              <AlertCircle size={12} /> Across {stats.clientsWithDebt} clients
+            </Typography>
+          </CardContent>
         </Card>
 
         {/* Top Spender (admin only) */}
         {isAdmin && (
-          <Card className="col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 border-0 shadow-sm overflow-hidden relative [@media(hover:hover)]:hover:shadow-md transition-[box-shadow]">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent dark:from-emerald-950/20" />
-            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 rounded-l" />
-            <div className="relative p-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest">Top Spender</span>
-                <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400">
-                  <ShoppingBag className="w-4 h-4" />
-                </div>
-              </div>
+          <Card sx={{ gridColumn: { xs: "1 / -1", md: "auto" }, overflow: "hidden", position: "relative" }}>
+            <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(16,185,129,.05) 0%, transparent 100%)" }} />
+            <Box sx={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", bgcolor: "#10B981", borderRadius: "4px 0 0 4px" }} />
+            <CardContent sx={{ position: "relative", p: 2, "&:last-child": { pb: 2 } }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+                <Typography sx={{ fontSize: "0.6rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                  Top Spender
+                </Typography>
+                <Box sx={{ p: 0.75, borderRadius: 2, bgcolor: "rgba(16,185,129,.1)", color: "#10B981", display: "flex" }}>
+                  <ShoppingBag size={16} />
+                </Box>
+              </Box>
               {stats.topSpender ? (
-                <div className="flex items-center gap-3">
-                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0", getAvatarColor(stats.topSpender.name))}>
-                    {getInitials(stats.topSpender.name)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-gray-900 dark:text-white truncate">{stats.topSpender.name}</p>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Avatar name={stats.topSpender.name} size={36} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {stats.topSpender.name}
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.6rem", color: "#10B981", fontWeight: 700 }}>
                       ₦{stats.topSpender.totalSpent.toLocaleString()} · {stats.topSpender.totalOrders} orders
-                    </p>
-                  </div>
-                </div>
+                    </Typography>
+                  </Box>
+                </Box>
               ) : (
-                <p className="text-sm text-gray-400">No data yet</p>
+                <Typography sx={{ fontSize: "0.875rem", color: "text.disabled" }}>No data yet</Typography>
               )}
-            </div>
+            </CardContent>
           </Card>
         )}
-      </div>
+      </Box>
 
       {/* ── Search & Filters ── */}
-      <div className="flex flex-col lg:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
-          <Input
-            className="pl-10 h-11 bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 rounded-xl shadow-sm focus:ring-primary dark:text-zinc-100 dark:placeholder:text-zinc-600"
-            placeholder="Search by name or contact…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 items-center flex-wrap">
+      <Box sx={{ display: "flex", flexDirection: { xs: "column", lg: "row" }, gap: 1.5, mb: 3 }}>
+        <TextField
+          placeholder="Search by name or contact…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          size="small"
+          sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: 3, height: 44, bgcolor: "background.paper" } }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={16} />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
 
           {/* Debtors-only toggle */}
-          <button
+          <Button
             onClick={() => setDebtorsOnly(v => !v)}
-            className={cn(
-              "flex items-center gap-1.5 px-4 h-11 rounded-xl text-xs font-bold border transition-[background-color,color,border-color]",
-              debtorsOnly
-                ? "bg-rose-600 text-white border-rose-600 shadow"
-                : "bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 text-gray-600 dark:text-zinc-400 shadow-sm hover:border-rose-300 dark:hover:border-rose-700",
-            )}
+            variant={debtorsOnly ? "contained" : "outlined"}
+            size="small"
+            startIcon={<Filter size={14} />}
+            sx={{
+              height: 44, borderRadius: 3, fontSize: "0.75rem", fontWeight: 700,
+              ...(debtorsOnly
+                ? { bgcolor: "#E11D48", "&:hover": { bgcolor: "#BE123C" }, borderColor: "#E11D48" }
+                : { bgcolor: "background.paper", borderColor: "divider", color: "text.secondary" }),
+            }}
           >
-            <Filter className="w-3.5 h-3.5" />
             Debtors only
             {debtorsOnly && (
-              <span className="bg-white/25 rounded px-1.5">{sorted.length}</span>
+              <Box component="span" sx={{ ml: 0.5, bgcolor: "rgba(255,255,255,.25)", borderRadius: 1, px: 0.75, fontSize: "0.65rem" }}>
+                {sorted.length}
+              </Box>
             )}
-          </button>
+          </Button>
 
           {/* Sort tabs */}
-          <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800">
+          <Box sx={{ display: "flex", bgcolor: "background.paper", p: 0.5, borderRadius: 3, border: "1px solid", borderColor: "divider" }}>
             {(["name", "orders", "spent", "debt"] as const).map(key => (
-              <button key={key} onClick={() => setSortBy(key)}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-xs font-bold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] capitalize",
-                  sortBy === key
-                    ? "bg-primary/10 dark:bg-primary/20 text-primary"
-                    : "text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300",
-                )}>
+              <Box
+                key={key}
+                component="button"
+                onClick={() => setSortBy(key)}
+                sx={{
+                  px: 1.5, py: 0.75, borderRadius: 2, fontSize: "0.75rem", fontWeight: 700,
+                  border: "none", cursor: "pointer", transition: "background-color .15s, color .15s",
+                  textTransform: "capitalize",
+                  bgcolor: sortBy === key ? "rgba(200,71,46,.1)" : "transparent",
+                  color: sortBy === key ? "primary.main" : "text.secondary",
+                  "&:hover": { color: sortBy === key ? "primary.main" : "text.primary" },
+                }}
+              >
                 {key === "spent" ? "Value" : key === "name" ? "Name" : key === "orders" ? "Orders" : "Debt"}
-              </button>
+              </Box>
             ))}
-          </div>
+          </Box>
 
-          <Button variant="outline" size="icon"
+          <IconButton
             onClick={() => setSortOrder(o => o === "asc" ? "desc" : "asc")}
-            className="h-11 w-11 rounded-xl border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
-            title={sortOrder === "asc" ? "Ascending" : "Descending"}>
-            <ArrowUpDown className={cn("w-4 h-4 text-primary transition-transform", sortOrder === "desc" && "rotate-180")} />
-          </Button>
-        </div>
-      </div>
+            title={sortOrder === "asc" ? "Ascending" : "Descending"}
+            sx={{ height: 44, width: 44, borderRadius: 3, border: "1px solid", borderColor: "divider", bgcolor: "background.paper" }}
+          >
+            <ArrowUpDown size={16} color="#C8472E" style={{ transform: sortOrder === "desc" ? "rotate(180deg)" : undefined, transition: "transform .2s" }} />
+          </IconButton>
+        </Box>
+      </Box>
 
       {/* ── Desktop Table ── */}
-      <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-50 dark:border-zinc-800 overflow-hidden">
+      <Box sx={{ display: { xs: "none", md: "block" }, bgcolor: "background.paper", borderRadius: "16px", border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
         <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50/80 dark:bg-zinc-800/60 hover:bg-gray-50/80 dark:hover:bg-zinc-800/60 border-none">
-              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 py-4 pl-6">Client</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500">Contact</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-center">Orders</TableHead>
-              {isAdmin && <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-right">Total Value</TableHead>}
-              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-right">Debt</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-center">Last Order</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-gray-500 dark:text-zinc-500 text-center">Action</TableHead>
+          <TableHead>
+            <TableRow sx={{ bgcolor: "rgba(0,0,0,.02)" }}>
+              <TableCell sx={{ pl: 3, py: 2, fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.1em", border: "none" }}>Client</TableCell>
+              <TableCell sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.1em", border: "none" }}>Contact</TableCell>
+              <TableCell align="center" sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.1em", border: "none" }}>Orders</TableCell>
+              {isAdmin && <TableCell align="right" sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.1em", border: "none" }}>Total Value</TableCell>}
+              <TableCell align="right" sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.1em", border: "none" }}>Debt</TableCell>
+              <TableCell align="center" sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.1em", border: "none" }}>Last Order</TableCell>
+              <TableCell align="center" sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.1em", border: "none" }}>Action</TableCell>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {loading ? (
               Array.from({ length: 7 }).map((_, i) => <SkeletonRow key={i} />)
             ) : paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 7 : 6}>
+                <TableCell colSpan={isAdmin ? 7 : 6} sx={{ border: "none" }}>
                   <EmptyState filtered={isFiltered} />
                 </TableCell>
               </TableRow>
@@ -465,67 +556,80 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
               paginated.map((client, idx) => (
                 <TableRow
                   key={idx}
-                  className="border-b border-gray-50 dark:border-zinc-800/60 hover:bg-gray-50/60 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
+                  hover
+                  sx={{ cursor: "pointer", borderBottom: "1px solid", borderColor: "divider" }}
                   onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
                 >
-                  <TableCell className="pl-6 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-black shrink-0", getAvatarColor(client.name))}>
-                        {getInitials(client.name)}
-                      </div>
-                      <span className="text-sm font-bold text-gray-900 dark:text-white">{client.name}</span>
-                    </div>
+                  <TableCell sx={{ pl: 3, py: 1.5, border: "none" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Avatar name={client.name} size={32} />
+                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary" }}>{client.name}</Typography>
+                    </Box>
                   </TableCell>
-                  <TableCell onClick={e => e.stopPropagation()}>
+                  <TableCell sx={{ border: "none" }} onClick={e => e.stopPropagation()}>
                     <ContactChip contact={client.contact} />
                   </TableCell>
-                  <TableCell className="text-center">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 dark:bg-primary/20 text-primary text-xs font-black">
+                  <TableCell align="center" sx={{ border: "none" }}>
+                    <Box sx={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 28, height: 28, borderRadius: "50%",
+                      bgcolor: "rgba(200,71,46,.1)", color: "primary.main",
+                      fontSize: "0.75rem", fontWeight: 900,
+                    }}>
                       {client.totalOrders}
-                    </span>
+                    </Box>
                   </TableCell>
                   {isAdmin && (
-                    <TableCell className="text-right">
-                      <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                    <TableCell align="right" sx={{ border: "none" }}>
+                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#10B981" }}>
                         ₦{client.totalSpent.toLocaleString()}
-                      </span>
+                      </Typography>
                     </TableCell>
                   )}
-                  <TableCell className="text-right">
+                  <TableCell align="right" sx={{ border: "none" }}>
                     {client.totalDebt <= 0 ? (
-                      <Badge className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900 font-bold text-[10px] gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Cleared
-                      </Badge>
+                      <Chip
+                        icon={<CheckCircle2 size={12} />}
+                        label="Cleared"
+                        size="small"
+                        sx={{
+                          bgcolor: "rgba(16,185,129,.08)", color: "#10B981",
+                          border: "1px solid rgba(16,185,129,.2)", fontWeight: 700, fontSize: "0.65rem",
+                          "& .MuiChip-icon": { color: "#10B981" },
+                        }}
+                      />
                     ) : (
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-sm font-black text-rose-600 dark:text-rose-400">
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 }}>
+                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#E11D48" }}>
                           ₦{client.totalDebt.toLocaleString()}
-                        </span>
+                        </Typography>
                         {isAdmin && client.totalSpent > 0 && (
-                          <div className="w-16 h-1 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-rose-400"
-                              style={{ width: `${Math.min(100, (client.totalDebt / client.totalSpent) * 100)}%` }}
-                            />
-                          </div>
+                          <Box sx={{ width: 64, height: 4, borderRadius: 2, bgcolor: "rgba(0,0,0,.08)", overflow: "hidden" }}>
+                            <Box sx={{
+                              height: "100%", borderRadius: 2, bgcolor: "#F87171",
+                              width: `${Math.min(100, (client.totalDebt / client.totalSpent) * 100)}%`,
+                            }} />
+                          </Box>
                         )}
-                      </div>
+                      </Box>
                     )}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <span className="text-[11px] font-medium text-gray-400 dark:text-zinc-500 flex items-center justify-center gap-1">
-                      <Calendar className="w-3 h-3" />
+                  <TableCell align="center" sx={{ border: "none" }}>
+                    <Typography sx={{ fontSize: "0.7rem", fontWeight: 500, color: "text.disabled", display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
+                      <Calendar size={12} />
                       {formatDate(client.lastOrderDate)}
-                    </span>
+                    </Typography>
                   </TableCell>
-                  <TableCell className="text-center" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-center gap-1.5">
-                      <Button variant="outline" size="icon"
-                        className="h-8 w-8 rounded-lg text-primary border-primary/20 hover:bg-primary/5 dark:hover:bg-primary/10"
+                  <TableCell align="center" sx={{ border: "none" }} onClick={e => e.stopPropagation()}>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75 }}>
+                      <IconButton
+                        size="small"
                         onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
-                        title="View Timeline">
-                        <Activity className="w-4 h-4" />
-                      </Button>
+                        title="View Timeline"
+                        sx={{ border: "1px solid rgba(200,71,46,.2)", color: "primary.main", borderRadius: 2, "&:hover": { bgcolor: "rgba(200,71,46,.05)" } }}
+                      >
+                        <Activity size={16} />
+                      </IconButton>
                       <WhatsAppReminder
                         clientName={client.name}
                         contact={client.contact || ""}
@@ -533,17 +637,17 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                         jobDescription="Outstanding balance reminder"
                         variant="icon"
                       />
-                    </div>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </div>
+      </Box>
 
       {/* ── Mobile Cards ── */}
-      <div className="md:hidden space-y-3">
+      <Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 1.5 }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
         ) : paginated.length === 0 ? (
@@ -552,38 +656,41 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
           paginated.map((client, idx) => (
             <Card
               key={idx}
-              className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
               onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
+              sx={{ cursor: "pointer", overflow: "hidden", transition: "transform .15s ease", "&:active": { transform: "scale(.99)" } }}
             >
-              <div className="p-4">
+              <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                 {/* Header */}
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black shrink-0", getAvatarColor(client.name))}>
-                      {getInitials(client.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-black text-gray-900 dark:text-white truncate">{client.name}</h3>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 1.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+                    <Avatar name={client.name} size={40} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {client.name}
+                      </Typography>
                       {client.contact ? (
-                        <a
+                        <Box
+                          component="a"
                           href={`tel:${client.contact}`}
-                          className="text-xs text-primary flex items-center gap-1 mt-0.5 w-fit"
-                          onClick={e => e.stopPropagation()}
+                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                          sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", color: "primary.main", textDecoration: "none", mt: 0.25 }}
                         >
-                          <PhoneCall className="w-3 h-3" /> {client.contact}
-                        </a>
+                          <PhoneCall size={12} /> {client.contact}
+                        </Box>
                       ) : (
-                        <p className="text-[10px] text-gray-300 dark:text-zinc-600 mt-0.5">No contact</p>
+                        <Typography sx={{ fontSize: "0.65rem", color: "text.disabled", mt: 0.25 }}>No contact</Typography>
                       )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                    <Button variant="outline" size="icon"
-                      className="h-8 w-8 rounded-lg text-primary border-primary/20 hover:bg-primary/5"
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                    <IconButton
+                      size="small"
                       onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
-                      title="View Timeline">
-                      <Activity className="w-4 h-4" />
-                    </Button>
+                      title="View Timeline"
+                      sx={{ border: "1px solid rgba(200,71,46,.2)", color: "primary.main", borderRadius: 2, "&:hover": { bgcolor: "rgba(200,71,46,.05)" } }}
+                    >
+                      <Activity size={16} />
+                    </IconButton>
                     <WhatsAppReminder
                       clientName={client.name}
                       contact={client.contact || ""}
@@ -591,78 +698,98 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                       jobDescription="Outstanding balance reminder"
                       variant="icon"
                     />
-                  </div>
-                </div>
+                  </Box>
+                </Box>
 
                 {/* Stats strip */}
-                <div className="grid grid-cols-3 gap-0 mt-3 bg-gray-50 dark:bg-zinc-800/40 rounded-xl overflow-hidden">
-                  <div className="text-center p-3">
-                    <span className="text-[9px] uppercase tracking-wider font-black text-gray-400 dark:text-zinc-500">Orders</span>
-                    <p className="text-sm font-black text-primary mt-0.5">{client.totalOrders}</p>
-                  </div>
-                  <div className="text-center p-3 border-l border-r border-gray-200 dark:border-zinc-700">
-                    <span className="text-[9px] uppercase tracking-wider font-black text-gray-400 dark:text-zinc-500">
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", bgcolor: "rgba(0,0,0,.03)", borderRadius: 2, overflow: "hidden" }}>
+                  <Box sx={{ textAlign: "center", p: 1.5 }}>
+                    <Typography sx={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900, color: "text.secondary" }}>Orders</Typography>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "primary.main", mt: 0.25 }}>{client.totalOrders}</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: "center", p: 1.5, borderLeft: "1px solid", borderRight: "1px solid", borderColor: "divider" }}>
+                    <Typography sx={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900, color: "text.secondary" }}>
                       {isAdmin ? "Value" : "Jobs"}
-                    </span>
-                    <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#10B981", mt: 0.25 }}>
                       {isAdmin ? `₦${(client.totalSpent / 1000).toFixed(0)}k` : client.totalOrders}
-                    </p>
-                  </div>
-                  <div className="text-center p-3">
-                    <span className="text-[9px] uppercase tracking-wider font-black text-gray-400 dark:text-zinc-500">Debt</span>
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: "center", p: 1.5 }}>
+                    <Typography sx={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900, color: "text.secondary" }}>Debt</Typography>
                     {client.totalDebt <= 0 ? (
-                      <p className="text-[10px] font-black text-emerald-500 mt-0.5 flex items-center justify-center gap-0.5">
-                        <CheckCircle2 className="w-3 h-3" /> Clear
-                      </p>
+                      <Typography sx={{ fontSize: "0.65rem", fontWeight: 900, color: "#10B981", mt: 0.25, display: "flex", alignItems: "center", justifyContent: "center", gap: 0.25 }}>
+                        <CheckCircle2 size={12} /> Clear
+                      </Typography>
                     ) : (
-                      <p className="text-sm font-black text-rose-600 dark:text-rose-400 mt-0.5">
+                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#E11D48", mt: 0.25 }}>
                         ₦{(client.totalDebt / 1000).toFixed(0)}k
-                      </p>
+                      </Typography>
                     )}
-                  </div>
-                </div>
+                  </Box>
+                </Box>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between mt-2.5">
-                  <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-zinc-500">
-                    <Calendar className="w-3 h-3" />
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 1.25 }}>
+                  <Typography sx={{ fontSize: "0.65rem", color: "text.disabled", display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Calendar size={12} />
                     Last order {formatDate(client.lastOrderDate)}
-                  </span>
+                  </Typography>
                   {client.totalDebt > 0 && (
-                    <Badge className="bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900 text-[9px] font-black px-2 py-0.5">
-                      Owes ₦{(client.totalDebt / 1000).toFixed(0)}k
-                    </Badge>
+                    <Chip
+                      label={`Owes ₦${(client.totalDebt / 1000).toFixed(0)}k`}
+                      size="small"
+                      sx={{
+                        bgcolor: "rgba(225,29,72,.06)", color: "#E11D48",
+                        border: "1px solid rgba(225,29,72,.15)", fontWeight: 900, fontSize: "0.55rem",
+                        height: 20,
+                      }}
+                    />
                   )}
-                </div>
-              </div>
+                </Box>
+              </CardContent>
             </Card>
           ))
         )}
-      </div>
+      </Box>
 
       {/* ── Pagination ── */}
       {sorted.length > ITEMS_PER_PAGE && (
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-gray-100/50 dark:border-zinc-800">
-          <p className="text-xs font-bold text-gray-600 dark:text-zinc-400 order-2 sm:order-1">
-            Showing <span className="text-primary">
+        <Box sx={{
+          mt: 4, display: "flex", flexDirection: { xs: "column", sm: "row" },
+          alignItems: "center", justifyContent: "space-between", gap: 2,
+          bgcolor: "background.paper", p: 2, borderRadius: "16px", border: "1px solid", borderColor: "divider",
+        }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary", order: { xs: 2, sm: 1 } }}>
+            Showing{" "}
+            <Box component="span" sx={{ color: "primary.main" }}>
               {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(sorted.length, currentPage * ITEMS_PER_PAGE)}
-            </span> of {sorted.length} customers
-          </p>
-          <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
-            <Button variant="outline" size="sm"
+            </Box>
+            {" "}of {sorted.length} customers
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, order: { xs: 1, sm: 2 }, width: { xs: "100%", sm: "auto" } }}>
+            <Button
+              variant="outlined"
+              size="small"
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="flex-1 sm:flex-none rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-gray-50">
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+              startIcon={<ChevronLeft size={16} />}
+              sx={{ flex: { xs: 1, sm: "none" }, borderRadius: 3, height: 36, fontWeight: 900, fontSize: "0.75rem" }}
+            >
+              Back
             </Button>
-            <Button variant="outline" size="sm"
+            <Button
+              variant="outlined"
+              size="small"
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="flex-1 sm:flex-none rounded-xl h-9 px-4 text-xs font-black border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-gray-50">
-              Next <ChevronRight className="w-4 h-4 ml-1" />
+              endIcon={<ChevronRight size={16} />}
+              sx={{ flex: { xs: 1, sm: "none" }, borderRadius: 3, height: 36, fontWeight: 900, fontSize: "0.75rem" }}
+            >
+              Next
             </Button>
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
 
       <CustomerTimelineModal
@@ -671,6 +798,6 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
         clientName={selectedClient?.name ?? null}
         contact={selectedClient?.contact}
       />
-    </div>
+    </Box>
   );
 }

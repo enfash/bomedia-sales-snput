@@ -3,14 +3,31 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LayoutDashboard, PlusCircle, Receipt, BarChart3, Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare, Package, Volume2, VolumeX, Ruler, ArrowLeftRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import {
+  Menu, LayoutDashboard, PlusCircle, Receipt, BarChart3,
+  Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare,
+  Package, Volume2, VolumeX, Ruler, ArrowLeftRight,
+} from "lucide-react";
+import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 import { toast } from "sonner";
 import { ActivityFeed } from "./activity-feed";
+
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Drawer from "@mui/material/Drawer";
+import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import CircularProgress from "@mui/material/CircularProgress";
 
 interface MobileNavProps {
   isAdmin?: boolean;
@@ -18,7 +35,7 @@ interface MobileNavProps {
 
 export function MobileNav({ isAdmin = false }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(false); // Initial false matches server
+  const [isMuted, setIsMuted] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -35,8 +52,8 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
     setIsMuted(nextMute);
     localStorage.setItem("bomedia-muted", String(nextMute));
     toast.info(nextMute ? "Notifications Muted" : "Sound Enabled", {
-      icon: nextMute ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />,
-      duration: 2000
+      icon: nextMute ? <VolumeX size={16} /> : <Volume2 size={16} />,
+      duration: 2000,
     });
   };
 
@@ -48,8 +65,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
   const handleLogout = async () => {
     const userName = localStorage.getItem("userName");
     localStorage.removeItem("userName");
-    
-    // Attempt to free the session if applicable
+
     if (userName) {
       await fetch("/api/cashiers", {
         method: "PATCH",
@@ -62,19 +78,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
     window.location.href = "/";
   };
 
-  // Close nav when path changes
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
-
-  // Prevent scrolling when nav is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-  }, [isOpen]);
+  useEffect(() => { setIsOpen(false); }, [pathname]);
 
   if (pathname === "/bom03/login" || pathname === "/cashier/login" || pathname === "/") return null;
 
@@ -88,148 +92,173 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
         { href: "/cashier/customers", label: "Customers",   icon: Users },
         { href: "/quick-check",       label: "Quick-Check", icon: Ruler },
         { href: "/cashier/records",   label: "Records",     icon: BarChart3 },
-        { href: "/cashier/expenses",  label: "Expenses", icon: Receipt },
+        { href: "/cashier/expenses",  label: "Expenses",    icon: Receipt },
       ]
     : [
-        { href: "/bom03",              label: "Dashboard",    icon: LayoutDashboard },
-        { href: "/bom03/new-entry",    label: "New Sale",     icon: PlusCircle },
-        { href: "/bom03/board",        label: "Job Board",    icon: KanbanSquare },
-        { href: "/bom03/customers",    label: "Customers",    icon: Users },
-        { href: "/quick-check",        label: "Quick-Check",  icon: Ruler },
-        { href: "/bom03/records",      label: "Records",      icon: BarChart3 },
-        { href: "/bom03/expenses",     label: "Expenses",  icon: Receipt },
-        { href: "/bom03/inventory",    label: "Inventory",    icon: Package },
-        { href: "/bom03/staff",        label: "Staff Manager", icon: Users },
+        { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
+        { href: "/bom03/new-entry", label: "New Sale",     icon: PlusCircle },
+        { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
+        { href: "/bom03/customers", label: "Customers",    icon: Users },
+        { href: "/quick-check",     label: "Quick-Check",  icon: Ruler },
+        { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
+        { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
+        { href: "/bom03/inventory", label: "Inventory",    icon: Package },
+        { href: "/bom03/staff",     label: "Staff Manager",icon: Users },
       ];
 
   return (
     <>
-      {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 z-50 flex items-center justify-between px-4 transition-colors duration-500">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(true)}
-              className="md:hidden text-gray-600 dark:text-zinc-400"
-            >
-              <Menu className="w-6 h-6" />
-            </Button>
-            <div className="flex flex-col">
-              <span className="text-sm font-black text-primary uppercase tracking-tighter leading-none">BOMedia</span>
-              <span className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-widest leading-none mt-1">{isAdmin ? "Admin" : "Cashier"}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            className="h-9 w-9 rounded-xl text-gray-400 hover:text-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleMute}
-            className={cn(
-              "h-9 w-9 rounded-xl transition-[background-color,color]",
-              hasHydrated && isMuted 
-                ? "text-rose-500 bg-rose-50 dark:bg-rose-900/10" 
-                : "text-gray-400 hover:text-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
-            )}
-          >
-            {hasHydrated && isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </Button>
-          <ActivityFeed />
-          <ThemeToggle />
-        </div>
-      </header>
+      {/* Fixed mobile header */}
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          display: { md: "none" },
+          bgcolor: "background.paper",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          color: "text.primary",
+        }}
+      >
+        <Toolbar sx={{ justifyContent: "space-between", minHeight: 64 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton edge="start" onClick={() => setIsOpen(true)} sx={{ color: "text.secondary" }}>
+              <Menu size={24} />
+            </IconButton>
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1, display: "block", fontSize: "0.875rem" }}>
+                BOMedia
+              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1, fontSize: "0.6rem" }}>
+                {isAdmin ? "Admin" : "Cashier"}
+              </Typography>
+            </Box>
+          </Box>
 
-      {/* Spacer to prevent content from hiding behind fixed header */}
-      <div className="md:hidden h-16 w-full" />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Tooltip title="Refresh data">
+              <IconButton onClick={handleRefresh} size="small" aria-label="Refresh data" sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}>
+                <RefreshCw size={16} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={hasHydrated && isMuted ? "Unmute notifications" : "Mute notifications"}>
+              <IconButton
+                onClick={toggleMute}
+                size="small"
+                aria-label={hasHydrated && isMuted ? "Unmute notifications" : "Mute notifications"}
+                sx={{
+                  color: hasHydrated && isMuted ? "error.main" : "text.secondary",
+                  bgcolor: hasHydrated && isMuted ? "error.light" : "transparent",
+                  "&:hover": { color: "primary.main" },
+                }}
+              >
+                {hasHydrated && isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </IconButton>
+            </Tooltip>
+            <ActivityFeed />
+            <ThemeToggle />
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-      {/* Mobile Nav Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] md:hidden animation-in fade-in transition-[opacity] duration-200"
-          onClick={() => setIsOpen(false)}
-        >
-          <div 
-            className="absolute left-0 top-0 bottom-0 w-[280px] bg-gray-900 dark:bg-zinc-950 p-6 shadow-2xl flex flex-col animation-in slide-in-from-left transition-colors duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-8">
-              <Logo className="text-white" />
-              <p className="text-xs text-gray-300 mt-1 ml-12">Sales & Expenses</p>
-            </div>
+      {/* Spacer under fixed header */}
+      <Box sx={{ display: { md: "none" }, height: 64 }} />
 
-            <nav className="flex-1 space-y-2">
-              {currentNavItems.map(({ href, label, icon: Icon }) => {
-                const active = pathname === href;
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={cn(
-                      "flex items-center gap-4 px-4 py-3 rounded-xl text-base font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
-                      active
-                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                        : "text-gray-300 hover:bg-white/5 hover:text-white"
-                    )}
-                  >
-                    <Icon className="w-5 h-5 shrink-0" />
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
+      {/* Mobile nav drawer */}
+      <Drawer
+        anchor="left"
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        sx={{ display: { md: "none" }, "& .MuiDrawer-paper": { width: 280 } }}
+      >
+        <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+            <Logo />
+            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", mt: 0.5, ml: 6, display: "block" }}>
+              Sales &amp; Expenses
+            </Typography>
+          </Box>
 
-            <div className="mt-auto space-y-4">
-              {/* Sync Status for Mobile */}
-              <div className="p-4 bg-gray-800/40 dark:bg-zinc-900/40 rounded-xl border border-gray-700/50 dark:border-zinc-800/50">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-widest">Sync Queue</span>
-                  {syncStatus === 'syncing' ? (
-                    <RefreshCw className="w-3 h-3 text-primary animate-spin" />
-                  ) : pendingQueue.length > 0 ? (
-                    <CloudOff className="w-3 h-3 text-amber-500 dark:text-amber-400" />
-                  ) : (
-                    <Cloud className="w-3 h-3 text-green-400" />
-                  )}
-                </div>
-                <p className="text-xs text-gray-300">{pendingQueue.length} items waiting for network</p>
-              </div>
-
-              <div className="pt-6 border-t border-gray-800 space-y-2">
-                {isAdmin && (
-                  <Button
-                    variant="ghost"
-                    className="w-full text-brand-300 hover:text-white hover:bg-brand-700/30 justify-start transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
-                    onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
-                  >
-                    <ArrowLeftRight className="w-5 h-5 mr-3" />
-                    {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  className="w-full text-gray-400 hover:text-white hover:bg-gray-800 dark:hover:bg-zinc-900 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] justify-start"
-                  onClick={handleLogout}
+          <List sx={{ flex: 1, px: 1.5, overflowY: "auto" }}>
+            {currentNavItems.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href;
+              return (
+                <ListItemButton
+                  key={href}
+                  component={Link}
+                  href={href}
+                  onClick={() => setIsOpen(false)}
+                  selected={active}
+                  sx={{
+                    borderRadius: 2.5,
+                    mb: 0.5,
+                    gap: 1,
+                    color: active ? "primary.contrastText" : "rgba(255,255,255,0.65)",
+                    "&.Mui-selected": {
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": { bgcolor: "primary.dark" },
+                    },
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" },
+                  }}
                 >
-                  <LogOut className="w-5 h-5 mr-3" />
-                  Log Out
-                </Button>
-                <p className="text-xs text-gray-600 font-medium text-center">BOMedia Management System</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+                  <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                    <Icon size={20} />
+                  </ListItemIcon>
+                  <ListItemText primary={label} sx={{ "& .MuiListItemText-primary": { fontSize: "0.9375rem", fontWeight: 500 } }} />
+                </ListItemButton>
+              );
+            })}
+          </List>
+
+          <Box sx={{ mt: "auto", px: 2, pb: 3 }}>
+            {/* Sync status */}
+            <Box sx={{ p: 1.5, bgcolor: "rgba(255,255,255,0.05)", borderRadius: 2, border: "1px solid rgba(255,255,255,0.08)", mb: 2 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.6rem" }}>
+                  Sync Queue
+                </Typography>
+                {syncStatus === "syncing" ? (
+                  <CircularProgress size={12} />
+                ) : pendingQueue.length > 0 ? (
+                  <CloudOff size={12} style={{ color: "#f59e0b" }} />
+                ) : (
+                  <Cloud size={12} style={{ color: "#4ade80" }} />
+                )}
+              </Box>
+              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)" }}>
+                {pendingQueue.length} items waiting for network
+              </Typography>
+            </Box>
+
+            <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", mb: 2 }} />
+
+            {isAdmin && (
+              <Button
+                fullWidth
+                startIcon={<ArrowLeftRight size={18} />}
+                onClick={() => { router.push(isInCashierView ? "/bom03" : "/cashier"); setIsOpen(false); }}
+                sx={{ justifyContent: "flex-start", color: "rgba(255,255,255,0.5)", "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" }, mb: 1, textTransform: "none" }}
+              >
+                {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
+              </Button>
+            )}
+
+            <Button
+              fullWidth
+              startIcon={<LogOut size={18} />}
+              onClick={handleLogout}
+              sx={{ justifyContent: "flex-start", color: "rgba(255,255,255,0.4)", "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" }, textTransform: "none" }}
+            >
+              Log Out
+            </Button>
+
+            <Typography variant="caption" sx={{ display: "block", textAlign: "center", color: "rgba(255,255,255,0.2)", mt: 2 }}>
+              BOMedia Management System
+            </Typography>
+          </Box>
+        </Box>
+      </Drawer>
     </>
   );
 }

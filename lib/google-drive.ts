@@ -13,7 +13,7 @@ const auth = new JWT({
   scopes: SCOPES,
 });
 
-const drive = google.drive({ version: 'v3', auth });
+const drive = google.drive({ version: 'v3', auth: auth as any });
 
 /**
  * Uploads a file to Google Drive

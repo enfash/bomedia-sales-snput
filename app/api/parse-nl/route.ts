@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { parseNaturalLanguageToSales } from '@/lib/gemini';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const { text } = await request.json();

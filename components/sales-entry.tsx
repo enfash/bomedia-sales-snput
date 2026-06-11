@@ -1,49 +1,37 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Package,
-  Plus,
-  Sparkles,
-  Trash2,
-  User,
-  Ruler,
-  Layers,
-  Receipt,
-  XCircle,
-  RefreshCw,
-  ArrowRight,
-  Info,
+  AlertTriangle, CheckCircle2, Plus, Sparkles,
+  Trash2, User, Ruler, Layers, Receipt, XCircle, RefreshCw,
+  ArrowRight, Info, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useSyncStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
-import { Drawer } from "vaul";
 import { MaterialSelector } from "@/components/material-selector";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
+import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
+
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import FormControl from "@mui/material/FormControl";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import Chip from "@mui/material/Chip";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Divider from "@mui/material/Divider";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,10 +49,10 @@ interface InventoryRoll {
 
 interface CartItem {
   id: string;
-  materialId: string;    // e.g. "FLEX-4FT"
-  rollId?: string;        // null for auto-route
-  rollLabel: string;      // e.g. "Flex 4ft"
-  itemName: string;       // material name
+  materialId: string;
+  rollId?: string;
+  rollLabel: string;
+  itemName: string;
   widthFt: number;
   jobDescription: string;
   jobWidth: number;
@@ -97,108 +85,87 @@ const parseNum = (v: string | number | undefined) =>
 const fmtCurrency = (n: number) =>
   `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
+// ─── TabPanel ────────────────────────────────────────────────────────────────
+
+function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
+  return <div hidden={value !== index}>{value === index && children}</div>;
+}
+
+// ─── StockBadge ──────────────────────────────────────────────────────────────
+
 function StockBadge({ roll }: { roll: InventoryRoll }) {
   const remaining = parseNum(roll["Remaining Length (ft)"]);
   const status = roll.Status || "Active";
   if (status === "Out of Stock" || remaining <= 0)
-    return (
-      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
-        Out of Stock
-      </span>
-    );
+    return <Chip label="Out of Stock" size="small" sx={{ bgcolor: "#fee2e2", color: "#dc2626", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />;
   if (status === "Low Stock")
-    return (
-      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-        Low · {remaining.toFixed(0)}ft
-      </span>
-    );
-  return (
-    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-      {remaining.toFixed(0)}ft left
-    </span>
-  );
+    return <Chip label={`Low · ${remaining.toFixed(0)}ft`} size="small" sx={{ bgcolor: "#fef3c7", color: "#d97706", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />;
+  return <Chip label={`${remaining.toFixed(0)}ft left`} size="small" sx={{ bgcolor: "#d1fae5", color: "#059669", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />;
 }
 
-// ─── Cart Item Card ───────────────────────────────────────────────────────────
+// ─── CartItemCard ─────────────────────────────────────────────────────────────
 
-function CartItemCard({
-  item,
-  onRemove,
-}: {
-  item: CartItem;
-  onRemove: (id: string) => void;
-}) {
+function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: (id: string) => void }) {
   const stockOk = item.remainingAfterJob >= 0;
-
   return (
-    <div
-      className={cn(
-        "relative p-4 rounded-2xl border-2 transition-[border-color,background-color]",
-        stockOk
-          ? "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
-          : "border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-900/10"
-      )}
+    <Paper
+      variant="outlined"
+      sx={{
+        position: "relative",
+        p: 2,
+        borderRadius: 3,
+        borderColor: stockOk ? "divider" : "error.light",
+        bgcolor: stockOk ? "background.paper" : "rgba(192,57,43,0.03)",
+      }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2, pr: 3 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 800 }} noWrap>
               {item.jobDescription || "Unnamed job"}
-            </p>
-            <Badge className="text-[9px] font-black border-none bg-primary/10 text-primary dark:bg-primary/20">
-              {item.rollLabel}
-            </Badge>
+            </Typography>
+            <Chip
+              label={item.rollLabel}
+              size="small"
+              sx={{ bgcolor: "rgba(200,71,46,0.08)", color: "primary.main", fontWeight: 700, fontSize: "0.6rem", height: 18, border: "none" }}
+            />
             {item.isFlipped && (
-              <Badge className="text-[9px] font-black border-none bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
-                ↻ Auto-Rotated
-              </Badge>
+              <Chip label="↻ Auto-Rotated" size="small" sx={{ bgcolor: "#e0f2fe", color: "#0284c7", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />
             )}
-          </div>
-          <p className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
-            {item.qty}× · {item.jobWidth}{item.dimUnit} × {item.jobHeight}{item.dimUnit} ·{" "}
-            {item.jobLengthFt.toFixed(1)}ft consumed
-          </p>
-
+          </Box>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
+            {item.qty}× · {item.jobWidth}{item.dimUnit} × {item.jobHeight}{item.dimUnit} · {item.jobLengthFt.toFixed(1)}ft consumed
+          </Typography>
           {!stockOk && (
-            <p className="text-[10px] text-rose-600 dark:text-rose-400 font-black flex items-center gap-1 mt-1.5">
-              <AlertTriangle className="w-3 h-3" />
-              Insufficient stock across all rolls of this material
-            </p>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 1 }}>
+              <AlertTriangle size={12} color="#dc2626" />
+              <Typography variant="caption" sx={{ color: "error.main", fontWeight: 800 }}>
+                Insufficient stock across all rolls of this material
+              </Typography>
+            </Box>
           )}
-        </div>
-
-        <div className="text-right shrink-0">
-          <p className="text-base font-black text-gray-900 dark:text-white">
-            {fmtCurrency(item.totalAmount)}
-          </p>
-          <p className="text-[10px] text-gray-400 dark:text-zinc-500">
-            ₦{item.costPerSqft}/sqft
-          </p>
-        </div>
-      </div>
-
-      <button
-        type="button"
+        </Box>
+        <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+          <Typography variant="body1" sx={{ fontWeight: 800 }}>{fmtCurrency(item.totalAmount)}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>₦{item.costPerSqft}/sqft</Typography>
+        </Box>
+      </Box>
+      <IconButton
+        size="small"
         onClick={() => onRemove(item.id)}
-        className="absolute top-3 right-3 w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-[background-color,color]"
         aria-label="Remove"
+        sx={{ position: "absolute", top: 8, right: 8, color: "text.disabled", "&:hover": { color: "error.main" } }}
       >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    </div>
+        <Trash2 size={14} />
+      </IconButton>
+    </Paper>
   );
 }
 
-// ─── Summary Bar ──────────────────────────────────────────────────────────────
+// ─── SummaryBar ───────────────────────────────────────────────────────────────
 
 function SummaryBar({
-  cart,
-  grandTotal,
-  initialPayment,
-  balance,
-  paymentStatus,
-  onSubmit,
-  disabled,
+  cart, grandTotal, initialPayment, balance, paymentStatus, onSubmit, disabled,
 }: {
   cart: CartItem[];
   grandTotal: number;
@@ -209,86 +176,96 @@ function SummaryBar({
   disabled: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-
   if (cart.length === 0) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 md:left-60 z-50 pb-safe">
-      <div className="bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-t border-gray-100 dark:border-zinc-800 shadow-2xl">
-        {/* Expanded breakdown */}
+    <Box sx={{ position: "fixed", bottom: 0, left: { xs: 0, md: 240 }, right: 0, zIndex: 50 }}>
+      <Paper elevation={8} sx={{ borderRadius: 0, borderTop: "1px solid", borderColor: "divider" }}>
         {expanded && (
-          <div className="px-4 pt-4 pb-2 grid grid-cols-3 gap-3 border-b border-gray-100 dark:border-zinc-800">
+          <Box
+            sx={{
+              px: 2, pt: 2, pb: 1.5,
+              display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2,
+              borderBottom: "1px solid", borderColor: "divider",
+            }}
+          >
             {[
               { label: "Items", val: String(cart.length), sub: "in order" },
-              {
-                label: "Grand Total",
-                val: fmtCurrency(grandTotal),
-                sub: "before payment",
-              },
-              {
-                label: "Balance Due",
-                val: fmtCurrency(Math.max(0, balance)),
-                sub: paymentStatus,
-                accent: balance > 0,
-              },
+              { label: "Grand Total", val: fmtCurrency(grandTotal), sub: "before payment" },
+              { label: "Balance Due", val: fmtCurrency(Math.max(0, balance)), sub: paymentStatus, accent: balance > 0 },
             ].map(({ label, val, sub, accent }) => (
-              <div key={label} className="text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">
+              <Box key={label} sx={{ textAlign: "center" }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.25 }}>
                   {label}
-                </p>
-                <p
-                  className={cn(
-                    "text-base font-black leading-tight",
-                    accent
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-gray-900 dark:text-white"
-                  )}
-                >
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 800, lineHeight: 1.2, color: accent ? "error.main" : "text.primary" }}>
                   {val}
-                </p>
-                <p className="text-[9px] text-gray-400 dark:text-zinc-500">{sub}</p>
-              </div>
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{sub}</Typography>
+              </Box>
             ))}
-          </div>
+          </Box>
         )}
 
-        {/* Collapsed bar */}
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.5 }}>
+          <Box
+            component="button"
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-2 flex-1 min-w-0"
+            sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1, minWidth: 0, bgcolor: "transparent", border: "none", cursor: "pointer", p: 0, textAlign: "left" }}
           >
-            <div className="w-8 h-8 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
-              <Receipt className="w-4 h-4 text-primary" />
-            </div>
-            <div className="text-left min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
-                {cart.length} item{cart.length !== 1 ? "s" : ""} · tap to{" "}
-                {expanded ? "collapse" : "expand"}
-              </p>
-              <p className="text-base font-black text-gray-900 dark:text-white leading-tight">
-                {fmtCurrency(grandTotal)}
-              </p>
-            </div>
-            {expanded ? (
-              <ChevronDown className="w-4 h-4 text-gray-400 ml-auto shrink-0" />
-            ) : (
-              <ChevronUp className="w-4 h-4 text-gray-400 ml-auto shrink-0" />
-            )}
-          </button>
+            <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: "rgba(200,71,46,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Receipt size={16} color="#C8472E" />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block" }}>
+                {cart.length} item{cart.length !== 1 ? "s" : ""} · tap to {expanded ? "collapse" : "expand"}
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>{fmtCurrency(grandTotal)}</Typography>
+            </Box>
+            <Box sx={{ ml: "auto", flexShrink: 0, color: "text.secondary", display: "flex" }}>
+              {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            </Box>
+          </Box>
 
           <Button
+            variant="contained"
             onClick={onSubmit}
             disabled={disabled}
-            className="h-12 px-6 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black shadow-lg shadow-primary/20 shrink-0 flex items-center gap-2"
+            endIcon={<ArrowRight size={16} />}
+            sx={{ height: 48, px: 3, borderRadius: 3, fontWeight: 800, flexShrink: 0 }}
           >
             Review
-            <ArrowRight className="w-4 h-4" />
           </Button>
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Paper>
+    </Box>
+  );
+}
+
+// ─── Section label helper ─────────────────────────────────────────────────────
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="caption"
+      sx={{ fontSize: "0.65rem", whiteSpace: "nowrap", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2.5 }}>
+      <Box sx={{ width: 28, height: 28, borderRadius: 2, bgcolor: "rgba(200,71,46,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon size={14} color="#C8472E" />
+      </Box>
+      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.primary", fontSize: "0.75rem" }}>
+        {title}
+      </Typography>
+    </Box>
   );
 }
 
@@ -301,8 +278,6 @@ export function SalesEntry() {
 
   const materials = cachedMaterials;
 
-  // Silently seed cachedSales so client-name suggestions work even when
-  // navigating directly to /new-entry without going through the dashboard.
   const fetchSalesForSuggestions = useCallback(async () => {
     try {
       const res = await fetch("/api/sales");
@@ -310,7 +285,7 @@ export function SalesEntry() {
       if (res.ok && json.data?.length) {
         setCachedData(json.data, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials);
       }
-    } catch { /* silent — suggestions are best-effort */ }
+    } catch { /* silent */ }
   }, [cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData]);
 
   useEffect(() => {
@@ -336,19 +311,16 @@ export function SalesEntry() {
   }, [cachedSales, cachedExpenses, cachedInventory, cachedPayments, setCachedData]);
 
   useEffect(() => {
-    // Only fetch if cache is empty; otherwise use cached data immediately
-    if (cachedMaterials.length === 0) {
-      fetchMaterials();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (cachedMaterials.length === 0) fetchMaterials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Batch meta (client info) ─────────────────────────────────────────────
+  // ── Batch meta ───────────────────────────────────────────────────────────
   const [meta, setMeta] = useState<BatchMeta>({
     date: new Date().toISOString().split("T")[0],
     clientName: "",
     contact: "",
-    jobStatus: "Quoted",
+    jobStatus: JOB_STATUSES[0],
     initialPayment: "0",
   });
   const setMetaField = (k: keyof BatchMeta, v: string) =>
@@ -381,7 +353,7 @@ export function SalesEntry() {
     return uniqueClients.filter((c) => c.toLowerCase().includes(q)).slice(0, 6);
   }, [uniqueClients, meta.clientName]);
 
-  // ── Job form (single job being built) ───────────────────────────────────
+  // ── Job form ─────────────────────────────────────────────────────────────
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [jobDesc, setJobDesc] = useState("");
   const [jobWidth, setJobWidth] = useState("");
@@ -396,7 +368,6 @@ export function SalesEntry() {
     [materials, selectedMaterialId]
   );
 
-  // When a material is selected, auto-fill cost per sqft
   useEffect(() => {
     if (selectedMaterial) {
       const price = parseNum(selectedMaterial["Selling Price"]);
@@ -404,7 +375,6 @@ export function SalesEntry() {
     }
   }, [selectedMaterial]);
 
-  // Live calculations
   const jobWFt = useMemo(() => {
     const w = parseFloat(jobWidth) || 0;
     return dimUnit === "in" ? w / 12 : w;
@@ -418,8 +388,6 @@ export function SalesEntry() {
   const rollWidth = selectedMaterial ? parseNum(selectedMaterial["Width (ft)"]) : 0;
   const qtyNum = parseInt(qty) || 1;
 
-  // Tiling logic: fit multiple items side-by-side across the roll width before consuming length.
-  // For each orientation, itemsPerRow = how many fit across; rows = ceil(qty / itemsPerRow).
   let normalLen = Infinity;
   let flippedLen = Infinity;
   if (rollWidth > 0 && jobWFt > 0 && jobHFt > 0) {
@@ -455,15 +423,8 @@ export function SalesEntry() {
 
   const handleAddToCart = () => {
     setFormTouched(true);
-
-    if (!selectedMaterialId) {
-      toast.error("Please select a material profile");
-      return;
-    }
-    if (!jobWidth || !jobHeight) {
-      toast.error("Enter both job width and height");
-      return;
-    }
+    if (!selectedMaterialId) { toast.error("Please select a material profile"); return; }
+    if (!jobWidth || !jobHeight) { toast.error("Enter both job width and height"); return; }
     if (!widthCompatible) {
       if (dimUnit === "in") {
         const wIn = parseFloat(jobWidth) || 0;
@@ -476,9 +437,7 @@ export function SalesEntry() {
       return;
     }
     if (!stockOk) {
-      toast.warning(
-        `Low stock warning: need ${jobLengthFt.toFixed(1)}ft but only ${matRemaining.toFixed(1)}ft available. Job added — restock before printing.`
-      );
+      toast.warning(`Low stock warning: need ${jobLengthFt.toFixed(1)}ft but only ${matRemaining.toFixed(1)}ft available. Job added — restock before printing.`);
     }
 
     const newItem: CartItem = {
@@ -490,7 +449,7 @@ export function SalesEntry() {
       jobDescription: jobDesc.trim() || `${selectedMaterial!["Material Name"]} print job`,
       jobWidth: parseFloat(jobWidth),
       jobHeight: parseFloat(jobHeight),
-      dimUnit: dimUnit,
+      dimUnit,
       qty: qtyNum,
       costPerSqft,
       unitSqft,
@@ -504,13 +463,7 @@ export function SalesEntry() {
 
     setCart((prev) => [...prev, newItem]);
     toast.success("Job added to order");
-
-    // Reset job form but keep material selected
-    setJobDesc("");
-    setJobWidth("");
-    setJobHeight("");
-    setQty("1");
-    setFormTouched(false);
+    setJobDesc(""); setJobWidth(""); setJobHeight(""); setQty("1"); setFormTouched(false);
   };
 
   // ── Load from Estimator Handoff ──────────────────────────────────────────
@@ -524,19 +477,16 @@ export function SalesEntry() {
           const newCartItems = data.items.map((it: any) => {
             const material = materials.find(m => m["Material ID"] === it.materialId);
             if (!material) return null;
-            
             const wFt = it.dimUnit === "in" ? (parseFloat(it.width) || 0) / 12 : (parseFloat(it.width) || 0);
             const hFt = it.dimUnit === "in" ? (parseFloat(it.height) || 0) / 12 : (parseFloat(it.height) || 0);
             const qty = parseInt(it.qty) || 1;
             const costPerSqft = parseNum(material["Selling Price"]);
             const unitSqft = wFt * hFt;
-            
             const rollWidth = parseNum(material["Width (ft)"]);
             const fitsNormal = wFt <= rollWidth;
             const fitsFlipped = hFt <= rollWidth;
             const isFlipped = !fitsNormal && fitsFlipped;
             const jobLengthFt = (isFlipped ? wFt : hFt) * qty;
-
             return {
               id: crypto.randomUUID(),
               materialId: it.materialId,
@@ -547,35 +497,29 @@ export function SalesEntry() {
               jobWidth: parseFloat(it.width),
               jobHeight: parseFloat(it.height),
               dimUnit: it.dimUnit,
-              qty: qty,
-              costPerSqft: costPerSqft,
-              unitSqft: unitSqft,
+              qty,
+              costPerSqft,
+              unitSqft,
               unitCost: unitSqft * costPerSqft,
               totalAmount: unitSqft * costPerSqft * qty,
-              jobLengthFt: jobLengthFt,
+              jobLengthFt,
               remainingAfterJob: parseNum(material["Total Remaining (ft)"]) - jobLengthFt,
               fromInventory: true,
-              isFlipped: isFlipped,
+              isFlipped,
             };
           }).filter(Boolean);
-          
           if (newCartItems.length > 0) {
             setCart(prev => [...prev, ...newCartItems]);
             toast.success("Loaded estimate from Calculator!");
           }
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch { /* ignore */ }
       localStorage.removeItem("estimatorCart");
     }
   }, [materials]);
 
-  // ── Grand total calculations ─────────────────────────────────────────────
-  const grandTotal = useMemo(
-    () => cart.reduce((s, i) => s + i.totalAmount, 0),
-    [cart]
-  );
+  // ── Totals ───────────────────────────────────────────────────────────────
+  const grandTotal = useMemo(() => cart.reduce((s, i) => s + i.totalAmount, 0), [cart]);
   const initialPaymentNum = parseFloat(meta.initialPayment) || 0;
   const balance = grandTotal - initialPaymentNum;
   const paymentStatus = useMemo(() => {
@@ -601,18 +545,13 @@ export function SalesEntry() {
       const json = await res.json();
       if (res.ok && json.data) {
         const d = json.data;
-        if (d["CLIENT NAME"])
-          setMetaField("clientName", d["CLIENT NAME"]);
+        if (d["CLIENT NAME"]) setMetaField("clientName", d["CLIENT NAME"]);
         if (d["CONTACT"]) setMetaField("contact", d["CONTACT"]);
-        if (d["INITIAL PAYMENT (₦)"])
-          setMetaField("initialPayment", String(d["INITIAL PAYMENT (₦)"]));
+        if (d["INITIAL PAYMENT (₦)"]) setMetaField("initialPayment", String(d["INITIAL PAYMENT (₦)"]));
         if (d["JOB DESCRIPTION"]) setJobDesc(d["JOB DESCRIPTION"]);
-        if (d["COST PER SQRFT"])
-          setCostOverride(String(d["COST PER SQRFT"]));
-        if (d["actualWidth"])
-          setJobWidth(String(d["actualWidth"]));
-        if (d["actualHeight"])
-          setJobHeight(String(d["actualHeight"]));
+        if (d["COST PER SQRFT"]) setCostOverride(String(d["COST PER SQRFT"]));
+        if (d["actualWidth"]) setJobWidth(String(d["actualWidth"]));
+        if (d["actualHeight"]) setJobHeight(String(d["actualHeight"]));
         if (d["QTY"]) setQty(String(d["QTY"]));
         toast.success("Parsed! Review the details then add to order.");
       } else {
@@ -630,25 +569,15 @@ export function SalesEntry() {
   const [saving, setSaving] = useState(false);
 
   const handleReview = () => {
-    if (!meta.clientName.trim()) {
-      toast.error("Client name is required");
-      return;
-    }
-    if (cart.length === 0) {
-      toast.error("Add at least one job to the order");
-      return;
-    }
+    if (!meta.clientName.trim()) { toast.error("Client name is required"); return; }
+    if (cart.length === 0) { toast.error("Add at least one job to the order"); return; }
     setShowConfirm(true);
   };
 
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
-    const loggedBy =
-      typeof window !== "undefined"
-        ? localStorage.getItem("userName") || "Unknown"
-        : "Unknown";
-
+    const loggedBy = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown" : "Unknown";
     let remainingPayment = initialPaymentNum;
 
     const rowArrays = cart.map((item) => {
@@ -660,44 +589,28 @@ export function SalesEntry() {
         paymentForRow = remainingPayment;
         remainingPayment = 0;
       }
-
       const needsInchDiv = item.dimUnit === "in";
       const wRaw = item.jobWidth;
       const hRaw = item.jobHeight;
-      const sizeFormula = needsInchDiv
-        ? `=(${wRaw}*${hRaw})/144`
-        : `=(${wRaw}*${hRaw})`;
-
+      const sizeFormula = needsInchDiv ? `=(${wRaw}*${hRaw})/144` : `=(${wRaw}*${hRaw})`;
       const rollWidthFt = item.widthFt;
-      const colMap: Record<number, string> = {
-        3: "G", 4: "H", 5: "I", 6: "J", 8: "K", 10: "L",
-      };
+      const colMap: Record<number, string> = { 3: "G", 4: "H", 5: "I", 6: "J", 8: "K", 10: "L" };
       const col = colMap[rollWidthFt] || "H";
-
       return [
-        meta.date,           // A DATE
-        meta.clientName,     // B CLIENT NAME
-        `${item.jobDescription} [${item.jobWidth}x${item.jobHeight}${item.dimUnit}]`, // C JOB DESCRIPTION
-        meta.contact,        // D CONTACT
-        item.itemName,       // E MATERIAL
-        item.costPerSqft,    // F COST PER SQFT
-        col === "G" ? sizeFormula : "", // G 3FT
-        col === "H" ? sizeFormula : "", // H 4FT
-        col === "I" ? sizeFormula : "", // I 5FT
-        col === "J" ? sizeFormula : "", // J 6FT
-        col === "K" ? sizeFormula : "", // K 8FT
-        col === "L" ? sizeFormula : "", // L 10FT
-        item.qty,            // M QTY
-        `=([COL_G_L][ROW]*F[ROW])`, // N UNIT COST
-        paymentForRow,       // O INITIAL PAYMENT
-        `=(M[ROW]*N[ROW])`, // P TOTAL
-        "",                  // Q ADD PAYMENT 1
-        "",                  // R ADD PAYMENT 2
-        `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`, // S BALANCE
-        `=IF(P[ROW]=0,"Unpaid",IF(S[ROW]<=0,"Paid",IF(S[ROW]<P[ROW],"Part-payment","Unpaid")))`, // T STATUS
-        meta.jobStatus,      // U JOB STATUS
-        loggedBy,            // V LOGGED BY
-        "",                  // W SALES ID (server-generated)
+        meta.date, meta.clientName,
+        `${item.jobDescription} [${item.jobWidth}x${item.jobHeight}${item.dimUnit}]`,
+        meta.contact, item.itemName, item.costPerSqft,
+        col === "G" ? sizeFormula : "", col === "H" ? sizeFormula : "",
+        col === "I" ? sizeFormula : "", col === "J" ? sizeFormula : "",
+        col === "K" ? sizeFormula : "", col === "L" ? sizeFormula : "",
+        item.qty,
+        `=([COL_G_L][ROW]*F[ROW])`,
+        paymentForRow,
+        `=(M[ROW]*N[ROW])`,
+        "", "",
+        `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`,
+        `=IF(P[ROW]=0,"Unpaid",IF(S[ROW]<=0,"Paid",IF(S[ROW]<P[ROW],"Part-payment","Unpaid")))`,
+        meta.jobStatus, loggedBy, "",
       ];
     });
 
@@ -710,7 +623,7 @@ export function SalesEntry() {
             values: row,
             totalArea: item.unitSqft * item.qty,
             jobLengthFt: item.jobLengthFt,
-            canonicalItemName: item.materialId, // Material ID for internal deduction
+            canonicalItemName: item.materialId,
             jobDescription: item.jobDescription,
             qty: item.qty,
             materialId: item.materialId,
@@ -724,24 +637,9 @@ export function SalesEntry() {
 
       toast.success("Order saved locally — syncing to Google Sheets…");
       setShowConfirm(false);
-
-      // Reset everything
-      setMeta({
-        date: new Date().toISOString().split("T")[0],
-        clientName: "",
-        contact: "",
-        jobStatus: "Quoted",
-        initialPayment: "0",
-      });
-      setCart([]);
-      setSelectedMaterialId("");
-      setJobDesc("");
-      setJobWidth("");
-      setJobHeight("");
-      setQty("1");
-      setCostOverride("");
-      setNlText("");
-      setFormTouched(false);
+      setMeta({ date: new Date().toISOString().split("T")[0], clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
+      setCart([]); setSelectedMaterialId(""); setJobDesc(""); setJobWidth("");
+      setJobHeight(""); setQty("1"); setCostOverride(""); setNlText(""); setFormTouched(false);
     } catch {
       toast.error("Failed to save locally");
     } finally {
@@ -749,135 +647,146 @@ export function SalesEntry() {
     }
   };
 
+  // ── Tab state ────────────────────────────────────────────────────────────
+  const [tabValue, setTabValue] = useState(0);
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="pb-32">
-      <Tabs defaultValue="manual">
-        {/* Tab switcher */}
-        <div className="flex justify-center mb-8">
-          <TabsList className="bg-gray-100 dark:bg-zinc-900 p-1 rounded-full border border-gray-200 dark:border-zinc-800 gap-1">
-            <TabsTrigger
-              value="manual"
-              className="px-6 py-2 rounded-full text-sm font-black transition-[background-color,color,box-shadow] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
-            >
-              ✏️ Manual
-            </TabsTrigger>
-            <TabsTrigger
-              value="ai"
-              className="px-6 py-2 rounded-full text-sm font-black transition-[background-color,color,box-shadow] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg dark:text-zinc-400"
-            >
-              ⚡ AI Log
-            </TabsTrigger>
-          </TabsList>
-        </div>
+    <Box sx={{ pb: 16 }}>
 
-        {/* ── MANUAL TAB ─────────────────────────────────────────────────── */}
-        <TabsContent value="manual" className="space-y-4">
+      {/* ── Tab bar ───────────────────────────────────────────────────────── */}
+      <Box sx={{ display: "flex", justifyContent: "center", mb: 4 }}>
+        <Box
+          sx={{
+            display: "inline-flex",
+            bgcolor: "grey.100",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 99,
+            p: 0.5,
+            gap: 0.5,
+          }}
+        >
+          <Tabs
+            value={tabValue}
+            onChange={(_, v) => setTabValue(v)}
+            sx={{
+              minHeight: 0,
+              "& .MuiTabs-indicator": { display: "none" },
+              "& .MuiTabs-flexContainer": { gap: 0.5 },
+            }}
+          >
+            <Tab
+              label="✏️ Manual"
+              sx={{
+                borderRadius: 99, minHeight: 0, py: 1, px: 3,
+                fontSize: "0.875rem", fontWeight: 800,
+                "&.Mui-selected": { bgcolor: "primary.main", color: "primary.contrastText", boxShadow: "0 4px 14px rgba(200,71,46,.25)" },
+                color: "text.secondary",
+              }}
+            />
+            <Tab
+              label="⚡ AI Log"
+              sx={{
+                borderRadius: 99, minHeight: 0, py: 1, px: 3,
+                fontSize: "0.875rem", fontWeight: 800,
+                "&.Mui-selected": { bgcolor: "primary.main", color: "primary.contrastText", boxShadow: "0 4px 14px rgba(200,71,46,.25)" },
+                color: "text.secondary",
+              }}
+            />
+          </Tabs>
+        </Box>
+      </Box>
 
-          {/* ── SECTION 1: Client Info ──────────────────────────────────── */}
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
-                <User className="w-3.5 h-3.5 text-primary" />
-              </div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
-                Client Info
-              </h3>
-            </div>
+      {/* ── MANUAL TAB ───────────────────────────────────────────────────── */}
+      <TabPanel value={tabValue} index={0}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Date */}
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                  Date
-                </Label>
-                <Input
-                  type="date"
-                  value={meta.date}
-                  onChange={(e) => setMetaField("date", e.target.value)}
-                  className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </div>
+          {/* Section 1: Client Info */}
+          <Card sx={{ overflow: "visible", zIndex: 12 }}>
+            <CardContent sx={{ p: 3 }}>
+              <SectionHeader icon={User} title="Client Info" />
 
-              {/* Client name with autocomplete */}
-              <div className="space-y-1.5 relative">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                  Client Name *
-                </Label>
-                <Input
-                  placeholder="Sarah Jones"
-                  value={meta.clientName}
-                  onFocus={() => setShowSuggestions(true)}
-                  onBlur={() =>
-                    setTimeout(() => setShowSuggestions(false), 180)
-                  }
-                  onChange={(e) => {
-                    setMetaField("clientName", e.target.value);
-                    setShowSuggestions(true);
-                  }}
-                  className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-                {showSuggestions && filteredClients.length > 0 && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-xl overflow-hidden">
-                    {filteredClients.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        className="w-full px-4 py-3 text-sm font-bold text-left text-gray-700 dark:text-zinc-300 hover:bg-primary/5 dark:hover:bg-zinc-800 transition-colors border-b border-gray-50 dark:border-zinc-800 last:border-0"
-                        onMouseDown={() => {
-                          setMetaField("clientName", c);
-                          setMetaField(
-                            "contact",
-                            clientContacts[c] || meta.contact
-                          );
-                          setShowSuggestions(false);
-                        }}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Contact */}
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                  Contact
-                </Label>
-                <Input
-                  placeholder="08012345678"
-                  value={meta.contact}
-                  onChange={(e) => setMetaField("contact", e.target.value)}
-                  className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </div>
-            </div>
-
-            {/* Load Saved Quote */}
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-1.5 block">
-                  Load Saved Quote
-                </Label>
-                <div className="flex gap-2">
-                  <Input 
-                    id="quoteInput" 
-                    placeholder="e.g. QT-1234" 
-                    className="h-10 rounded-xl text-xs uppercase"
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
+                <Box>
+                  <FieldLabel>Date</FieldLabel>
+                  <DatePicker
+                    value={meta.date ? dayjs(meta.date) : null}
+                    onChange={(val) => setMetaField("date", val?.format("YYYY-MM-DD") ?? "")}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    className="h-10 rounded-xl"
+                </Box>
+
+                <Box sx={{ position: "relative" }}>
+                  <FieldLabel>Client Name *</FieldLabel>
+                  <TextField
+                    fullWidth
+                    placeholder="Sarah Jones"
+                    value={meta.clientName}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
+                    onChange={(e) => { setMetaField("clientName", e.target.value); setShowSuggestions(true); }}
+                  />
+                  {showSuggestions && filteredClients.length > 0 && (
+                    <Paper
+                      elevation={4}
+                      sx={{ position: "absolute", zIndex: 50, top: "100%", left: 0, right: 0, mt: 0.5, borderRadius: 2, overflow: "hidden" }}
+                    >
+                      {filteredClients.map((c) => (
+                        <Box
+                          key={c}
+                          component="button"
+                          type="button"
+                          onMouseDown={() => {
+                            setMetaField("clientName", c);
+                            setMetaField("contact", clientContacts[c] || meta.contact);
+                            setShowSuggestions(false);
+                          }}
+                          sx={{
+                            width: "100%", px: 2, py: 1.5, textAlign: "left", fontSize: "0.875rem",
+                            fontWeight: 600, color: "text.primary", bgcolor: "transparent", border: "none",
+                            borderBottom: "1px solid", borderColor: "divider", cursor: "pointer",
+                            display: "block", "&:last-child": { borderBottom: "none" },
+                            "&:hover": { bgcolor: "action.hover" },
+                          }}
+                        >
+                          {c}
+                        </Box>
+                      ))}
+                    </Paper>
+                  )}
+                </Box>
+
+                <Box>
+                  <FieldLabel>Contact</FieldLabel>
+                  <TextField
+                    fullWidth
+                    placeholder="08012345678"
+                    value={meta.contact}
+                    onChange={(e) => setMetaField("contact", e.target.value)}
+                  />
+                </Box>
+              </Box>
+
+              {/* Load Saved Quote */}
+              <Box sx={{ mt: 2.5, pt: 2.5, borderTop: "1px solid", borderColor: "divider" }}>
+                <FieldLabel>Load Saved Quote</FieldLabel>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField
+                    id="quoteInput"
+                    placeholder="e.g. QT-1234"
+                    size="small"
+                    sx={{ flex: 1, "& input": { textTransform: "uppercase" } }}
+                  />
+                  <Button
+                    variant="outlined"
                     onClick={async () => {
                       const input = document.getElementById("quoteInput") as HTMLInputElement;
                       const qId = input?.value.trim().toUpperCase();
                       if (!qId) return;
-                      
                       const toastId = toast.loading("Loading quote...");
                       try {
                         const res = await fetch(`/api/estimates?quoteId=${qId}`);
@@ -885,507 +794,356 @@ export function SalesEntry() {
                         if (res.ok && json.data) {
                           const estimate = json.data;
                           setMetaField("clientName", estimate["CLIENT NAME"]);
-                          
                           let cartData;
-                          try {
-                            cartData = JSON.parse(estimate["CART DATA"]);
-                          } catch (e) {
-                            throw new Error("Invalid quote data");
-                          }
-
-                          localStorage.setItem("estimatorCart", JSON.stringify({
-                            clientName: estimate["CLIENT NAME"],
-                            items: cartData
-                          }));
-                          window.location.reload(); // Quickest way to load the state through our existing effect
+                          try { cartData = JSON.parse(estimate["CART DATA"]); }
+                          catch { throw new Error("Invalid quote data"); }
+                          localStorage.setItem("estimatorCart", JSON.stringify({ clientName: estimate["CLIENT NAME"], items: cartData }));
+                          window.location.reload();
                         } else {
                           toast.error(json.error || "Quote not found", { id: toastId });
                         }
-                      } catch (e) {
+                      } catch {
                         toast.error("Failed to load quote", { id: toastId });
                       }
                     }}
                   >
                     Load
                   </Button>
-                </div>
-              </div>
-            </div>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
 
-          </div>
+          {/* Section 2: Roll & Material */}
+          <Card sx={{ overflow: "visible", zIndex: 11 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
+                <SectionHeader icon={Layers} title="Roll & Material" />
+                <Button
+                  size="small"
+                  startIcon={<RefreshCw size={12} style={{ animation: materialsLoading ? "spin 1s linear infinite" : "none" }} />}
+                  onClick={() => fetchMaterials()}
+                  sx={{ color: "text.secondary", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", minWidth: 0 }}
+                >
+                  Refresh
+                </Button>
+              </Box>
 
-          {/* ── SECTION 2: Roll Selection ───────────────────────────────── */}
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
-                  <Layers className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
-                  Roll & Material
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => fetchMaterials()}
-                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-primary dark:text-zinc-500 dark:hover:text-primary transition-colors"
-              >
-                <RefreshCw
-                  className={cn("w-3 h-3", materialsLoading && "animate-spin")}
-                />
-                Refresh
-              </button>
-            </div>
-
-            <MaterialSelector
-              materials={materials}
-              selectedMaterialId={selectedMaterialId}
-              onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
-              loading={materialsLoading}
-            />
-
-            {/* Material details strip when selected */}
-            {selectedMaterial && (
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  {
-                    label: "Remaining",
-                    val: `${parseNum(selectedMaterial["Total Remaining (ft)"]).toFixed(1)}ft`,
-                    accent:
-                      selectedMaterial.Status === "Low Stock"
-                        ? "amber"
-                        : selectedMaterial.Status === "Out of Stock"
-                        ? "rose"
-                        : "green",
-                  },
-                  {
-                    label: "Selling Rate",
-                    val: `₦${parseNum(selectedMaterial["Selling Price"]).toLocaleString()}/sqft`,
-                  },
-                ].map(({ label, val, accent }) => (
-                  <div
-                    key={label}
-                    className={cn(
-                      "p-3 rounded-xl text-center",
-                      accent === "amber"
-                        ? "bg-amber-50 dark:bg-amber-900/20"
-                        : accent === "rose"
-                        ? "bg-rose-50 dark:bg-rose-900/20"
-                        : "bg-gray-50 dark:bg-zinc-800/50"
-                    )}
-                  >
-                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">
-                      {label}
-                    </p>
-                    <p
-                      className={cn(
-                        "text-sm font-black",
-                        accent === "amber"
-                          ? "text-amber-600 dark:text-amber-400"
-                          : accent === "rose"
-                          ? "text-rose-600 dark:text-rose-400"
-                          : "text-gray-900 dark:text-white"
-                      )}
-                    >
-                      {val}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ── SECTION 3: Job Dimensions ───────────────────────────────── */}
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
-                  <Ruler className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
-                  Job Dimensions & Pricing
-                </h3>
-              </div>
-              {/* Unit toggle */}
-              <div className="flex bg-gray-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-gray-200 dark:border-zinc-700">
-                {(["ft", "in"] as const).map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => setDimUnit(u)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-[background-color,color]",
-                      dimUnit === u
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-gray-500 dark:text-zinc-400"
-                    )}
-                  >
-                    {u === "ft" ? "Feet" : "Inches"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5 mb-4">
-              <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                Job Description
-              </Label>
-              <Input
-                placeholder="e.g. Event banner, sticker label, window graphic…"
-                value={jobDesc}
-                onChange={(e) => setJobDesc(e.target.value)}
-                className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              <MaterialSelector
+                materials={materials}
+                selectedMaterialId={selectedMaterialId}
+                onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
+                loading={materialsLoading}
               />
-            </div>
 
-            {/* Width × Height × Qty */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                  Width ({dimUnit}) *
-                </Label>
-                <Input
-                  type="number"
-                  placeholder={dimUnit === "ft" ? "4" : "48"}
-                  value={jobWidth}
-                  onChange={(e) => {
-                    setJobWidth(e.target.value);
-                    setFormTouched(true);
-                  }}
-                  className={cn(
-                    "h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100",
-                    formTouched &&
-                      !jobWidth &&
-                      "border-rose-400 dark:border-rose-700"
-                  )}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                  Height ({dimUnit}) *
-                </Label>
-                <Input
-                  type="number"
-                  placeholder={dimUnit === "ft" ? "8" : "96"}
-                  value={jobHeight}
-                  onChange={(e) => {
-                    setJobHeight(e.target.value);
-                    setFormTouched(true);
-                  }}
-                  className={cn(
-                    "h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100",
-                    formTouched &&
-                      !jobHeight &&
-                      "border-rose-400 dark:border-rose-700"
-                  )}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                  Qty
-                </Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={qty}
-                  onChange={(e) => setQty(e.target.value)}
-                  className="h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
-                />
-              </div>
-            </div>
-
-            {/* Cost per sqft override */}
-            <div className="space-y-1.5 mb-5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider flex items-center gap-1.5">
-                Cost Per Sqft (₦)
-                {selectedMaterial && (
-                  <span className="text-[9px] text-primary normal-case font-bold">
-                    · auto-filled from material
-                  </span>
-                )}
-              </Label>
-              <Input
-                type="number"
-                placeholder="e.g. 200"
-                value={costOverride}
-                onChange={(e) => setCostOverride(e.target.value)}
-                className="h-12 rounded-xl font-bold text-primary dark:bg-zinc-800 dark:border-zinc-700"
-              />
-            </div>
-
-            {/* Live calculation preview */}
-            {unitSqft > 0 && jobLengthFt > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                {[
-                  {
-                    label: "Job Area",
-                    val: `${unitSqft.toFixed(2)} sqft`,
-                    sub: "per piece",
-                  },
-                  {
-                    label: "Length Used",
-                    val: `${jobLengthFt.toFixed(1)}ft`,
-                    sub: isFlipped ? "from roll (rotated)" : "from roll",
-                    warn: !stockOk,
-                  },
-                  {
-                    label: "After Deduction",
-                    val: `${Math.max(0, remainingAfterJob).toFixed(1)}ft`,
-                    sub: "roll remaining",
-                    warn: remainingAfterJob < 0,
-                    good: remainingAfterJob >= 0 && jobLengthFt > 0,
-                  },
-                  {
-                    label: "Job Total",
-                    val: fmtCurrency(totalAmount),
-                    sub: `${qtyNum} × ${fmtCurrency(unitCost)}`,
-                    highlight: true,
-                  },
-                ].map(({ label, val, sub, warn, good, highlight }) => (
-                  <div
-                    key={label}
-                    className={cn(
-                      "p-3 rounded-xl text-center border",
-                      highlight
-                        ? "bg-primary border-primary text-primary-foreground"
-                        : warn
-                        ? "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-900/50"
-                        : good
-                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50"
-                        : "bg-gray-50 dark:bg-zinc-800/50 border-gray-100 dark:border-zinc-700"
-                    )}
-                  >
-                    <p
-                      className={cn(
-                        "text-[9px] font-black uppercase tracking-widest mb-0.5",
-                        highlight
-                          ? "text-white/70"
-                          : warn
-                          ? "text-rose-500"
-                          : good
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-gray-400 dark:text-zinc-500"
-                      )}
+              {selectedMaterial && (
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, 1fr)" }, gap: 1.5, mt: 2 }}>
+                  {[
+                    {
+                      label: "Remaining",
+                      val: `${parseNum(selectedMaterial["Total Remaining (ft)"]).toFixed(1)}ft`,
+                      accent: selectedMaterial.Status === "Low Stock" ? "amber" : selectedMaterial.Status === "Out of Stock" ? "rose" : "green",
+                    },
+                    {
+                      label: "Selling Rate",
+                      val: `₦${parseNum(selectedMaterial["Selling Price"]).toLocaleString()}/sqft`,
+                      accent: "neutral",
+                    },
+                  ].map(({ label, val, accent }) => (
+                    <Paper
+                      key={label}
+                      variant="outlined"
+                      sx={{
+                        p: 1.5, borderRadius: 2, textAlign: "center",
+                        bgcolor: accent === "amber" ? "rgba(232,161,58,0.06)" : accent === "rose" ? "rgba(192,57,43,0.04)" : "grey.50",
+                        borderColor: accent === "amber" ? "warning.light" : accent === "rose" ? "error.light" : "divider",
+                      }}
                     >
-                      {label}
-                    </p>
-                    <p
-                      className={cn(
-                        "text-sm font-black",
-                        highlight
-                          ? "text-white"
-                          : warn
-                          ? "text-rose-600 dark:text-rose-400"
-                          : good
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-gray-900 dark:text-white"
-                      )}
-                    >
-                      {val}
-                    </p>
-                    <p
-                      className={cn(
-                        "text-[9px]",
-                        highlight
-                          ? "text-white/60"
-                          : "text-gray-400 dark:text-zinc-500"
-                      )}
-                    >
-                      {sub}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Orientation hint */}
-            {selectedMaterial && jobWFt > 0 && jobHFt > 0 && isFlipped && (
-              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-900/50 mb-4">
-                <XCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                  Job will be rotated to fit — {dimUnit === "in" ? `${parseFloat(jobHeight)}in` : `${jobHFt.toFixed(1)}ft`} side runs along the {rollWidth.toFixed(1)}ft roll width.
-                </p>
-              </div>
-            )}
-            {/* Width compatibility error */}
-            {selectedMaterial && jobWFt > 0 && !widthCompatible && (
-              <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-200 dark:border-rose-900/50 mb-4">
-                <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                  {dimUnit === "in"
-                    ? `Both dimensions (${parseFloat(jobWidth)}in × ${parseFloat(jobHeight)}in) exceed the roll width (${(rollWidth * 12).toFixed(0)}in). Choose a wider material.`
-                    : `Job (${jobWFt.toFixed(1)}ft × ${jobHFt.toFixed(1)}ft) exceeds roll width (${rollWidth.toFixed(1)}ft) in both orientations. Choose a wider material.`}
-                </p>
-              </div>
-            )}
-
-            {/* Add to order CTA */}
-            <Button
-              onClick={handleAddToCart}
-              disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}
-              className="w-full h-14 rounded-2xl bg-gray-900 dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100 text-white font-black text-base shadow-lg transition-[background-color,transform] active:scale-[0.97] flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Add to Order
-              {totalAmount > 0 && (
-                <span className="text-white/70 dark:text-black/60 font-bold">
-                  · {fmtCurrency(totalAmount)}
-                </span>
+                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.25 }}>
+                        {label}
+                      </Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 800,
+                        color: accent === "amber" ? "warning.dark" : accent === "rose" ? "error.main" : "text.primary",
+                      }}>
+                        {val}
+                      </Typography>
+                    </Paper>
+                  ))}
+                </Box>
               )}
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* ── SECTION 4: Cart ─────────────────────────────────────────── */}
+          {/* Section 3: Job Dimensions & Pricing */}
+          <Card sx={{ overflow: "visible", zIndex: 10 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
+                <SectionHeader icon={Ruler} title="Job Dimensions & Pricing" />
+                {/* Unit toggle */}
+                <Box sx={{ display: "inline-flex", bgcolor: "grey.100", p: 0.25, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+                  {(["ft", "in"] as const).map((u) => (
+                    <Button
+                      key={u}
+                      size="small"
+                      onClick={() => setDimUnit(u)}
+                      disableElevation
+                      sx={{
+                        borderRadius: 1.5, px: 1.5, py: 0.5, minWidth: 0,
+                        fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase",
+                        bgcolor: dimUnit === u ? "primary.main" : "transparent",
+                        color: dimUnit === u ? "primary.contrastText" : "text.secondary",
+                        "&:hover": { bgcolor: dimUnit === u ? "primary.dark" : "action.hover" },
+                        boxShadow: "none",
+                      }}
+                    >
+                      {u === "ft" ? "Feet" : "Inches"}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Description */}
+              <Box sx={{ mb: 2 }}>
+                <FieldLabel>Job Description</FieldLabel>
+                <TextField
+                  fullWidth
+                  placeholder="e.g. Event banner, sticker label, window graphic…"
+                  value={jobDesc}
+                  onChange={(e) => setJobDesc(e.target.value)}
+                />
+              </Box>
+
+              {/* Width × Height × Qty */}
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5, mb: 2 }}>
+                <Box>
+                  <FieldLabel>Width ({dimUnit}) *</FieldLabel>
+                  <TextField
+                    fullWidth type="number"
+                    placeholder={dimUnit === "ft" ? "4" : "48"}
+                    value={jobWidth}
+                    error={formTouched && !jobWidth}
+                    onChange={(e) => { setJobWidth(e.target.value); setFormTouched(true); }}
+                    slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>Height ({dimUnit}) *</FieldLabel>
+                  <TextField
+                    fullWidth type="number"
+                    placeholder={dimUnit === "ft" ? "8" : "96"}
+                    value={jobHeight}
+                    error={formTouched && !jobHeight}
+                    onChange={(e) => { setJobHeight(e.target.value); setFormTouched(true); }}
+                    slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                  />
+                </Box>
+                <Box>
+                  <FieldLabel>Qty</FieldLabel>
+                  <TextField
+                    fullWidth type="number"
+                    slotProps={{ htmlInput: { min: 1, style: { fontWeight: 700 } } }}
+                    value={qty}
+                    onChange={(e) => setQty(e.target.value)}
+                  />
+                </Box>
+              </Box>
+
+              {/* Cost per sqft */}
+              <Box sx={{ mb: 2.5 }}>
+                <FieldLabel>
+                  Cost Per Sqft (₦){selectedMaterial && <span style={{ color: "#C8472E", fontWeight: 700, textTransform: "none", letterSpacing: 0 }}> · auto-filled from material</span>}
+                </FieldLabel>
+                <TextField
+                  fullWidth type="number"
+                  placeholder="e.g. 200"
+                  value={costOverride}
+                  onChange={(e) => setCostOverride(e.target.value)}
+                  slotProps={{ htmlInput: { style: { fontWeight: 700, color: "#C8472E" } } }}
+                />
+              </Box>
+
+              {/* Live calculation preview */}
+              {unitSqft > 0 && jobLengthFt > 0 && (
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 1.5, mb: 2.5 }}>
+                  {[
+                    { label: "Job Area", val: `${unitSqft.toFixed(2)} sqft`, sub: "per piece" },
+                    { label: "Length Used", val: `${jobLengthFt.toFixed(1)}ft`, sub: isFlipped ? "from roll (rotated)" : "from roll", warn: !stockOk },
+                    { label: "After Deduction", val: `${Math.max(0, remainingAfterJob).toFixed(1)}ft`, sub: "roll remaining", warn: remainingAfterJob < 0, good: remainingAfterJob >= 0 && jobLengthFt > 0 },
+                    { label: "Job Total", val: fmtCurrency(totalAmount), sub: `${qtyNum} × ${fmtCurrency(unitCost)}`, highlight: true },
+                  ].map(({ label, val, sub, warn, good, highlight }) => (
+                    <Paper
+                      key={label}
+                      variant="outlined"
+                      sx={{
+                        p: 1.5, borderRadius: 2, textAlign: "center",
+                        bgcolor: highlight ? "primary.main" : warn ? "rgba(192,57,43,0.04)" : good ? "rgba(46,125,91,0.04)" : "grey.50",
+                        borderColor: highlight ? "primary.main" : warn ? "error.light" : good ? "success.light" : "divider",
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", mb: 0.25, color: highlight ? "rgba(255,255,255,0.7)" : warn ? "error.main" : good ? "success.main" : "text.secondary" }}>
+                        {label}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: highlight ? "primary.contrastText" : warn ? "error.main" : good ? "success.main" : "text.primary" }}>
+                        {val}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: highlight ? "rgba(255,255,255,0.6)" : "text.secondary" }}>{sub}</Typography>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
+
+              {/* Orientation hint */}
+              {selectedMaterial && jobWFt > 0 && jobHFt > 0 && isFlipped && (
+                <Paper variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, bgcolor: "rgba(232,161,58,0.06)", borderColor: "warning.light", mb: 2 }}>
+                  <XCircle size={16} color="#d97706" style={{ flexShrink: 0 }} />
+                  <Typography variant="caption" sx={{ color: "warning.dark", fontWeight: 700 }}>
+                    Job will be rotated to fit — {dimUnit === "in" ? `${parseFloat(jobHeight)}in` : `${jobHFt.toFixed(1)}ft`} side runs along the {rollWidth.toFixed(1)}ft roll width.
+                  </Typography>
+                </Paper>
+              )}
+
+              {/* Width compatibility error */}
+              {selectedMaterial && jobWFt > 0 && !widthCompatible && (
+                <Paper variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, bgcolor: "rgba(192,57,43,0.04)", borderColor: "error.light", mb: 2 }}>
+                  <XCircle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+                  <Typography variant="caption" sx={{ color: "error.main", fontWeight: 700 }}>
+                    {dimUnit === "in"
+                      ? `Both dimensions (${parseFloat(jobWidth)}in × ${parseFloat(jobHeight)}in) exceed the roll width (${(rollWidth * 12).toFixed(0)}in). Choose a wider material.`
+                      : `Job (${jobWFt.toFixed(1)}ft × ${jobHFt.toFixed(1)}ft) exceeds roll width (${rollWidth.toFixed(1)}ft) in both orientations. Choose a wider material.`}
+                  </Typography>
+                </Paper>
+              )}
+
+              {/* Add to Order */}
+              <Button
+                fullWidth
+                variant="contained"
+                color="secondary"
+                size="large"
+                startIcon={<Plus size={20} />}
+                onClick={handleAddToCart}
+                disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}
+                sx={{ height: 56, borderRadius: 3, fontWeight: 800, fontSize: "1rem" }}
+              >
+                Add to Order
+                {totalAmount > 0 && (
+                  <Box component="span" sx={{ ml: 1, opacity: 0.6, fontWeight: 700 }}>
+                    · {fmtCurrency(totalAmount)}
+                  </Box>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Section 4: Cart */}
           {cart.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
-                    <Receipt className="w-3.5 h-3.5 text-primary" />
-                  </div>
-                  <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
-                    Current Order
-                  </h3>
-                </div>
-                <Badge className="bg-primary/10 text-primary dark:bg-primary/20 border-none font-black text-xs">
-                  {cart.length} item{cart.length !== 1 ? "s" : ""}
-                </Badge>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                {cart.map((item) => (
-                  <CartItemCard
-                    key={item.id}
-                    item={item}
-                    onRemove={(id) =>
-                      setCart((prev) => prev.filter((i) => i.id !== id))
-                    }
+            <Card>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
+                  <SectionHeader icon={Receipt} title="Current Order" />
+                  <Chip
+                    label={`${cart.length} item${cart.length !== 1 ? "s" : ""}`}
+                    size="small"
+                    sx={{ bgcolor: "rgba(200,71,46,0.08)", color: "primary.main", fontWeight: 700 }}
                   />
-                ))}
-              </div>
+                </Box>
 
-              {/* Payment inputs */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5 border-t border-gray-100 dark:border-zinc-800">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                    Initial Payment (₦)
-                  </Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={meta.initialPayment}
-                    onChange={(e) =>
-                      setMetaField("initialPayment", e.target.value)
-                    }
-                    className="h-12 rounded-xl font-bold dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                    Job Status
-                  </Label>
-                  <Select
-                    value={meta.jobStatus}
-                    onValueChange={(v) => setMetaField("jobStatus", v)}
-                  >
-                    <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl dark:bg-zinc-900 dark:border-zinc-800">
-                      {["Quoted", "Printing", "Finishing", "Ready", "Delivered"].map(
-                        (s) => (
-                          <SelectItem
-                            key={s}
-                            value={s}
-                            className="font-bold dark:text-zinc-300"
-                          >
-                            {s}
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col items-end justify-end gap-1">
-                  <div className="text-right w-full">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">
-                      Balance Due ·{" "}
-                      <span
-                        className={cn(
-                          "font-black",
-                          paymentStatus === "Paid"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-rose-600 dark:text-rose-400"
-                        )}
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 3 }}>
+                  {cart.map((item) => (
+                    <CartItemCard key={item.id} item={item} onRemove={(id) => setCart((prev) => prev.filter((i) => i.id !== id))} />
+                  ))}
+                </Box>
+
+                {/* Payment inputs */}
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2, pt: 2.5, borderTop: "1px solid", borderColor: "divider" }}>
+                  <Box>
+                    <FieldLabel>Initial Payment (₦)</FieldLabel>
+                    <TextField
+                      fullWidth type="number"
+                      placeholder="0"
+                      value={meta.initialPayment}
+                      onChange={(e) => setMetaField("initialPayment", e.target.value)}
+                      slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                    />
+                  </Box>
+                  <Box>
+                    <FieldLabel>Job Status</FieldLabel>
+                    <FormControl fullWidth>
+                      <Select
+                        value={meta.jobStatus}
+                        onChange={(e) => setMetaField("jobStatus", e.target.value)}
+                        sx={{ fontWeight: 700 }}
                       >
+                        {JOB_STATUSES.map((s) => (
+                          <MenuItem key={s} value={s} sx={{ fontWeight: 600 }}>{s}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "flex-end" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>
+                      Balance Due ·{" "}
+                      <Box component="span" sx={{ color: paymentStatus === "Paid" ? "success.main" : "error.main" }}>
                         {paymentStatus.toUpperCase()}
-                      </span>
-                    </p>
-                    <p className="text-2xl font-black text-gray-900 dark:text-white">
+                      </Box>
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 800 }}>
                       {fmtCurrency(Math.max(0, balance))}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
           )}
-        </TabsContent>
+        </Box>
+      </TabPanel>
 
-        {/* ── AI TAB ──────────────────────────────────────────────────────── */}
-        <TabsContent value="ai">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm p-6 md:p-10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-gray-900 dark:text-white">
-                  AI Natural Language Entry
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+      {/* ── AI TAB ───────────────────────────────────────────────────────── */}
+      <TabPanel value={tabValue} index={1}>
+        <Card>
+          <CardContent sx={{ p: { xs: 3, md: 5 } }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
+              <Box sx={{ width: 40, height: 40, borderRadius: 2.5, bgcolor: "rgba(200,71,46,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Sparkles size={20} color="#C8472E" />
+              </Box>
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 800 }}>AI Natural Language Entry</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.25 }}>
                   Describe the job in plain English — Gemini fills the form for you
-                </p>
-              </div>
-            </div>
+                </Typography>
+              </Box>
+            </Box>
 
-            <textarea
-              className="w-full p-5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl min-h-[180px] focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-[border-color,box-shadow,background-color] text-base placeholder:text-gray-300 dark:placeholder:text-zinc-700 dark:text-white font-medium resize-none"
+            <TextField
+              fullWidth multiline minRows={6}
               placeholder={`e.g. "John Doe ordered 3 SAV stickers, 4ft by 2ft each, paid ₦5,000 deposit…"`}
               value={nlText}
               onChange={(e) => setNlText(e.target.value)}
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "grey.50", fontSize: "1rem" } }}
             />
-            <p className="text-xs text-gray-400 dark:text-zinc-600 mt-2 font-medium">
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
               Then select the matching roll from inventory before adding to order.
-            </p>
+            </Typography>
 
             <Button
+              fullWidth variant="contained" size="large"
               disabled={nlParsing || !nlText.trim()}
               onClick={handleNlSubmit}
-              className="w-full h-14 mt-5 bg-primary hover:bg-primary/90 text-white font-black text-base rounded-2xl shadow-xl shadow-primary/20 transition-[background-color,transform] active:scale-[0.97]"
+              startIcon={nlParsing ? <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={16} />}
+              sx={{ height: 56, mt: 2.5, borderRadius: 3, fontWeight: 800, fontSize: "1rem" }}
             >
-              {nlParsing ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Parsing…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Extract & Fill Form
-                </>
-              )}
+              {nlParsing ? "Parsing…" : "Extract & Fill Form"}
             </Button>
 
-            {/* After AI parse, show the job form below */}
             {(jobWidth || jobHeight || jobDesc) && (
-              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-zinc-800 space-y-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <p className="text-sm font-black text-gray-700 dark:text-zinc-300">
+              <Box sx={{ mt: 3, pt: 3, borderTop: "1px solid", borderColor: "divider", display: "flex", flexDirection: "column", gap: 2 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CheckCircle2 size={16} color="#2E7D5B" />
+                  <Typography variant="body2" sx={{ fontWeight: 800, color: "text.primary" }}>
                     Parsed — now select a material and add to order
-                  </p>
-                </div>
+                  </Typography>
+                </Box>
 
                 <MaterialSelector
                   materials={materials}
@@ -1394,45 +1152,32 @@ export function SalesEntry() {
                   loading={materialsLoading}
                 />
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">
-                      Width ({dimUnit})
-                    </Label>
-                    <Input
-                      type="number"
-                      value={jobWidth}
-                      onChange={(e) => setJobWidth(e.target.value)}
-                      className="h-12 rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 font-bold"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">
-                      Height ({dimUnit})
-                    </Label>
-                    <Input
-                      type="number"
-                      value={jobHeight}
-                      onChange={(e) => setJobHeight(e.target.value)}
-                      className="h-12 rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 font-bold"
-                    />
-                  </div>
-                </div>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+                  <Box>
+                    <FieldLabel>Width ({dimUnit})</FieldLabel>
+                    <TextField fullWidth type="number" value={jobWidth} onChange={(e) => setJobWidth(e.target.value)} slotProps={{ htmlInput: { style: { fontWeight: 700 } } }} />
+                  </Box>
+                  <Box>
+                    <FieldLabel>Height ({dimUnit})</FieldLabel>
+                    <TextField fullWidth type="number" value={jobHeight} onChange={(e) => setJobHeight(e.target.value)} slotProps={{ htmlInput: { style: { fontWeight: 700 } } }} />
+                  </Box>
+                </Box>
 
                 <Button
-                  onClick={handleAddToCart}
+                  fullWidth variant="contained"
                   disabled={!selectedMaterialId || !jobWidth || !jobHeight}
-                  className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black"
+                  onClick={handleAddToCart}
+                  sx={{ borderRadius: 3, fontWeight: 800 }}
                 >
                   Add Parsed Job to Order · {fmtCurrency(totalAmount)}
                 </Button>
-              </div>
+              </Box>
             )}
-          </div>
-        </TabsContent>
-      </Tabs>
+          </CardContent>
+        </Card>
+      </TabPanel>
 
-      {/* ── Sticky summary bar ─────────────────────────────────────────────── */}
+      {/* ── Sticky summary bar ────────────────────────────────────────────── */}
       <SummaryBar
         cart={cart}
         grandTotal={grandTotal}
@@ -1444,124 +1189,96 @@ export function SalesEntry() {
       />
 
       {/* ── Confirm dialog ────────────────────────────────────────────────── */}
-      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="max-w-lg bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl overflow-hidden">
-          <DialogHeader className="p-6 bg-primary text-white">
-            <DialogTitle className="text-xl font-black text-white">
-              Confirm Order
-            </DialogTitle>
-            <DialogDescription className="text-white/75 text-xs mt-1">
-              Review before pushing to Google Sheets
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: 3, overflow: "hidden" } } }}
+      >
+        <DialogTitle sx={{ bgcolor: "primary.main", color: "primary.contrastText", pb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: "inherit" }}>Confirm Order</Typography>
+          <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)", display: "block" }}>
+            Review before pushing to Google Sheets
+          </Typography>
+        </DialogTitle>
 
-          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        <DialogContent sx={{ p: 3 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             {/* Client */}
-            <div className="p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "grey.50" }}>
+              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.5 }}>
                 Client
-              </p>
-              <p className="font-black text-gray-900 dark:text-white">
-                {meta.clientName}
-              </p>
-              {meta.contact && (
-                <p className="text-sm text-gray-500 dark:text-zinc-400 font-medium">
-                  {meta.contact}
-                </p>
-              )}
-            </div>
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 800 }}>{meta.clientName}</Typography>
+              {meta.contact && <Typography variant="body2" sx={{ color: "text.secondary" }}>{meta.contact}</Typography>}
+            </Paper>
 
             {/* Line items */}
-            <div className="space-y-2">
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               {cart.map((item, i) => (
-                <div
+                <Paper
                   key={item.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl"
+                  variant="outlined"
+                  sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.5, borderRadius: 2, bgcolor: "grey.50" }}
                 >
-                  <div className="min-w-0 flex-1 pr-3">
-                    <p className="text-sm font-bold text-gray-800 dark:text-zinc-100 truncate">
+                  <Box sx={{ minWidth: 0, flex: 1, pr: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
                       {i + 1}. {item.jobDescription}
-                    </p>
-                    <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
-                      {item.rollLabel} · {item.qty}× {item.jobWidth}{item.dimUnit}×
-                      {item.jobHeight}{item.dimUnit}
-                    </p>
-                  </div>
-                  <p className="text-sm font-black text-gray-900 dark:text-white shrink-0">
-                    {fmtCurrency(item.totalAmount)}
-                  </p>
-                </div>
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {item.rollLabel} · {item.qty}× {item.jobWidth}{item.dimUnit}×{item.jobHeight}{item.dimUnit}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 800, flexShrink: 0 }}>{fmtCurrency(item.totalAmount)}</Typography>
+                </Paper>
               ))}
-            </div>
+            </Box>
 
             {/* Totals */}
-            <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-zinc-800">
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
               {[
                 { label: "Grand Total", val: fmtCurrency(grandTotal) },
-                {
-                  label: "Initial Payment",
-                  val: fmtCurrency(initialPaymentNum),
-                  green: true,
-                },
-                {
-                  label: "Balance Due",
-                  val: fmtCurrency(Math.max(0, balance)),
-                  red: balance > 0,
-                },
+                { label: "Initial Payment", val: fmtCurrency(initialPaymentNum), green: true },
+                { label: "Balance Due", val: fmtCurrency(Math.max(0, balance)), red: balance > 0 },
               ].map(({ label, val, green, red }) => (
-                <div key={label} className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-500 dark:text-zinc-400">
-                    {label}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-sm font-black",
-                      green
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : red
-                        ? "text-rose-600 dark:text-rose-400"
-                        : "text-gray-900 dark:text-white"
-                    )}
-                  >
-                    {val}
-                  </span>
-                </div>
+                <Box key={label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 600 }}>{label}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 800, color: green ? "success.main" : red ? "error.main" : "text.primary" }}>{val}</Typography>
+                </Box>
               ))}
-            </div>
+            </Box>
 
-            <div className="flex items-center gap-2 p-3 bg-primary/5 dark:bg-primary/10 rounded-xl">
-              <Info className="w-4 h-4 text-primary shrink-0" />
-              <p className="text-[10px] text-primary font-bold">
+            <Paper variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, bgcolor: "rgba(200,71,46,0.04)", borderColor: "primary.light" }}>
+              <Info size={16} color="#C8472E" style={{ flexShrink: 0 }} />
+              <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700 }}>
                 Roll stock will be decremented automatically when this syncs.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800">
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirm(false)}
-              className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800"
-            >
-              Back
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black shadow-lg"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                "Confirm & Save"
-              )}
-            </Button>
-          </DialogFooter>
+              </Typography>
+            </Paper>
+          </Box>
         </DialogContent>
+
+        <DialogActions sx={{ p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider", gap: 1.5 }}>
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => setShowConfirm(false)}
+            sx={{ height: 48, borderRadius: 2, fontWeight: 700 }}
+          >
+            Back
+          </Button>
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={handleSave}
+            disabled={saving}
+            startIcon={saving ? <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
+            sx={{ height: 48, borderRadius: 2, fontWeight: 800 }}
+          >
+            {saving ? "Saving…" : "Confirm & Save"}
+          </Button>
+        </DialogActions>
       </Dialog>
-    </div>
+    </Box>
   );
 }
