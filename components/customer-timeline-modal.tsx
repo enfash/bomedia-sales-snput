@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { Drawer } from "vaul";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useSyncStore } from "@/lib/store";
 import { parseAmount } from "@/lib/financial-utils";
@@ -11,9 +10,14 @@ import {
   Receipt, CreditCard, CheckCircle2, User, Phone,
   Calendar, Clock, X, ArrowRight, Package, AlertTriangle
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 
 interface CustomerTimelineModalProps {
   clientName: string | null;
@@ -40,24 +44,36 @@ interface TimelineEvent {
   raw: any;
 }
 
-const avatarColors = [
-  "bg-violet-500", "bg-blue-500", "bg-emerald-500",
-  "bg-orange-500", "bg-rose-500", "bg-cyan-500", "bg-amber-500",
+const avatarBgColors = [
+  "#8b5cf6", "#3b82f6", "#10b981",
+  "#f97316", "#f43f5e", "#06b6d4", "#f59e0b",
 ];
 const getAvatarColor = (name: string) =>
-  avatarColors[(name?.charCodeAt(0) ?? 0) % avatarColors.length];
+  avatarBgColors[(name?.charCodeAt(0) ?? 0) % avatarBgColors.length];
 
 function PersonChip({ name, label }: { name: string; label: string }) {
   if (!name || name === "System") return null;
   return (
-    <div className="flex items-center gap-1.5">
-      <div className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-black shrink-0", getAvatarColor(name))}>
-        {name[0]?.toUpperCase()}
-      </div>
-      <span className="text-[11px] font-bold text-gray-600 dark:text-zinc-400">
-        <span className="text-gray-400 dark:text-zinc-500 font-medium">{label}: </span>{name}
-      </span>
-    </div>
+    <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+      <Box sx={{
+        width: 20,
+        height: 20,
+        borderRadius: "50%",
+        bgcolor: getAvatarColor(name),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: "#fff" }}>
+          {name[0]?.toUpperCase()}
+        </Typography>
+      </Box>
+      <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "text.secondary" }}>
+        <Box component="span" sx={{ fontWeight: 500, color: "text.disabled" }}>{label}: </Box>
+        {name}
+      </Typography>
+    </Stack>
   );
 }
 
@@ -130,237 +146,361 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
   }, [timelineEvents]);
 
   const body = (
-    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-950">
-
-      {/* Header */}
-      <div className="p-5 border-b border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
-        <div className="flex items-center gap-4 mb-4">
-          <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-black shrink-0", getAvatarColor(clientName ?? ""))}>
-            {clientName?.[0]?.toUpperCase() ?? <User className="w-5 h-5" />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-black text-gray-900 dark:text-white truncate">{clientName}</h2>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "background.default" }}>
+      <Box sx={{
+        p: 2.5,
+        borderBottom: "1px solid",
+        borderColor: "grey.100",
+        bgcolor: "background.paper",
+        flexShrink: 0,
+      }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 2, mb: 2 }}>
+          <Box sx={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            bgcolor: getAvatarColor(clientName ?? ""),
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "#fff" }}>
+              {clientName?.[0]?.toUpperCase() ?? <User size={20} />}
+            </Typography>
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {clientName}
+            </Typography>
             {contact && (
-              <p className="text-xs font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-1.5 mt-0.5">
-                <Phone className="w-3 h-3" /> {contact}
-              </p>
+              <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, mt: 0.25 }}>
+                <Phone size={12} />
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" }}>
+                  {contact}
+                </Typography>
+              </Stack>
             )}
-          </div>
+          </Box>
           {stats.totalDebt > 0 ? (
-            <div className="text-right shrink-0">
-              <p className="text-[9px] font-black uppercase tracking-widest text-rose-400 mb-0.5">Balance Due</p>
-              <p className="text-lg font-black text-rose-600 dark:text-rose-400">₦{stats.totalDebt.toLocaleString()}</p>
-            </div>
+            <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+              <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "error.light", mb: 0.25 }}>
+                Balance Due
+              </Typography>
+              <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "error.main" }}>
+                ₦{stats.totalDebt.toLocaleString()}
+              </Typography>
+            </Box>
           ) : (
-            <Badge className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900 shrink-0 gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Cleared
-            </Badge>
+            <Chip
+              icon={<CheckCircle2 size={12} />}
+              label="Cleared"
+              size="small"
+              sx={{
+                bgcolor: "#f0fdf4",
+                color: "#16a34a",
+                border: "1px solid #bbf7d0",
+                fontWeight: 700,
+                fontSize: "0.75rem",
+                flexShrink: 0,
+              }}
+            />
           )}
-        </div>
+        </Stack>
 
-        {/* Stats strip */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-gray-50 dark:bg-zinc-900 rounded-xl p-3 text-center">
-            <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500 mb-1">Orders</p>
-            <p className="text-base font-black text-primary">{stats.orders}</p>
-          </div>
-          <div className="bg-gray-50 dark:bg-zinc-900 rounded-xl p-3 text-center">
-            <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500 mb-1">Total Value</p>
-            <p className="text-sm font-black text-gray-900 dark:text-white">₦{(stats.totalOrdered / 1000).toFixed(0)}k</p>
-          </div>
-          <div className="bg-gray-50 dark:bg-zinc-900 rounded-xl p-3 text-center">
-            <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500 mb-1">Paid</p>
-            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">₦{(stats.totalPaid / 1000).toFixed(0)}k</p>
-          </div>
-        </div>
-      </div>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1 }}>
+          {[
+            { label: "Orders", value: String(stats.orders), color: "primary.main" },
+            { label: "Total Value", value: `₦${(stats.totalOrdered / 1000).toFixed(0)}k`, color: "text.primary" },
+            { label: "Paid", value: `₦${(stats.totalPaid / 1000).toFixed(0)}k`, color: "success.main" },
+          ].map(({ label, value, color }) => (
+            <Box key={label} sx={{ bgcolor: "grey.50", borderRadius: 2, p: 1.5, textAlign: "center" }}>
+              <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", mb: 0.5 }}>
+                {label}
+              </Typography>
+              <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color }}>
+                {value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </Box>
 
-      {/* Timeline */}
-      <div className="flex-1 overflow-y-auto px-5 py-6">
-        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-5">
+      <Box sx={{ flex: 1, overflowY: "auto", px: 2.5, py: 3 }}>
+        <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled", mb: 2.5 }}>
           Activity Timeline · {timelineEvents.length} events
-        </p>
+        </Typography>
 
-        <div className="relative border-l-2 border-gray-100 dark:border-zinc-800 ml-3 space-y-6">
+        <Box sx={{ position: "relative", borderLeft: "2px solid", borderColor: "grey.100", ml: 1.5 }}>
           {timelineEvents.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-zinc-500 py-8 ml-4">No history found for this client.</p>
+            <Typography sx={{ fontSize: "0.875rem", color: "text.disabled", py: 4, ml: 2 }}>
+              No history found for this client.
+            </Typography>
           ) : (
-            timelineEvents.map((event) => {
-              const isSale = event.type === "SALE";
+            <Stack sx={{ gap: 3 }}>
+              {timelineEvents.map((event) => {
+                const isSale = event.type === "SALE";
 
-              let formattedDate = "Unknown Date";
-              let formattedTime = "";
-              try {
-                const d = new Date(event.date);
-                if (!isNaN(d.getTime())) {
-                  formattedDate = format(d, "MMM dd, yyyy");
-                  formattedTime = format(d, "h:mm a");
-                }
-              } catch {}
+                let formattedDate = "Unknown Date";
+                let formattedTime = "";
+                try {
+                  const d = new Date(event.date);
+                  if (!isNaN(d.getTime())) {
+                    formattedDate = format(d, "MMM dd, yyyy");
+                    formattedTime = format(d, "h:mm a");
+                  }
+                } catch {}
 
-              return (
-                <div key={event.id} className="relative pl-8">
-                  {/* Timeline dot */}
-                  <div className={cn(
-                    "absolute -left-[13px] top-2 w-6 h-6 rounded-full flex items-center justify-center border-4",
-                    "border-slate-50 dark:border-zinc-950",
-                    isSale
-                      ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
-                      : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
-                  )}>
-                    {isSale ? <Receipt className="w-2.5 h-2.5" /> : <CreditCard className="w-2.5 h-2.5" />}
-                  </div>
+                return (
+                  <Box key={event.id} sx={{ position: "relative", pl: 4 }}>
+                    <Box sx={{
+                      position: "absolute",
+                      left: -13,
+                      top: 8,
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "4px solid", borderColor: "background.default",
+                      bgcolor: isSale ? "#dbeafe" : "#d1fae5",
+                      color: isSale ? "#2563eb" : "#16a34a",
+                    }}>
+                      {isSale ? <Receipt size={10} /> : <CreditCard size={10} />}
+                    </Box>
 
-                  <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+                    <Box sx={{
+                      bgcolor: "background.paper",
+                      border: "1px solid",
+                      borderColor: "grey.100",
+                      borderRadius: 3,
+                      p: 2,
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                    }}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                          <Chip
+                            label={isSale ? "Sale" : "Payment"}
+                            size="small"
+                            sx={{
+                              fontSize: "0.5625rem",
+                              fontWeight: 900,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                              height: 20,
+                              bgcolor: isSale ? "#eff6ff" : "#f0fdf4",
+                              color: isSale ? "#2563eb" : "#16a34a",
+                            }}
+                          />
+                          {isSale && event.status && (
+                            <Chip
+                              label={event.status === "Paid" ? "Settled" : "Has Balance"}
+                              size="small"
+                              sx={{
+                                fontSize: "0.5625rem",
+                                fontWeight: 900,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.08em",
+                                height: 20,
+                                bgcolor: event.status === "Paid" ? "#f0fdf4" : "#fffbeb",
+                                color: event.status === "Paid" ? "#16a34a" : "#d97706",
+                              }}
+                            />
+                          )}
+                          {!isSale && event.paymentType && (
+                            <Chip
+                              label={event.paymentType}
+                              size="small"
+                              sx={{
+                                fontSize: "0.5625rem",
+                                fontWeight: 900,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.08em",
+                                height: 20,
+                                bgcolor: "#f5f3ff",
+                                color: "#7c3aed",
+                              }}
+                            />
+                          )}
+                        </Stack>
+                        <Box sx={{ textAlign: "right", flexShrink: 0, ml: 1 }}>
+                          <Typography sx={{
+                            fontSize: "0.875rem",
+                            fontWeight: 900,
+                            color: isSale ? "text.primary" : "success.main",
+                          }}>
+                            {isSale ? "" : "+"} ₦{event.amount.toLocaleString()}
+                          </Typography>
+                        </Box>
+                      </Stack>
 
-                    {/* Top row: type badge + amount + date */}
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={cn(
-                          "text-[9px] uppercase font-black tracking-wider border-0 px-2 py-0.5",
-                          isSale
-                            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                            : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
-                        )}>
-                          {isSale ? "Sale" : "Payment"}
-                        </Badge>
-                        {isSale && event.status && (
-                          <Badge className={cn(
-                            "text-[9px] uppercase font-black tracking-wider border-0 px-2 py-0.5",
-                            event.status === "Paid"
-                              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
-                              : "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
-                          )}>
-                            {event.status === "Paid" ? "Settled" : "Has Balance"}
-                          </Badge>
-                        )}
-                        {!isSale && event.paymentType && (
-                          <Badge className="text-[9px] uppercase font-black tracking-wider border-0 px-2 py-0.5 bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-400">
-                            {event.paymentType}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0 ml-2">
-                        <p className={cn(
-                          "text-sm font-black",
-                          isSale ? "text-gray-900 dark:text-white" : "text-emerald-600 dark:text-emerald-400"
-                        )}>
-                          {isSale ? "" : "+"} ₦{event.amount.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
+                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary", mb: 1.5, lineHeight: 1.4 }}>
+                        {event.description}
+                      </Typography>
 
-                    {/* Description */}
-                    <p className="text-sm font-bold text-gray-800 dark:text-zinc-200 mb-3 leading-snug">
-                      {event.description}
-                    </p>
+                      {isSale && event.material && (
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, mb: 1.5 }}>
+                          <Package size={12} color="#9ca3af" />
+                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" }}>
+                            {event.material}
+                          </Typography>
+                        </Stack>
+                      )}
 
-                    {/* Material tag (sales only) */}
-                    {isSale && event.material && (
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <Package className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs font-medium text-gray-500 dark:text-zinc-400">{event.material}</span>
-                      </div>
-                    )}
+                      {!isSale && (
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5, bgcolor: "grey.50", borderRadius: 2, px: 1.5, py: 1 }}>
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", mb: 0.25 }}>Before</Typography>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "error.main" }}>₦{(event.balanceBefore ?? 0).toLocaleString()}</Typography>
+                          </Box>
+                          <ArrowRight size={12} color="#d1d5db" />
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", mb: 0.25 }}>After</Typography>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: (event.balanceAfter ?? 0) > 0 ? "#f59e0b" : "success.main" }}>
+                              ₦{(event.balanceAfter ?? 0).toLocaleString()}
+                            </Typography>
+                          </Box>
+                          {(event.balanceAfter ?? 0) <= 0 && (
+                            <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, ml: "auto", color: "success.main" }}>
+                              <CheckCircle2 size={14} />
+                              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900 }}>Cleared</Typography>
+                            </Stack>
+                          )}
+                        </Stack>
+                      )}
 
-                    {/* Payment balance flow */}
-                    {!isSale && (
-                      <div className="flex items-center gap-2 mb-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl px-3 py-2">
-                        <div className="text-center">
-                          <p className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Before</p>
-                          <p className="text-xs font-black text-rose-500">₦{(event.balanceBefore ?? 0).toLocaleString()}</p>
-                        </div>
-                        <ArrowRight className="w-3 h-3 text-gray-300 dark:text-zinc-600 mx-1" />
-                        <div className="text-center">
-                          <p className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">After</p>
-                          <p className={cn(
-                            "text-xs font-black",
-                            (event.balanceAfter ?? 0) > 0 ? "text-amber-500" : "text-emerald-500"
-                          )}>
-                            ₦{(event.balanceAfter ?? 0).toLocaleString()}
-                          </p>
-                        </div>
-                        {(event.balanceAfter ?? 0) <= 0 && (
-                          <div className="ml-auto flex items-center gap-1 text-emerald-500">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-black">Cleared</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      {isSale && (event.balanceAfter ?? 0) > 0 && (
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, mb: 1.5, bgcolor: "#fff1f2", borderRadius: 2, px: 1.5, py: 1 }}>
+                          <AlertTriangle size={12} color="#f87171" />
+                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "error.main" }}>
+                            ₦{event.balanceAfter!.toLocaleString()} still outstanding
+                          </Typography>
+                        </Stack>
+                      )}
 
-                    {/* Sale remaining balance */}
-                    {isSale && (event.balanceAfter ?? 0) > 0 && (
-                      <div className="flex items-center gap-1.5 mb-3 bg-rose-50 dark:bg-rose-950/20 rounded-xl px-3 py-2">
-                        <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-                        <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                          ₦{event.balanceAfter!.toLocaleString()} still outstanding
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Footer: who + when */}
-                    <div className="pt-3 border-t border-gray-50 dark:border-zinc-800/60 flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {isSale && event.loggedBy && (
-                          <PersonChip name={event.loggedBy} label="Logged by" />
-                        )}
-                        {!isSale && event.collectedBy && (
-                          <PersonChip name={event.collectedBy} label="Collected by" />
-                        )}
-                        {isSale && event.salesId && (
-                          <span className="text-[10px] font-mono text-gray-300 dark:text-zinc-600">{event.salesId}</span>
-                        )}
-                        {!isSale && event.notes && (
-                          <span className="text-[10px] font-medium text-gray-400 dark:text-zinc-500 italic">{event.notes}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] font-medium text-gray-400 dark:text-zinc-500 shrink-0">
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formattedDate}</span>
-                        {formattedTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formattedTime}</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+                      <Box sx={{ pt: 1.5, borderTop: "1px solid", borderColor: "grey.50", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                          {isSale && event.loggedBy && (
+                            <PersonChip name={event.loggedBy} label="Logged by" />
+                          )}
+                          {!isSale && event.collectedBy && (
+                            <PersonChip name={event.collectedBy} label="Collected by" />
+                          )}
+                          {isSale && event.salesId && (
+                            <Typography sx={{ fontSize: "0.625rem", fontFamily: "monospace", color: "text.disabled" }}>
+                              {event.salesId}
+                            </Typography>
+                          )}
+                          {!isSale && event.notes && (
+                            <Typography sx={{ fontSize: "0.625rem", fontWeight: 500, color: "text.secondary", fontStyle: "italic" }}>
+                              {event.notes}
+                            </Typography>
+                          )}
+                        </Stack>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                          <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                            <Calendar size={12} color="#9ca3af" />
+                            <Typography sx={{ fontSize: "0.625rem", fontWeight: 500, color: "text.secondary" }}>
+                              {formattedDate}
+                            </Typography>
+                          </Stack>
+                          {formattedTime && (
+                            <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                              <Clock size={12} color="#9ca3af" />
+                              <Typography sx={{ fontSize: "0.625rem", fontWeight: 500, color: "text.secondary" }}>
+                                {formattedTime}
+                              </Typography>
+                            </Stack>
+                          )}
+                        </Stack>
+                      </Box>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Stack>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 
   if (isMobile) {
     return (
-      <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
-          <Drawer.Content className="bg-slate-50 dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] fixed bottom-0 left-0 right-0 z-[201] outline-none shadow-2xl border-t dark:border-zinc-800 h-[90vh]">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mt-4 mb-2 z-10" />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-4 top-4 rounded-full bg-white/50 dark:bg-zinc-900/50 hover:bg-gray-200 dark:hover:bg-zinc-800 z-10"
-              onClick={onClose}
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </Button>
-            <div className="flex-1 overflow-hidden rounded-t-[2.5rem]">
-              {body}
-            </div>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+      <Dialog
+        fullScreen
+        open={isOpen}
+        onClose={onClose}
+
+        slotProps={{
+          paper: {
+            sx: {
+              mt: "10vh",
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              bgcolor: "background.default",
+              display: "flex",
+              flexDirection: "column",
+            }
+          }
+        }}
+        sx={{
+          "& .MuiDialog-container": {
+            alignItems: "flex-end",
+          }
+        }}
+      >
+        <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 1, flexShrink: 0 }} />
+        <Button
+          variant="text"
+          onClick={onClose}
+          sx={{
+            position: "absolute",
+            right: 16,
+            top: 16,
+            minWidth: 0,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            bgcolor: "action.hover",
+            "&:hover": { bgcolor: "action.selected" },
+            zIndex: 10,
+            p: 0,
+          }}
+        >
+          <X size={20} color="#6b7280" />
+        </Button>
+        <Box sx={{ flex: 1, overflow: "hidden", borderRadius: "2.5rem 2.5rem 0 0" }}>
+          {body}
+        </Box>
+      </Dialog>
     );
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-white dark:bg-zinc-950 rounded-[2rem] p-0 border-none shadow-2xl overflow-hidden h-[85vh] flex flex-col z-[201]">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Customer Timeline</DialogTitle>
-          <DialogDescription>History of sales and payments for {clientName}</DialogDescription>
-        </DialogHeader>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 4,
+            overflow: "hidden",
+            height: "85vh",
+            display: "flex",
+            flexDirection: "column",
+            zIndex: 201,
+          },
+        },
+      }}
+    >
+      <DialogTitle sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+        Customer Timeline — {clientName}
+      </DialogTitle>
+      <DialogContent sx={{ p: 0, display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
         {body}
       </DialogContent>
     </Dialog>

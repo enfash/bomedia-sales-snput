@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
-import { useEffect } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   FileText,
   Share2,
@@ -18,13 +17,15 @@ import {
   Calendar,
   ChevronDown,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
 import { format, isSameDay } from "date-fns";
 import { toast } from "sonner";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ShiftReportProps {
   isOpen: boolean;
@@ -37,42 +38,64 @@ const parseAmt = (v: any) =>
 const fmtMoney = (n: number) =>
   `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
-// ─── Status pill ──────────────────────────────────────────────────────────────
-
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    Paid: "bg-emerald-100 text-emerald-700",
-    "Part-payment": "bg-amber-100 text-amber-700",
-    Unpaid: "bg-rose-100 text-rose-700",
+  const colorMap: Record<string, { bgcolor: string; color: string }> = {
+    Paid: { bgcolor: "#d1fae5", color: "#065f46" },
+    "Part-payment": { bgcolor: "#fef3c7", color: "#92400e" },
+    Unpaid: { bgcolor: "#fee2e2", color: "#991b1b" },
   };
+  const colors = colorMap[status] || { bgcolor: "#f3f4f6", color: "#6b7280" };
   return (
-    <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded uppercase", map[status] || "bg-gray-100 text-gray-500")}>
+    <Box component="span" sx={{
+      fontSize: "0.5625rem",
+      fontWeight: 900,
+      px: 0.75,
+      py: 0.25,
+      borderRadius: 1,
+      textTransform: "uppercase",
+      bgcolor: colors.bgcolor,
+      color: colors.color,
+      display: "inline-block",
+    }}>
       {status}
-    </span>
+    </Box>
   );
 }
-
-// ─── Section header ───────────────────────────────────────────────────────────
 
 function SectionHeader({ icon: Icon, label, count }: { icon: any; label: string; count?: number }) {
   return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className="w-6 h-6 rounded-lg bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
-        <Icon className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
-      </div>
-      <p className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
+    <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5 }}>
+      <Box sx={{
+        width: 24,
+        height: 24,
+        borderRadius: 1.5,
+        bgcolor: "#eff6ff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <Icon size={14} color="#1d4ed8" />
+      </Box>
+      <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.primary" }}>
         {label}
-      </p>
+      </Typography>
       {count !== undefined && (
-        <Badge className="bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border-none text-[9px] font-black ml-auto">
-          {count}
-        </Badge>
+        <Chip
+          label={count}
+          size="small"
+          sx={{
+            ml: "auto",
+            bgcolor: "#eff6ff",
+            color: "#1d4ed8",
+            fontSize: "0.5625rem",
+            fontWeight: 900,
+            height: 20,
+          }}
+        />
       )}
-    </div>
+    </Stack>
   );
 }
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [loading, setLoading] = useState(true);
@@ -114,7 +137,6 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
 
   const selectedDate = new Date(reportDate + "T12:00:00");
 
-  // ── Filter by date ───────────────────────────────────────────────────────
   const daySales = useMemo(
     () =>
       sales.filter((s) => {
@@ -145,7 +167,6 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
     [payments, reportDate]
   );
 
-  // ── Cashier list ─────────────────────────────────────────────────────────
   const cashiers = useMemo(() => {
     const names = new Set<string>(
       daySales
@@ -166,7 +187,6 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
     [daySales, cashierFilter]
   );
 
-  // ── Aggregates ───────────────────────────────────────────────────────────
   const totalRevenue = filteredSales.reduce(
     (s, r) => s + parseAmt(r["AMOUNT (₦)"] || r["Amount (₦)"]),
     0
@@ -192,7 +212,6 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   );
   const netCash = totalCollected + totalPaymentsIn - totalExpenses;
 
-  // ── Material breakdown ───────────────────────────────────────────────────
   const materialBreakdown = useMemo(() => {
     const map: Record<string, { count: number; revenue: number }> = {};
     filteredSales.forEach((s) => {
@@ -204,7 +223,6 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
     return Object.entries(map).sort((a, b) => b[1].revenue - a[1].revenue);
   }, [filteredSales]);
 
-  // ── WhatsApp share ───────────────────────────────────────────────────────
   const handleWhatsAppShare = () => {
     const dateLabel = format(selectedDate, "EEEE, MMM d yyyy");
     const cashierLabel =
@@ -255,188 +273,242 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+    <Box sx={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 200,
+      display: "flex",
+      alignItems: { xs: "flex-end", md: "center" },
+      justifyContent: "center",
+    }}>
+      <Box
+        sx={{ position: "absolute", inset: 0, bgcolor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
 
-      <div className="relative w-full md:max-w-2xl bg-white dark:bg-zinc-950 rounded-t-[2.5rem] md:rounded-3xl shadow-2xl border-t md:border dark:border-zinc-800 flex flex-col max-h-[92vh] md:max-h-[85vh] z-[201]">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-zinc-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-brand-700 flex items-center justify-center">
-              <FileText className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-base font-black text-gray-900 dark:text-white">
+      <Box sx={{
+        position: "relative",
+        width: "100%",
+        maxWidth: { md: "42rem" },
+        bgcolor: "background.paper",
+        borderRadius: { xs: "2.5rem 2.5rem 0 0", md: 4 },
+        boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+        border: { xs: "1px solid", md: "1px solid" },
+        borderColor: "grey.100",
+        display: "flex",
+        flexDirection: "column",
+        maxHeight: { xs: "92vh", md: "85vh" },
+        zIndex: 201,
+      }}>
+        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", p: 2.5, borderBottom: "1px solid", borderColor: "grey.100", flexShrink: 0 }}>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+            <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <FileText size={16} color="#fff" />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: "text.primary" }}>
                 Shift Report
-              </p>
-              <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
+              </Typography>
+              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
                 Daily summary
-              </p>
-            </div>
-          </div>
-          <button
+              </Typography>
+            </Box>
+          </Stack>
+          <Box
+            component="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-[background-color,color]"
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "text.disabled",
+              border: "none",
+              bgcolor: "transparent",
+              cursor: "pointer",
+              "&:hover": { bgcolor: "grey.100", color: "text.primary" },
+              transition: "background-color 0.15s, color 0.15s",
+            }}
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+            <X size={16} />
+          </Box>
+        </Stack>
 
-        {/* Controls */}
-        <div className="p-4 border-b border-gray-50 dark:border-zinc-800 shrink-0 flex flex-wrap gap-3 items-center">
-          <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-            <input
-              type="date"
-              value={reportDate}
-              onChange={(e) => setReportDate(e.target.value)}
-              className="h-9 flex-1 rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-xs font-bold px-3 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:text-zinc-200"
+        <Stack direction="row" sx={{ p: 2, borderBottom: "1px solid", borderColor: "grey.50", flexShrink: 0, flexWrap: "wrap", gap: 1.5, alignItems: "center" }}>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1, flex: 1, minWidth: 180 }}>
+            <Calendar size={16} color="#9ca3af" />
+            <DatePicker
+              value={reportDate ? dayjs(reportDate) : null}
+              onChange={(newVal) => setReportDate(newVal ? newVal.format("YYYY-MM-DD") : "")}
+              slotProps={{
+                textField: {
+                  size: "small",
+                  sx: {
+                    flex: 1,
+                    "& .MuiInputBase-root": {
+                      height: 36,
+                      borderRadius: 2,
+                      bgcolor: "grey.50",
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                    }
+                  }
+                }
+              }}
             />
-          </div>
+          </Stack>
 
           {cashiers.length > 2 && (
-            <div className="relative">
-              <select
+            <Box sx={{ position: "relative" }}>
+              <Box
+                component="select"
                 value={cashierFilter}
-                onChange={(e) => setCashierFilter(e.target.value)}
-                className="h-9 pl-3 pr-8 rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-xs font-bold appearance-none focus:outline-none focus:ring-2 focus:ring-brand-600 dark:text-zinc-200"
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCashierFilter(e.target.value)}
+                sx={{
+                  height: 36,
+                  pl: 1.5,
+                  pr: 4,
+                  borderRadius: 2,
+                  border: "1px solid",
+                  borderColor: "grey.200",
+                  bgcolor: "grey.50",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  appearance: "none",
+                  outline: "none",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                }}
               >
                 {cashiers.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                  <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
-            </div>
+              </Box>
+              <Box sx={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                <ChevronDown size={14} color="#9ca3af" />
+              </Box>
+            </Box>
           )}
 
           <Button
-            variant="ghost"
-            size="sm"
+            variant="text"
+            size="small"
             onClick={fetchData}
             disabled={loading}
-            className="h-9 px-3 text-xs font-black text-gray-500 dark:text-zinc-400"
+            sx={{ height: 36, px: 1.5, fontSize: "0.75rem", fontWeight: 900, color: "text.secondary", minWidth: 0 }}
           >
-            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
           </Button>
-        </div>
+        </Stack>
 
-        {/* Report body */}
-        <div className="overflow-y-auto flex-1 p-5 space-y-5" ref={reportRef}>
+        <Box sx={{ overflowY: "auto", flex: 1, p: 2.5 }} ref={reportRef}>
           {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <RefreshCw className="w-6 h-6 text-brand-400 animate-spin" />
-            </div>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: 128 }}>
+              <RefreshCw size={24} color="#93c5fd" style={{ animation: "spin 1s linear infinite" }} />
+            </Box>
           ) : (
-            <>
-              {/* Summary tiles */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <Stack sx={{ gap: 2.5 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 1.5 }}>
                 {[
                   {
                     label: "Jobs Logged",
                     val: String(filteredSales.length),
                     icon: Package,
-                    color: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
+                    iconBg: "#dbeafe",
+                    iconColor: "#2563eb",
+                    highlight: false,
                   },
                   {
                     label: "Total Revenue",
                     val: fmtMoney(totalRevenue),
                     icon: TrendingUp,
-                    color: "bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400",
+                    iconBg: "#fee2e2",
+                    iconColor: "#c8472e",
+                    highlight: false,
                   },
                   {
                     label: "Cash Collected",
                     val: fmtMoney(totalCollected + totalPaymentsIn),
                     icon: CheckCircle2,
-                    color: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400",
+                    iconBg: "#d1fae5",
+                    iconColor: "#16a34a",
+                    highlight: false,
                   },
                   {
                     label: "Outstanding",
                     val: fmtMoney(totalDebt),
                     icon: AlertTriangle,
-                    color: totalDebt > 0
-                      ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400"
-                      : "bg-gray-50 dark:bg-zinc-800 text-gray-400 dark:text-zinc-500",
+                    iconBg: totalDebt > 0 ? "#fee2e2" : "#f3f4f6",
+                    iconColor: totalDebt > 0 ? "#dc2626" : "#9ca3af",
+                    highlight: false,
                   },
                   {
                     label: "Expenses",
                     val: fmtMoney(totalExpenses),
                     icon: Receipt,
-                    color: "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
+                    iconBg: "#fef3c7",
+                    iconColor: "#d97706",
+                    highlight: false,
                   },
                   {
                     label: "Net Cash",
                     val: fmtMoney(netCash),
                     icon: TrendingUp,
-                    color: netCash >= 0
-                      ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
-                      : "bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400",
+                    iconBg: netCash >= 0 ? "#d1fae5" : "#fee2e2",
+                    iconColor: netCash >= 0 ? "#16a34a" : "#dc2626",
                     highlight: true,
                   },
-                ].map(({ label, val, icon: Icon, color, highlight }) => (
-                  <div
-                    key={label}
-                    className={cn(
-                      "p-3 rounded-2xl border",
-                      highlight
-                        ? "border-brand-200 dark:border-brand-800/40 bg-brand-50 dark:bg-brand-900/20"
-                        : "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
-                    )}
-                  >
-                    <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center mb-2", color)}>
-                      <Icon className="w-3.5 h-3.5" />
-                    </div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">
+                ].map(({ label, val, icon: Icon, iconBg, iconColor, highlight }) => (
+                  <Box key={label} sx={{
+                    p: 1.5,
+                    borderRadius: 3,
+                    border: "1px solid",
+                    borderColor: highlight ? "#fecaca" : "grey.100",
+                    bgcolor: highlight ? "#fff1f2" : "background.paper",
+                  }}>
+                    <Box sx={{ width: 24, height: 24, borderRadius: 1.5, bgcolor: iconBg, display: "flex", alignItems: "center", justifyContent: "center", mb: 1 }}>
+                      <Icon size={14} color={iconColor} />
+                    </Box>
+                    <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled", mb: 0.25 }}>
                       {label}
-                    </p>
-                    <p className={cn("text-base font-black", highlight ? "text-brand-700 dark:text-brand-300" : "text-gray-900 dark:text-white")}>
+                    </Typography>
+                    <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: highlight ? "primary.main" : "text.primary" }}>
                       {val}
-                    </p>
-                  </div>
+                    </Typography>
+                  </Box>
                 ))}
-              </div>
+              </Box>
 
-              {/* Material breakdown */}
               {materialBreakdown.length > 0 && (
-                <div>
+                <Box>
                   <SectionHeader icon={Package} label="Material Breakdown" />
-                  <div className="space-y-2">
+                  <Stack sx={{ gap: 1 }}>
                     {materialBreakdown.map(([mat, { count, revenue }]) => (
-                      <div
-                        key={mat}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-brand-600 dark:bg-brand-400" />
-                          <p className="text-sm font-bold text-gray-800 dark:text-zinc-200">
+                      <Stack key={mat} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", p: 1.5, bgcolor: "grey.50", borderRadius: 2 }}>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                          <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "primary.main" }} />
+                          <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary" }}>
                             {mat}
-                          </p>
-                          <span className="text-[10px] text-gray-400 dark:text-zinc-500">
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.625rem", color: "text.secondary" }}>
                             {count} job{count !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                        <p className="text-sm font-black text-gray-900 dark:text-white">
+                          </Typography>
+                        </Stack>
+                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
                           {fmtMoney(revenue)}
-                        </p>
-                      </div>
+                        </Typography>
+                      </Stack>
                     ))}
-                  </div>
-                </div>
+                  </Stack>
+                </Box>
               )}
 
-              {/* Jobs list */}
               {filteredSales.length > 0 && (
-                <div>
-                  <SectionHeader
-                    icon={FileText}
-                    label="Jobs"
-                    count={filteredSales.length}
-                  />
-                  <div className="space-y-1.5">
+                <Box>
+                  <SectionHeader icon={FileText} label="Jobs" count={filteredSales.length} />
+                  <Stack sx={{ gap: 0.75 }}>
                     {filteredSales.map((s, i) => {
                       const client = s["CLIENT NAME"] || s["Client Name"] || "—";
                       const desc = s["JOB DESCRIPTION"] || s["Job Description"] || "—";
@@ -450,103 +522,113 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
                       const loggedBy = s["LOGGED BY"] || s["Logged By"] || "—";
 
                       return (
-                        <div
-                          key={i}
-                          className="flex items-start justify-between p-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl gap-3"
-                        >
-                          <div className="flex items-start gap-3 min-w-0">
-                            <div className="w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[10px] font-black text-brand-700 dark:text-brand-400 shrink-0 mt-0.5">
-                              {i + 1}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+                        <Stack key={i} direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", p: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "grey.100", borderRadius: 2, gap: 1.5 }}>
+                          <Stack direction="row" sx={{ alignItems: "flex-start", gap: 1.5, minWidth: 0 }}>
+                            <Box sx={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: "50%",
+                              bgcolor: "#dbeafe",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              mt: 0.25,
+                            }}>
+                              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "#1d4ed8" }}>
+                                {i + 1}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {client}
-                              </p>
-                              <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium truncate">
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {desc}
-                              </p>
-                              <p className="text-[9px] text-gray-300 dark:text-zinc-600 mt-0.5">
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.5625rem", color: "text.disabled", mt: 0.25 }}>
                                 via {loggedBy}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-black text-gray-900 dark:text-white">
+                              </Typography>
+                            </Box>
+                          </Stack>
+                          <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+                            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
                               {fmtMoney(amt)}
-                            </p>
-                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "success.main" }}>
                               +{fmtMoney(paid)}
-                            </p>
+                            </Typography>
                             <StatusPill status={status} />
-                          </div>
-                        </div>
+                          </Box>
+                        </Stack>
                       );
                     })}
-                  </div>
-                </div>
+                  </Stack>
+                </Box>
               )}
 
-              {/* Expenses */}
               {dayExpenses.length > 0 && (
-                <div>
-                  <SectionHeader
-                    icon={Receipt}
-                    label="Expenses"
-                    count={dayExpenses.length}
-                  />
-                  <div className="space-y-1.5">
+                <Box>
+                  <SectionHeader icon={Receipt} label="Expenses" count={dayExpenses.length} />
+                  <Stack sx={{ gap: 0.75 }}>
                     {dayExpenses.map((e, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-xl"
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-gray-800 dark:text-zinc-200">
+                      <Stack key={i} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", p: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "grey.100", borderRadius: 2 }}>
+                        <Box>
+                          <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary" }}>
                             {e.CATEGORY || e.Category || "General"}
-                          </p>
-                          <p className="text-[10px] text-gray-400 dark:text-zinc-500">
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.625rem", color: "text.secondary" }}>
                             {e.DESCRIPTION || e.Description || "—"}
-                          </p>
-                        </div>
-                        <p className="text-sm font-black text-rose-600 dark:text-rose-400">
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
                           −{fmtMoney(parseAmt(e.AMOUNT || e.Amount))}
-                        </p>
-                      </div>
+                        </Typography>
+                      </Stack>
                     ))}
-                  </div>
-                </div>
+                  </Stack>
+                </Box>
               )}
 
               {filteredSales.length === 0 && dayExpenses.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 text-gray-300 dark:text-zinc-700">
-                  <FileText className="w-10 h-10 mb-3" />
-                  <p className="text-sm font-bold">No activity on this date</p>
-                  <p className="text-xs mt-1">Try selecting a different date</p>
-                </div>
+                <Stack sx={{ alignItems: "center", justifyContent: "center", py: 8, color: "text.disabled", gap: 1 }}>
+                  <FileText size={40} />
+                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 700 }}>No activity on this date</Typography>
+                  <Typography sx={{ fontSize: "0.75rem" }}>Try selecting a different date</Typography>
+                </Stack>
               )}
-            </>
+            </Stack>
           )}
-        </div>
+        </Box>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-100 dark:border-zinc-800 flex gap-3 shrink-0 bg-white dark:bg-zinc-950">
+        <Stack direction="row" sx={{ p: 2, borderTop: "1px solid", borderColor: "grey.100", gap: 1.5, flexShrink: 0, bgcolor: "background.paper" }}>
           <Button
+            variant="contained"
             onClick={handleWhatsAppShare}
             disabled={filteredSales.length === 0 && dayExpenses.length === 0}
-            className="flex-1 h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+            sx={{
+              flex: 1,
+              height: 48,
+              borderRadius: 3,
+              bgcolor: "#22c55e",
+              fontWeight: 900,
+              boxShadow: "0 4px 14px rgba(34,197,94,0.2)",
+              "&:hover": { bgcolor: "#16a34a" },
+              gap: 1,
+            }}
           >
-            <Share2 className="w-4 h-4" />
+            <Share2 size={16} />
             Share via WhatsApp
           </Button>
           <Button
+            variant="outlined"
             onClick={() => window.print()}
-            variant="outline"
-            className="h-12 px-4 rounded-2xl font-black dark:bg-zinc-900 dark:border-zinc-700"
+            sx={{ height: 48, px: 2, borderRadius: 3, fontWeight: 900 }}
           >
-            <Printer className="w-4 h-4" />
+            <Printer size={16} />
           </Button>
-        </div>
-      </div>
-    </div>
+        </Stack>
+      </Box>
+    </Box>
   );
 }

@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { verifyToken } from '@/lib/auth-utils';
 
+export const dynamic = 'force-dynamic';
+
 const SHEET_TITLE = 'Cashiers';
 const CASHIER_HEADERS = ['Name', 'Status', 'Last Login', 'Last Active', 'Passcode'];
 
@@ -10,7 +12,7 @@ const CASHIER_HEADERS = ['Name', 'Status', 'Last Login', 'Last Active', 'Passcod
  * Checks if the current request is authenticated as Admin.
  */
 async function isAdminUser(): Promise<boolean> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('admin_session')?.value;
   if (!token) return false;
   const decoded = await verifyToken(token);

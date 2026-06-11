@@ -1,14 +1,21 @@
+"use client";
+
+import { Box, Typography } from "@mui/material";
 import { SalesEntry } from "@/components/sales-entry";
 import { PlusCircle } from "lucide-react";
 
 export default function NewEntryPage() {
   return (
-    <div className="p-6 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-1">Log New Sale Entry</h1>
-        <p className="text-gray-500">Log a new print job using manual entry or AI natural language.</p>
-      </div>
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 12, md: 4 }}}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 900, color: "text.primary", mb: 0.5 }}>
+          Log New Sale Entry
+        </Typography>
+        <Typography sx={{ color: "text.secondary" }}>
+          Log a new print job using manual entry or AI natural language.
+        </Typography>
+      </Box>
       <SalesEntry />
-    </div>
+    </Box>
   );
 }

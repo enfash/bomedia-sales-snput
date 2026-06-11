@@ -1,8 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
 import { ReceiptTemplate } from "@/components/receipt-template";
 import { Download, Loader2 } from "lucide-react";
 import type { UnifiedRecord } from "@/components/manage-sale-action";
@@ -24,9 +29,6 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
     if (!receiptRef.current) return;
     setIsGenerating(true);
 
-    // Clone the receipt node to document.body so it sits OUTSIDE
-    // the Dialog's overflow:hidden boundary. This is the safest
-    // capture strategy for both desktop and mobile.
     const clone = receiptRef.current.cloneNode(true) as HTMLElement;
     clone.style.cssText = [
       "position:fixed",
@@ -41,7 +43,6 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
     document.body.appendChild(clone);
 
     try {
-      // Ensure all images in the clone are loaded
       const images = clone.getElementsByTagName("img");
       await Promise.all(
         Array.from(images).map((img) => {
@@ -53,12 +54,10 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
         })
       );
 
-      // Wait for fonts to be ready
       if ("fonts" in document) {
         await document.fonts.ready;
       }
 
-      // Small delay to ensure layout is settled
       await new Promise(resolve => setTimeout(resolve, 200));
 
       const canvas = await html2canvas(clone, {
@@ -95,62 +94,75 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden bg-zinc-100 dark:bg-zinc-950 flex flex-col h-[90vh] md:h-[85vh]">
-        <DialogHeader className="p-4 md:p-6 bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-xl font-black text-gray-900 dark:text-white">Receipt Preview</DialogTitle>
-              <DialogDescription className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
-                Preview your receipt before downloading.
-              </DialogDescription>
-            </div>
-            <Button 
-              onClick={handleDownload} 
-              disabled={isGenerating || records.length === 0}
-              className="bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-sm hidden md:flex"
-            >
-              {isGenerating ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating PDF...</>
-              ) : (
-                <><Download className="w-4 h-4 mr-2" /> Download PDF</>
-              )}
-            </Button>
-          </div>
-        </DialogHeader>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: 4, maxHeight: "90vh", display: "flex", flexDirection: "column", bgcolor: "grey.100" } } }}
+    >
+      <DialogTitle
+        component="div"
+        sx={{ p: { xs: 2, md: 3 }, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "grey.100", flexShrink: 0 }}
+      >
+        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary" }}>
+              Receipt Preview
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
+              Preview your receipt before downloading.
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            onClick={handleDownload}
+            disabled={isGenerating || records.length === 0}
+            startIcon={isGenerating ? (
+              <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
+                <Loader2 size={16} />
+              </Box>
+            ) : <Download size={16} />}
+            sx={{ display: { xs: "none", md: "flex" }, borderRadius: 3 }}
+          >
+            {isGenerating ? "Generating PDF..." : "Download PDF"}
+          </Button>
+        </Stack>
+      </DialogTitle>
 
-        {/* 
-          Mobile-friendly scroll wrapper.
-          The receipt template is fixed at 800px wide. On small screens we let the
-          user scroll horizontally inside the modal rather than using CSS scale(),
-          which collapses the scroll height and makes content unreachable.
-        */}
-        <div className="flex-1 overflow-auto p-4 md:p-8 bg-gray-100/50 dark:bg-zinc-950">
-          <div className="min-w-[800px]">
-            <div 
+      <DialogContent
+        sx={{ p: 0, flexGrow: 1, overflowY: "auto", bgcolor: "grey.100" }}
+      >
+        <Box sx={{ p: { xs: 2, md: 4 }, minWidth: 0, overflowX: "auto" }}>
+          <Box sx={{ minWidth: 800 }}>
+            <Box
               ref={receiptRef}
-              className="w-[800px] bg-white shadow-xl"
+              sx={{ width: 800, bgcolor: "background.paper", boxShadow: 6 }}
             >
               <ReceiptTemplate records={records} />
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile fixed bottom button */}
-        <div className="p-4 bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800 shrink-0 md:hidden">
-           <Button 
-              onClick={handleDownload} 
-              disabled={isGenerating || records.length === 0}
-              className="w-full bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-sm h-12 text-base font-bold"
-            >
-              {isGenerating ? (
-                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Generating PDF...</>
-              ) : (
-                <><Download className="w-5 h-5 mr-2" /> Download PDF</>
-              )}
-            </Button>
-        </div>
+            </Box>
+          </Box>
+        </Box>
       </DialogContent>
+
+      <Box
+        sx={{ p: 2, bgcolor: "background.paper", borderTop: "1px solid", borderColor: "grey.100", flexShrink: 0, display: { xs: "block", md: "none" } }}
+      >
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={handleDownload}
+          disabled={isGenerating || records.length === 0}
+          startIcon={isGenerating ? (
+            <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
+              <Loader2 size={20} />
+            </Box>
+          ) : <Download size={20} />}
+          sx={{ borderRadius: 3, height: 48, fontSize: "1rem", fontWeight: 700 }}
+        >
+          {isGenerating ? "Generating PDF..." : "Download PDF"}
+        </Button>
+      </Box>
     </Dialog>
   );
 }

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
 import { Package, Layers, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Drawer } from "vaul";
+import Dialog from "@mui/material/Dialog";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 const parseNum = (v: string | number | undefined) =>
   parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
 
@@ -24,6 +24,7 @@ export function MaterialSelector({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -47,82 +48,162 @@ export function MaterialSelector({
   const selected = materials.find((m) => m["Material ID"] === selectedMaterialId);
 
   return (
-    <div className="space-y-1.5">
-      <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-400 tracking-wider flex items-center gap-1.5">
-        <Package className="w-3 h-3" />
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+      <Typography
+        component="label"
+        sx={{
+          fontSize: "0.625rem",
+          textTransform: "uppercase",
+          fontWeight: 900,
+          color: "text.secondary",
+          letterSpacing: "0.08em",
+          display: "flex",
+          alignItems: "center",
+          gap: 0.75,
+        }}
+      >
+        <Package style={{ width: 12, height: 12 }} />
         Select Material *
-      </Label>
-      <button
+      </Typography>
+
+      <Box
+        component="button"
         type="button"
         onClick={() => setOpen(true)}
-        className={cn(
-          "w-full h-14 rounded-2xl border-2 px-4 flex items-center justify-between transition-[border-color,background-color] text-left",
-          selectedMaterialId
-            ? "border-primary bg-primary/5 dark:bg-primary/10 dark:border-primary/70"
-            : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-primary/50 dark:hover:border-primary/50"
-        )}
+        sx={{
+          width: "100%",
+          height: 56,
+          borderRadius: 3,
+          border: "2px solid",
+          borderColor: selectedMaterialId ? "primary.main" : "grey.300",
+          bgcolor: selectedMaterialId ? "primary.main" : "background.paper",
+          px: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          transition: "border-color 0.15s ease, background-color 0.15s ease",
+          textAlign: "left",
+          "&:hover": {
+            borderColor: selectedMaterialId ? "primary.dark" : "primary.main",
+          },
+        }}
       >
         {selected ? (
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
-              <Layers className="w-4 h-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: 2,
+                bgcolor: "primary.dark",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Layers style={{ width: 16, height: 16, color: "#fff" }} />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.875rem",
+                  fontWeight: 900,
+                  color: "primary.contrastText",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {selected["Material ID"]}
-              </p>
-              <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
+              </Typography>
+              <Typography sx={{ fontSize: "0.625rem", color: "primary.contrastText", opacity: 0.8, fontWeight: 500 }}>
                 {parseNum(selected["Width (ft)"])}ft wide · ₦{parseNum(selected["Selling Price"]).toLocaleString()}/sqft
-              </p>
-            </div>
-          </div>
+              </Typography>
+            </Box>
+          </Box>
         ) : (
-          <span className="text-gray-400 dark:text-zinc-600 font-medium text-sm">
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 500, color: "text.secondary" }}>
             {loading ? "Loading materials…" : "Tap to choose material…"}
-          </span>
+          </Typography>
         )}
-        <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 ml-2" />
-      </button>
+        <ChevronDown style={{ width: 16, height: 16, flexShrink: 0, marginLeft: 8, color: selectedMaterialId ? "#fff" : undefined }} />
+      </Box>
 
-      {/* Roll picker bottom sheet / dialog */}
-      <Drawer.Root open={open} onOpenChange={setOpen}>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm" />
-          <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] fixed bottom-0 left-0 right-0 z-50 outline-none shadow-2xl border-t dark:border-zinc-800 max-h-[88vh]">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mt-4" />
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        fullScreen={isMobile}
+        slotProps={{
+          paper: {
+            sx: isMobile ? {
+              mt: "12vh",
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              bgcolor: "background.default",
+              display: "flex",
+              flexDirection: "column",
+            } : {
+              borderRadius: 4,
+              maxHeight: "85vh",
+              bgcolor: "background.default",
+            }
+          }
+        }}
+        sx={isMobile ? {
+          "& .MuiDialog-container": {
+            alignItems: "flex-end",
+          }
+        } : undefined}
+        maxWidth="sm"
+        fullWidth
+      >
+        {isMobile && <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 1, flexShrink: 0 }} />}
 
-            <div className="px-5 pt-4 pb-2 border-b dark:border-zinc-800">
-              <Drawer.Title className="text-lg font-black text-gray-900 dark:text-white mb-3">
-                Choose a Material
-              </Drawer.Title>
-              <Drawer.Description className="sr-only">
-                Select a material profile for this job
-              </Drawer.Description>
-              <Input
+        <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary", mb: 2 }}>
+            Choose a Material
+          </Typography>
+              <TextField
                 placeholder="Search materials…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="rounded-xl bg-gray-50 dark:bg-zinc-900 border-gray-200 dark:border-zinc-700"
+                fullWidth
                 autoFocus
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2.5 } }}
               />
-            </div>
+            </Box>
 
-            <div className="overflow-y-auto flex-1 p-4 space-y-5">
+            <Box sx={{ overflowY: "auto", flex: 1, p: 2, display: "flex", flexDirection: "column", gap: 2.5 }}>
               {Object.entries(grouped).map(([materialName, options]) => (
-                <div key={materialName}>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-2 px-1">
+                <Box key={materialName}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.625rem",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      color: "text.secondary",
+                      mb: 1,
+                      px: 0.5,
+                    }}
+                  >
                     {materialName}
-                  </p>
-                  <div className="space-y-2">
+                  </Typography>
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                     {options.map((mat) => {
                       const remaining = parseNum(mat["Total Remaining (ft)"]);
                       const capacity = parseNum(mat["Total Capacity (ft)"]);
                       const pct = capacity > 0 ? Math.min(100, (remaining / capacity) * 100) : 0;
                       const isOut = remaining <= 0 || mat.Status === "Out of Stock";
+                      const isSelected = mat["Material ID"] === selectedMaterialId;
+                      const isLowStock = mat.Status === "Low Stock";
 
                       return (
-                        <button
+                        <Box
                           key={mat["Material ID"]}
+                          component="button"
                           type="button"
                           disabled={isOut}
                           onClick={() => {
@@ -130,60 +211,80 @@ export function MaterialSelector({
                             setOpen(false);
                             setSearch("");
                           }}
-                          className={cn(
-                            "w-full p-4 rounded-2xl border-2 text-left transition-[border-color,background-color]",
-                            mat["Material ID"] === selectedMaterialId
-                              ? "border-primary bg-primary/5 dark:bg-primary/10"
-                              : isOut
-                              ? "border-gray-100 dark:border-zinc-800 opacity-40 cursor-not-allowed"
-                              : "border-gray-100 dark:border-zinc-800 hover:border-primary/50 dark:hover:border-primary/50 bg-white dark:bg-zinc-900"
-                          )}
+                          sx={{
+                            width: "100%",
+                            p: 2,
+                            borderRadius: 3,
+                            border: "2px solid",
+                            borderColor: isSelected ? "primary.main" : isOut ? "grey.200" : "grey.200",
+                            bgcolor: isSelected ? "primary.light" : isOut ? "transparent" : "background.paper",
+                            opacity: isOut ? 0.4 : 1,
+                            cursor: isOut ? "not-allowed" : "pointer",
+                            textAlign: "left",
+                            transition: "border-color 0.15s ease, background-color 0.15s ease",
+                            "&:hover:not(:disabled)": {
+                              borderColor: "primary.main",
+                            },
+                          }}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <p className="text-sm font-black text-gray-900 dark:text-white">
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+                            <Box>
+                              <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
                                 {mat["Material ID"]}
-                              </p>
-                              <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium mt-0.5">
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, mt: 0.5 }}>
                                 {parseNum(mat["Width (ft)"])}ft wide · ₦{parseNum(mat["Selling Price"]).toLocaleString()}/sqft
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <span className={cn(
-                                "text-[9px] font-black uppercase px-1.5 py-0.5 rounded",
-                                mat.Status === "Low Stock" ? "bg-amber-100 text-amber-600" : isOut ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
-                              )}>
-                                {remaining.toFixed(0)}ft left
-                              </span>
-                            </div>
-                          </div>
-                          {/* Progress bar */}
-                          <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
-                            <div
-                              className={cn(
-                                "h-full rounded-full [transition:width_300ms_ease-out]",
-                                mat.Status === "Low Stock" ? "bg-amber-500" : isOut ? "bg-rose-500" : "bg-emerald-500"
-                              )}
-                              style={{ width: `${pct}%` }}
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                fontSize: "0.5625rem",
+                                fontWeight: 900,
+                                textTransform: "uppercase",
+                                px: 0.75,
+                                py: 0.25,
+                                borderRadius: 1,
+                                bgcolor: isLowStock ? "warning.light" : isOut ? "error.light" : "success.light",
+                                color: isLowStock ? "warning.dark" : isOut ? "error.dark" : "success.dark",
+                              }}
+                            >
+                              {remaining.toFixed(0)}ft left
+                            </Box>
+                          </Box>
+                          <Box
+                            sx={{
+                              width: "100%",
+                              height: 6,
+                              borderRadius: 99,
+                              bgcolor: "grey.200",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                height: "100%",
+                                borderRadius: 99,
+                                width: `${pct}%`,
+                                bgcolor: isLowStock ? "warning.main" : isOut ? "error.main" : "success.main",
+                                transition: "width 300ms ease-out",
+                              }}
                             />
-                          </div>
-                        </button>
+                          </Box>
+                        </Box>
                       );
                     })}
-                  </div>
-                </div>
+                  </Box>
+                </Box>
               ))}
 
               {filtered.length === 0 && (
-                <div className="text-center py-12 text-gray-400 dark:text-zinc-500">
-                  <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm font-medium">No materials found</p>
-                </div>
+                <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
+                  <Package style={{ width: 32, height: 32, margin: "0 auto 8px", opacity: 0.4 }} />
+                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 500 }}>No materials found</Typography>
+                </Box>
               )}
-            </div>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
-    </div>
+            </Box>
+      </Dialog>
+    </Box>
   );
 }

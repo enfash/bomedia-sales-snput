@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getDoc } from "@/lib/google-sheets";
 import { signToken } from "@/lib/auth-utils";
 
+export const dynamic = 'force-dynamic';
+
 const SHEET_TITLE = 'Cashiers';
 
 export async function POST(request: Request) {

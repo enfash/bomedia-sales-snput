@@ -1,4 +1,5 @@
 "use client";
+import { LoadingAnimation } from "@/components/loading-animation";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
@@ -21,30 +22,34 @@ import {
   Users,
   Package,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
-
-const sectionVariants = {
-  hidden: { opacity: 0, y: 16 },
-  show: (delay: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
-  }),
-};
-import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/lib/store";
 import { OutstandingDebtChart } from "@/components/dashboard-charts";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
+import { AnimatedNumber } from "@/components/animated-number";
 import {
   isSameDay,
   subDays,
   isWithinInterval,
   format,
 } from "date-fns";
+
+// MUI imports
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Skeleton from "@mui/material/Skeleton";
+import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import Avatar from "@mui/material/Avatar";
+import Badge from "@mui/material/Badge";
+import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
+import { alpha, useTheme } from "@mui/material/styles";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,14 +68,21 @@ const fmtMoney = (n: number) =>
 const fmtMoneyFull = (n: number) =>
   `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
-// ─── Greeting ─────────────────────────────────────────────────────────────────
-
 function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
 }
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: (delay: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
+  }),
+};
 
 // ─── Shift Hero (mobile) ──────────────────────────────────────────────────────
 
@@ -89,211 +101,212 @@ function ShiftHero({
   pendingCount: number;
   inProgressCount: number;
 }) {
+  const theme = useTheme();
   const progressPct =
     revenueToday > 0
       ? Math.min(100, (collectedToday / revenueToday) * 100)
       : 0;
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] bg-orange-500 text-white shadow-2xl shadow-orange-500/30">
-      {/* Decorative circles */}
-      <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10 pointer-events-none" />
-      <div className="absolute -bottom-12 -left-6 w-36 h-36 rounded-full bg-orange-600/50 pointer-events-none" />
+    <Paper
+      elevation={0}
+      sx={{
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: "16px",
+        bgcolor: "primary.main",
+        color: "primary.contrastText",
+        p: 3,
+        boxShadow: `0 16px 32px ${alpha(theme.palette.primary.main, 0.25)}`,
+      }}
+    >
+      {/* Decorative background shapes */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: -32,
+          right: -32,
+          width: 160,
+          height: 160,
+          borderRadius: "50%",
+          bgcolor: "rgba(255, 255, 255, 0.1)",
+          pointerEvents: "none",
+        }}
+      />
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: -48,
+          left: -24,
+          width: 144,
+          height: 144,
+          borderRadius: "50%",
+          bgcolor: "rgba(0, 0, 0, 0.15)",
+          pointerEvents: "none",
+        }}
+      />
 
-      <div className="relative p-6">
+      <Stack sx={{ position: "relative", gap: 3.5 }}>
         {/* Top row */}
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <p className="text-orange-200 text-xs font-bold mb-0.5">
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <Box>
+            <Typography sx={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.75rem", fontWeight: 700, mb: 0.5 }}>
               {getGreeting()},
-            </p>
-            <h2 className="text-xl font-black tracking-tight leading-none">
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1 }}>
               {cashierName || "Cashier"} 👋
-            </h2>
-            <p className="text-orange-200 text-[10px] font-medium mt-1">
+            </Typography>
+            <Typography sx={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.625rem", fontWeight: 500, mt: 0.5 }}>
               {format(new Date(), "EEEE, MMMM d")}
-            </p>
-          </div>
+            </Typography>
+          </Box>
 
           {pendingCount > 0 && (
-            <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-yellow-300" />
-              <span className="text-[10px] font-black text-white">
-                {pendingCount} syncing
-              </span>
-            </div>
+            <Chip
+              label={`${pendingCount} syncing`}
+              size="small"
+              sx={{
+                bgcolor: "rgba(255, 255, 255, 0.2)",
+                color: "#ffffff",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                fontWeight: 900,
+                fontSize: "0.625rem",
+                height: 24,
+                "& .MuiChip-label": { px: 1 },
+              }}
+            />
           )}
-        </div>
+        </Stack>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-4 gap-2 mb-5">
+        {/* Stats Grid */}
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1 }}>
           {[
             { label: "Jobs", val: String(jobsToday) },
             { label: "Revenue", val: fmtMoney(revenueToday) },
             { label: "Collected", val: fmtMoney(collectedToday) },
             { label: "In Progress", val: String(inProgressCount), highlight: inProgressCount > 0 },
           ].map(({ label, val, highlight }) => (
-            <div
+            <Box
               key={label}
-              className={cn("backdrop-blur-sm rounded-2xl p-2.5 border text-center", highlight ? "bg-yellow-300/20 border-yellow-300/30" : "bg-white/15 border-white/10")}
+              sx={{
+                bgcolor: highlight ? "rgba(255, 255, 0, 0.15)" : "rgba(255, 255, 255, 0.15)",
+                border: "1px solid",
+                borderColor: highlight ? "rgba(255, 255, 0, 0.25)" : "rgba(255, 255, 255, 0.1)",
+                borderRadius: "16px",
+                p: 1.5,
+                textAlign: "center",
+              }}
             >
-              <p className="text-orange-200 text-[8px] font-black uppercase tracking-widest mb-1">
+              <Typography sx={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.5rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.5 }}>
                 {label}
-              </p>
-              <p className={cn("text-sm font-black leading-none", highlight ? "text-yellow-300" : "text-white")}>
+              </Typography>
+              <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: highlight ? "#ffd700" : "#ffffff", lineHeight: 1 }}>
                 {val}
-              </p>
-            </div>
+              </Typography>
+            </Box>
           ))}
-        </div>
+        </Box>
 
         {/* Collection progress */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <p className="text-orange-200 text-[9px] font-black uppercase tracking-widest">
+        <Box>
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+            <Typography sx={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Collection Rate
-            </p>
-            <p className="text-white text-[10px] font-black">
+            </Typography>
+            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900 }}>
               {progressPct.toFixed(0)}%
-            </p>
-          </div>
-          <div className="w-full h-2 rounded-full bg-white/20 overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full [transition:width_700ms_ease-out]",
-                progressPct >= 80
-                  ? "bg-emerald-400"
-                  : progressPct >= 50
-                  ? "bg-yellow-300"
-                  : "bg-white/60"
-              )}
-              style={{ width: `${progressPct}%` }}
+            </Typography>
+          </Stack>
+          <Box sx={{ width: "100%", height: 8, bgcolor: "rgba(255, 255, 255, 0.2)", borderRadius: "10px", overflow: "hidden" }}>
+            <Box
+              sx={{
+                height: "100%",
+                borderRadius: "10px",
+                bgcolor: progressPct >= 80 ? "#10b981" : progressPct >= 50 ? "#ffd700" : "rgba(255, 255, 255, 0.6)",
+                width: `${progressPct}%`,
+                transition: "width 0.7s ease-out",
+              }}
             />
-          </div>
-          <p className="text-orange-200 text-[9px] font-medium mt-1">
+          </Box>
+          <Typography sx={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.5625rem", fontWeight: 500, mt: 1 }}>
             {fmtMoneyFull(revenueToday - collectedToday)} still outstanding
-          </p>
-        </div>
-      </div>
-    </div>
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
   );
 }
 
 // ─── Action Grid (mobile primary actions) ─────────────────────────────────────
 
-function ActionGrid() {
-  const actions = [
-    {
-      label: "New Sale",
-      sub: "Log a job",
-      href: "/cashier/new-entry",
-      icon: Plus,
-      bg: "bg-orange-500 hover:bg-orange-600",
-      text: "text-white",
-      shadow: "shadow-orange-500/30",
-      primary: true,
-    },
-    {
-      label: "Quick Check",
-      sub: "Test a roll",
-      href: "/quick-check",
-      icon: Ruler,
-      bg: "bg-white dark:bg-zinc-900 hover:bg-orange-50 dark:hover:bg-zinc-800",
-      text: "text-gray-800 dark:text-zinc-100",
-      border: "border border-gray-100 dark:border-zinc-800",
-    },
-    {
-      label: "Records",
-      sub: "Today's jobs",
-      href: "/cashier/records",
-      icon: BarChart3,
-      bg: "bg-white dark:bg-zinc-900 hover:bg-orange-50 dark:hover:bg-zinc-800",
-      text: "text-gray-800 dark:text-zinc-100",
-      border: "border border-gray-100 dark:border-zinc-800",
-    },
-    {
-      label: "Log Expense",
-      sub: "Record payout",
-      href: "/cashier/expenses",
-      icon: Receipt,
-      bg: "bg-white dark:bg-zinc-900 hover:bg-orange-50 dark:hover:bg-zinc-800",
-      text: "text-gray-800 dark:text-zinc-100",
-      border: "border border-gray-100 dark:border-zinc-800",
-    },
-    {
-      label: "Estimator",
-      sub: "Price a job",
-      href: "/cashier/estimator",
-      icon: Zap,
-      bg: "bg-white dark:bg-zinc-900 hover:bg-orange-50 dark:hover:bg-zinc-800",
-      text: "text-gray-800 dark:text-zinc-100",
-      border: "border border-gray-100 dark:border-zinc-800",
-    },
-    {
-      label: "Customers",
-      sub: "View profiles",
-      href: "/cashier/customers",
-      icon: Users,
-      bg: "bg-white dark:bg-zinc-900 hover:bg-orange-50 dark:hover:bg-zinc-800",
-      text: "text-gray-800 dark:text-zinc-100",
-      border: "border border-gray-100 dark:border-zinc-800",
-    },
-  ];
+const actionsList = [
+  { label: "New Sale", sub: "Log a job", href: "/cashier/new-entry", icon: Plus, primary: true },
+  { label: "Quick Check", sub: "Test a roll", href: "/quick-check", icon: Ruler },
+  { label: "Records", sub: "Today's jobs", href: "/cashier/records", icon: BarChart3 },
+  { label: "Log Expense", sub: "Record payout", href: "/cashier/expenses", icon: Receipt },
+  { label: "Estimator", sub: "Price a job", href: "/cashier/estimator", icon: Zap },
+  { label: "Customers", sub: "View profiles", href: "/cashier/customers", icon: Users },
+];
 
+function ActionGrid() {
+  const theme = useTheme();
   return (
-    <div className="grid grid-cols-3 gap-2.5">
-      {actions.map(({ label, sub, href, icon: Icon, bg, text, shadow, border, primary }) => (
-        <Link key={href} href={href}>
-          <div
-            className={cn(
-              "rounded-2xl p-3.5 flex flex-col gap-2 transition-[background-color,transform] active:scale-[0.97] shadow-sm",
-              bg,
-              border,
-              shadow,
-              primary && "shadow-lg col-span-1"
-            )}
-          >
-            <div
-              className={cn(
-                "w-8 h-8 rounded-xl flex items-center justify-center",
-                primary
-                  ? "bg-white/25"
-                  : "bg-orange-50 dark:bg-orange-900/20"
-              )}
+    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.25 }}>
+      {actionsList.map(({ label, sub, href, icon: Icon, primary }) => (
+        <Link key={href} href={href} style={{ textDecoration: "none" }}>
+          <motion.div whileTap={{ scale: 0.97 }}>
+            <Paper
+              sx={{
+                borderRadius: "16px",
+                p: 2,
+                display: "flex",
+                flexDirection: "column",
+                gap: 1.5,
+                transition: "background-color 0.2s ease, border-color 0.2s ease",
+                cursor: "pointer",
+                ...(primary
+                  ? {
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                      boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.15)}`,
+                    }
+                  : {
+                      bgcolor: "background.paper",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      "&:hover": {
+                        bgcolor: alpha(theme.palette.primary.main, 0.04),
+                        borderColor: alpha(theme.palette.primary.main, 0.2),
+                      },
+                    }),
+              }}
             >
-              <Icon
-                className={cn(
-                  "w-4 h-4",
-                  primary
-                    ? "text-white"
-                    : "text-orange-500 dark:text-orange-400"
-                )}
-              />
-            </div>
-            <div>
-              <p
-                className={cn(
-                  "text-[11px] font-black leading-none",
-                  text
-                )}
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: primary ? "rgba(255, 255, 255, 0.25)" : alpha(theme.palette.primary.main, 0.08),
+                }}
               >
-                {label}
-              </p>
-              <p
-                className={cn(
-                  "text-[9px] font-medium mt-0.5",
-                  primary
-                    ? "text-orange-100"
-                    : "text-gray-400 dark:text-zinc-500"
-                )}
-              >
-                {sub}
-              </p>
-            </div>
-          </div>
+                <Icon size={16} color={primary ? "#ffffff" : theme.palette.primary.main} />
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: "0.6875rem", fontWeight: 800, lineHeight: 1 }}>
+                  {label}
+                </Typography>
+                <Typography sx={{ fontSize: "0.5625rem", mt: 0.25, color: primary ? "rgba(255, 255, 255, 0.7)" : "text.secondary" }}>
+                  {sub}
+                </Typography>
+              </Box>
+            </Paper>
+          </motion.div>
         </Link>
       ))}
-    </div>
+    </Box>
   );
 }
 
@@ -327,46 +340,81 @@ function DebtRow({
   };
 
   return (
-    <div
-      className="flex items-center gap-3 py-3 border-b border-gray-50 dark:border-zinc-800/60 last:border-0 cursor-pointer hover:bg-orange-50/30 dark:hover:bg-zinc-800/20 -mx-4 px-4 transition-colors rounded-xl"
+    <Stack
+      direction="row"
+      sx={{
+        alignItems: "center",
+        gap: 1.5,
+        py: 1.5,
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        "&:last-child": { border: 0 },
+        cursor: "pointer",
+        transition: "background-color 0.15s ease",
+        mx: -2,
+        px: 2,
+        borderRadius: "10px",
+        "&:hover": {
+          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+        },
+      }}
       onClick={onClick}
     >
-      {/* Avatar */}
-      <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-[10px] font-black text-orange-600 dark:text-orange-400 shrink-0">
+      <Avatar
+        sx={{
+          width: 36,
+          height: 36,
+          borderRadius: "10px",
+          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+          color: "primary.main",
+          fontSize: "0.625rem",
+          fontWeight: 900,
+        }}
+      >
         {initials}
-      </div>
+      </Avatar>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-black text-gray-900 dark:text-zinc-100 truncate">
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography noWrap sx={{ fontSize: "0.875rem", fontWeight: 800, color: "text.primary" }}>
           {client}
-        </p>
-        <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium truncate">
+        </Typography>
+        <Typography noWrap sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
           {description}
-        </p>
-      </div>
+        </Typography>
+      </Box>
 
-      {/* Amount + action */}
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="text-right">
-          <p className="text-sm font-black text-rose-600 dark:text-rose-400">
+      <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+        <Box sx={{ textAlign: "right" }}>
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main", fontFamily: "monospace" }}>
             {fmtMoneyFull(amount)}
-          </p>
-          <p className="text-[9px] text-gray-400 dark:text-zinc-600 font-medium">
+          </Typography>
+          <Typography sx={{ fontSize: "0.5625rem", color: "text.disabled", fontWeight: 500 }}>
             due
-          </p>
-        </div>
+          </Typography>
+        </Box>
         {contact && (
-          <button
+          <IconButton
+            size="small"
             onClick={handleWhatsApp}
-            className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: "10px",
+              bgcolor: (theme) => alpha(theme.palette.success.main, 0.08),
+              border: "1px solid",
+              borderColor: (theme) => alpha(theme.palette.success.main, 0.15),
+              color: "success.main",
+              "&:hover": {
+                bgcolor: (theme) => alpha(theme.palette.success.main, 0.15),
+              },
+            }}
             title="Send WhatsApp reminder"
           >
-            <MessageCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          </button>
+            <MessageCircle size={14} />
+          </IconButton>
         )}
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -375,23 +423,27 @@ function DebtRow({
 function JobFeed({ jobs }: { jobs: any[] }) {
   if (jobs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 text-gray-300 dark:text-zinc-700">
-        <ShoppingBag className="w-8 h-8 mb-2" />
-        <p className="text-xs font-bold">No jobs logged today yet</p>
-        <Link href="/cashier/new-entry">
+      <Stack sx={{ alignItems: "center", justifyContent: "center", py: 5, color: "text.disabled" }}>
+        <ShoppingBag size={32} />
+        <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, mt: 1 }}>
+          No jobs logged today yet
+        </Typography>
+        <Link href="/cashier/new-entry" style={{ textDecoration: "none", marginTop: 12 }}>
           <Button
-            size="sm"
-            className="mt-3 h-8 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs"
+            size="small"
+            variant="contained"
+            color="primary"
+            sx={{ borderRadius: "10px", fontWeight: 900, fontSize: "0.6875rem", px: 2, height: 32 }}
           >
             Log First Job
           </Button>
         </Link>
-      </div>
+      </Stack>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <Stack sx={{ gap: 1 }}>
       {jobs.slice(0, 8).map((job, i) => {
         const client = job["CLIENT NAME"] || job["Client Name"] || "—";
         const desc = job["JOB DESCRIPTION"] || job["Job Description"] || "—";
@@ -404,95 +456,181 @@ function JobFeed({ jobs }: { jobs: any[] }) {
         const jobStatus = job["JOB STATUS"] || job["Job Status"] || "Quoted";
         const loggedBy = job["LOGGED BY"] || job["Logged By"] || "—";
 
-        const statusColors: Record<string, string> = {
-          Paid: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-          "Part-payment": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-          Unpaid: "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400",
-        };
-
-        const jobStatusColors: Record<string, string> = {
-          Quoted: "bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400",
-          Printing: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-          Finishing: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-          Ready: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-          Delivered: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-        };
-
         return (
-          <div
+          <Box
             key={i}
-            className="flex items-start gap-3 p-3.5 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 [@media(hover:hover)]:hover:border-orange-200 dark:[@media(hover:hover)]:hover:border-orange-900/40 transition-[border-color]"
+            sx={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 1.5,
+              p: 1.75,
+              bgcolor: "background.paper",
+              borderRadius: "16px",
+              border: "1px solid",
+              borderColor: "divider",
+              transition: "border-color 0.15s ease",
+              "&:hover": {
+                borderColor: (theme) => alpha(theme.palette.primary.main, 0.2),
+              },
+            }}
           >
             {/* Index */}
-            <div className="w-6 h-6 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-[9px] font-black text-orange-500 dark:text-orange-400 shrink-0 mt-0.5">
+            <Box
+              sx={{
+                width: 24,
+                height: 24,
+                borderRadius: "10px",
+                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                color: "primary.main",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.5625rem",
+                fontWeight: 900,
+                mt: 0.25,
+                shrink: 0,
+              }}
+            >
               {i + 1}
-            </div>
+            </Box>
 
             {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-gray-900 dark:text-zinc-100 truncate">
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography noWrap sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
                     {client}
-                  </p>
-                  <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium truncate mt-0.5">
+                  </Typography>
+                  <Typography noWrap sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, mt: 0.25 }}>
                     {desc}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-gray-900 dark:text-white">
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: "right", shrink: 0 }}>
+                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", fontFamily: "monospace" }}>
                     {fmtMoneyFull(amt)}
-                  </p>
+                  </Typography>
                   {paid > 0 && (
-                    <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
+                    <Typography sx={{ fontSize: "0.5625rem", color: "success.main", fontWeight: 700, mt: 0.25, fontFamily: "monospace" }}>
                       +{fmtMoneyFull(paid)} paid
-                    </p>
+                    </Typography>
                   )}
-                </div>
-              </div>
+                </Box>
+              </Stack>
 
-              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              <Stack direction="row" sx={{ alignItems: "center", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
                 {material && (
-                  <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
-                    {material}
-                  </span>
+                  <Chip
+                    label={material}
+                    size="small"
+                    sx={{
+                      borderRadius: "10px",
+                      height: 18,
+                      fontSize: "0.5rem",
+                      fontWeight: 900,
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                      color: "primary.main",
+                      border: "none",
+                      "& .MuiChip-label": { px: 1 },
+                    }}
+                  />
                 )}
-                <span
-                  className={cn(
-                    "text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md",
-                    jobStatusColors[jobStatus] || jobStatusColors["Quoted"]
-                  )}
-                >
-                  {jobStatus}
-                </span>
-                <span
-                  className={cn(
-                    "text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md",
-                    statusColors[status] || statusColors["Unpaid"]
-                  )}
-                >
-                  {status}
-                </span>
-                <span className="text-[8px] text-gray-300 dark:text-zinc-700 font-medium ml-auto">
+                <Chip
+                  label={jobStatus}
+                  size="small"
+                  sx={{
+                    borderRadius: "10px",
+                    height: 18,
+                    fontSize: "0.5rem",
+                    fontWeight: 900,
+                    ...(() => {
+                      if (jobStatus === "Ready" || jobStatus === "Delivered") {
+                        return {
+                          bgcolor: (theme) => alpha(theme.palette.success.main, 0.08),
+                          color: "success.main",
+                        };
+                      }
+                      if (jobStatus === "Printing" || jobStatus === "Finishing") {
+                        return {
+                          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                          color: "primary.main",
+                        };
+                      }
+                      return {
+                        bgcolor: "action.selected",
+                        color: "text.secondary",
+                      };
+                    })(),
+                    border: "none",
+                    "& .MuiChip-label": { px: 1 },
+                  }}
+                />
+                <Chip
+                  label={status}
+                  size="small"
+                  sx={{
+                    borderRadius: "10px",
+                    height: 18,
+                    fontSize: "0.5rem",
+                    fontWeight: 900,
+                    ...(() => {
+                      if (status === "Paid") {
+                        return {
+                          bgcolor: (theme) => alpha(theme.palette.success.main, 0.08),
+                          color: "success.main",
+                        };
+                      }
+                      if (status === "Part-payment") {
+                        return {
+                          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                          color: "primary.main",
+                        };
+                      }
+                      return {
+                        bgcolor: (theme) => alpha(theme.palette.error.main, 0.08),
+                        color: "error.main",
+                      };
+                    })(),
+                    border: "none",
+                    "& .MuiChip-label": { px: 1 },
+                  }}
+                />
+                <Typography sx={{ fontSize: "0.5rem", color: "text.disabled", fontWeight: 500, ml: "auto" }}>
                   via {loggedBy}
-                </span>
-              </div>
-            </div>
-          </div>
+                </Typography>
+              </Stack>
+            </Box>
+          </Box>
         );
       })}
 
       {jobs.length > 8 && (
-        <Link href="/cashier/records">
-          <div className="flex items-center justify-center gap-2 p-3 rounded-2xl border border-dashed border-orange-200 dark:border-orange-900/30 text-orange-500 dark:text-orange-400 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-colors">
-            <p className="text-xs font-black">
+        <Link href="/cashier/records" style={{ textDecoration: "none" }}>
+          <Stack
+            direction="row"
+            sx={{
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 1,
+              p: 1.5,
+              borderRadius: "16px",
+              border: "1px dashed",
+              borderColor: (theme) => alpha(theme.palette.primary.main, 0.2),
+              color: "primary.main",
+              cursor: "pointer",
+              transition: "background-color 0.15s ease",
+              "&:hover": {
+                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+              },
+            }}
+          >
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900 }}>
               +{jobs.length - 8} more jobs today
-            </p>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </div>
+            </Typography>
+            <ChevronRight size={14} />
+          </Stack>
         </Link>
       )}
-    </div>
+    </Stack>
   );
 }
 
@@ -507,140 +645,263 @@ function DesktopSidePanel({
   onDebtorClick: (name: string) => void;
   inventory: any[];
 }) {
+  const theme = useTheme();
   const lowStockRolls = inventory.filter((item) => {
     const rem = parseFloat(
       item["Remaining Length (ft)"] || item.Stock || "0"
     );
     const threshold = parseFloat(item["Low Stock Threshold (ft)"] || "50");
-    // Only show rolls that are low on stock, but exclude completely finished (0ft) rolls
     return rem > 0 && rem <= threshold;
   });
 
   return (
-    <div className="space-y-4">
+    <Stack sx={{ gap: 2 }}>
       {/* Outstanding debts */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-50 dark:border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center">
-              <AlertCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
-            </div>
-            <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
+      <Paper variant="outlined" sx={{ borderRadius: "16px", overflow: "hidden", borderColor: "divider" }}>
+        <Stack
+          direction="row"
+          sx={{
+            p: 2,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+            <Box
+              sx={{
+                width: 24,
+                height: 24,
+                borderRadius: "10px",
+                bgcolor: alpha(theme.palette.error.main, 0.08),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <AlertCircle size={14} color="var(--mui-palette-error-main)" />
+            </Box>
+            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
               Outstanding
-            </p>
-          </div>
-          <Badge className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-none text-[9px] font-black">
-            {debtors.length}
-          </Badge>
-        </div>
-        <div className="p-4">
+            </Typography>
+          </Stack>
+          <Chip
+            label={debtors.length}
+            size="small"
+            sx={{
+              height: 18,
+              borderRadius: "10px",
+              fontWeight: 900,
+              fontSize: "0.5625rem",
+              bgcolor: alpha(theme.palette.error.main, 0.08),
+              color: "error.main",
+            }}
+          />
+        </Stack>
+        <Box sx={{ p: 2 }}>
           {debtors.length === 0 ? (
-            <div className="flex flex-col items-center py-6 text-gray-200 dark:text-zinc-700">
-              <CheckCircle2 className="w-6 h-6 mb-1.5" />
-              <p className="text-xs font-bold text-gray-400 dark:text-zinc-600">
+            <Stack sx={{ alignItems: "center", py: 3, color: "text.disabled" }}>
+              <CheckCircle2 size={24} />
+              <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, mt: 1 }}>
                 All cleared!
-              </p>
-            </div>
+              </Typography>
+            </Stack>
           ) : (
-            <div className="space-y-2">
+            <Stack sx={{ gap: 0.5 }}>
               {debtors.slice(0, 6).map((d, i) => (
-                <button
+                <Stack
                   key={i}
+                  direction="row"
                   onClick={() => onDebtorClick(d.name)}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50/50 dark:hover:bg-rose-900/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] text-left"
+                  sx={{
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    p: 1.25,
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    transition: "background-color 0.15s ease, transform 0.1s ease",
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.error.main, 0.04),
+                    },
+                    "&:active": {
+                      transform: "scale(0.98)",
+                    },
+                  }}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-[9px] font-black text-rose-500 dark:text-rose-400 shrink-0">
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1, minWidth: 0 }}>
+                    <Avatar
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "10px",
+                        bgcolor: alpha(theme.palette.error.main, 0.08),
+                        color: "error.main",
+                        fontSize: "0.5625rem",
+                        fontWeight: 900,
+                      }}
+                    >
                       {d.name[0]?.toUpperCase()}
-                    </div>
-                    <p className="text-xs font-bold text-gray-800 dark:text-zinc-200 truncate">
+                    </Avatar>
+                    <Typography noWrap sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary" }}>
                       {d.name}
-                    </p>
-                  </div>
-                  <p className="text-xs font-black text-rose-600 dark:text-rose-400 shrink-0 ml-2">
+                    </Typography>
+                  </Stack>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "error.main", shrink: 0, ml: 1, fontFamily: "monospace" }}>
                     {fmtMoney(d.balance)}
-                  </p>
-                </button>
+                  </Typography>
+                </Stack>
               ))}
-            </div>
+            </Stack>
           )}
-        </div>
-      </div>
+        </Box>
+      </Paper>
 
       {/* Inventory alerts */}
       {lowStockRolls.length > 0 && (
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-amber-200/60 dark:border-amber-900/30 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-amber-100/60 dark:border-amber-900/20 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
-                <Package className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-              </div>
-              <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
+        <Paper
+          variant="outlined"
+          sx={{
+            borderRadius: "16px",
+            overflow: "hidden",
+            borderColor: alpha(theme.palette.primary.main, 0.3),
+            bgcolor: alpha(theme.palette.primary.main, 0.02),
+          }}
+        >
+          <Stack
+            direction="row"
+            sx={{
+              p: 2,
+              borderBottom: "1px solid",
+              borderColor: alpha(theme.palette.primary.main, 0.15),
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "10px",
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Package size={14} color="var(--mui-palette-primary-main)" />
+              </Box>
+              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
                 Low Stock
-              </p>
-            </div>
-            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-none text-[9px] font-black">
-              {lowStockRolls.length}
-            </Badge>
-          </div>
-          <div className="p-3 space-y-1.5">
+              </Typography>
+            </Stack>
+            <Chip
+              label={lowStockRolls.length}
+              size="small"
+              sx={{
+                height: 18,
+                borderRadius: "10px",
+                fontWeight: 900,
+                fontSize: "0.5625rem",
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                color: "primary.main",
+              }}
+            />
+          </Stack>
+          <Stack sx={{ p: 1.5, gap: 1 }}>
             {lowStockRolls.slice(0, 4).map((roll, i) => {
               const rem = parseFloat(
                 roll["Remaining Length (ft)"] || roll.Stock || "0"
               );
               return (
-                <div
+                <Stack
                   key={i}
-                  className="flex items-center justify-between p-2 rounded-xl bg-amber-50/50 dark:bg-amber-900/10"
+                  direction="row"
+                  sx={{
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    p: 1.25,
+                    borderRadius: "10px",
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  }}
                 >
-                  <p className="text-[11px] font-black text-gray-700 dark:text-zinc-300 truncate">
+                  <Typography noWrap sx={{ fontSize: "0.6875rem", fontWeight: 900, color: "text.primary", flex: 1, minWidth: 0 }}>
                     {roll["Roll ID"] || roll["Item Name"]}
-                  </p>
-                  <span
-                    className={cn(
-                      "text-[9px] font-black px-1.5 py-0.5 rounded",
-                      rem <= 0
-                        ? "bg-rose-100 text-rose-600"
-                        : "bg-amber-100 text-amber-700"
-                    )}
-                  >
-                    {rem.toFixed(0)}ft
-                  </span>
-                </div>
+                  </Typography>
+                  <Chip
+                    label={`${rem.toFixed(0)}ft`}
+                    size="small"
+                    sx={{
+                      height: 18,
+                      borderRadius: "10px",
+                      fontWeight: 900,
+                      fontSize: "0.5625rem",
+                      bgcolor: rem <= 0 ? "error.light" : "primary.light",
+                      color: rem <= 0 ? "error.contrastText" : "primary.contrastText",
+                      fontFamily: "monospace",
+                    }}
+                  />
+                </Stack>
               );
             })}
-          </div>
-        </div>
+          </Stack>
+        </Paper>
       )}
 
-      {/* Quick links */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-3 space-y-1">
+      {/* Quick Links */}
+      <Paper variant="outlined" sx={{ borderRadius: "16px", p: 1.5, borderColor: "divider" }}>
         {[
           { label: "Job Board", href: "/cashier/board", icon: BarChart3 },
           { label: "Customers", href: "/cashier/customers", icon: Users },
           { label: "Price Estimator", href: "/cashier/estimator", icon: Zap },
           { label: "Material Quick-Check", href: "/quick-check", icon: Ruler },
         ].map(({ label, href, icon: Icon }) => (
-          <Link key={href} href={href}>
-            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-orange-50/50 dark:hover:bg-zinc-800/50 transition-colors group">
-              <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
-                <Icon className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
-              </div>
-              <p className="text-sm font-bold text-gray-700 dark:text-zinc-300 flex-1">
+          <Link key={href} href={href} style={{ textDecoration: "none" }}>
+            <Stack
+              direction="row"
+              sx={{
+                alignItems: "center",
+                gap: 1.5,
+                p: 1.25,
+                borderRadius: "10px",
+                cursor: "pointer",
+                transition: "background-color 0.15s ease",
+                "&:hover": {
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  "& .quick-link-arrow": { color: "primary.main" },
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "10px",
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon size={14} color="var(--mui-palette-primary-main)" />
+              </Box>
+              <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: "text.primary", flex: 1 }}>
                 {label}
-              </p>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-300 dark:text-zinc-700 group-hover:text-orange-400 transition-colors" />
-            </div>
+              </Typography>
+              <ChevronRight size={14} className="quick-link-arrow" style={{ color: "#9ca3af", transition: "color 0.15s ease" }} />
+            </Stack>
           </Link>
         ))}
-      </div>
-    </div>
+      </Paper>
+    </Stack>
   );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CashierDashboardPage() {
+  const theme = useTheme();
   const { pendingQueue, cachedSales, setCachedData, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials } =
     useSyncStore();
 
@@ -666,7 +927,6 @@ export default function CashierDashboardPage() {
       const sJson = await sRes.json();
       const iJson = await iRes.json();
       
-      // Use existing cached data if the response is empty/error
       const sales = sJson.data || cachedSales;
       const inventory = iJson.data || cachedInventory;
       
@@ -683,7 +943,7 @@ export default function CashierDashboardPage() {
     if (cachedSales.length === 0) {
       fetchData();
     }
-  }, []); // Only on mount
+  }, []);
 
   useEffect(() => {
     const handler = () => fetchData(true);
@@ -712,7 +972,6 @@ export default function CashierDashboardPage() {
     return [...pending, ...cachedSales];
   }, [pendingQueue, cachedSales, cashierName]);
 
-  // ── Time windows ─────────────────────────────────────────────────────────
   const now = new Date();
   const sevenDaysAgo = subDays(now, 7);
 
@@ -778,7 +1037,6 @@ export default function CashierDashboardPage() {
       .sort((a, b) => b.balance - a.balance);
   }, [weekSales]);
 
-  // ── Today's debtors with contact info ────────────────────────────────────
   const todayDebtors = useMemo(() => {
     return todaySales
       .filter((r) => {
@@ -798,480 +1056,71 @@ export default function CashierDashboardPage() {
 
   if (loading) {
     return (
-      <div className="bg-orange-50/30 dark:bg-zinc-950 min-h-screen pb-28">
-        {/* Mobile skeleton */}
-        <div className="md:hidden p-4 space-y-4">
-          {/* ShiftHero skeleton */}
-          <div className="rounded-[2rem] bg-orange-100 dark:bg-orange-900/20 p-6 space-y-4">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1.5">
-                <Skeleton className="h-3 w-24 bg-orange-200 dark:bg-orange-800/40" />
-                <Skeleton className="h-6 w-36 bg-orange-200 dark:bg-orange-800/40" />
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-14 rounded-2xl bg-orange-200 dark:bg-orange-800/40" />
-              ))}
-            </div>
-            <Skeleton className="h-2 w-full rounded-full bg-orange-200 dark:bg-orange-800/40" />
-          </div>
-
-          {/* ActionGrid skeleton */}
-          <div className="grid grid-cols-3 gap-2.5">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-20 rounded-2xl" />
-            ))}
-          </div>
-
-          {/* Job feed skeleton */}
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4 rounded" />
-            </div>
-            <div className="p-3 space-y-2">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="flex items-start gap-3 p-3.5 bg-gray-50 dark:bg-zinc-800 rounded-2xl">
-                  <Skeleton className="w-6 h-6 rounded-lg shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="flex items-start justify-between">
-                      <Skeleton className="h-4 w-28" />
-                      <Skeleton className="h-4 w-16" />
-                    </div>
-                    <Skeleton className="h-3 w-40" />
-                    <div className="flex gap-1.5 mt-1">
-                      <Skeleton className="h-4 w-12 rounded-md" />
-                      <Skeleton className="h-4 w-12 rounded-md" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Desktop skeleton */}
-        <div className="hidden md:block p-6 lg:p-8 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="space-y-1.5">
-              <Skeleton className="h-3 w-32" />
-              <Skeleton className="h-7 w-56" />
-            </div>
-            <Skeleton className="h-9 w-24 rounded-xl" />
-          </div>
-
-          {/* 5 metric cards */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-2xl border border-gray-100 dark:border-zinc-800 p-5 shadow-sm bg-white dark:bg-zinc-900">
-                <Skeleton className="w-8 h-8 rounded-xl mb-3" />
-                <Skeleton className="h-3 w-20 mb-2" />
-                <Skeleton className="h-6 w-24 mb-1" />
-                <Skeleton className="h-3 w-28" />
-              </div>
-            ))}
-          </div>
-
-          {/* Two-column layout */}
-          <div className="grid grid-cols-3 gap-5">
-            {/* Left: action row + job feed */}
-            <div className="col-span-2 space-y-5">
-              <div className="grid grid-cols-3 gap-3">
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-16 rounded-2xl" />
-                ))}
-              </div>
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 dark:border-zinc-800">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-4 w-20" />
-                </div>
-                <div className="p-4 space-y-2">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-start gap-3 p-3.5 rounded-2xl bg-gray-50 dark:bg-zinc-800">
-                      <Skeleton className="w-6 h-6 rounded-lg shrink-0 mt-0.5" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="flex items-start justify-between">
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-4 w-20" />
-                        </div>
-                        <Skeleton className="h-3 w-48" />
-                        <div className="flex gap-1.5 mt-1">
-                          <Skeleton className="h-4 w-14 rounded-md" />
-                          <Skeleton className="h-4 w-14 rounded-md" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right: side panel */}
-            <div className="col-span-1 space-y-4">
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-50 dark:border-zinc-800 flex items-center justify-between">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-5 w-6 rounded-full" />
-                </div>
-                <div className="p-4 space-y-2">
-                  {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center justify-between p-2">
-                      <div className="flex items-center gap-2">
-                        <Skeleton className="w-7 h-7 rounded-lg" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                      <Skeleton className="h-3 w-12" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-3 space-y-1">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3">
-                    <Skeleton className="w-7 h-7 rounded-lg shrink-0" />
-                    <Skeleton className="h-4 w-full max-w-[140px]" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <LoadingAnimation text="Loading..." />
+      </Box>
     );
   }
 
   return (
-    <div className="bg-orange-50/30 dark:bg-zinc-950 min-h-screen pb-28 transition-colors duration-500">
+    <Box sx={{ minHeight: "100vh", pb: 5, bgcolor: alpha(theme.palette.primary.main, 0.02), transition: "colors 0.5s ease" }}>
 
       {/* ── Mobile Layout ───────────────────────────────────────────────── */}
-      <div className="md:hidden p-4 space-y-4">
-
-        {/* Shift hero */}
-        <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
-          <ShiftHero
-            cashierName={cashierName}
-            jobsToday={todaySales.length}
-            revenueToday={todayRevenue}
-            collectedToday={todayCollected}
-            pendingCount={pendingQueue.length}
-            inProgressCount={inProgressJobs.length}
-          />
-        </motion.div>
-
-        {/* Action grid */}
-        <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
-          <ActionGrid />
-        </motion.div>
-
-        {/* Today's debtors — only if there are any */}
-        {todayDebtors.length > 0 && (
-          <motion.div variants={sectionVariants} custom={0.14} initial="hidden" animate="show">
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-500" />
-                  <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
-                    Collect Today
-                  </p>
-                </div>
-                <Badge className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-none text-[9px] font-black">
-                  {todayDebtors.length} client{todayDebtors.length !== 1 ? "s" : ""}
-                </Badge>
-              </div>
-              <div className="px-4 py-1">
-                {todayDebtors.map((d, i) => (
-                  <DebtRow
-                    key={i}
-                    client={d.client}
-                    amount={d.amount}
-                    description={d.description}
-                    contact={d.contact}
-                    onClick={() => setSelectedDebtor(d.client)}
-                  />
-                ))}
-              </div>
-            </div>
+      <Box sx={{ display: { xs: "block", md: "none" }, p: 2 }}>
+        <Stack sx={{ gap: 2 }}>
+          {/* Shift hero */}
+          <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
+            <ShiftHero
+              cashierName={cashierName}
+              jobsToday={todaySales.length}
+              revenueToday={todayRevenue}
+              collectedToday={todayCollected}
+              pendingCount={pendingQueue.length}
+              inProgressCount={inProgressJobs.length}
+            />
           </motion.div>
-        )}
 
-        {/* Today's job feed */}
-        <motion.div variants={sectionVariants} custom={0.19} initial="hidden" animate="show">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-orange-500" />
-                <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-zinc-400">
-                  Today's Jobs
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => fetchData(true)}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-zinc-800 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
-                >
-                  <RefreshCw
-                    className={cn(
-                      "w-3.5 h-3.5 text-gray-400",
-                      refreshing && "animate-spin"
-                    )}
-                  />
-                </button>
-                <Link href="/cashier/records">
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
-                </Link>
-              </div>
-            </div>
-            <div className="p-3">
-              <JobFeed jobs={todaySales} />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Weekly debt summary */}
-        {weeklyDebt > 0 && (
-          <motion.div variants={sectionVariants} custom={0.24} initial="hidden" animate="show">
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
-                  7-Day Debt Summary
-                </p>
-                <p className="text-sm font-black text-rose-600 dark:text-rose-400">
-                  {fmtMoneyFull(weeklyDebt)}
-                </p>
-              </div>
-              <p className="text-[10px] text-gray-400 dark:text-zinc-600 mb-3">
-                Tap a bar to log a payment
-              </p>
-              <OutstandingDebtChart
-                data={debtChart}
-                onClientClick={setSelectedDebtor}
-              />
-            </div>
+          {/* Action grid */}
+          <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
+            <ActionGrid />
           </motion.div>
-        )}
-      </div>
 
-      {/* ── Desktop Layout ───────────────────────────────────────────────── */}
-      <div className="hidden md:block p-6 lg:p-8 max-w-7xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
-              {format(now, "EEEE, MMMM d")}
-            </p>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight mt-0.5">
-              {getGreeting()}, {cashierName || "Cashier"} 👋
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {pendingQueue.length > 0 && (
-              <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30 rounded-full px-3 py-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                <span className="text-[10px] font-black text-amber-700 dark:text-amber-400">
-                  {pendingQueue.length} syncing
-                </span>
-              </div>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchData(true)}
-              disabled={refreshing}
-              className="h-9 px-4 rounded-xl bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-xs font-black"
-            >
-              <RefreshCw
-                className={cn(
-                  "w-3.5 h-3.5 mr-1.5",
-                  refreshing && "animate-spin"
-                )}
-              />
-              {refreshing ? "Updating…" : "Refresh"}
-            </Button>
-          </div>
-        </div>
-
-        {/* Desktop metric strip */}
-        <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
-        <div className="grid grid-cols-5 gap-4 mb-6">
-          {[
-            {
-              label: "Today's Jobs",
-              val: String(todaySales.length),
-              sub: "logged this shift",
-              icon: ShoppingBag,
-              accent: "orange",
-            },
-            {
-              label: "In Progress",
-              val: String(inProgressJobs.length),
-              sub: inProgressJobs.length > 0 ? "Printing / Finishing / Ready" : "No active jobs",
-              icon: Clock,
-              accent: inProgressJobs.length > 0 ? "amber" : "green",
-            },
-            {
-              label: "Today's Revenue",
-              val: fmtMoneyFull(todayRevenue),
-              sub: `${fmtMoneyFull(todayCollected)} collected`,
-              icon: TrendingUp,
-              accent: "green",
-            },
-            {
-              label: "Daily Debt",
-              val: fmtMoneyFull(dailyDebt),
-              sub: `${todayDebtors.length} client${todayDebtors.length !== 1 ? "s" : ""} owe today`,
-              icon: AlertCircle,
-              accent: dailyDebt > 0 ? "red" : "green",
-            },
-            {
-              label: "Weekly Debt",
-              val: fmtMoneyFull(weeklyDebt),
-              sub: "last 7 days total",
-              icon: Wallet,
-              accent: weeklyDebt > 0 ? "amber" : "green",
-            },
-          ].map(({ label, val, sub, icon: Icon, accent }) => {
-            const bgMap: Record<string, string> = {
-              orange: "bg-orange-500",
-              green: "bg-emerald-500",
-              red: "bg-rose-500",
-              amber: "bg-amber-500",
-            };
-            const lightMap: Record<string, string> = {
-              orange: "bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-900/30",
-              green: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30",
-              red: "bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30",
-              amber: "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/30",
-            };
-            const textMap: Record<string, string> = {
-              orange: "text-orange-600 dark:text-orange-400",
-              green: "text-emerald-600 dark:text-emerald-400",
-              red: "text-rose-600 dark:text-rose-400",
-              amber: "text-amber-600 dark:text-amber-400",
-            };
-
-            return (
-              <div
-                key={label}
-                className={cn(
-                  "relative rounded-2xl border p-5 shadow-sm overflow-hidden",
-                  lightMap[accent]
-                )}
-              >
-                <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full opacity-10" style={{ background: bgMap[accent] }} />
-                <div
-                  className={cn(
-                    "w-8 h-8 rounded-xl flex items-center justify-center mb-3",
-                    `${bgMap[accent]}/10 dark:${bgMap[accent]}/20`
-                  )}
-                  style={{ background: `${bgMap[accent]}20` }}
+          {/* Today's debtors */}
+          {todayDebtors.length > 0 && (
+            <motion.div variants={sectionVariants} custom={0.14} initial="hidden" animate="show">
+              <Paper variant="outlined" sx={{ borderRadius: "16px", overflow: "hidden" }}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
                 >
-                  <Icon className={cn("w-4 h-4", textMap[accent])} />
-                </div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">
-                  {label}
-                </p>
-                <p className="text-xl font-black text-gray-900 dark:text-white leading-tight">
-                  {val}
-                </p>
-                <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium mt-0.5">
-                  {sub}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-        </motion.div>
-
-        {/* Desktop two-column layout */}
-        <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
-        <div className="grid grid-cols-3 gap-5">
-          {/* Left: Main content (2/3) */}
-          <div className="col-span-2 space-y-5">
-            {/* Action row */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Log New Sale", href: "/cashier/new-entry", icon: Plus, primary: true },
-                { label: "Price Estimator", href: "/cashier/estimator", icon: Zap },
-                { label: "Quick Check", href: "/quick-check", icon: Ruler },
-              ].map(({ label, href, icon: Icon, primary }) => (
-                <Link key={href} href={href}>
-                  <div
-                    className={cn(
-                      "flex items-center gap-3 p-4 rounded-2xl transition-[box-shadow,background-color,transform] [@media(hover:hover)]:hover:shadow-md active:scale-[0.97] cursor-pointer",
-                      primary
-                        ? "bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
-                        : "bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 hover:border-orange-200 dark:hover:border-orange-900/40 shadow-sm"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-                        primary ? "bg-white/20" : "bg-orange-50 dark:bg-orange-900/20"
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "w-4 h-4",
-                          primary ? "text-white" : "text-orange-500 dark:text-orange-400"
-                        )}
-                      />
-                    </div>
-                    <p
-                      className={cn(
-                        "text-sm font-black",
-                        primary ? "text-white" : "text-gray-800 dark:text-zinc-200"
-                      )}
-                    >
-                      {label}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {/* Today's job feed */}
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 dark:border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-orange-500" />
-                  <p className="text-sm font-black text-gray-700 dark:text-zinc-300">
-                    Today's Jobs
-                  </p>
-                  <Badge className="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 border-none text-[9px] font-black ml-1">
-                    {todaySales.length}
-                  </Badge>
-                </div>
-                <Link
-                  href="/cashier/records"
-                  className="text-[10px] font-black text-orange-500 dark:text-orange-400 hover:underline flex items-center gap-0.5"
-                >
-                  All records <ChevronRight className="w-3 h-3" />
-                </Link>
-              </div>
-              <div className="p-4">
-                <JobFeed jobs={todaySales} />
-              </div>
-            </div>
-
-            {/* Today debtors */}
-            {todayDebtors.length > 0 && (
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 dark:border-zinc-800">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-500" />
-                    <p className="text-sm font-black text-gray-700 dark:text-zinc-300">
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                    <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+                    <Typography sx={{ fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "text.secondary" }}>
                       Collect Today
-                    </p>
-                  </div>
-                  <Badge className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-none text-[9px] font-black">
-                    {todayDebtors.length}
-                  </Badge>
-                </div>
-                <div className="px-5 py-1">
+                    </Typography>
+                  </Stack>
+                  <Chip
+                    label={`${todayDebtors.length} client${todayDebtors.length !== 1 ? "s" : ""}`}
+                    size="small"
+                    sx={{
+                      height: 18,
+                      borderRadius: "10px",
+                      fontWeight: 900,
+                      fontSize: "0.5625rem",
+                      bgcolor: alpha(theme.palette.error.main, 0.08),
+                      color: "error.main",
+                      border: "none",
+                    }}
+                  />
+                </Stack>
+                <Box sx={{ px: 2, py: 0.5 }}>
                   {todayDebtors.map((d, i) => (
                     <DebtRow
                       key={i}
@@ -1282,22 +1131,407 @@ export default function CashierDashboardPage() {
                       onClick={() => setSelectedDebtor(d.client)}
                     />
                   ))}
-                </div>
-              </div>
-            )}
-          </div>
+                </Box>
+              </Paper>
+            </motion.div>
+          )}
 
-          {/* Right: Side panel (1/3) */}
-          <div className="col-span-1">
-            <DesktopSidePanel
-              debtors={debtorList}
-              onDebtorClick={setSelectedDebtor}
-              inventory={cachedInventory}
-            />
-          </div>
-        </div>
+          {/* Today's job feed */}
+          <motion.div variants={sectionVariants} custom={0.19} initial="hidden" animate="show">
+            <Paper variant="outlined" sx={{ borderRadius: "16px", overflow: "hidden" }}>
+              <Stack
+                direction="row"
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                  <Clock size={16} color="var(--mui-palette-primary-main)" />
+                  <Typography sx={{ fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "text.secondary" }}>
+                    Today's Jobs
+                  </Typography>
+                </Stack>
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => fetchData(true)}
+                    disabled={refreshing}
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "10px",
+                      transition: "transform 0.15s ease",
+                      "&:active": { transform: "scale(0.95)" },
+                    }}
+                  >
+                    <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} style={{ color: "#9ca3af" }} />
+                  </IconButton>
+                  <Link href="/cashier/records" style={{ display: "flex", alignItems: "center" }}>
+                    <ChevronRight size={16} style={{ color: "#9ca3af" }} />
+                  </Link>
+                </Stack>
+              </Stack>
+              <Box sx={{ p: 2 }}>
+                <JobFeed jobs={todaySales} />
+              </Box>
+            </Paper>
+          </motion.div>
+
+          {/* Weekly debt summary */}
+          {weeklyDebt > 0 && (
+            <motion.div variants={sectionVariants} custom={0.24} initial="hidden" animate="show">
+              <Paper variant="outlined" sx={{ borderRadius: "16px", p: 2 }}>
+                <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
+                  <Typography sx={{ fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "text.secondary" }}>
+                    7-Day Debt Summary
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main", fontFamily: "monospace" }}>
+                    {fmtMoneyFull(weeklyDebt)}
+                  </Typography>
+                </Stack>
+                <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontWeight: 500, mb: 2 }}>
+                  Tap a bar to log a payment
+                </Typography>
+                <OutstandingDebtChart
+                  data={debtChart}
+                  onClientClick={setSelectedDebtor}
+                />
+              </Paper>
+            </motion.div>
+          )}
+        </Stack>
+      </Box>
+
+      {/* ── Desktop Layout ───────────────────────────────────────────────── */}
+      <Box sx={{ display: { xs: "none", md: "block" }, p: { xs: 3, lg: 4 }, maxWidth: "7xl", mx: "auto" }}>
+
+        {/* Header */}
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+          <Box>
+            <Typography sx={{ fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
+              {format(now, "EEEE, MMMM d")}
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: "text.primary", tracking: "tight", mt: 0.5 }}>
+              {getGreeting()}, {cashierName || "Cashier"} 👋
+            </Typography>
+          </Box>
+
+          <Stack direction="row" sx={{ alignItems: "center", gap: 2 }}>
+            {pendingQueue.length > 0 && (
+              <Chip
+                label={`${pendingQueue.length} syncing`}
+                size="small"
+                sx={{
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  color: "primary.main",
+                  border: "1px solid",
+                  borderColor: alpha(theme.palette.primary.main, 0.15),
+                  fontWeight: 900,
+                  fontSize: "0.625rem",
+                  "& .MuiChip-label": { px: 1.25 },
+                }}
+              />
+            )}
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+              sx={{
+                bgcolor: "background.paper",
+                borderColor: "divider",
+                color: "text.primary",
+                borderRadius: "10px",
+                fontWeight: 900,
+                fontSize: "0.75rem",
+                px: 2,
+                height: 36,
+                "&:hover": {
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  borderColor: "primary.light",
+                },
+              }}
+              startIcon={<RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />}
+            >
+              {refreshing ? "Updating…" : "Refresh"}
+            </Button>
+          </Stack>
+        </Stack>
+
+        {/* Desktop metric strip */}
+        <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 2, mb: 3 }}>
+            {[
+              {
+                label: "Today's Jobs",
+                val: String(todaySales.length),
+                sub: "logged this shift",
+                icon: ShoppingBag,
+                accentColor: theme.palette.primary.main,
+              },
+              {
+                label: "In Progress",
+                val: String(inProgressJobs.length),
+                sub: inProgressJobs.length > 0 ? "Printing / Finishing / Ready" : "No active jobs",
+                icon: Clock,
+                accentColor: inProgressJobs.length > 0 ? theme.palette.primary.main : theme.palette.success.main,
+              },
+              {
+                label: "Today's Revenue",
+                val: fmtMoneyFull(todayRevenue),
+                sub: `${fmtMoneyFull(todayCollected)} collected`,
+                icon: TrendingUp,
+                accentColor: theme.palette.success.main,
+              },
+              {
+                label: "Daily Debt",
+                val: fmtMoneyFull(dailyDebt),
+                sub: `${todayDebtors.length} client${todayDebtors.length !== 1 ? "s" : ""} owe today`,
+                icon: AlertCircle,
+                accentColor: dailyDebt > 0 ? theme.palette.error.main : theme.palette.success.main,
+              },
+              {
+                label: "Weekly Debt",
+                val: fmtMoneyFull(weeklyDebt),
+                sub: "last 7 days total",
+                icon: Wallet,
+                accentColor: theme.palette.primary.main,
+              },
+            ].map(({ label, val, sub, icon: Icon, accentColor }) => (
+              <Box key={label}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    position: "relative",
+                    borderRadius: "16px",
+                    p: 2.5,
+                    overflow: "hidden",
+                    bgcolor: alpha(accentColor, 0.04),
+                    borderColor: alpha(accentColor, 0.15),
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      right: -16,
+                      top: -16,
+                      width: 80,
+                      height: 80,
+                      borderRadius: "50%",
+                      bgcolor: accentColor,
+                      opacity: 0.05,
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      mb: 1.5,
+                      bgcolor: alpha(accentColor, 0.08),
+                    }}
+                  >
+                    <Icon size={16} color={accentColor} />
+                  </Box>
+                  <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", mb: 0.5 }}>
+                    {label}
+                  </Typography>
+                  <Typography sx={{ fontSize: "1.25rem", fontWeight: 800, lineHeight: 1.2 }}>
+                    <AnimatedNumber value={parseAmount(val)} formatType={val.includes("₦") ? "currency" : "number"} />
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", mt: 0.5 }}>
+                    {sub}
+                  </Typography>
+                </Paper>
+              </Box>
+            ))}
+          </Box>
         </motion.div>
-      </div>
+
+        {/* Desktop two-column layout */}
+        <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
+          <Box sx={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 3 }}>
+            {/* Left Column (2/3) */}
+            <Box>
+              <Stack sx={{ gap: 2.5 }}>
+                {/* Action row */}
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2 }}>
+                  {[
+                    { label: "Log New Sale", href: "/cashier/new-entry", icon: Plus, primary: true },
+                    { label: "Price Estimator", href: "/cashier/estimator", icon: Zap },
+                    { label: "Quick Check", href: "/quick-check", icon: Ruler },
+                  ].map(({ label, href, icon: Icon, primary }) => (
+                    <Link key={href} href={href} style={{ textDecoration: "none" }}>
+                      <motion.div whileTap={{ scale: 0.97 }}>
+                        <Paper
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.75,
+                            p: 2,
+                            borderRadius: "16px",
+                            cursor: "pointer",
+                            transition: "background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
+                            ...(primary
+                              ? {
+                                  bgcolor: "primary.main",
+                                  color: "primary.contrastText",
+                                  boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.15)}`,
+                                }
+                              : {
+                                  bgcolor: "background.paper",
+                                  border: "1px solid",
+                                  borderColor: "divider",
+                                  "&:hover": {
+                                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                                    borderColor: "primary.light",
+                                  },
+                                }),
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: "10px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              bgcolor: primary ? "rgba(255, 255, 255, 0.2)" : alpha(theme.palette.primary.main, 0.08),
+                            }}
+                          >
+                            <Icon size={16} color={primary ? "#ffffff" : theme.palette.primary.main} />
+                          </Box>
+                          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900 }}>
+                            {label}
+                          </Typography>
+                        </Paper>
+                      </motion.div>
+                    </Link>
+                  ))}
+                </Box>
+
+                {/* Today's job feed */}
+                <Paper variant="outlined" sx={{ borderRadius: "16px", overflow: "hidden" }}>
+                  <Stack
+                    direction="row"
+                    sx={{
+                      px: 3,
+                      py: 2,
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                      <Clock size={16} color="var(--mui-palette-primary-main)" />
+                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
+                        Today's Jobs
+                      </Typography>
+                      <Chip
+                        label={todaySales.length}
+                        size="small"
+                        sx={{
+                          height: 18,
+                          borderRadius: "10px",
+                          fontWeight: 900,
+                          fontSize: "0.5625rem",
+                          bgcolor: alpha(theme.palette.primary.main, 0.08),
+                          color: "primary.main",
+                          ml: 0.5,
+                        }}
+                      />
+                    </Stack>
+                    <Link
+                      href="/cashier/records"
+                      style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 900,
+                        color: theme.palette.primary.main,
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                      }}
+                    >
+                      All records <ChevronRight size={12} />
+                    </Link>
+                  </Stack>
+                  <Box sx={{ p: 3 }}>
+                    <JobFeed jobs={todaySales} />
+                  </Box>
+                </Paper>
+
+                {/* Today debtors */}
+                {todayDebtors.length > 0 && (
+                  <Paper variant="outlined" sx={{ borderRadius: "16px", overflow: "hidden" }}>
+                    <Stack
+                      direction="row"
+                      sx={{
+                        px: 3,
+                        py: 2,
+                        borderBottom: "1px solid",
+                        borderColor: "divider",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                        <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
+                          Collect Today
+                        </Typography>
+                      </Stack>
+                      <Chip
+                        label={todayDebtors.length}
+                        size="small"
+                        sx={{
+                          height: 18,
+                          borderRadius: "10px",
+                          fontWeight: 900,
+                          fontSize: "0.5625rem",
+                          bgcolor: alpha(theme.palette.error.main, 0.08),
+                          color: "error.main",
+                        }}
+                      />
+                    </Stack>
+                    <Box sx={{ px: 3, py: 0.5 }}>
+                      {todayDebtors.map((d, i) => (
+                        <DebtRow
+                          key={i}
+                          client={d.client}
+                          amount={d.amount}
+                          description={d.description}
+                          contact={d.contact}
+                          onClick={() => setSelectedDebtor(d.client)}
+                        />
+                      ))}
+                    </Box>
+                  </Paper>
+                )}
+              </Stack>
+            </Box>
+
+            {/* Right Column (1/3) */}
+            <Box>
+              <DesktopSidePanel
+                debtors={debtorList}
+                onDebtorClick={setSelectedDebtor}
+                inventory={cachedInventory}
+              />
+            </Box>
+          </Box>
+        </motion.div>
+      </Box>
 
       {/* ── Debtor payment modal ──────────────────────────────────────────── */}
       <DebtorPaymentModal
@@ -1307,6 +1541,6 @@ export default function CashierDashboardPage() {
         onUpdate={() => fetchData(true)}
         theme="amber"
       />
-    </div>
+    </Box>
   );
 }

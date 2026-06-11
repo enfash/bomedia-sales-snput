@@ -1,19 +1,42 @@
 "use client";
+import { LoadingAnimation } from "@/components/loading-animation";
 
 import { useEffect, useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, ChevronDown, ChevronUp, Info, Zap, ArrowLeft, CircleDollarSign, TrendingUp, Coins, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2,
+  XCircle, Ruler, ChevronDown, ChevronUp, Info, Zap, ArrowLeft,
+  CircleDollarSign, TrendingUp, Coins, Sparkles,
+} from "lucide-react";
+import { useTheme } from "@mui/material/styles";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogActions from "@mui/material/DialogActions";
+import Typography from "@mui/material/Typography";
+import Chip from "@mui/material/Chip";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Grid from "@mui/material/Grid";
+import Popover from "@mui/material/Popover";
+import InputAdornment from "@mui/material/InputAdornment";
+import Autocomplete from "@mui/material/Autocomplete";
+import { useSyncStore } from "@/lib/store";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { PAYMENT_METHODS, MATERIAL_TYPES } from "@/lib/constants";
 import { WasteLogModal, type InventoryRollForWaste } from "@/components/waste-log-modal";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Roll = Record<string, any> & { _rowIndex: number; "Material ID"?: string };
 type Material = Record<string, any> & { "Material ID": string };
@@ -22,27 +45,54 @@ const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")
 const METERS_TO_FEET = 3.28084;
 
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    Active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    "Low Stock": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    "Out of Stock": "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
-    Depleted: "bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-500",
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const colorMap: Record<string, { bgcolor: string; color: string }> = {
+    Active:        { bgcolor: isDark ? "rgba(16, 185, 129, 0.15)" : "#d1fae5", color: isDark ? "#34d399" : "#065f46" },
+    "Low Stock":   { bgcolor: isDark ? "rgba(245, 158, 11, 0.15)" : "#fef3c7", color: isDark ? "#fbbf24" : "#92400e" },
+    "Out of Stock":{ bgcolor: isDark ? "rgba(239, 68, 68, 0.15)" : "#ffe4e6", color: isDark ? "#f87171" : "#9f1239" },
+    Depleted:      { bgcolor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f3f4f6", color: isDark ? "#9ca3af" : "#6b7280" },
   };
+  const palette = colorMap[status] ?? colorMap["Active"];
   return (
-    <Badge className={cn("text-[9px] font-black border-none px-2 py-0.5", map[status] ?? map["Active"])}>
-      {status}
-    </Badge>
+    <Chip
+      label={status}
+      size="small"
+      sx={{
+        fontSize: "0.6rem",
+        fontWeight: 900,
+        height: 20,
+        px: 0.5,
+        bgcolor: palette.bgcolor,
+        color: palette.color,
+        border: "none",
+        "& .MuiChip-label": { px: 1 },
+      }}
+    />
   );
 }
 
 // ─── Add Roll Dialog ──────────────────────────────────────────────────────────
 
 function AddRollDialog({ onAdded }: { onAdded: () => void }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  const { cachedExpenses } = useSyncStore();
+  const uniqueVendors = useMemo(() => {
+    const names = new Set<string>();
+    cachedExpenses.forEach((e: any) => {
+      const n = (e["PAID TO"] || "").trim();
+      if (n) names.add(n);
+    });
+    return Array.from(names).sort();
+  }, [cachedExpenses]);
+
   const [form, setForm] = useState({
     itemName: "",
-    category: "General",
+    category: "Materials",
     widthFt: "",
     rawLength: "",
     lengthUnit: "m" as "m" | "ft",
@@ -53,6 +103,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
     supplier: "",
     purchaseDate: new Date().toISOString().split("T")[0],
     poReference: "",
+    paymentMethod: PAYMENT_METHODS[0],
   });
 
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -96,6 +147,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
           supplier: form.supplier.trim() || undefined,
           purchaseDate: form.purchaseDate,
           poReference: form.poReference.trim() || undefined,
+          paymentMethod: form.paymentMethod,
           loggedBy,
         }),
       });
@@ -106,7 +158,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
       setOpen(false);
       setForm({
         itemName: "",
-        category: "General",
+        category: "Materials",
         widthFt: "",
         rawLength: "",
         lengthUnit: "m",
@@ -117,6 +169,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
         supplier: "",
         purchaseDate: new Date().toISOString().split("T")[0],
         poReference: "",
+        paymentMethod: PAYMENT_METHODS[0],
       });
       onAdded();
     } catch (err: any) {
@@ -126,119 +179,350 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
     }
   };
 
+  const widthOptions = ["3", "4", "5", "6", "8", "10"];
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-brand-700 hover:bg-brand-800 text-white font-black rounded-xl h-12 px-6 shadow-lg shadow-brand-700/20 flex items-center gap-2">
-          <Plus className="w-5 h-5" /> Add New Roll
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-6 bg-brand-700 text-white">
-          <DialogTitle className="text-xl font-black">Add Inventory Roll</DialogTitle>
-          <p className="text-white/75 text-xs mt-1">10ft reserved as upfront expected waste automatically.</p>
-        </DialogHeader>
-        <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1.5 col-span-3">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Material Name *</Label>
-              <Input placeholder="e.g. Flex, SAV, Clear Sticker" value={form.itemName} onChange={e => set("itemName", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Category</Label>
-              <Input value={form.category} onChange={e => set("category", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Quantity</Label>
-              <Input type="number" min="1" value={form.quantity} onChange={e => set("quantity", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Low Stock Alert (ft)</Label>
-              <Input type="number" value={form.lowStockThreshold} onChange={e => set("lowStockThreshold", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
-          </div>
+    <>
+      <Button
+        variant="contained"
+        startIcon={<Plus size={18} />}
+        onClick={() => setOpen(true)}
+        sx={{
+          bgcolor: "primary.main",
+          color: "white",
+          fontWeight: 900,
+          borderRadius: 3,
+          height: 48,
+          px: 3,
+          boxShadow: "0 4px 14px rgba(200,71,46,.25)",
+          "&:hover": { bgcolor: "primary.dark" },
+        }}
+      >
+        Add New Roll
+      </Button>
 
-          <div className="p-4 bg-brand-50/50 dark:bg-brand-900/20 rounded-2xl space-y-3 border border-brand-100 dark:border-brand-800/50">
-            <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest border-b border-brand-100 dark:border-brand-700/50 pb-2">Roll Dimensions</p>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Roll Width (feet) *</Label>
-              <div className="flex gap-2">
-                {["3","4","5","6","8","10"].map(w => (
-                  <button key={w} type="button" onClick={() => set("widthFt", w)}
-                    className={cn("flex-1 h-10 rounded-xl text-xs font-black border-2 transition-[border-color,background-color,color,transform] duration-150 ease-out active:scale-[0.97]", form.widthFt === w ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-brand-300")}>
-                    {w}ft
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Roll Length *</Label>
-              <div className="flex gap-2">
-                <Input type="number" placeholder={form.lengthUnit === "m" ? "e.g. 50" : "e.g. 164"} value={form.rawLength} onChange={e => set("rawLength", e.target.value)} className="rounded-xl flex-1 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-                <Button variant="ghost" size="sm" onClick={() => set("lengthUnit", form.lengthUnit === "m" ? "ft" : "m")} className="px-4 font-black text-xs h-10 border border-brand-100 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 dark:text-zinc-300 uppercase">{form.lengthUnit}</Button>
-              </div>
-            </div>
-            {rawLengthFt > 0 && (
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {[
-                  { label: "Full Length", value: `${rawLengthFt.toFixed(1)}ft`, highlight: false, accent: false },
-                  { label: "−10ft Waste", value: "−10ft", highlight: false, accent: true },
-                  { label: "Usable Stock", value: `${usableLength.toFixed(1)}ft`, highlight: true, accent: false },
-                ].map(({ label, value, highlight, accent }) => (
-                  <div key={label} className={cn("p-2 rounded-xl", highlight ? "bg-brand-600 text-white" : accent ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600" : "bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300")}>
-                    <p className={cn("text-[9px] font-bold uppercase", highlight ? "text-white/70" : "text-gray-400 dark:text-zinc-500")}>{label}</p>
-                    <p className="text-sm font-black leading-tight">{value}</p>
-                  </div>
-                ))}
-              </div>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: "16px", overflow: "hidden", p: 0 } } }}
+      >
+        {/* Header */}
+        <Box sx={{ p: 3, bgcolor: "primary.main", color: "white" }}>
+          <DialogTitle sx={{ p: 0, color: "white", fontWeight: 900, fontSize: "1.2rem" }}>
+            Add Inventory Roll
+          </DialogTitle>
+          <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.7rem", mt: 0.5 }}>
+            10ft reserved as upfront expected waste automatically.
+          </Typography>
+        </Box>
+
+        <DialogContent sx={{ p: 3, maxHeight: "70vh", overflowY: "auto" }}>
+          <Stack sx={{ gap: 2.5 }}>
+            {/* Material Name */}
+            <Box>
+              <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                Material Name *
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={MATERIAL_TYPES}
+                value={form.itemName}
+                onInputChange={(_, newValue) => set("itemName", newValue)}
+                onChange={(_, newValue) => set("itemName", (newValue as string) ?? "")}
+                size="small"
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="e.g. Flex, SAV, Clear Sticker"
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Box>
+
+            {/* Category / Quantity / Low Stock row */}
+            <Grid container spacing={2}>
+              <Grid size={4}>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  Category
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={form.category}
+                  onChange={e => set("category", e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                />
+              </Grid>
+              <Grid size={4}>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  Quantity
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  value={form.quantity}
+                  onChange={e => set("quantity", e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                />
+              </Grid>
+              <Grid size={4}>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  Low Stock Alert (ft)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  value={form.lowStockThreshold}
+                  onChange={e => set("lowStockThreshold", e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Roll Dimensions section */}
+            <Box sx={{ p: 2, bgcolor: "rgba(200,71,46,0.04)", borderRadius: "16px", border: "1px solid rgba(200,71,46,0.12)" }}>
+              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main", borderBottom: "1px solid rgba(200,71,46,0.1)", pb: 1, mb: 1.5 }}>
+                Roll Dimensions
+              </Typography>
+
+              {/* Width buttons */}
+              <Box sx={{ mb: 1.5 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
+                  Roll Width (feet) *
+                </Typography>
+                <Stack direction="row" sx={{ gap: 1 }}>
+                  {widthOptions.map(w => (
+                    <Box
+                      key={w}
+                      component="button"
+                      type="button"
+                      onClick={() => set("widthFt", w)}
+                      sx={{
+                        flex: 1,
+                        height: 40,
+                        borderRadius: 2,
+                        fontSize: "0.75rem",
+                        fontWeight: 900,
+                        border: "2px solid",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease-out",
+                        "&:active": { transform: "scale(0.97)" },
+                        borderColor: form.widthFt === w ? "primary.main" : "divider",
+                        bgcolor: form.widthFt === w ? "primary.main" : "background.paper",
+                        color: form.widthFt === w ? "primary.contrastText" : "text.secondary",
+                      }}
+                    >
+                      {w}ft
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* Length input + unit toggle */}
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
+                  Roll Length *
+                </Typography>
+                <Stack direction="row" sx={{ gap: 1 }}>
+                  <TextField
+                    size="small"
+                    type="number"
+                    placeholder={form.lengthUnit === "m" ? "e.g. 50" : "e.g. 164"}
+                    value={form.rawLength}
+                    onChange={e => set("rawLength", e.target.value)}
+                    sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => set("lengthUnit", form.lengthUnit === "m" ? "ft" : "m")}
+                    sx={{
+                      px: 2,
+                      fontWeight: 900,
+                      fontSize: "0.7rem",
+                      height: 40,
+                      borderRadius: 2,
+                      textTransform: "uppercase",
+                      borderColor: "rgba(200,71,46,0.2)",
+                      color: "primary.main",
+                    }}
+                  >
+                    {form.lengthUnit}
+                  </Button>
+                </Stack>
+              </Box>
+
+              {/* Length preview */}
+              {rawLengthFt > 0 && (
+                <Grid container spacing={1} sx={{ textAlign: "center" }}>
+                  {[
+                    { label: "Full Length", value: `${rawLengthFt.toFixed(1)}ft`, variant: "neutral" },
+                    { label: "−10ft Waste", value: "−10ft", variant: "accent" },
+                    { label: "Usable Stock", value: `${usableLength.toFixed(1)}ft`, variant: "highlight" },
+                  ].map(({ label, value, variant }) => (
+                    <Grid size={4} key={label}>
+                      <Box sx={{
+                        p: 1, borderRadius: 2,
+                        bgcolor: variant === "highlight"
+                          ? "primary.main"
+                          : variant === "accent"
+                            ? (isDark ? "rgba(225, 29, 72, 0.15)" : "#fff1f2")
+                            : "background.paper",
+                        color: variant === "highlight"
+                          ? "white"
+                          : variant === "accent"
+                            ? (isDark ? "#f43f5e" : "#e11d48")
+                            : "text.primary",
+                      }}>
+                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", opacity: variant === "highlight" ? 0.7 : 0.6 }}>
+                          {label}
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, lineHeight: 1.2 }}>
+                          {value}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </Box>
+
+            {/* Price / Cost */}
+            <Grid container spacing={2}>
+              <Grid size={6}>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  Selling Price (₦/sqft)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  placeholder="e.g. 200"
+                  value={form.price}
+                  onChange={e => set("price", e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                />
+              </Grid>
+              <Grid size={6}>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  Total Buy Cost (₦)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  placeholder="e.g. 60000"
+                  value={form.cost}
+                  onChange={e => set("cost", e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Auditing section */}
+            <Box sx={{ p: 2, bgcolor: "rgba(0,0,0,0.02)", borderRadius: "16px", border: "1px solid", borderColor: "grey.100" }}>
+              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+                Auditing & Purchase Details
+              </Typography>
+              <Stack sx={{ gap: 1.5 }}>
+                <Box>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Supplier / Vendor
+                  </Typography>
+                  <Autocomplete
+                    freeSolo
+                    options={uniqueVendors}
+                    value={form.supplier}
+                    onInputChange={(_, newValue) => set("supplier", newValue)}
+                    onChange={(_, newValue) => set("supplier", (newValue as string) ?? "")}
+                    size="small"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="e.g. Star Graphics, Avery Supplier"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                      />
+                    )}
+                  />
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid size={6}>
+                    <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                      PO / Invoice Reference
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="e.g. PO-2026-001"
+                      value={form.poReference}
+                      onChange={e => set("poReference", e.target.value)}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid size={6}>
+                    <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                      Purchase Date
+                    </Typography>
+                    <DatePicker
+                      value={dayjs(form.purchaseDate)}
+                      onChange={(val) => set("purchaseDate", val?.format("YYYY-MM-DD") ?? new Date().toISOString().split("T")[0])}
+                      slotProps={{ textField: { size: "small", fullWidth: true, sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } } } }}
+                    />
+                  </Grid>
+                </Grid>
+                <Box>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Payment Method
+                  </Typography>
+                  <Autocomplete
+                    options={PAYMENT_METHODS}
+                    value={form.paymentMethod}
+                    onChange={(_, val) => set("paymentMethod", val || PAYMENT_METHODS[0])}
+                    disableClearable
+                    size="small"
+                    renderInput={(params) => <TextField {...params} sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }} />}
+                  />
+                </Box>
+              </Stack>
+            </Box>
+
+            {/* Cost insight */}
+            {costPerSqft > 0 && (
+              <Stack direction="row" sx={{ gap: 1, p: 1.5, bgcolor: "grey.50", borderRadius: 2, alignItems: "flex-start" }}>
+                <Info size={16} style={{ color: "#9ca3af", flexShrink: 0, marginTop: 1 }} />
+                <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+                  Cost per sqft: <strong>₦{costPerSqft.toFixed(2)}</strong> based on {totalAreaSqft.toFixed(0)} usable sqft per roll (unit cost: ₦{costPerRoll.toFixed(2)})
+                </Typography>
+              </Stack>
             )}
-          </div>
+          </Stack>
+        </DialogContent>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Selling Price (₦/sqft)</Label>
-              <Input type="number" placeholder="e.g. 200" value={form.price} onChange={e => set("price", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Total Buy Cost (₦)</Label>
-              <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-            </div>
-          </div>
-
-          {/* Auditing & Purchase Details */}
-          <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 rounded-2xl space-y-3 border border-gray-100 dark:border-zinc-800">
-            <p className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest border-b border-gray-100 dark:border-zinc-800 pb-2">Auditing & Purchase Details</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Supplier / Vendor</Label>
-                <Input placeholder="e.g. Star Graphics, Avery Supplier" value={form.supplier} onChange={e => set("supplier", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">PO / Invoice Reference</Label>
-                <Input placeholder="e.g. PO-2026-001" value={form.poReference} onChange={e => set("poReference", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Purchase Date</Label>
-                <Input type="date" value={form.purchaseDate} onChange={e => set("purchaseDate", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-              </div>
-            </div>
-          </div>
-
-          {costPerSqft > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
-              <Info className="w-4 h-4 text-gray-400 shrink-0" />
-              <p className="text-xs text-gray-500 dark:text-zinc-400">
-                Cost per sqft: <span className="font-black text-gray-800 dark:text-zinc-100">₦{costPerSqft.toFixed(2)}</span> based on {totalAreaSqft.toFixed(0)} usable sqft per roll (unit cost: ₦{costPerRoll.toFixed(2)})
-              </p>
-            </div>
-          )}
-        </div>
-        <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-800/50 flex gap-3 border-t dark:border-zinc-800">
-          <Button variant="outline" onClick={() => setOpen(false)} className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black">{saving ? "Adding Roll..." : "Add Roll & Reserve Waste"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <DialogActions sx={{ p: 3, pt: 2, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "grey.100", gap: 1.5 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setOpen(false)}
+            sx={{ flex: 1, height: 48, borderRadius: 2, fontWeight: 700, color: "text.secondary", borderColor: "grey.300" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving}
+            sx={{ flex: 1, height: 48, borderRadius: 2, fontWeight: 900, bgcolor: "primary.main", "&:hover": { bgcolor: "primary.dark" } }}
+          >
+            {saving ? "Adding Roll..." : "Add Roll & Reserve Waste"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 
@@ -294,33 +578,79 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
   };
 
   return (
-    <Dialog open={!!roll} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-6 bg-brand-700 text-white">
-          <DialogTitle className="text-lg font-black">Manual Adjustment</DialogTitle>
-          <p className="text-white/75 text-xs mt-0.5">{roll["Roll ID"]} — Current: <span className="font-black">{current.toFixed(1)}ft</span></p>
-        </DialogHeader>
-        <div className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Adjustment (ft)</Label>
-            <Input type="number" placeholder="e.g. −5 for damage, +10 for correction" value={amount} onChange={e => setAmount(e.target.value)} className="rounded-xl h-12 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
+    <Dialog
+      open={!!roll}
+      onClose={() => onClose()}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: "16px", overflow: "hidden", p: 0 } } }}
+    >
+      <Box sx={{ p: 3, bgcolor: "primary.main", color: "white" }}>
+        <DialogTitle sx={{ p: 0, color: "white", fontWeight: 900, fontSize: "1.1rem" }}>
+          Manual Adjustment
+        </DialogTitle>
+        <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.7rem", mt: 0.5 }}>
+          {roll["Roll ID"]} — Current: <strong>{current.toFixed(1)}ft</strong>
+        </Typography>
+      </Box>
+
+      <DialogContent sx={{ p: 3 }}>
+        <Stack sx={{ gap: 2 }}>
+          <Box>
+            <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+              Adjustment (ft)
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              type="number"
+              placeholder="e.g. −5 for damage, +10 for correction"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, height: 48 } }}
+            />
             {preview !== null && (
-              <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">
-                After adjustment: <span className="font-black text-gray-800 dark:text-zinc-200">{preview.toFixed(1)}ft remaining</span>
-              </p>
+              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, mt: 0.5 }}>
+                After adjustment: <strong>{preview.toFixed(1)}ft remaining</strong>
+              </Typography>
             )}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Reason (required for audit log) *</Label>
-            <Input placeholder="e.g. Measurement correction, damaged section removed" value={note} onChange={e => setNote(e.target.value)} className="rounded-xl h-12 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-          </div>
-          <p className="text-[9px] text-gray-400 dark:text-zinc-500 italic">This adjustment will be logged to the Expenses sheet for audit purposes.</p>
-        </div>
-        <DialogFooter className="p-6 pt-0 flex gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-11 font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !canSave} className="flex-1 bg-brand-700 hover:bg-brand-800 text-white font-black rounded-xl h-11">{saving ? "Saving..." : "Apply"}</Button>
-        </DialogFooter>
+          </Box>
+          <Box>
+            <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+              Reason (required for audit log) *
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="e.g. Measurement correction, damaged section removed"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, height: 48 } }}
+            />
+          </Box>
+          <Typography sx={{ fontSize: "0.5625rem", color: "text.secondary", fontStyle: "italic" }}>
+            This adjustment will be logged to the Expenses sheet for audit purposes.
+          </Typography>
+        </Stack>
       </DialogContent>
+
+      <DialogActions sx={{ p: 3, pt: 0, gap: 1.5 }}>
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          sx={{ flex: 1, height: 44, borderRadius: 2, fontWeight: 700, color: "text.secondary", borderColor: "grey.300" }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving || !canSave}
+          sx={{ flex: 1, height: 44, borderRadius: 2, fontWeight: 900, bgcolor: "primary.main", "&:hover": { bgcolor: "primary.dark" } }}
+        >
+          {saving ? "Saving..." : "Apply"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -328,6 +658,8 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
 // ─── Restock Dialog ───────────────────────────────────────────────────────────
 
 function RestockDialog({ material, onClose, onDone }: { material: Material | null; onClose: () => void; onDone: () => void }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const [form, setForm] = useState({
     itemName: "",
     category: "General",
@@ -421,112 +753,278 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
   };
 
   return (
-    <Dialog open={!!material} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-        <DialogHeader className="p-6 bg-brand-700 text-white">
-          <DialogTitle className="text-xl font-black">Restock Material</DialogTitle>
-          <p className="text-white/75 text-xs mt-1">Creates new rolls inheriting parent material properties.</p>
-        </DialogHeader>
-        <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-          {/* Inherited Fields (Disabled/Read-only inputs) */}
-          <div className="space-y-4 p-4 bg-gray-50/50 dark:bg-zinc-800/30 rounded-2xl border border-gray-100 dark:border-zinc-800">
-            <p className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest border-b border-gray-100 dark:border-zinc-800 pb-2">Inherited Profile Properties</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Material Name</Label>
-                <Input value={form.itemName} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Category</Label>
-                <Input value={form.category} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Width (ft)</Label>
-                <Input value={form.widthFt ? `${form.widthFt} ft` : ""} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Selling Price (₦/sqft)</Label>
-                <Input value={form.price ? `₦ ${parseFloat(form.price).toLocaleString()}` : ""} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Low Stock Threshold (ft)</Label>
-                <Input value={form.lowStockThreshold ? `${form.lowStockThreshold} ft` : ""} disabled className="rounded-xl bg-gray-100/50 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700 cursor-not-allowed opacity-70" />
-              </div>
-            </div>
-          </div>
+    <Dialog
+      open={!!material}
+      onClose={() => onClose()}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: "16px", overflow: "hidden", p: 0 } } }}
+    >
+      <Box sx={{ p: 3, bgcolor: "primary.main", color: "white" }}>
+        <DialogTitle sx={{ p: 0, color: "white", fontWeight: 900, fontSize: "1.2rem" }}>
+          Restock Material
+        </DialogTitle>
+        <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.7rem", mt: 0.5 }}>
+          Creates new rolls inheriting parent material properties.
+        </Typography>
+      </Box>
 
-          {/* New inputs form */}
-          <div className="space-y-4">
-            <p className="text-[10px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest border-b border-brand-100 dark:border-zinc-800 pb-2">New Roll Details</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Quantity of Rolls *</Label>
-                <Input type="number" min="1" value={form.quantity} onChange={e => set("quantity", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Total Buy Cost (₦) *</Label>
-                <Input type="number" placeholder="e.g. 60000" value={form.cost} onChange={e => set("cost", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-              </div>
-            </div>
+      <DialogContent sx={{ p: 3, maxHeight: "70vh", overflowY: "auto" }}>
+        <Stack sx={{ gap: 2.5 }}>
+          {/* Inherited Properties */}
+          <Box sx={{ p: 2, bgcolor: "rgba(0,0,0,0.02)", borderRadius: "16px", border: "1px solid", borderColor: "grey.100" }}>
+            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+              Inherited Profile Properties
+            </Typography>
+            <Stack sx={{ gap: 1.5 }}>
+              <Box>
+                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  Material Name
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={form.itemName}
+                  disabled
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "grey.50", opacity: 0.7 } }}
+                />
+              </Box>
+              <Grid container spacing={2}>
+                <Grid size={6}>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Category
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={form.category}
+                    disabled
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "grey.50", opacity: 0.7 } }}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Width (ft)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={form.widthFt ? `${form.widthFt} ft` : ""}
+                    disabled
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "grey.50", opacity: 0.7 } }}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Selling Price (₦/sqft)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={form.price ? `₦ ${parseFloat(form.price).toLocaleString()}` : ""}
+                    disabled
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "grey.50", opacity: 0.7 } }}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Low Stock Threshold (ft)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={form.lowStockThreshold ? `${form.lowStockThreshold} ft` : ""}
+                    disabled
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "grey.50", opacity: 0.7 } }}
+                  />
+                </Grid>
+              </Grid>
+            </Stack>
+          </Box>
 
-            <div className="p-4 bg-brand-50/50 dark:bg-brand-900/20 rounded-2xl space-y-3 border border-brand-100 dark:border-brand-800/50">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-bold text-brand-700 dark:text-brand-400">Roll Length *</Label>
-                <div className="flex gap-2">
-                  <Input type="number" placeholder={form.lengthUnit === "m" ? "e.g. 50" : "e.g. 164"} value={form.rawLength} onChange={e => set("rawLength", e.target.value)} className="rounded-xl flex-1 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-                  <Button variant="ghost" size="sm" onClick={() => set("lengthUnit", form.lengthUnit === "m" ? "ft" : "m")} className="px-4 font-black text-xs h-10 border border-brand-100 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 dark:text-zinc-300 uppercase">{form.lengthUnit}</Button>
-                </div>
-              </div>
-              {rawLengthFt > 0 && (
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {[
-                    { label: "Full Length", value: `${rawLengthFt.toFixed(1)}ft`, highlight: false, accent: false },
-                    { label: "−10ft Waste", value: "−10ft", highlight: false, accent: true },
-                    { label: "Usable Stock", value: `${usableLength.toFixed(1)}ft`, highlight: true, accent: false },
-                  ].map(({ label, value, highlight, accent }) => (
-                    <div key={label} className={cn("p-2 rounded-xl", highlight ? "bg-brand-600 text-white" : accent ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600" : "bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300")}>
-                      <p className={cn("text-[9px] font-bold uppercase", highlight ? "text-white/70" : "text-gray-400 dark:text-zinc-500")}>{label}</p>
-                      <p className="text-sm font-black leading-tight">{value}</p>
-                    </div>
-                  ))}
-                </div>
+          {/* New Roll Details */}
+          <Box>
+            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main", borderBottom: "1px solid rgba(200,71,46,0.1)", pb: 1, mb: 1.5 }}>
+              New Roll Details
+            </Typography>
+            <Stack sx={{ gap: 1.5 }}>
+              <Grid container spacing={2}>
+                <Grid size={6}>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Quantity of Rolls *
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    value={form.quantity}
+                    onChange={e => set("quantity", e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                  />
+                </Grid>
+                <Grid size={6}>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    Total Buy Cost (₦) *
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    placeholder="e.g. 60000"
+                    value={form.cost}
+                    onChange={e => set("cost", e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                  />
+                </Grid>
+              </Grid>
+
+              {/* Length section */}
+              <Box sx={{ p: 2, bgcolor: "rgba(200,71,46,0.04)", borderRadius: "16px", border: "1px solid rgba(200,71,46,0.12)" }}>
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
+                    Roll Length *
+                  </Typography>
+                  <Stack direction="row" sx={{ gap: 1 }}>
+                    <TextField
+                      size="small"
+                      type="number"
+                      placeholder={form.lengthUnit === "m" ? "e.g. 50" : "e.g. 164"}
+                      value={form.rawLength}
+                      onChange={e => set("rawLength", e.target.value)}
+                      sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    />
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => set("lengthUnit", form.lengthUnit === "m" ? "ft" : "m")}
+                      sx={{
+                        px: 2,
+                        fontWeight: 900,
+                        fontSize: "0.7rem",
+                        height: 40,
+                        borderRadius: 2,
+                        textTransform: "uppercase",
+                        borderColor: "rgba(200,71,46,0.2)",
+                        color: "primary.main",
+                      }}
+                    >
+                      {form.lengthUnit}
+                    </Button>
+                  </Stack>
+                </Box>
+
+                {rawLengthFt > 0 && (
+                  <Grid container spacing={1} sx={{ textAlign: "center" }}>
+                    {[
+                      { label: "Full Length", value: `${rawLengthFt.toFixed(1)}ft`, variant: "neutral" },
+                      { label: "−10ft Waste", value: "−10ft", variant: "accent" },
+                      { label: "Usable Stock", value: `${usableLength.toFixed(1)}ft`, variant: "highlight" },
+                    ].map(({ label, value, variant }) => (
+                      <Grid size={4} key={label}>
+                        <Box sx={{
+                          p: 1, borderRadius: 2,
+                          bgcolor: variant === "highlight"
+                            ? "primary.main"
+                            : variant === "accent"
+                              ? (isDark ? "rgba(225, 29, 72, 0.15)" : "#fff1f2")
+                              : "background.paper",
+                          color: variant === "highlight"
+                            ? "white"
+                            : variant === "accent"
+                              ? (isDark ? "#f43f5e" : "#e11d48")
+                              : "text.primary",
+                        }}>
+                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", opacity: variant === "highlight" ? 0.7 : 0.6 }}>
+                            {label}
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, lineHeight: 1.2 }}>
+                            {value}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                )}
+              </Box>
+
+              {/* Auditing section */}
+              <Box sx={{ p: 2, bgcolor: "rgba(0,0,0,0.02)", borderRadius: "16px", border: "1px solid", borderColor: "grey.100" }}>
+                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+                  Auditing & Purchase Details
+                </Typography>
+                <Stack sx={{ gap: 1.5 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                      Supplier / Vendor
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="e.g. Star Graphics, Avery Supplier"
+                      value={form.supplier}
+                      onChange={e => set("supplier", e.target.value)}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    />
+                  </Box>
+                  <Grid container spacing={2}>
+                    <Grid size={6}>
+                      <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                        PO / Invoice Reference
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="e.g. PO-2026-001"
+                        value={form.poReference}
+                        onChange={e => set("poReference", e.target.value)}
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                      />
+                    </Grid>
+                    <Grid size={6}>
+                      <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                        Purchase Date
+                      </Typography>
+                      <DatePicker
+                        value={dayjs(form.purchaseDate)}
+                        onChange={(val) => set("purchaseDate", val?.format("YYYY-MM-DD") ?? new Date().toISOString().split("T")[0])}
+                        slotProps={{ textField: { size: "small", fullWidth: true, sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } } } }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Stack>
+              </Box>
+
+              {costPerSqft > 0 && (
+                <Stack direction="row" sx={{ gap: 1, p: 1.5, bgcolor: "grey.50", borderRadius: 2, alignItems: "flex-start" }}>
+                  <Info size={16} style={{ color: "#9ca3af", flexShrink: 0, marginTop: 1 }} />
+                  <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+                    Cost per sqft: <strong>₦{costPerSqft.toFixed(2)}</strong> based on {totalAreaSqft.toFixed(0)} usable sqft per roll (unit cost: ₦{costPerRoll.toFixed(2)})
+                  </Typography>
+                </Stack>
               )}
-            </div>
-
-            {/* Auditing & Purchase Details */}
-            <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 rounded-2xl space-y-3 border border-gray-100 dark:border-zinc-800">
-              <p className="text-[10px] font-black text-gray-500 dark:text-zinc-500 uppercase tracking-widest border-b border-gray-100 dark:border-zinc-800 pb-2">Auditing & Purchase Details</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5 col-span-2">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Supplier / Vendor</Label>
-                  <Input placeholder="e.g. Star Graphics, Avery Supplier" value={form.supplier} onChange={e => set("supplier", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">PO / Invoice Reference</Label>
-                  <Input placeholder="e.g. PO-2026-001" value={form.poReference} onChange={e => set("poReference", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">Purchase Date</Label>
-                  <Input type="date" value={form.purchaseDate} onChange={e => set("purchaseDate", e.target.value)} className="rounded-xl dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100" />
-                </div>
-              </div>
-            </div>
-
-            {costPerSqft > 0 && (
-              <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
-                <Info className="w-4 h-4 text-gray-400 shrink-0" />
-                <p className="text-xs text-gray-500 dark:text-zinc-400">
-                  Cost per sqft: <span className="font-black text-gray-800 dark:text-zinc-100">₦{costPerSqft.toFixed(2)}</span> based on {totalAreaSqft.toFixed(0)} usable sqft per roll (unit cost: ₦{costPerRoll.toFixed(2)})
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-        <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-800/50 flex gap-3 border-t dark:border-zinc-800">
-          <Button variant="outline" onClick={onClose} className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-400">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-black">{saving ? "Adding Roll..." : "Confirm Restock"}</Button>
-        </DialogFooter>
+            </Stack>
+          </Box>
+        </Stack>
       </DialogContent>
+
+      <DialogActions sx={{ p: 3, pt: 2, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "grey.100", gap: 1.5 }}>
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          sx={{ flex: 1, height: 48, borderRadius: 2, fontWeight: 700, color: "text.secondary", borderColor: "grey.300" }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving}
+          sx={{ flex: 1, height: 48, borderRadius: 2, fontWeight: 900, bgcolor: "primary.main", "&:hover": { bgcolor: "primary.dark" } }}
+        >
+          {saving ? "Adding Roll..." : "Confirm Restock"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -534,6 +1032,8 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const router = useRouter();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [inventory, setInventory] = useState<Roll[]>([]);
@@ -544,6 +1044,8 @@ export default function InventoryPage() {
   const [wasteTarget, setWasteTarget] = useState<Roll | null>(null);
   const [restockTarget, setRestockTarget] = useState<Material | null>(null);
   const [expandedMaterialId, setExpandedMaterialId] = useState<string | null>(null);
+  const [activeRollsAnchor, setActiveRollsAnchor] = useState<HTMLElement | null>(null);
+  const [depletedAnchor, setDepletedAnchor] = useState<HTMLElement | null>(null);
 
   const fetchData = async () => {
     setRefreshing(true);
@@ -644,258 +1146,382 @@ export default function InventoryPage() {
       totalRealisedRevenue += parseNum(m["Total Realised Revenue"]);
     });
 
-    return {
-      active,
-      lowStock,
-      outOfStock,
-      totalFt,
-      totalSpent,
-      totalRemainingAsset,
-      totalRemainingRevenue,
-      totalRealisedRevenue
-    };
+    return { active, lowStock, outOfStock, totalFt, totalSpent, totalRemainingAsset, totalRemainingRevenue, totalRealisedRevenue };
   }, [materials]);
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen bg-slate-50/80 dark:bg-zinc-950">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 text-brand-700 dark:text-brand-400 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-zinc-400 font-bold uppercase tracking-widest text-xs">Loading Inventory...</p>
-        </div>
-      </div>
+      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <LoadingAnimation text="Loading..." />
+      </Box>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-32">
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "background.default", minHeight: "100vh", pb: 16 }}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}
-              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Inventory Management</h1>
-            {refreshing && <RefreshCw className="w-4 h-4 text-brand-600 animate-spin" />}
-          </div>
-          <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">Linear length tracking per roll · 10ft waste reserved upfront</p>
-        </div>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        sx={{ alignItems: { md: "center" }, justifyContent: "space-between", gap: 2, mb: 4 }}
+      >
+        <Box>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+            <IconButton
+              onClick={() => router.back()}
+              sx={{
+                display: { md: "none" },
+                borderRadius: 2,
+                width: 36,
+                height: 36,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <ArrowLeft size={16} />
+            </IconButton>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: "text.primary", letterSpacing: "-0.02em" }}>
+              Inventory Management
+            </Typography>
+            {refreshing && <RefreshCw size={16} style={{ color: "#C8472E", animation: "spin 1s linear infinite" }} />}
+          </Stack>
+          <Typography sx={{ color: "text.secondary", fontSize: "0.875rem", mt: 0.5 }}>
+            Linear length tracking per roll · 10ft waste reserved upfront
+          </Typography>
+        </Box>
         <AddRollDialog onAdded={fetchData} />
-      </div>
+      </Stack>
 
       {/* Overview Analytics Banner */}
-      <div className="flex flex-col gap-6 mb-8">
-        
+      <Stack sx={{ gap: 3, mb: 4 }}>
         {/* Top Row: Health & Assets */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-white dark:bg-zinc-900 border-none shadow-sm md:col-span-1">
-            <CardContent className="p-5 space-y-4">
-              <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest border-b pb-2 dark:border-zinc-800">Warehouse Health</p>
-                <div className="grid grid-cols-3 gap-2 text-center mt-3">
+        <Grid container spacing={3}>
+          {/* Warehouse Health Card */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card sx={{ border: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", height: "100%" }}>
+              <CardContent sx={{ p: 2.5 }}>
+                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+                  Warehouse Health
+                </Typography>
+                <Grid container spacing={1} sx={{ textAlign: "center", mb: 2 }}>
                   {[
-                    { label: "Active Mat", val: stats.active, color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30" },
-                    { label: "Low Stock", val: stats.lowStock, color: "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30" },
-                    { label: "Out of Stock", val: stats.outOfStock, color: "text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30" },
-                  ].map((s) => (
-                    <div key={s.label} className={cn("p-2 rounded-xl", s.color)}>
-                      <p className="text-xl font-black">{s.val}</p>
-                      <p className="text-[8px] font-black uppercase tracking-normal mt-0.5 opacity-80">{s.label}</p>
-                    </div>
+                    { label: "Active Mat", val: stats.active, bgcolor: isDark ? "rgba(16, 185, 129, 0.15)" : "#d1fae5", color: isDark ? "#34d399" : "#065f46" },
+                    { label: "Low Stock", val: stats.lowStock, bgcolor: isDark ? "rgba(245, 158, 11, 0.15)" : "#fef3c7", color: isDark ? "#fbbf24" : "#92400e" },
+                    { label: "Out of Stock", val: stats.outOfStock, bgcolor: isDark ? "rgba(239, 68, 68, 0.15)" : "#ffe4e6", color: isDark ? "#f87171" : "#9f1239" },
+                  ].map(s => (
+                    <Grid size={4} key={s.label}>
+                      <Box sx={{ p: 1, borderRadius: 2, bgcolor: s.bgcolor, color: s.color }}>
+                        <Typography sx={{ fontSize: "1.25rem", fontWeight: 900 }}>{s.val}</Typography>
+                        <Typography sx={{ fontSize: "0.5rem", fontWeight: 900, textTransform: "uppercase", mt: 0.25, opacity: 0.8 }}>
+                          {s.label}
+                        </Typography>
+                      </Box>
+                    </Grid>
                   ))}
-                </div>
-              </div>
+                </Grid>
 
-              <div className="pt-2 border-t dark:border-zinc-800">
-                <p className="text-[9px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-widest mb-3">Live Roll Analytics</p>
-                <div className="grid grid-cols-2 gap-3">
-                  
-                  {/* Active Rolls Popover */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className="flex flex-col items-center justify-center p-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white w-full active:scale-[0.97] transition-all shadow-md shadow-emerald-500/10">
-                        <span className="text-2xl font-black">{totalActiveRollsCount}</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider mt-0.5 opacity-90 flex items-center gap-1">
-                          Active Rolls <ChevronDown className="w-2.5 h-2.5" />
-                        </span>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-4 rounded-2xl bg-white dark:bg-zinc-900 shadow-xl border border-gray-100 dark:border-zinc-800" align="center">
-                      <div className="space-y-3">
-                        <div className="border-b dark:border-zinc-800 pb-2 flex items-center justify-between">
-                          <h4 className="text-xs font-black uppercase text-gray-500 dark:text-zinc-400 tracking-wider">Active Rolls</h4>
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">{totalActiveRollsCount} total</span>
-                        </div>
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
-                          {activeRollGroups.length === 0 ? (
-                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 italic py-2 text-center">No active rolls.</p>
-                          ) : (
-                            activeRollGroups.map(([key, count]) => (
-                              <div key={key} className="flex justify-between items-center text-xs py-1">
-                                <span className="font-bold text-gray-700 dark:text-zinc-300">{key}</span>
-                                <span className="font-black text-gray-900 dark:text-white bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded-md">{count} {count === 1 ? 'roll' : 'rolls'}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                <Box sx={{ pt: 1.5, borderTop: "1px solid", borderColor: "grey.100" }}>
+                  <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 1.5 }}>
+                    Live Roll Analytics
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {/* Active Rolls Popover Button */}
+                    <Grid size={6}>
+                      <Box
+                        component="button"
+                        onClick={(e: React.MouseEvent<HTMLElement>) => setActiveRollsAnchor(e.currentTarget)}
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          p: 1.5,
+                          borderRadius: 3,
+                          bgcolor: "#10b981",
+                          color: "white",
+                          width: "100%",
+                          cursor: "pointer",
+                          border: "none",
+                          transition: "all 0.15s ease",
+                          boxShadow: "0 4px 12px rgba(16,185,129,0.2)",
+                          "&:hover": { bgcolor: "#059669" },
+                          "&:active": { transform: "scale(0.97)" },
+                        }}
+                      >
+                        <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, lineHeight: 1 }}>{totalActiveRollsCount}</Typography>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 0.5 }}>
+                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9 }}>
+                            Active Rolls
+                          </Typography>
+                          <ChevronDown size={10} />
+                        </Stack>
+                      </Box>
+                    </Grid>
 
-                  {/* Depleted/Used Rolls Popover */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-500 hover:bg-gray-600 dark:bg-zinc-700 dark:hover:bg-zinc-650 text-white w-full active:scale-[0.97] transition-all shadow-md shadow-gray-500/10">
-                        <span className="text-2xl font-black">{totalDepletedRollsCount}</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider mt-0.5 opacity-90 flex items-center gap-1">
-                          Used Rolls <ChevronDown className="w-2.5 h-2.5" />
-                        </span>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-4 rounded-2xl bg-white dark:bg-zinc-900 shadow-xl border border-gray-100 dark:border-zinc-800" align="center">
-                      <div className="space-y-3">
-                        <div className="border-b dark:border-zinc-800 pb-2 flex items-center justify-between">
-                          <h4 className="text-xs font-black uppercase text-gray-500 dark:text-zinc-400 tracking-wider">Used / Depleted</h4>
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400">{totalDepletedRollsCount} total</span>
-                        </div>
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
-                          {depletedRollGroups.length === 0 ? (
-                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 italic py-2 text-center">No depleted rolls.</p>
-                          ) : (
-                            depletedRollGroups.map(([key, count]) => (
-                              <div key={key} className="flex justify-between items-center text-xs py-1">
-                                <span className="font-bold text-gray-700 dark:text-zinc-300">{key}</span>
-                                <span className="font-black text-gray-900 dark:text-white bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded-md">{count} {count === 1 ? 'roll' : 'rolls'}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                    {/* Depleted Rolls Popover Button */}
+                    <Grid size={6}>
+                      <Box
+                        component="button"
+                        onClick={(e: React.MouseEvent<HTMLElement>) => setDepletedAnchor(e.currentTarget)}
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          p: 1.5,
+                          borderRadius: 3,
+                          bgcolor: "#6b7280",
+                          color: "white",
+                          width: "100%",
+                          cursor: "pointer",
+                          border: "none",
+                          transition: "all 0.15s ease",
+                          boxShadow: "0 4px 12px rgba(107,114,128,0.15)",
+                          "&:hover": { bgcolor: "#4b5563" },
+                          "&:active": { transform: "scale(0.97)" },
+                        }}
+                      >
+                        <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, lineHeight: 1 }}>{totalDepletedRollsCount}</Typography>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 0.5 }}>
+                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9 }}>
+                            Used Rolls
+                          </Typography>
+                          <ChevronDown size={10} />
+                        </Stack>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
 
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { 
-                title: "Capital Invested", 
-                val: `₦${stats.totalSpent.toLocaleString()}`, 
-                icon: Coins, 
-                color: "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30",
-                sub: "Total Spent on Roll Assets"
-              },
-              { 
-                title: "Remaining Asset Cost", 
-                val: `₦${stats.totalRemainingAsset.toLocaleString()}`, 
-                icon: CircleDollarSign, 
-                color: "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/30",
-                sub: `${Math.round(stats.totalFt).toLocaleString()} ft remaining`
-              },
-            ].map((s, i) => (
-              <Card key={i} className="bg-white dark:bg-zinc-900 border-none shadow-sm h-full">
-                <CardContent className="p-5 flex items-center justify-between h-full">
-                  <div>
-                    <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1.5">{s.title}</p>
-                    <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">{s.val}</p>
-                    <p className="text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase mt-1.5 tracking-wider leading-none">{s.sub}</p>
-                  </div>
-                  <div className={`p-3 rounded-2xl ${s.color}`}><s.icon className="w-5 h-5" /></div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+          {/* Capital Invested + Remaining Asset */}
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Grid container spacing={3} sx={{ height: "100%" }}>
+              {[
+                {
+                  title: "Capital Invested",
+                  val: `₦${stats.totalSpent.toLocaleString()}`,
+                  IconComp: Coins,
+                  iconBg: isDark ? "rgba(37, 99, 235, 0.15)" : "#eff6ff",
+                  iconColor: isDark ? "#60a5fa" : "#2563eb",
+                  sub: "Total Spent on Roll Assets",
+                },
+                {
+                  title: "Remaining Asset Cost",
+                  val: `₦${stats.totalRemainingAsset.toLocaleString()}`,
+                  IconComp: CircleDollarSign,
+                  iconBg: isDark ? "rgba(124, 58, 237, 0.15)" : "#f5f3ff",
+                  iconColor: isDark ? "#a78bfa" : "#7c3aed",
+                  sub: `${Math.round(stats.totalFt).toLocaleString()} ft remaining`,
+                },
+              ].map(s => (
+                <Grid size={{ xs: 12, sm: 6 }} key={s.title}>
+                  <Card sx={{ border: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", height: "100%" }}>
+                    <CardContent sx={{ p: 2.5, display: "flex", alignItems: "center", justifyContent: "space-between", height: "100%" }}>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.75 }}>
+                          {s.title}
+                        </Typography>
+                        <Typography sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" }, fontWeight: 900, color: "text.primary", lineHeight: 1.1 }}>
+                          {s.val}
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mt: 0.75 }}>
+                          {s.sub}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ p: 1.5, borderRadius: 3, bgcolor: s.iconBg }}>
+                        <s.IconComp size={20} style={{ color: s.iconColor }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Grid>
+        </Grid>
 
         {/* Bottom Row: Revenue */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-white dark:bg-zinc-900 border-none shadow-sm md:col-span-2 overflow-hidden">
-            <CardContent className="p-0 h-full flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-zinc-800">
-              {[
-                { 
-                  title: "Realised Revenue", 
-                  val: `₦${stats.totalRealisedRevenue.toLocaleString()}`, 
-                  icon: CheckCircle2, 
-                  color: "text-sky-600 bg-sky-50 dark:text-sky-400 dark:bg-sky-900/30",
-                  sub: "Revenue from Used Stock"
-                },
-                { 
-                  title: "Expected Revenue", 
-                  val: `₦${stats.totalRemainingRevenue.toLocaleString()}`, 
-                  icon: TrendingUp, 
-                  color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30",
-                  sub: "Estimated Sales Potential"
-                },
-              ].map((s, i) => (
-                <div key={i} className="flex-1 p-5 flex items-center justify-between hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                  <div>
-                    <p className="text-[10px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest mb-1.5">{s.title}</p>
-                    <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">{s.val}</p>
-                    <p className="text-[9px] text-gray-400 dark:text-zinc-500 font-bold uppercase mt-1.5 tracking-wider leading-none">{s.sub}</p>
-                  </div>
-                  <div className={`p-3 rounded-2xl ${s.color}`}><s.icon className="w-5 h-5" /></div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+        <Grid container spacing={3}>
+          {/* Realised + Expected revenue */}
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Card sx={{ border: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", overflow: "hidden", height: "100%" }}>
+              <CardContent sx={{ p: 0, height: "100%", display: "flex", flexDirection: { xs: "column", sm: "row" } }}>
+                {[
+                  {
+                    title: "Realised Revenue",
+                    val: `₦${stats.totalRealisedRevenue.toLocaleString()}`,
+                    IconComp: CheckCircle2,
+                    iconBg: isDark ? "rgba(2, 132, 199, 0.15)" : "#e0f2fe",
+                    iconColor: isDark ? "#38bdf8" : "#0284c7",
+                    sub: "Revenue from Used Stock",
+                  },
+                  {
+                    title: "Expected Revenue",
+                    val: `₦${stats.totalRemainingRevenue.toLocaleString()}`,
+                    IconComp: TrendingUp,
+                    iconBg: isDark ? "rgba(5, 150, 105, 0.15)" : "#d1fae5",
+                    iconColor: isDark ? "#34d399" : "#059669",
+                    sub: "Estimated Sales Potential",
+                  },
+                ].map((s, i) => (
+                  <Box
+                    key={s.title}
+                    sx={{
+                      flex: 1,
+                      p: 2.5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderRight: i === 0 ? { xs: "none", sm: "1px solid" } : "none",
+                      borderBottom: i === 0 ? { xs: "1px solid", sm: "none" } : "none",
+                      borderColor: "grey.100",
+                      transition: "background 0.15s",
+                      "&:hover": { bgcolor: "rgba(0,0,0,0.01)" },
+                    }}
+                  >
+                    <Box>
+                      <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.75 }}>
+                        {s.title}
+                      </Typography>
+                      <Typography sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" }, fontWeight: 900, color: "text.primary", lineHeight: 1.1 }}>
+                        {s.val}
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mt: 0.75 }}>
+                        {s.sub}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ p: 1.5, borderRadius: 3, bgcolor: s.iconBg }}>
+                      <s.IconComp size={20} style={{ color: s.iconColor }} />
+                    </Box>
+                  </Box>
+                ))}
+              </CardContent>
+            </Card>
+          </Grid>
 
-          <Card className="bg-brand-700 dark:bg-brand-900 border-none shadow-lg shadow-brand-700/20 md:col-span-1 text-white relative overflow-hidden group">
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-all duration-700" />
-            <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-black/10 rounded-full blur-xl pointer-events-none" />
-            <CardContent className="p-6 h-full flex flex-col justify-center relative z-10">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-brand-100/80">Total Est. Revenue</p>
-                <div className="p-2 bg-white/10 rounded-xl">
-                  <Sparkles className="w-4 h-4 text-brand-100" />
-                </div>
-              </div>
-              <p className="text-3xl lg:text-4xl font-black leading-tight tracking-tight mb-2">
-                ₦{(stats.totalRealisedRevenue + stats.totalRemainingRevenue).toLocaleString()}
-              </p>
-              <p className="text-[10px] text-brand-200 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Realised + Expected
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+          {/* Total Est Revenue Hero Card */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card sx={{
+              bgcolor: "primary.main",
+              border: "none",
+              boxShadow: "0 8px 24px rgba(200,71,46,0.25)",
+              overflow: "hidden",
+              height: "100%",
+              position: "relative",
+            }}>
+              <Box sx={{ position: "absolute", top: -48, right: -48, width: 128, height: 128, bgcolor: "rgba(255,255,255,0.1)", borderRadius: "50%", filter: "blur(24px)", pointerEvents: "none" }} />
+              <Box sx={{ position: "absolute", bottom: -40, left: -40, width: 96, height: 96, bgcolor: "rgba(0,0,0,0.1)", borderRadius: "50%", filter: "blur(16px)", pointerEvents: "none" }} />
+              <CardContent sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", position: "relative", zIndex: 1 }}>
+                <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.8)" }}>
+                    Total Est. Revenue
+                  </Typography>
+                  <Box sx={{ p: 1, bgcolor: "rgba(255,255,255,0.15)", borderRadius: 2 }}>
+                    <Sparkles size={16} style={{ color: "rgba(255,255,255,0.9)" }} />
+                  </Box>
+                </Stack>
+                <Typography sx={{ fontSize: { xs: "1.75rem", lg: "2.25rem" }, fontWeight: 900, color: "white", lineHeight: 1.1, letterSpacing: "-0.02em", mb: 1 }}>
+                  ₦{(stats.totalRealisedRevenue + stats.totalRemainingRevenue).toLocaleString()}
+                </Typography>
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#34d399", animation: "pulse 2s infinite" }} />
+                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.7)" }}>
+                    Realised + Expected
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Stack>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
-        <div className="p-6 border-b border-gray-50 dark:border-zinc-800 flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-zinc-400" />
-            <Input placeholder="Search materials by name or category..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-11 bg-gray-50 dark:bg-zinc-800 border-none rounded-xl dark:text-zinc-100" />
-          </div>
-          <Button variant="ghost" size="sm" onClick={fetchData} className="font-bold text-gray-500 dark:text-zinc-400">
-            <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+      {/* Materials Table */}
+      <Card sx={{ border: "1px solid", borderColor: "grey.100", boxShadow: "none", overflow: "hidden" }}>
+        {/* Table toolbar */}
+        <Box sx={{
+          p: 3,
+          borderBottom: "1px solid",
+          borderColor: "grey.50",
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          gap: 2,
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}>
+          <TextField
+            size="small"
+            placeholder="Search materials by name or category..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            sx={{ width: { xs: "100%", md: 384 }, "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "grey.50", "& fieldset": { border: "none" } } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search size={16} style={{ color: "#9ca3af" }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <Button
+            variant="text"
+            size="small"
+            startIcon={<RefreshCw size={16} />}
+            onClick={fetchData}
+            sx={{ fontWeight: 700, color: "text.secondary" }}
+          >
+            Refresh
           </Button>
-        </div>
+        </Box>
 
-        <div className="overflow-x-auto">
+        {/* Table */}
+        <Box sx={{ overflowX: "auto" }}>
           <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50/50 dark:bg-zinc-800/50 border-none">
-                {["Material Profile", "Width", "Rolls", "Total Stock", "Status"].map(h => (
-                  <TableHead key={h} className={cn("text-[10px] font-black uppercase text-gray-600 dark:text-zinc-400 py-4 whitespace-nowrap", h === "Material Profile" ? "pl-6" : ["Rolls","Total Stock","Status"].includes(h) ? "text-center" : "")}>{h}</TableHead>
+            <TableHead>
+              <TableRow sx={{ bgcolor: "rgba(0,0,0,0.02)" }}>
+                {[
+                  { label: "Material Profile", align: "left" as const, pl: 3 },
+                  { label: "Width", align: "left" as const },
+                  { label: "Rolls", align: "center" as const },
+                  { label: "Total Stock", align: "center" as const },
+                  { label: "Status", align: "center" as const },
+                ].map(h => (
+                  <TableCell
+                    key={h.label}
+                    align={h.align}
+                    sx={{
+                      fontSize: "0.625rem",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      color: "text.secondary",
+                      letterSpacing: "0.08em",
+                      py: 2,
+                      pl: h.pl,
+                      whiteSpace: "nowrap",
+                      border: "none",
+                    }}
+                  >
+                    {h.label}
+                  </TableCell>
                 ))}
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-20">
-                    <div className="flex flex-col items-center gap-2 text-gray-300 dark:text-zinc-700">
-                      <Package className="w-10 h-10 mb-1 opacity-40" />
-                      <p className="text-sm font-bold text-gray-500 dark:text-zinc-400">No materials found</p>
-                      <p className="text-xs text-gray-400 dark:text-zinc-500">{search ? "Try a different search term" : "Add your first roll using the button above"}</p>
-                    </div>
+                  <TableCell colSpan={5} sx={{ textAlign: "center", py: 12, border: "none" }}>
+                    <Stack sx={{ alignItems: "center", gap: 1, color: "text.disabled" }}>
+                      <Package size={40} style={{ opacity: 0.3 }} />
+                      <Typography sx={{ fontWeight: 700, color: "text.secondary", fontSize: "0.875rem" }}>
+                        No materials found
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.75rem", color: "text.disabled" }}>
+                        {search ? "Try a different search term" : "Add your first roll using the button above"}
+                      </Typography>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ) : filteredMaterials.map((mat, index) => {
@@ -907,176 +1533,261 @@ export default function InventoryPage() {
                 const matchedRolls = inventory.filter(r => r["Material ID"] === matId);
                 const displayRolls = matchedRolls.length > 0 ? matchedRolls : inventory.filter(r => (r["Roll ID"] || "").startsWith(mat["Material Name"] || "XXXXXX"));
                 const pct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
-                const barColor = mat.Status === "Out of Stock" || mat.Status === "Depleted" ? "bg-rose-500" : mat.Status === "Low Stock" ? "bg-amber-500" : "bg-emerald-500";
+                const barColor = mat.Status === "Out of Stock" || mat.Status === "Depleted" ? "#ef4444" : mat.Status === "Low Stock" ? "#f59e0b" : "#10b981";
                 const isExpanded = expandedMaterialId === matId;
                 const rollCountDisplay = rollCount || displayRolls.length;
-                const bgClass = index % 2 === 0
-                  ? "bg-white dark:bg-zinc-900"
-                  : "bg-slate-50/50 dark:bg-zinc-900/30";
+                const rowBg = index % 2 === 0
+                  ? (theme.palette.mode === "dark" ? "background.paper" : "white")
+                  : (theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.015)" : "rgba(248, 250, 252, 0.5)");
 
                 return (
                   <Fragment key={matId}>
-                    <TableRow className={cn("border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50/30 dark:hover:bg-zinc-800/50 cursor-pointer", bgClass)} onClick={() => setExpandedMaterialId(isExpanded ? null : matId)}>
-                      <TableCell className="font-bold py-4 pl-6">
-                        <div className="flex items-center gap-2">
-                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-                          <div className="min-w-0">
-                            <p className="text-sm font-black text-gray-900 dark:text-zinc-100 truncate">{mat["Material Name"]}</p>
-                            <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono">{matId}</p>
-                          </div>
-                        </div>
+                    <TableRow
+                      onClick={() => setExpandedMaterialId(isExpanded ? null : matId)}
+                      sx={{
+                        bgcolor: rowBg,
+                        cursor: "pointer",
+                        borderBottom: "1px solid",
+                        borderColor: "grey.50",
+                        "&:hover": { bgcolor: "action.hover" },
+                      }}
+                    >
+                      <TableCell sx={{ fontWeight: 700, py: 2, pl: 3, border: "none" }}>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                          {isExpanded
+                            ? <ChevronUp size={14} style={{ color: "#9ca3af", flexShrink: 0 }} />
+                            : <ChevronDown size={14} style={{ color: "#9ca3af", flexShrink: 0 }} />
+                          }
+                          <Box>
+                            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
+                              {mat["Material Name"]}
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontFamily: "monospace" }}>
+                              {matId}
+                            </Typography>
+                          </Box>
+                        </Stack>
                       </TableCell>
-                      <TableCell className="font-black text-brand-700 dark:text-brand-400 whitespace-nowrap">{parseNum(mat["Width (ft)"])}ft</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="text-[10px] font-bold border-gray-200 dark:border-zinc-700 whitespace-nowrap">
-                          {rollCountDisplay} {rollCountDisplay === 1 ? "Roll" : "Rolls"}
-                        </Badge>
+                      <TableCell sx={{ fontWeight: 900, color: "primary.main", whiteSpace: "nowrap", border: "none" }}>
+                        {parseNum(mat["Width (ft)"])}ft
                       </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="font-black text-gray-900 dark:text-white text-sm whitespace-nowrap">{remaining.toFixed(1)}ft</span>
-                          <div className="w-20 h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
-                            <div className={`h-full rounded-full [transition:width_500ms_ease-out] ${barColor}`} style={{ width: `${pct.toFixed(1)}%` }} />
-                          </div>
-                          <span className="text-[9px] text-gray-400 dark:text-zinc-500">{pct.toFixed(0)}% left</span>
-                        </div>
+                      <TableCell align="center" sx={{ border: "none" }}>
+                        <Chip
+                          label={`${rollCountDisplay} ${rollCountDisplay === 1 ? "Roll" : "Rolls"}`}
+                          variant="outlined"
+                          size="small"
+                          sx={{ fontSize: "0.625rem", fontWeight: 700, borderColor: "grey.200" }}
+                        />
                       </TableCell>
-                      <TableCell className="text-center"><StatusPill status={mat.Status || "Active"} /></TableCell>
+                      <TableCell align="center" sx={{ border: "none" }}>
+                        <Stack sx={{ alignItems: "center", gap: 0.5 }}>
+                          <Typography sx={{ fontWeight: 900, fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+                            {remaining.toFixed(1)}ft
+                          </Typography>
+                          <Box sx={{ width: 80, height: 6, borderRadius: 99, bgcolor: "grey.100", overflow: "hidden" }}>
+                            <Box sx={{
+                              height: "100%",
+                              borderRadius: 99,
+                              bgcolor: barColor,
+                              width: `${pct.toFixed(1)}%`,
+                              transition: "width 500ms ease-out",
+                            }} />
+                          </Box>
+                          <Typography sx={{ fontSize: "0.5625rem", color: "text.disabled" }}>
+                             {pct.toFixed(0)}% left
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="center" sx={{ border: "none" }}>
+                        <StatusPill status={mat.Status || "Active"} />
+                      </TableCell>
                     </TableRow>
 
                     {isExpanded && (
-                      <TableRow className="bg-gray-50/50 dark:bg-zinc-800/20 border-b border-gray-50 dark:border-zinc-800">
-                        <TableCell colSpan={5} className="p-0">
-                          <div className="p-4 md:p-6">
+                      <TableRow sx={{ bgcolor: theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.01)" : "rgba(248,250,252,0.6)", borderBottom: "1px solid", borderColor: "grey.50" }}>
+                        <TableCell colSpan={5} sx={{ p: 0, border: "none" }}>
+                          <Box sx={{ p: { xs: 2, md: 3 } }}>
                             {/* Material Valuation Sub-Panel */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 dark:bg-zinc-900/30 border border-gray-100 dark:border-zinc-800 rounded-2xl shadow-inner">
-                              <div>
-                                <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-black text-[9px]">Spent on Material</span>
-                                <span className="font-black text-base text-gray-900 dark:text-white">₦{parseNum(mat["Total Spent"]).toLocaleString()}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-black text-[9px]">Remaining Cost Value</span>
-                                <span className="font-black text-base text-purple-600 dark:text-purple-400">₦{parseNum(mat["Total Remaining Asset Value"]).toLocaleString()}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider font-black text-[9px]">Expected Sales Revenue</span>
-                                <span className="font-black text-base text-emerald-600 dark:text-emerald-400">₦{parseNum(mat["Total Remaining Revenue"]).toLocaleString()}</span>
-                              </div>
-                            </div>
+                            <Grid container spacing={2} sx={{ mb: 3, p: 2, bgcolor: "grey.50", border: "1px solid", borderColor: "grey.100", borderRadius: 3 }}>
+                              <Grid size={{ xs: 12, sm: 4 }}>
+                                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
+                                  Spent on Material
+                                </Typography>
+                                <Typography sx={{ fontWeight: 900, fontSize: "1rem", color: "text.primary" }}>
+                                  ₦{parseNum(mat["Total Spent"]).toLocaleString()}
+                                </Typography>
+                              </Grid>
+                              <Grid size={{ xs: 12, sm: 4 }}>
+                                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
+                                  Remaining Cost Value
+                                </Typography>
+                                <Typography sx={{ fontWeight: 900, fontSize: "1rem", color: "#7c3aed" }}>
+                                  ₦{parseNum(mat["Total Remaining Asset Value"]).toLocaleString()}
+                                </Typography>
+                              </Grid>
+                              <Grid size={{ xs: 12, sm: 4 }}>
+                                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
+                                  Expected Sales Revenue
+                                </Typography>
+                                <Typography sx={{ fontWeight: 900, fontSize: "1rem", color: "#059669" }}>
+                                  ₦{parseNum(mat["Total Remaining Revenue"]).toLocaleString()}
+                                </Typography>
+                              </Grid>
+                            </Grid>
 
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-zinc-500 tracking-widest flex items-center gap-2">
-                                <Package className="w-3 h-3" /> Physical Roll Log
-                              </h4>
-                              <div className="flex items-center gap-2">
+                            {/* Roll Log header */}
+                            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                                <Package size={12} style={{ color: "#9ca3af" }} />
+                                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary" }}>
+                                  Physical Roll Log
+                                </Typography>
+                              </Stack>
+                              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                                 {activeRollId && (
-                                  <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
-                                    <Zap className="w-2.5 h-2.5" /> Active: {activeRollId}
-                                  </span>
+                                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, fontSize: "0.5625rem", fontWeight: 900, color: "#059669", bgcolor: "#d1fae5", px: 1.5, py: 0.5, borderRadius: 99, border: "1px solid #a7f3d0" }}>
+                                    <Zap size={10} />
+                                    <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900 }}>Active: {activeRollId}</Typography>
+                                  </Stack>
                                 )}
                                 <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 rounded-lg text-[10px] font-black border-amber-200 dark:border-amber-800/40 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 whitespace-nowrap"
+                                  variant="outlined"
+                                  size="small"
                                   onClick={(e) => { e.stopPropagation(); setRestockTarget(mat); }}
+                                  sx={{
+                                    height: 28,
+                                    borderRadius: 2,
+                                    fontSize: "0.625rem",
+                                    fontWeight: 900,
+                                    borderColor: "#fcd34d",
+                                    color: "#d97706",
+                                    whiteSpace: "nowrap",
+                                    "&:hover": { bgcolor: "#fffbeb" },
+                                  }}
                                 >
                                   Restock Material
                                 </Button>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
+                              </Stack>
+                            </Stack>
+
+                            {/* Individual rolls */}
+                            <Stack sx={{ gap: 1 }}>
                               {displayRolls.length === 0 ? (
-                                <p className="text-xs text-gray-400 dark:text-zinc-500 italic py-4 text-center">No physical rolls linked to this profile yet.</p>
+                                <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontStyle: "italic", py: 2, textAlign: "center" }}>
+                                  No physical rolls linked to this profile yet.
+                                </Typography>
                               ) : displayRolls.map(roll => {
                                 const rTotal = parseNum(roll["Total Length (ft)"]);
                                 const rRem = parseNum(roll["Remaining Length (ft)"]);
                                 const rPct = rTotal > 0 ? Math.min(100, (rRem / rTotal) * 100) : 0;
                                 const isActiveRoll = roll["Roll ID"] === activeRollId;
-                                const rollBarColor = roll.Status === "Out of Stock" || rRem <= 0 ? "bg-rose-500" : roll.Status === "Low Stock" ? "bg-amber-500" : "bg-brand-500";
-
+                                const rollBarColor = roll.Status === "Out of Stock" || rRem <= 0 ? "#ef4444" : roll.Status === "Low Stock" ? "#f59e0b" : "#C8472E";
                                 const isFinished = roll.Status === "Depleted" || roll.Status === "Out of Stock";
+
                                 return (
-                                  <div
+                                  <Box
                                     key={roll["Roll ID"]}
-                                    className={cn(
-                                      "p-4 rounded-xl border shadow-sm",
-                                      isFinished
-                                        ? "bg-gray-50 dark:bg-zinc-800/30 border-gray-100 dark:border-zinc-800 opacity-60"
+                                    sx={{
+                                      p: 2,
+                                      borderRadius: 2,
+                                      border: "1px solid",
+                                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                                      opacity: isFinished ? 0.6 : 1,
+                                      bgcolor: isFinished
+                                        ? "grey.50"
+                                        : (theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.02)" : "white"),
+                                      borderColor: isFinished
+                                        ? "grey.100"
                                         : isActiveRoll
-                                        ? "bg-white dark:bg-zinc-900 border-emerald-200 dark:border-emerald-800/40 ring-1 ring-emerald-200 dark:ring-emerald-800/40"
-                                        : "bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800"
-                                    )}
+                                          ? (theme.palette.mode === "dark" ? "#10b981" : "#a7f3d0")
+                                          : "grey.100",
+                                      outline: isActiveRoll && !isFinished
+                                        ? `1px solid ${theme.palette.mode === "dark" ? "#10b981" : "#a7f3d0"}`
+                                        : "none",
+                                    }}
                                   >
                                     {/* Roll header row */}
-                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                                      <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                          "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-                                          isFinished ? "bg-gray-100 dark:bg-zinc-700/50" : isActiveRoll ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-gray-50 dark:bg-zinc-800"
-                                        )}>
-                                          <Package className={cn("w-4 h-4", isFinished ? "text-gray-300 dark:text-zinc-600" : isActiveRoll ? "text-emerald-500" : "text-gray-400 dark:text-zinc-500")} />
-                                        </div>
-                                        <div>
-                                          <div className="flex items-center gap-2">
-                                            <p className="text-sm font-black text-gray-900 dark:text-white">{roll["Roll ID"]}</p>
+                                    <Stack direction="row" sx={{ flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 1.5, mb: 1.5 }}>
+                                      <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+                                        <Box sx={{
+                                          width: 36, height: 36, borderRadius: 2,
+                                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                                          bgcolor: isFinished ? "grey.100" : isActiveRoll ? "#d1fae5" : "grey.50",
+                                        }}>
+                                          <Package size={16} style={{ color: isFinished ? "#d1d5db" : isActiveRoll ? "#10b981" : "#9ca3af" }} />
+                                        </Box>
+                                        <Box>
+                                          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                                            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900 }}>
+                                              {roll["Roll ID"]}
+                                            </Typography>
                                             {isActiveRoll && (
-                                              <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/30 uppercase tracking-wide">
+                                              <Typography sx={{ fontSize: "0.5rem", fontWeight: 900, color: "#059669", bgcolor: "#d1fae5", px: 1, py: 0.25, borderRadius: 99, border: "1px solid #a7f3d0", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                                 Active
-                                              </span>
+                                              </Typography>
                                             )}
-                                          </div>
-                                          <p className="text-[10px] text-gray-400 dark:text-zinc-500">{roll["Date Added"] || "—"}</p>
-                                        </div>
-                                      </div>
+                                          </Stack>
+                                          <Typography sx={{ fontSize: "0.625rem", color: "text.disabled" }}>
+                                            {roll["Date Added"] || "—"}
+                                          </Typography>
+                                        </Box>
+                                      </Stack>
                                       <StatusPill status={roll.Status || "Active"} />
-                                    </div>
+                                    </Stack>
 
                                     {/* Progress bar */}
-                                    <div className="mb-3">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Remaining</span>
-                                        <span className="text-[10px] font-black text-gray-700 dark:text-zinc-300">
-                                          {rRem.toFixed(1)}ft <span className="text-gray-400 font-medium">of {rTotal.toFixed(0)}ft</span>
-                                        </span>
-                                      </div>
-                                      <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
-                                        <div
-                                          className={cn("h-full rounded-full [transition:width_500ms_ease-out]", rollBarColor)}
-                                          style={{ width: `${rPct.toFixed(1)}%` }}
-                                        />
-                                      </div>
-                                    </div>
+                                    <Box sx={{ mb: 1.5 }}>
+                                      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
+                                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary" }}>
+                                          Remaining
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.primary" }}>
+                                          {rRem.toFixed(1)}ft <Box component="span" sx={{ color: "text.disabled", fontWeight: 400 }}>of {rTotal.toFixed(0)}ft</Box>
+                                        </Typography>
+                                      </Stack>
+                                      <Box sx={{ width: "100%", height: 8, borderRadius: 99, bgcolor: "grey.100", overflow: "hidden" }}>
+                                        <Box sx={{
+                                          height: "100%",
+                                          borderRadius: 99,
+                                          bgcolor: rollBarColor,
+                                          width: `${rPct.toFixed(1)}%`,
+                                          transition: "width 500ms ease-out",
+                                        }} />
+                                      </Box>
+                                    </Box>
 
                                     {/* Actions */}
-                                    <div className="flex items-center gap-2 justify-end">
+                                    <Stack direction="row" sx={{ alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
                                       {isFinished ? (
-                                        <span className="text-[9px] font-black text-gray-300 dark:text-zinc-600 uppercase tracking-widest">Roll Complete</span>
+                                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.disabled" }}>
+                                          Roll Complete
+                                        </Typography>
                                       ) : (
                                         <>
                                           <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 rounded-lg text-[10px] font-black border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/10"
+                                            variant="outlined"
+                                            size="small"
                                             onClick={(e) => { e.stopPropagation(); setWasteTarget(roll); }}
+                                            sx={{ height: 32, borderRadius: 2, fontSize: "0.625rem", fontWeight: 900, borderColor: "#fecaca", color: "#dc2626", "&:hover": { bgcolor: "#fff1f2" } }}
                                           >
                                             Log Waste
                                           </Button>
                                           <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 rounded-lg text-[10px] font-black border-gray-200 dark:border-zinc-700 hover:bg-brand-50 dark:hover:bg-zinc-800"
+                                            variant="outlined"
+                                            size="small"
                                             onClick={(e) => { e.stopPropagation(); setAdjustTarget(roll); }}
+                                            sx={{ height: 32, borderRadius: 2, fontSize: "0.625rem", fontWeight: 900, borderColor: "grey.200", color: "text.primary", "&:hover": { bgcolor: "grey.50" } }}
                                           >
                                             Adjust Stock
                                           </Button>
                                         </>
                                       )}
-                                    </div>
-                                  </div>
+                                    </Stack>
+                                  </Box>
                                 );
                               })}
-                            </div>
-                          </div>
+                            </Stack>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     )}
@@ -1085,8 +1796,82 @@ export default function InventoryPage() {
               })}
             </TableBody>
           </Table>
-        </div>
-      </div>
+        </Box>
+      </Card>
+
+      {/* Active Rolls Popover */}
+      <Popover
+        open={Boolean(activeRollsAnchor)}
+        anchorEl={activeRollsAnchor}
+        onClose={() => setActiveRollsAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+        slotProps={{ paper: { sx: { borderRadius: 3, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid", borderColor: "grey.100", mt: 1 } } }}
+      >
+        <Box sx={{ p: 2, width: 256 }}>
+          <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.08em" }}>
+              Active Rolls
+            </Typography>
+            <Chip
+              label={`${totalActiveRollsCount} total`}
+              size="small"
+              sx={{ fontSize: "0.625rem", fontWeight: 900, bgcolor: "#d1fae5", color: "#065f46", border: "none" }}
+            />
+          </Stack>
+          <Box sx={{ maxHeight: 192, overflowY: "auto" }}>
+            {activeRollGroups.length === 0 ? (
+              <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontStyle: "italic", py: 2, textAlign: "center" }}>
+                No active rolls.
+              </Typography>
+            ) : activeRollGroups.map(([key, count]) => (
+              <Stack key={key} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", py: 0.75 }}>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary" }}>{key}</Typography>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, bgcolor: "grey.50", px: 1, py: 0.25, borderRadius: 1 }}>
+                  {count} {count === 1 ? "roll" : "rolls"}
+                </Typography>
+              </Stack>
+            ))}
+          </Box>
+        </Box>
+      </Popover>
+
+      {/* Depleted Rolls Popover */}
+      <Popover
+        open={Boolean(depletedAnchor)}
+        anchorEl={depletedAnchor}
+        onClose={() => setDepletedAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+        slotProps={{ paper: { sx: { borderRadius: 3, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid", borderColor: "grey.100", mt: 1 } } }}
+      >
+        <Box sx={{ p: 2, width: 256 }}>
+          <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary", letterSpacing: "0.08em" }}>
+              Used / Depleted
+            </Typography>
+            <Chip
+              label={`${totalDepletedRollsCount} total`}
+              size="small"
+              sx={{ fontSize: "0.625rem", fontWeight: 900, bgcolor: "grey.100", color: "text.secondary", border: "none" }}
+            />
+          </Stack>
+          <Box sx={{ maxHeight: 192, overflowY: "auto" }}>
+            {depletedRollGroups.length === 0 ? (
+              <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontStyle: "italic", py: 2, textAlign: "center" }}>
+                No depleted rolls.
+              </Typography>
+            ) : depletedRollGroups.map(([key, count]) => (
+              <Stack key={key} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", py: 0.75 }}>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary" }}>{key}</Typography>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, bgcolor: "grey.50", px: 1, py: 0.25, borderRadius: 1 }}>
+                  {count} {count === 1 ? "roll" : "rolls"}
+                </Typography>
+              </Stack>
+            ))}
+          </Box>
+        </Box>
+      </Popover>
 
       <AdjustDialog roll={adjustTarget} onClose={() => setAdjustTarget(null)} onDone={() => { setAdjustTarget(null); fetchData(); }} />
       <RestockDialog material={restockTarget} onClose={() => setRestockTarget(null)} onDone={() => { setRestockTarget(null); fetchData(); }} />
@@ -1098,6 +1883,6 @@ export default function InventoryPage() {
           onSaved={() => { setWasteTarget(null); fetchData(); }}
         />
       )}
-    </div>
+    </Box>
   );
 }

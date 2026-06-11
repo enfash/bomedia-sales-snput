@@ -1,37 +1,53 @@
-import React from "react";
-import { cn } from "@/lib/utils";
 import Image from "next/image";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 
-interface LogoProps extends React.HTMLAttributes<HTMLSpanElement> {
+interface LogoProps {
   showText?: boolean;
-  className?: string;
 }
 
-export function Logo({ showText = true, className, ...props }: LogoProps) {
+export function Logo({ showText = true }: LogoProps) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)} {...props}>
-      <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-lg shadow-primary/20 transition-[transform] [@media(hover:hover)]:hover:scale-105 active:scale-[0.97] group overflow-hidden border border-gray-100 dark:border-zinc-800">
+    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1.25 }}>
+      <Box
+        sx={{
+          position: "relative",
+          display: "flex",
+          height: 40,
+          width: 40,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 3,
+          bgcolor: "background.paper",
+          boxShadow: "0 4px 14px rgba(200,71,46,.2)",
+          transition: "transform 0.2s",
+          overflow: "hidden",
+          border: 1,
+          borderColor: "divider",
+          "&:hover": { transform: "scale(1.05)" },
+          "&:active": { transform: "scale(0.97)" },
+        }}
+      >
         <Image 
           src="/bomedia-icon.svg" 
           alt="BOMedia Logo" 
           width={40} 
           height={40} 
-          className="object-contain" 
+          style={{ objectFit: "contain" }}
           priority
         />
-      </span>
+      </Box>
 
       {showText && (
-        <span className="flex flex-col gap-0">
-          <span className="text-lg font-extrabold tracking-tight text-foreground leading-tight">
-            <span className="text-primary">BOMedia</span>
-          </span>
-          <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/50 leading-none">
+        <Box sx={{ display: "flex", flexDirection: "column" }}>
+          <Typography sx={{ fontSize: "1.125rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+            <Box component="span" sx={{ color: "primary.main" }}>BOMedia</Box>
+          </Typography>
+          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", lineHeight: 1, mt: 0.25 }}>
             Sales Logs
-          </span>
-        </span>
+          </Typography>
+        </Box>
       )}
-    </span>
+    </Box>
   );
 }
-

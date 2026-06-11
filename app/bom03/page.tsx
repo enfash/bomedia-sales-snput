@@ -1,30 +1,34 @@
 "use client";
+import { LoadingAnimation } from "@/components/loading-animation";
 
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX, CalendarRange, FileText, Users, Calculator, Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
 
-const sectionVariants = {
-  hidden: { opacity: 0, y: 16 },
-  show: (delay: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
-  }),
-};
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import { useTheme } from "@mui/material/styles";
+import Paper from "@mui/material/Paper";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Skeleton from "@mui/material/Skeleton";
+import Chip from "@mui/material/Chip";
+import LinearProgress from "@mui/material/LinearProgress";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import ToggleButton from "@mui/material/ToggleButton";
+import Stack from "@mui/material/Stack";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
+
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
 import { SalesExpenseChart, OutstandingDebtChart, PaymentStatusWidget, TopClientsWidget } from "@/components/dashboard-charts";
 import { RecentPaymentsPulse } from "@/components/recent-payments-pulse";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TodayBanner } from "@/components/today-banner";
-import { Badge } from "@/components/ui/badge";
 import { ShiftReportModal } from "@/components/shift-report-modal";
 import { ProfitabilityWidget } from "@/components/profitability-widget";
 
@@ -37,6 +41,15 @@ import {
   isWithinInterval,
 } from "date-fns";
 import { toast } from "sonner";
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: (delay: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] as const },
+  }),
+};
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -53,8 +66,9 @@ const parseSheetDate = (dateStr: any): Date | null => {
 type Row = Record<string, string>;
 
 export default function DashboardPage() {
+  const theme = useTheme();
   const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedMaterials, cachedPayments, setCachedData } = useSyncStore();
-  
+
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -63,8 +77,7 @@ export default function DashboardPage() {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
-  
-  // Notification refs to track 'new' entries
+
   const lastSalesIndex = useRef<number>(0);
   const lastExpensesIndex = useRef<number>(0);
   const isInitialLoad = useRef<boolean>(true);
@@ -91,13 +104,13 @@ export default function DashboardPage() {
       const inventoryJson = await inventoryRes.json();
       const paymentsJson = await paymentsRes.json();
       const materialsJson = materialsRes.ok ? await materialsRes.json() : { data: [] };
-      
+
       const newSales = salesJson.data ?? [];
       const newExpenses = expensesJson.data ?? [];
       const newInventory = inventoryJson.data ?? [];
       const newPayments = paymentsJson.data ?? [];
       const newMaterials = materialsJson.data ?? [];
-      
+
       setCachedData(newSales, newExpenses, newInventory, newPayments, newMaterials);
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -110,16 +123,9 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
 
-    // Auto-refresh when coming back online
-    const handleOnline = () => {
-      fetchData(true);
-    };
-
+    const handleOnline = () => { fetchData(true); };
     window.addEventListener("online", handleOnline);
-    
-    return () => {
-      window.removeEventListener("online", handleOnline);
-    };
+    return () => { window.removeEventListener("online", handleOnline); };
   }, []);
 
   // ── Data assembly ──────────────────────────────────────────────────────────
@@ -166,12 +172,10 @@ export default function DashboardPage() {
     const rangeDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000));
     prevStartDate = subDays(startDate, rangeDays);
   } else {
-    // "all" or custom with incomplete dates — use a very old start date
     startDate = new Date("2020-01-01");
     prevStartDate = new Date("2019-01-01");
   }
 
-  // For "custom" use the explicit end date; otherwise use now
   const effectiveEnd =
     timeRange === "custom" && customEnd ? new Date(customEnd + "T23:59:59") : now;
 
@@ -200,7 +204,6 @@ export default function DashboardPage() {
   const netProfitVal = totalSalesVal - totalExpensesVal;
   const prevProfitVal = prevSalesVal - prevExpensesVal;
 
-  // ── Gross margin ───────────────────────────────────────────────────────────
   const grossMarginPct = totalSalesVal > 0 ? (netProfitVal / totalSalesVal) * 100 : 0;
   const prevGrossMarginPct = prevSalesVal > 0 ? ((prevSalesVal - prevExpensesVal) / prevSalesVal) * 100 : 0;
 
@@ -229,7 +232,7 @@ export default function DashboardPage() {
     .slice(0, 6)
     .map(([name, revenue]) => ({ name, revenue }));
 
-  // ── Debt age map (days since oldest unpaid invoice per client) ─────────────
+  // ── Debt age map ───────────────────────────────────────────────────────────
   const debtAgeMap: Record<string, number> = {};
   allSales.forEach((r) => {
     const total      = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
@@ -255,7 +258,7 @@ export default function DashboardPage() {
     ? "No sales recorded in this period — try expanding the date range."
     : `Revenue is ${trendDir} ₦${changeAmt >= 1000 ? (changeAmt / 1000).toFixed(0) + "k" : changeAmt.toLocaleString()} vs the previous period. ${outstandingDebtTotal > 0 ? `Outstanding debt stands at ₦${outstandingDebtTotal >= 1000 ? (outstandingDebtTotal / 1000).toFixed(0) + "k" : outstandingDebtTotal.toLocaleString()}.` : "All balances are cleared."} ${grossMarginPct > 0 ? `Margin: ${grossMarginPct.toFixed(0)}%.` : ""}`;
 
-  // ── Today at a glance (Static window for banner) ───────────────────────────
+  // ── Today at a glance ──────────────────────────────────────────────────────
   const startOfToday = startOfDay(now);
   const todaySalesItems = allSales.filter(r => {
     const d = parseSheetDate(r.DATE || r.Date);
@@ -264,10 +267,7 @@ export default function DashboardPage() {
   const todayJobCount = todaySalesItems.length;
   const todayRevenue = sumKey(todaySalesItems, ["AMOUNT (₦)", "Amount (₦)"]);
 
-
   // ── Chart data ─────────────────────────────────────────────────────────────
-  // For "all" / incomplete custom: derive chart start from earliest actual data
-  // instead of using startDate (which could be 2020 → 2000+ days of intervals).
   const chartStartDate = (() => {
     if (timeRange !== "all" && !(timeRange === "custom" && !customStart)) {
       return startDate;
@@ -277,7 +277,6 @@ export default function DashboardPage() {
       .filter(Boolean) as Date[];
     if (allDates.length === 0) return startOfDay(now);
     const earliest = new Date(Math.min(...allDates.map((d) => d.getTime())));
-    // Cap at 365 days back to keep chart readable
     return earliest < subDays(now, 365) ? subDays(now, 365) : earliest;
   })();
   const rangeInterval = eachDayOfInterval({ start: chartStartDate, end: effectiveEnd });
@@ -292,7 +291,6 @@ export default function DashboardPage() {
     });
     return {
       date: format(day, timeRange === "today" ? "HH:00" : "MMM dd"),
-      // note: custom/all ranges use "MMM dd" label (same as 7d/30d)
       sales: sumKey(daySales, ["AMOUNT (₦)", "Amount (₦)"]),
       expenses: sumKey(dayExpenses, ["Amount (₦)", "AMOUNT", "Amount"]),
     };
@@ -318,516 +316,554 @@ export default function DashboardPage() {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="p-4 md:p-8 space-y-6 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-24">
-        {/* Time range tabs placeholder */}
-        <Skeleton className="h-10 w-72 rounded-xl" />
-        {/* Metric cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-1.5 sm:gap-4">
-          <div className="col-span-2 lg:col-span-2 rounded-2xl bg-white dark:bg-zinc-900 border border-border p-5 shadow-sm">
-            <Skeleton className="h-3 w-20 mb-4" />
-            <Skeleton className="h-9 w-36 mb-2" />
-            <Skeleton className="h-8 w-full mt-3 opacity-30" />
-          </div>
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="col-span-1 rounded-2xl bg-white dark:bg-zinc-900 border border-border p-3 sm:p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="w-7 h-7 rounded-lg" />
-              </div>
-              <Skeleton className="h-6 w-20 mb-1" />
-              <Skeleton className="h-3 w-24 mt-3 pt-3" />
-            </div>
-          ))}
-        </div>
-        {/* Inventory + quick actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl border border-border shadow-sm p-5 space-y-3">
-            <Skeleton className="h-5 w-40 mb-2" />
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
-          </div>
-          <div className="md:col-span-1 flex flex-col gap-2">
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
-          </div>
-        </div>
-        {/* AI banner */}
-        <Skeleton className="h-20 w-full rounded-2xl" />
-        {/* Charts row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <Skeleton className="lg:col-span-2 h-64 rounded-2xl" />
-          <Skeleton className="lg:col-span-1 h-64 rounded-2xl" />
-        </div>
-        {/* Charts row 2 */}
-        <Skeleton className="h-56 w-full rounded-2xl" />
-        {/* Charts row 3 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <Skeleton className="h-48 rounded-2xl" />
-          <Skeleton className="h-48 rounded-2xl" />
-        </div>
-      </div>
+      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <LoadingAnimation text="Loading..." />
+      </Box>
     );
   }
 
+  const timeRangeOptions = [
+    { val: "all",    label: "All" },
+    { val: "today",  label: "Today" },
+    { val: "7d",     label: "7D" },
+    { val: "30d",    label: "30D" },
+    { val: "custom", label: "Custom" },
+  ] as const;
+
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", bgcolor: "background.default", pb: 12 }}>
+
+      {/* Today Banner */}
       <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
         <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} salesCount={todayJobCount} />
       </motion.div>
 
       {/* Mobile Time Range Selector */}
-      <div className="md:hidden space-y-2">
-        <Tabs
+      <Box sx={{ display: { xs: "block", md: "none" }, mt: 2 }}>
+        <ToggleButtonGroup
           value={timeRange}
-          onValueChange={(val: any) => setTimeRange(val)}
-          className="w-full bg-gray-100 dark:bg-zinc-900/80 p-0.5 rounded-xl border border-gray-200 dark:border-zinc-800"
+          exclusive
+          onChange={(_, val) => val && setTimeRange(val)}
+          fullWidth
+          size="small"
+          sx={{
+            bgcolor: "grey.100",
+            borderRadius: 3,
+            p: 0.5,
+            "& .MuiToggleButton-root": {
+              border: "none",
+              borderRadius: "8px !important",
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              py: 0.75,
+              "&.Mui-selected": {
+                bgcolor: "background.paper",
+                color: "primary.main",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+              },
+            },
+          }}
         >
-          <TabsList className="bg-transparent border-none p-0 h-10 w-full">
-            {([
-              { val: "all",    label: "All" },
-              { val: "today",  label: "Today" },
-              { val: "7d",     label: "7D" },
-              { val: "30d",    label: "30D" },
-              { val: "custom", label: <CalendarRange className="w-3.5 h-3.5" /> },
-            ] as { val: string; label: React.ReactNode }[]).map(({ val, label }) => (
-              <TabsTrigger
-                key={val}
-                value={val}
-                className="flex-1 text-[10px] font-bold uppercase rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-primary data-[state=active]:text-brand-700 dark:data-[state=active]:text-primary-foreground h-9 flex items-center justify-center gap-1"
-              >
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        {/* Custom date pickers — mobile */}
+          {timeRangeOptions.map(({ val, label }) => (
+            <ToggleButton key={val} value={val} disableRipple>
+              {val === "custom" ? <CalendarRange size={14} /> : label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+
         {timeRange === "custom" && (
-          <div className="flex gap-2">
-            <div className="flex-1 space-y-1">
-              <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">From</p>
-              <input
-                type="date"
-                value={customStart}
-                max={customEnd || undefined}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="w-full h-10 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-3 focus:outline-none focus:ring-2 focus:ring-brand-600"
+          <Stack direction="row" sx={{ gap: 1.5, mt: 1.5, alignItems: "center" }}>
+            <Box sx={{ flex: 1 }}>
+              <DatePicker
+                value={customStart ? dayjs(customStart) : null}
+                maxDate={customEnd ? dayjs(customEnd) : undefined}
+                onChange={(val) => setCustomStart(val?.format("YYYY-MM-DD") ?? "")}
+                label="From"
+                slotProps={{ textField: { size: "small", fullWidth: true } }}
               />
-            </div>
-            <div className="flex-1 space-y-1">
-              <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">To</p>
-              <input
-                type="date"
-                value={customEnd}
-                min={customStart || undefined}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="w-full h-10 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-3 focus:outline-none focus:ring-2 focus:ring-brand-600"
+            </Box>
+            <Typography sx={{ color: "text.disabled" }}>→</Typography>
+            <Box sx={{ flex: 1 }}>
+              <DatePicker
+                value={customEnd ? dayjs(customEnd) : null}
+                minDate={customStart ? dayjs(customStart) : undefined}
+                onChange={(val) => setCustomEnd(val?.format("YYYY-MM-DD") ?? "")}
+                label="To"
+                slotProps={{ textField: { size: "small", fullWidth: true } }}
               />
-            </div>
-          </div>
+            </Box>
+          </Stack>
         )}
-      </div>
+      </Box>
 
       {/* Desktop Time Range + Controls */}
-      <div className="hidden md:flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <Tabs
+      <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "space-between", gap: 2, mt: 2, flexWrap: "wrap" }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+          <ToggleButtonGroup
             value={timeRange}
-            onValueChange={(val: any) => setTimeRange(val)}
-            className="bg-muted p-0.5 rounded-lg border"
+            exclusive
+            onChange={(_, val) => val && setTimeRange(val)}
+            size="small"
+            sx={{
+              bgcolor: "grey.100",
+              borderRadius: 2,
+              p: 0.5,
+              "& .MuiToggleButton-root": {
+                border: "none",
+                borderRadius: "6px !important",
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                px: 1.5,
+                py: 0.5,
+                "&.Mui-selected": {
+                  bgcolor: "background.paper",
+                  color: "primary.main",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+                },
+              },
+            }}
           >
-            <TabsList className="bg-transparent border-none p-0 h-auto">
-              {([
-                ["all",    "All"],
-                ["today",  "Today"],
-                ["7d",     "7D"],
-                ["30d",    "30D"],
-                ["custom", "Custom"],
-              ] as const).map(([val, label]) => (
-                <TabsTrigger
-                  key={val}
-                  value={val}
-                  className="text-[10px] font-bold uppercase px-3 py-1 rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-primary data-[state=active]:text-brand-700 dark:data-[state=active]:text-primary-foreground"
-                >
-                  {val === "custom" ? (
-                    <span className="flex items-center gap-1">
-                      <CalendarRange className="w-3 h-3" />
-                      {label}
-                    </span>
-                  ) : label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+            {timeRangeOptions.map(({ val, label }) => (
+              <ToggleButton key={val} value={val} disableRipple>
+                {val === "custom" ? (
+                  <Box component="span" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <CalendarRange size={12} />
+                    <span>{label}</span>
+                  </Box>
+                ) : label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
 
-          {/* Custom date inputs — desktop inline */}
           {timeRange === "custom" && (
-            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
-              <div className="space-y-0.5">
-                <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">From</p>
-                <input
-                  type="date"
-                  value={customStart}
-                  max={customEnd || undefined}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="h-8 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-2.5 focus:outline-none focus:ring-2 focus:ring-brand-600"
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+              <Box>
+                <DatePicker
+                  value={customStart ? dayjs(customStart) : null}
+                  maxDate={customEnd ? dayjs(customEnd) : undefined}
+                  onChange={(val) => setCustomStart(val?.format("YYYY-MM-DD") ?? "")}
+                  label="From"
+                  slotProps={{ textField: { size: "small", sx: { width: 130 } } }}
                 />
-              </div>
-              <span className="text-gray-300 dark:text-zinc-600 mt-4">→</span>
-              <div className="space-y-0.5">
-                <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">To</p>
-                <input
-                  type="date"
-                  value={customEnd}
-                  min={customStart || undefined}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="h-8 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-gray-700 dark:text-zinc-200 px-2.5 focus:outline-none focus:ring-2 focus:ring-brand-600"
+              </Box>
+              <Typography sx={{ color: "text.disabled" }}>→</Typography>
+              <Box>
+                <DatePicker
+                  value={customEnd ? dayjs(customEnd) : null}
+                  minDate={customStart ? dayjs(customStart) : undefined}
+                  onChange={(val) => setCustomEnd(val?.format("YYYY-MM-DD") ?? "")}
+                  label="To"
+                  slotProps={{ textField: { size: "small", sx: { width: 130 } } }}
                 />
-              </div>
-            </div>
+              </Box>
+            </Stack>
           )}
 
           <Button
-            variant="outline"
-            size="sm"
+            variant="outlined"
+            size="small"
             onClick={() => setIsMuted(!isMuted)}
-            className="h-8 px-2 border-border text-muted-foreground hover:text-foreground bg-card"
+            startIcon={isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            sx={{ fontSize: "0.7rem", fontWeight: 700, borderRadius: 100, height: 32 }}
           >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5 mr-1" /> : <Volume2 className="w-3.5 h-3.5 mr-1" />}
-            <span className="text-[10px] font-bold uppercase tracking-tight">{isMuted ? "Muted" : "Sound On"}</span>
+            {isMuted ? "Muted" : "Sound On"}
           </Button>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-          className="bg-card border-border text-foreground shadow-sm rounded-xl h-9 px-4 text-xs font-bold"
-        >
-          <RefreshCw className={cn("w-3.5 h-3.5 mr-2", refreshing && "animate-spin")} />
-          {refreshing ? "Updating..." : "Refresh"}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowReport(true)}
-          className="bg-card border-border text-foreground shadow-sm rounded-xl h-9 px-4 text-xs font-bold"
-        >
-          <FileText className="w-3.5 h-3.5 mr-2" />
-          Shift Report
-        </Button>
-      </div>
+        </Stack>
 
-      {/* Metrics Row — 4 cards */}
+        <Stack direction="row" sx={{ gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            startIcon={<RefreshCw size={14} style={refreshing ? { animation: "spin 1s linear infinite" } : undefined} />}
+            sx={{ fontSize: "0.75rem", fontWeight: 700, borderRadius: 100, height: 36 }}
+          >
+            {refreshing ? "Updating..." : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => setShowReport(true)}
+            startIcon={<FileText size={14} />}
+            sx={{ fontSize: "0.75rem", fontWeight: 700, borderRadius: 100, height: 36 }}
+          >
+            Shift Report
+          </Button>
+        </Stack>
+      </Box>
+
       {/* Summary sentence */}
       {totalSalesVal > 0 && (
-        <div className="bg-primary/5 dark:bg-primary/10 border border-primary/15 rounded-2xl px-5 py-3 flex items-start gap-3">
-          <span className="text-base mt-0.5">📊</span>
-          <p className="text-sm font-semibold text-foreground leading-relaxed">{summaryText}</p>
-        </div>
+        <Paper
+          sx={{
+            mt: 2,
+            mb: 3,
+            px: 2.5,
+            py: 1.5,
+            borderRadius: "16px",
+            bgcolor: "primary.main",
+            backgroundImage: "none",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 1.5,
+          }}
+        >
+          <span style={{ fontSize: "1rem", marginTop: 2 }}>📊</span>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: "primary.contrastText", lineHeight: 1.6 }}>
+            {summaryText}
+          </Typography>
+        </Paper>
       )}
 
+      {/* Metric cards */}
       <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
-      <DashboardMetrics
-        totalSales={totalSalesVal}
-        totalExpenses={totalExpensesVal}
-        netProfit={netProfitVal}
-        outstandingDebt={outstandingDebtTotal}
-        unpaidCount={unpaidCount}
-        salesChange={calculateChange(totalSalesVal, prevSalesVal)}
-        expensesChange={calculateChange(totalExpensesVal, prevExpensesVal)}
-        profitChange={calculateChange(netProfitVal, prevProfitVal)}
-        isSalesUp={totalSalesVal >= prevSalesVal}
-        isExpensesDown={totalExpensesVal <= prevExpensesVal}
-        isProfitUp={netProfitVal >= prevProfitVal}
-        grossMarginPct={grossMarginPct}
-        prevGrossMarginPct={prevGrossMarginPct}
-        sparkData={chartData.slice(-7).map(d => d.sales)}
-      />
-      </motion.div>
-
-      {/* Inventory Alerts & Shortcuts */}
-      <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Inventory Alerts Widget */}
-        {(() => {
-          const severityRank = (s: string) => s === "Critical" ? 0 : s === "Low" ? 1 : 2;
-          const sortedMaterials = [...cachedMaterials]
-            .map((item: any) => {
-              const remaining = parseFloat(item["Total Remaining (ft)"]?.toString() || "0") || 0;
-              const total     = parseFloat(item["Total Capacity (ft)"]?.toString() || "0") || 0;
-              const threshold = parseFloat(item["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
-              const pct       = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
-              const sheetStatus = item["Status"] || "";
-              const status: "Good" | "Low" | "Critical" =
-                sheetStatus === "Out of Stock" || sheetStatus === "Depleted" || remaining <= 0 ? "Critical"
-                : sheetStatus === "Low Stock" || remaining <= threshold ? "Low"
-                : "Good";
-              return { item, remaining, total, pct, status };
-            })
-            .sort((a, b) => severityRank(a.status) - severityRank(b.status));
-
-          const alertCount = sortedMaterials.filter(m => m.status !== "Good").length;
-
-          return (
-            <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 flex flex-col overflow-hidden">
-              {/* Card header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-zinc-800 shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center">
-                    <Package className="w-4 h-4 text-brand-700 dark:text-brand-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-gray-900 dark:text-white">Inventory Reorder Alerts</h3>
-                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
-                      {cachedMaterials.length === 0 ? "No materials tracked" : alertCount === 0 ? "All stock levels healthy" : `${alertCount} material${alertCount !== 1 ? "s" : ""} need attention`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {alertCount > 0 && (
-                    <Badge className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 border-none text-[9px] font-black">
-                      {alertCount} alert{alertCount !== 1 ? "s" : ""}
-                    </Badge>
-                  )}
-                  <Link href="/bom03/inventory">
-                    <Button variant="outline" size="sm" className="h-7 px-3 rounded-lg text-[10px] font-bold border-gray-200 dark:border-zinc-700 hover:bg-brand-50 dark:hover:bg-zinc-800">
-                      View All
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Scrollable list */}
-              <div className="overflow-y-auto max-h-[260px] p-4 space-y-2">
-                {cachedMaterials.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-gray-300 dark:text-zinc-700">
-                    <Package className="w-8 h-8 mb-2 opacity-50" />
-                    <p className="text-xs font-bold text-gray-400 dark:text-zinc-500">No inventory data yet</p>
-                    <Link href="/bom03/inventory">
-                      <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold mt-1 hover:underline">Add your first material →</p>
-                    </Link>
-                  </div>
-                ) : alertCount === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-gray-300 dark:text-zinc-700">
-                    <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-2">
-                      <Package className="w-5 h-5 text-emerald-500" />
-                    </div>
-                    <p className="text-xs font-bold text-gray-500 dark:text-zinc-400">All stock levels are healthy</p>
-                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-0.5">{cachedMaterials.length} material{cachedMaterials.length !== 1 ? "s" : ""} tracked</p>
-                  </div>
-                ) : (
-                  sortedMaterials.filter(m => m.status !== "Good").map(({ item, remaining, total, pct, status }) => {
-                    const barColor   = status === "Critical" ? "bg-rose-500" : status === "Low" ? "bg-amber-500" : "bg-emerald-500";
-                    const badgeStyle = status === "Critical"
-                      ? "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40"
-                      : status === "Low"
-                      ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40"
-                      : "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40";
-                    const materialName = item["Material Name"] || item["Material ID"] || "Unknown";
-                    const width = parseFloat(item["Width (ft)"]?.toString() || "0") || 0;
-                    const rollCount = item["Roll Count"] || "";
-
-                    return (
-                      <div key={item["Material ID"] || materialName} className="p-3 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-gray-50/50 dark:bg-zinc-800/30 hover:bg-gray-100/60 dark:hover:bg-zinc-800/60 transition-colors">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-black text-gray-900 dark:text-zinc-100 truncate">
-                                {materialName}
-                              </span>
-                              {width > 0 && (
-                                <span className="text-[9px] font-bold text-gray-400 dark:text-zinc-500">{width}ft wide</span>
-                              )}
-                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide ${badgeStyle}`}>
-                                {status === "Critical" ? "Out of Stock" : status}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
-                              {remaining.toFixed(1)}ft left{total > 0 ? ` of ${total.toFixed(0)}ft` : ""}
-                              {rollCount ? ` · ${rollCount} roll${Number(rollCount) !== 1 ? "s" : ""}` : ""}
-                            </p>
-                          </div>
-                          <Link href="/bom03/inventory" className="ml-3 shrink-0">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 rounded-lg text-[10px] font-bold border-gray-200 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                            >
-                              Restock
-                            </Button>
-                          </Link>
-                        </div>
-                        <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full [transition:width_500ms_ease-out] ${barColor}`}
-                            style={{ width: `${pct.toFixed(1)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Quick Actions / Shortcuts */}
-        <div className="md:col-span-1 flex flex-col gap-2">
-          <Link href="/bom03/inventory" className="w-full flex-1">
-            <div className="h-full bg-amber-500/5 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-amber-500/10 dark:hover:bg-amber-900/20 transition-[background-color,transform] active:scale-[0.97] shadow-sm">
-              <div className="bg-amber-100 dark:bg-amber-900/40 p-2.5 rounded-xl shadow-inner">
-                <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400/80 mb-0.5">Inventory Control</p>
-                <h3 className="text-base font-bold text-foreground">Full Stock Sheet</h3>
-                <p className="text-xs text-muted-foreground">Add materials & logs</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/quick-check" className="w-full flex-1">
-            <div className="h-full bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 dark:hover:bg-emerald-900/20 transition-[background-color,transform] active:scale-[0.97] shadow-sm">
-              <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2.5 rounded-xl shadow-inner">
-                <Zap className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400/80 mb-0.5">Verification</p>
-                <h3 className="text-base font-bold text-foreground">Material Quick-Check</h3>
-                <p className="text-xs text-muted-foreground">Test viability before job</p>
-              </div>
-            </div>
-          </Link>
-          <Link href="/bom03/staff" className="w-full flex-1">
-            <div className="h-full bg-violet-500/5 dark:bg-violet-950/30 border border-violet-200/50 dark:border-violet-900/20 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:bg-violet-500/10 dark:hover:bg-violet-900/20 transition-[background-color,transform] active:scale-[0.97] shadow-sm">
-              <div className="bg-violet-100 dark:bg-violet-900/40 p-2.5 rounded-xl shadow-inner">
-                <Users className="w-6 h-6 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400/80 mb-0.5">Admin Only</p>
-                <h3 className="text-base font-bold text-foreground">Staff Performance</h3>
-                <p className="text-xs text-muted-foreground">Revenue & collection rates</p>
-              </div>
-            </div>
-          </Link>
-        </div>
-      </div>
-      </motion.div>
-
-      {/* AI Banner */}
-      <motion.div variants={sectionVariants} custom={0.22} initial="hidden" animate="show">
-      {/* Quick Actions / AI Banner */}
-      <div
-        className="rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg bg-brand-700 bg-gradient-to-br from-brand-600 to-brand-800"
-        style={{ boxShadow: "0 8px 24px rgba(46, 56, 141, 0.4)" }}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-          >
-            <Zap className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="font-bold text-base leading-tight">Quick Actions</h2>
-            <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.8)" }}>
-              Say: <em className="not-italic font-semibold">"Logged ₦12k sale..."</em> — Fast mobile entry.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-
-          <Link href="/bom03/expenses" className="flex-1 md:flex-none">
-            <Button
-              variant="outline"
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
-            >
-              <Receipt className="w-3 h-3 mr-2" />
-              Log Expense
-            </Button>
-          </Link>
-          <Link href="/bom03/records" className="flex-1 md:flex-none">
-            <Button
-              variant="outline"
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
-            >
-              <BarChart3 className="w-3 h-3 mr-2" />
-              Records
-            </Button>
-          </Link>
-
-          <Link href="/estimator" className="flex-1 md:flex-none">
-            <Button
-              variant="outline"
-              className="w-full text-xs font-bold rounded-xl h-10 px-4 border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
-            >
-              <Calculator className="w-3 h-3 mr-2" />
-              Estimator
-            </Button>
-          </Link>
-          <button
-            onClick={async () => {
-              try {
-                const res = await fetch("/api/digest");
-                const json = await res.json();
-                if (json.whatsappUrl) window.open(json.whatsappUrl, "_blank");
-              } catch { toast.error("Could not load digest"); }
-            }}
-            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 text-xs font-bold rounded-xl h-10 px-4 border border-white/30 text-white bg-white/10 hover:bg-white/20 transition-[background-color,transform] [@media(hover:hover)]:hover:scale-105"
-          >
-            <Bell className="w-3 h-3" />
-            Daily Digest
-          </button>
-        </div>
-      </div>
-      </motion.div>
-
-      {/* Charts — Row 1: Sales vs Expenses + Recent Payments Pulse */}
-      <motion.div variants={sectionVariants} custom={0.28} initial="hidden" animate="show">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2">
-          <SalesExpenseChart data={chartData} />
-        </div>
-        <div className="lg:col-span-1">
-          <RecentPaymentsPulse payments={cachedPayments} />
-        </div>
-      </div>
-      </motion.div>
-
-      {/* Charts — Row 2: Outstanding Debt (full width) */}
-      <motion.div variants={sectionVariants} custom={0.34} initial="hidden" animate="show">
-        <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} ageMap={debtAgeMap} />
-      </motion.div>
-
-      {/* Charts — Row 3: Payment Status + Top Clients */}
-      <motion.div variants={sectionVariants} custom={0.38} initial="hidden" animate="show">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <PaymentStatusWidget
-          paid={paymentStats.paid}
-          partPaid={paymentStats.partPaid}
-          unpaid={paymentStats.unpaid}
-          paidAmt={paymentStats.paidAmt}
-          partPaidAmt={paymentStats.partPaidAmt}
-          unpaidAmt={paymentStats.unpaidAmt}
-          total={currentSales.length}
+        <DashboardMetrics
+          totalSales={totalSalesVal}
+          totalExpenses={totalExpensesVal}
+          netProfit={netProfitVal}
+          outstandingDebt={outstandingDebtTotal}
+          unpaidCount={unpaidCount}
+          salesChange={calculateChange(totalSalesVal, prevSalesVal)}
+          expensesChange={calculateChange(totalExpensesVal, prevExpensesVal)}
+          profitChange={calculateChange(netProfitVal, prevProfitVal)}
+          isSalesUp={totalSalesVal >= prevSalesVal}
+          isExpensesDown={totalExpensesVal <= prevExpensesVal}
+          isProfitUp={netProfitVal >= prevProfitVal}
+          grossMarginPct={grossMarginPct}
+          prevGrossMarginPct={prevGrossMarginPct}
+          sparkData={chartData.slice(-7).map(d => d.sales)}
         />
-        <TopClientsWidget clients={topClients} />
-      </div>
+      </motion.div>
+
+      {/* Inventory Alerts + Quick Actions */}
+      <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, gap: 2, mt: 2 }}>
+
+          {/* Inventory Alerts Widget */}
+          {(() => {
+            const severityRank = (s: string) => s === "Critical" ? 0 : s === "Low" ? 1 : 2;
+            const sortedMaterials = [...cachedMaterials]
+              .map((item: any) => {
+                const remaining = parseFloat(item["Total Remaining (ft)"]?.toString() || "0") || 0;
+                const total     = parseFloat(item["Total Capacity (ft)"]?.toString() || "0") || 0;
+                const threshold = parseFloat(item["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
+                const pct       = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
+                const sheetStatus = item["Status"] || "";
+                const status: "Good" | "Low" | "Critical" =
+                  sheetStatus === "Out of Stock" || sheetStatus === "Depleted" || remaining <= 0 ? "Critical"
+                  : sheetStatus === "Low Stock" || remaining <= threshold ? "Low"
+                  : "Good";
+                return { item, remaining, total, pct, status };
+              })
+              .sort((a, b) => severityRank(a.status) - severityRank(b.status));
+
+            const alertCount = sortedMaterials.filter(m => m.status !== "Good").length;
+
+            return (
+              <Card sx={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                {/* Header */}
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.12, position: "absolute" }} />
+                    <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", opacity: 1, position: "relative" }}>
+                      <Package size={16} color="white" />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 800 }}>Inventory Reorder Alerts</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {cachedMaterials.length === 0
+                          ? "No materials tracked"
+                          : alertCount === 0
+                          ? "All stock levels healthy"
+                          : `${alertCount} material${alertCount !== 1 ? "s" : ""} need attention`}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                    {alertCount > 0 && (
+                      <Chip
+                        label={`${alertCount} alert${alertCount !== 1 ? "s" : ""}`}
+                        size="small"
+                        sx={{ fontSize: "0.65rem", fontWeight: 800, bgcolor: "error.light", color: "error.dark", height: 20 }}
+                      />
+                    )}
+                    <Link href="/bom03/inventory">
+                      <Button variant="outlined" size="small" sx={{ fontSize: "0.7rem", fontWeight: 700, height: 28, borderRadius: 100, px: 1.5 }}>
+                        View All
+                      </Button>
+                    </Link>
+                  </Stack>
+                </Box>
+
+                {/* Scrollable list */}
+                <Box sx={{ overflowY: "auto", maxHeight: 260, p: 2 }}>
+                  {cachedMaterials.length === 0 ? (
+                    <Stack sx={{ alignItems: "center", justifyContent: "center", py: 4, color: "text.disabled" }}>
+                      <Package size={32} style={{ opacity: 0.4, marginBottom: 8 }} />
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>No inventory data yet</Typography>
+                      <Link href="/bom03/inventory">
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main", mt: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}>
+                          Add your first material →
+                        </Typography>
+                      </Link>
+                    </Stack>
+                  ) : alertCount === 0 ? (
+                    <Stack sx={{ alignItems: "center", justifyContent: "center", py: 4 }}>
+                      <Box sx={{ width: 40, height: 40, borderRadius: "50%", bgcolor: "success.light", display: "flex", alignItems: "center", justifyContent: "center", mb: 1, opacity: 0.7 }}>
+                        <Package size={20} color="#2E7D5B" />
+                      </Box>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>All stock levels are healthy</Typography>
+                      <Typography variant="caption" color="text.disabled">{cachedMaterials.length} material{cachedMaterials.length !== 1 ? "s" : ""} tracked</Typography>
+                    </Stack>
+                  ) : (
+                    <Stack sx={{ gap: 1 }}>
+                      {sortedMaterials.filter(m => m.status !== "Good").map(({ item, remaining, total, pct, status }) => {
+                        const barColor = status === "Critical" ? "error" : status === "Low" ? "warning" : "success";
+                        const chipColor = status === "Critical"
+                          ? { bgcolor: "#fef2f2", color: "#be123c" }
+                          : { bgcolor: "#fffbeb", color: "#b45309" };
+                        const materialName = item["Material Name"] || item["Material ID"] || "Unknown";
+                        const width = parseFloat(item["Width (ft)"]?.toString() || "0") || 0;
+                        const rollCount = item["Roll Count"] || "";
+
+                        return (
+                          <Paper
+                            key={item["Material ID"] || materialName}
+                            variant="outlined"
+                            sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover", "&:hover": { bgcolor: "action.selected" }, transition: "background-color .15s" }}
+                          >
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 800 }} noWrap>{materialName}</Typography>
+                                  {width > 0 && (
+                                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.65rem" }}>{width}ft wide</Typography>
+                                  )}
+                                  <Chip
+                                    label={status === "Critical" ? "Out of Stock" : status}
+                                    size="small"
+                                    sx={{ fontSize: "0.6rem", fontWeight: 800, height: 18, textTransform: "uppercase", letterSpacing: "0.04em", ...chipColor }}
+                                  />
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                  {remaining.toFixed(1)}ft left{total > 0 ? ` of ${total.toFixed(0)}ft` : ""}
+                                  {rollCount ? ` · ${rollCount} roll${Number(rollCount) !== 1 ? "s" : ""}` : ""}
+                                </Typography>
+                              </Box>
+                              <Link href="/bom03/inventory" style={{ marginLeft: 12, flexShrink: 0 }}>
+                                <Button variant="outlined" size="small" sx={{ fontSize: "0.7rem", fontWeight: 700, height: 28, borderRadius: 100, px: 1.5 }}>
+                                  Restock
+                                </Button>
+                              </Link>
+                            </Box>
+                            <LinearProgress
+                              variant="determinate"
+                              value={pct}
+                              color={barColor as any}
+                              sx={{ height: 6, borderRadius: 3, bgcolor: "grey.200" }}
+                            />
+                          </Paper>
+                        );
+                      })}
+                    </Stack>
+                  )}
+                </Box>
+              </Card>
+            );
+          })()}
+
+          {/* Quick Action Shortcuts */}
+          <Stack sx={{ gap: 1.5 }}>
+            {[
+              {
+                href: "/bom03/inventory",
+                label: "Inventory Control",
+                title: "Full Stock Sheet",
+                desc: "Add materials & logs",
+                icon: <Package size={24} />,
+                color: { bg: "#eff6ff", border: "#bfdbfe", icon: "#2e388d", label: "#2e388d" },
+              },
+              {
+                href: "/quick-check",
+                label: "Verification",
+                title: "Material Quick-Check",
+                desc: "Test viability before job",
+                icon: <Zap size={24} />,
+                color: { bg: "#eff6ff", border: "#bfdbfe", icon: "#2e388d", label: "#2e388d" },
+              },
+              {
+                href: "/bom03/staff",
+                label: "Admin Only",
+                title: "Staff Performance",
+                desc: "Revenue & collection rates",
+                icon: <Users size={24} />,
+                color: { bg: "#eff6ff", border: "#bfdbfe", icon: "#2e388d", label: "#2e388d" },
+              },
+            ].map(({ href, label, title, desc, icon, color }) => (
+              <Link key={href} href={href} style={{ textDecoration: "none", flex: 1, display: "flex" }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    flex: 1,
+                    p: 2,
+                    borderRadius: "16px",
+                    bgcolor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.05)" : color.bg,
+                    borderColor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.1)" : color.border,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    cursor: "pointer",
+                    transition: "transform .15s, background-color .15s",
+                    "&:hover": { bgcolor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.1)" : color.border },
+                    "&:active": { transform: "scale(0.97)" },
+                  }}
+                >
+                  <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: theme.palette.mode === "dark" ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.7)", color: color.icon, display: "flex" }}>
+                    {icon}
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: theme.palette.mode === "dark" ? color.icon : color.label }}>
+                      {label}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.3 }}>{title}</Typography>
+                    <Typography variant="caption" color="text.secondary">{desc}</Typography>
+                  </Box>
+                </Paper>
+              </Link>
+            ))}
+          </Stack>
+        </Box>
+      </motion.div>
+
+      {/* Quick Actions Banner */}
+      <motion.div variants={sectionVariants} custom={0.22} initial="hidden" animate="show">
+        <Paper
+          sx={{
+            mt: 2,
+            p: 2.5,
+            borderRadius: "16px",
+            background: "linear-gradient(135deg, #4A56C4 0%, #2E388D 100%)",
+            boxShadow: "0 8px 24px rgba(46,56,141,0.35)",
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            alignItems: { md: "center" },
+            justifyContent: "space-between",
+            gap: 3,
+          }}
+        >
+          <Stack direction="row" sx={{ alignItems: "center", gap: 2 }}>
+            <Box sx={{ width: 44, height: 44, borderRadius: 2.5, bgcolor: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Zap size={20} color="white" />
+            </Box>
+            <Box>
+              <Typography variant="body1" sx={{ fontWeight: 700, color: "white", lineHeight: 1.3 }}>Quick Actions</Typography>
+              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)" }}>
+                Say: <em style={{ fontStyle: "normal", fontWeight: 600 }}>"Logged ₦12k sale..."</em> — Fast mobile entry.
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, width: { xs: "100%", md: "auto" } }}>
+            {[
+              { href: "/bom03/expenses", icon: <Receipt size={14} />, label: "Log Expense" },
+              { href: "/bom03/records",  icon: <BarChart3 size={14} />, label: "Records" },
+              { href: "/estimator",      icon: <Calculator size={14} />, label: "Estimator" },
+            ].map(({ href, icon, label }) => (
+              <Link key={href} href={href} style={{ flex: 1, minWidth: "fit-content" }}>
+                <Button
+                  variant="outlined"
+                  startIcon={icon}
+                  fullWidth
+                  sx={{
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    height: 40,
+                    borderColor: "rgba(255,255,255,0.35)",
+                    color: "white",
+                    bgcolor: "rgba(255,255,255,0.1)",
+                    borderRadius: 100,
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.5)" },
+                  }}
+                >
+                  {label}
+                </Button>
+              </Link>
+            ))}
+            <Button
+              variant="outlined"
+              startIcon={<Bell size={14} />}
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/digest");
+                  const json = await res.json();
+                  if (json.whatsappUrl) window.open(json.whatsappUrl, "_blank");
+                } catch { toast.error("Could not load digest"); }
+              }}
+              sx={{
+                flex: 1,
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                height: 40,
+                borderColor: "rgba(255,255,255,0.35)",
+                color: "white",
+                bgcolor: "rgba(255,255,255,0.1)",
+                borderRadius: 100,
+                "&:hover": { bgcolor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.5)" },
+              }}
+            >
+              Daily Digest
+            </Button>
+          </Stack>
+        </Paper>
+      </motion.div>
+
+      {/* Charts Row 1: Sales vs Expenses + Recent Payments Pulse */}
+      <motion.div variants={sectionVariants} custom={0.28} initial="hidden" animate="show">
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, gap: 2.5, mt: 2 }}>
+          <SalesExpenseChart data={chartData} />
+          <RecentPaymentsPulse payments={cachedPayments} />
+        </Box>
+      </motion.div>
+
+      {/* Charts Row 2: Outstanding Debt */}
+      <motion.div variants={sectionVariants} custom={0.34} initial="hidden" animate="show">
+        <Box sx={{ mt: 2 }}>
+          <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} ageMap={debtAgeMap} />
+        </Box>
+      </motion.div>
+
+      {/* Charts Row 3: Payment Status + Top Clients */}
+      <motion.div variants={sectionVariants} custom={0.38} initial="hidden" animate="show">
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2.5, mt: 2 }}>
+          <PaymentStatusWidget
+            paid={paymentStats.paid}
+            partPaid={paymentStats.partPaid}
+            unpaid={paymentStats.unpaid}
+            paidAmt={paymentStats.paidAmt}
+            partPaidAmt={paymentStats.partPaidAmt}
+            unpaidAmt={paymentStats.unpaidAmt}
+            total={currentSales.length}
+          />
+          <TopClientsWidget clients={topClients} />
+        </Box>
       </motion.div>
 
       {/* Material Profitability Widget */}
       <motion.div variants={sectionVariants} custom={0.42} initial="hidden" animate="show">
-        <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
+        <Box sx={{ mt: 2 }}>
+          <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
+        </Box>
       </motion.div>
 
-      <DebtorPaymentModal 
-        clientName={selectedDebtor} 
-        isOpen={!!selectedDebtor} 
-        onClose={() => setSelectedDebtor(null)} 
+      <DebtorPaymentModal
+        clientName={selectedDebtor}
+        isOpen={!!selectedDebtor}
+        onClose={() => setSelectedDebtor(null)}
         onUpdate={() => fetchData(true)}
         theme="brand"
       />
       <ShiftReportModal isOpen={showReport} onClose={() => setShowReport(false)} />
-    </div>
+    </Box>
   );
 }

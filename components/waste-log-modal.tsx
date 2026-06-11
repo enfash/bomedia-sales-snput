@@ -1,32 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Drawer } from "vaul";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Drawer from "@mui/material/Drawer";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
 import { toast } from "sonner";
 import { AlertTriangle, Scissors, FileText, CalendarDays } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/useMediaQuery";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
+import { WASTE_REASONS, STORAGE_KEYS } from "@/lib/constants";
 export interface InventoryRollForWaste {
   "Roll ID": string;
   "Item Name": string;
@@ -42,21 +36,6 @@ interface WasteLogModalProps {
   onClose: () => void;
   onSaved: () => void;
 }
-
-// ─── Waste reasons ────────────────────────────────────────────────────────────
-
-const WASTE_REASONS = [
-  "Print head calibration run",
-  "Colour alignment test strip",
-  "Media edge trim / setup",
-  "Misprinted job — reprint needed",
-  "Customer proof",
-  "Roll leader / tail damage",
-  "Machine jam — damaged section",
-  "Other (see description)",
-];
-
-// ─── Shared form body ─────────────────────────────────────────────────────────
 
 function ModalBody({
   roll,
@@ -89,133 +68,158 @@ function ModalBody({
   const overrun = wasteNum > remaining;
 
   return (
-    <div className="p-6 space-y-5">
-      {/* Roll info banner */}
-      <div className="flex items-center gap-3 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-900/30">
-        <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center shrink-0">
-          <Scissors className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-rose-500 dark:text-rose-400">
+    <Stack sx={{ gap: 2.5, p: 3 }}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "center",
+          gap: 1.5,
+          p: 2,
+          bgcolor: "rgba(244,63,94,0.06)",
+          borderRadius: 3,
+          border: "1px solid rgba(244,63,94,0.15)",
+        }}
+      >
+        <Box
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 2.5,
+            bgcolor: "rgba(244,63,94,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Scissors size={20} color="#e11d48" />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "#e11d48" }}>
             Logging waste against
-          </p>
-          <p className="text-sm font-black text-gray-900 dark:text-white truncate">
+          </Typography>
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {roll["Roll ID"]}
-          </p>
-          <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
+          </Typography>
+          <Typography sx={{ fontSize: "0.6rem", color: "text.disabled", fontWeight: 500 }}>
             {parseFloat(String(roll["Width (ft)"] || "0"))}ft wide · {remaining.toFixed(1)}ft remaining
-          </p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
+          </Typography>
+        </Box>
+        <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+          <Typography sx={{ fontSize: "0.55rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled" }}>
             Prev. waste
-          </p>
-          <p className="text-sm font-black text-rose-600 dark:text-rose-400">
+          </Typography>
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#e11d48" }}>
             {(parseFloat(String(roll["Waste Logged (ft)"] || "0")) || 0).toFixed(1)}ft
-          </p>
-        </div>
-      </div>
+          </Typography>
+        </Box>
+      </Stack>
 
-      {/* Date */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider flex items-center gap-1.5">
-          <CalendarDays className="w-3 h-3" /> Date of Waste
-        </Label>
-        <Input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="rounded-xl h-12 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
-        />
-      </div>
+      <DatePicker
+        label={
+          <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+            <CalendarDays size={12} />
+            <span>Date of Waste</span>
+          </Stack>
+        }
+        value={date ? dayjs(date) : null}
+        onChange={(newVal) => setDate(newVal ? newVal.format("YYYY-MM-DD") : "")}
+        slotProps={{
+          textField: {
+            fullWidth: true,
+            sx: { "& .MuiOutlinedInput-root": { borderRadius: 3, height: 44 } }
+          }
+        }}
+      />
 
-      {/* Waste length */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-          Waste Length (ft) *
-        </Label>
-        <Input
+      <Box>
+        <TextField
+          label="Waste Length (ft) *"
           type="number"
           placeholder="e.g. 2.5"
           value={wasteLength}
           onChange={(e) => setWasteLength(e.target.value)}
-          className={cn(
-            "rounded-xl h-12 font-bold text-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100",
-            overrun && "border-rose-500 focus-visible:ring-rose-500"
-          )}
+          fullWidth
+          error={overrun}
+          slotProps={{ htmlInput: { style: { fontWeight: 700, fontSize: "1.125rem", height: 44 } } }}
+          sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
         />
         {wasteNum > 0 && (
-          <div className={cn(
-            "flex items-center justify-between p-3 rounded-xl text-xs font-bold",
-            overrun
-              ? "bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400"
-              : "bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400"
-          )}>
+          <Stack
+            direction="row"
+            sx={{
+              alignItems: "center",
+              justifyContent: "space-between",
+              p: 1.5,
+              mt: 1,
+              borderRadius: 3,
+              bgcolor: overrun ? "rgba(244,63,94,0.06)" : "grey.50",
+              color: overrun ? "#e11d48" : "text.secondary",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+            }}
+          >
             {overrun ? (
-              <span className="flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                Waste ({wasteNum.toFixed(1)}ft) exceeds remaining stock!
-              </span>
+              <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+                <AlertTriangle size={14} />
+                <span>Waste ({wasteNum.toFixed(1)}ft) exceeds remaining stock!</span>
+              </Stack>
             ) : (
               <>
                 <span>After this log:</span>
-                <span className="text-gray-900 dark:text-white font-black">{afterWaste.toFixed(1)}ft remaining</span>
+                <Typography sx={{ fontWeight: 900, color: "text.primary", fontSize: "0.75rem" }}>
+                  {afterWaste.toFixed(1)}ft remaining
+                </Typography>
               </>
             )}
-          </div>
+          </Stack>
         )}
-      </div>
+      </Box>
 
-      {/* Reason */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-          Waste Reason *
-        </Label>
-        <Select value={reason} onValueChange={setReason}>
-          <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold">
-            <SelectValue placeholder="Select reason…" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl dark:bg-zinc-900 dark:border-zinc-800">
-            {WASTE_REASONS.map((r) => (
-              <SelectItem key={r} value={r} className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800">
-                {r}
-              </SelectItem>
-            ))}
-          </SelectContent>
+      <FormControl fullWidth>
+        <InputLabel>Waste Reason *</InputLabel>
+        <Select
+          value={reason}
+          label="Waste Reason *"
+          onChange={(e) => setReason(e.target.value)}
+          sx={{ borderRadius: 3, "& .MuiSelect-select": { py: 1.75, fontWeight: 700 } }}
+        >
+          {WASTE_REASONS.map((r) => (
+            <MenuItem key={r} value={r} sx={{ fontWeight: 700 }}>
+              {r}
+            </MenuItem>
+          ))}
         </Select>
-      </div>
+      </FormControl>
 
-      {/* Job ref */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider flex items-center gap-1.5">
-          <FileText className="w-3 h-3" /> Job / Sales Reference (optional)
-        </Label>
-        <Input
-          placeholder="e.g. BOM-20260430-0042 or Client Name"
-          value={jobRef}
-          onChange={(e) => setJobRef(e.target.value)}
-          className="rounded-xl h-12 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
-        />
-      </div>
+      <TextField
+        label={
+          <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+            <FileText size={12} />
+            <span>Job / Sales Reference (optional)</span>
+          </Stack>
+        }
+        placeholder="e.g. BOM-20260430-0042 or Client Name"
+        value={jobRef}
+        onChange={(e) => setJobRef(e.target.value)}
+        fullWidth
+        slotProps={{ htmlInput: { style: { height: 44 } } }}
+        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
+      />
 
-      {/* Description */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-          Description / Notes
-        </Label>
-        <textarea
-          rows={3}
-          placeholder="Explain what happened — e.g. 'Ink streaking on first 2ft, re-ran head clean then continued job'"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 p-3 focus:outline-none focus:ring-2 focus:ring-brand-500 min-h-[80px] font-medium resize-none"
-        />
-      </div>
-    </div>
+      <TextField
+        label="Description / Notes"
+        placeholder="Explain what happened — e.g. 'Ink streaking on first 2ft, re-ran head clean then continued job'"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        fullWidth
+        multiline
+        rows={3}
+        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
+      />
+    </Stack>
   );
 }
-
-// ─── Main Export ──────────────────────────────────────────────────────────────
 
 export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalProps) {
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -255,7 +259,6 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
 
     setSaving(true);
     try {
-      // 1. Deduct from inventory
       const invRes = await fetch("/api/inventory", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -266,9 +269,8 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
         throw new Error(j.error || "Failed to update inventory");
       }
 
-      // 2. Write audit entry to Expenses sheet
       const loggedBy =
-        typeof window !== "undefined" ? localStorage.getItem("userName") || "Unknown" : "Unknown";
+        typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown" : "Unknown";
 
       await fetch("/api/expenses", {
         method: "POST",
@@ -305,68 +307,118 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
   const bodyProps = { roll, wasteLength, setWasteLength, reason, setReason, description, setDescription, jobRef, setJobRef, date, setDate };
 
   const FooterButtons = ({ drawer = false }: { drawer?: boolean }) => (
-    <div className={drawer
-      ? "flex flex-col gap-3 mt-2 px-6 pb-8"
-      : "p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800"
-    }>
-      <Button variant="outline" onClick={handleClose}
-        className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300">
+    <Stack
+      direction="row"
+      sx={{
+        gap: 1.5,
+        ...(drawer
+          ? { mt: 1, px: 3, pb: 5, flexDirection: "column" }
+          : { p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider" }),
+      }}
+    >
+      <Button
+        variant="outlined"
+        onClick={handleClose}
+        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
+      >
         Cancel
       </Button>
       <Button
         disabled={saving || !wasteLength || !reason || overrun}
         onClick={handleSave}
-        className="flex-1 h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black shadow-lg shadow-rose-600/20 active:scale-[0.97]">
+        sx={{
+          flex: 1,
+          height: 48,
+          borderRadius: 3,
+          bgcolor: "#dc2626",
+          color: "white",
+          fontWeight: 900,
+          boxShadow: "0 4px 14px rgba(220,38,38,0.3)",
+          "&:hover": { bgcolor: "#b91c1c" },
+          "&:active": { transform: "scale(0.97)" },
+          "&.Mui-disabled": { bgcolor: "action.disabledBackground", color: "action.disabled", boxShadow: "none" },
+        }}
+      >
         {saving ? "Logging..." : "Log Waste & Deduct"}
       </Button>
-    </div>
+    </Stack>
   );
 
-  // Mobile — Vaul drawer
   if (isMobile) {
     return (
-      <Drawer.Root open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm" />
-          <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] fixed bottom-0 left-0 right-0 z-50 outline-none shadow-2xl border-t dark:border-zinc-800 max-h-[92vh]">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mt-4 mb-2" />
-            <div className="overflow-y-auto flex-1">
-              <div className="px-6 pb-1 pt-2">
-                <Drawer.Title className="text-xl font-black text-gray-900 dark:text-white">
-                  Log Waste Material
-                </Drawer.Title>
-                <Drawer.Description className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                  Deducts wasted length from the roll's live balance.
-                </Drawer.Description>
-              </div>
-              <ModalBody {...bodyProps} />
-            </div>
-            <FooterButtons drawer />
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+      <Drawer
+        anchor="bottom"
+        open={isOpen}
+        onClose={handleClose}
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 40,
+              borderTopRightRadius: 40,
+              maxHeight: "92vh",
+              display: "flex",
+              flexDirection: "column",
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{
+            width: 48,
+            height: 6,
+            borderRadius: 3,
+            bgcolor: "grey.200",
+            mx: "auto",
+            mt: 2,
+            mb: 1,
+            flexShrink: 0,
+          }}
+        />
+        <Box sx={{ overflowY: "auto", flex: 1 }}>
+          <Box sx={{ px: 3, pb: 1, pt: 1 }}>
+            <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "text.primary" }}>
+              Log Waste Material
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.25, display: "block" }}>
+              Deducts wasted length from the roll's live balance.
+            </Typography>
+          </Box>
+          <ModalBody {...bodyProps} />
+        </Box>
+        <FooterButtons drawer />
+      </Drawer>
     );
   }
 
-  // Desktop — dialog
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl overflow-hidden">
-        <DialogHeader className="p-6 bg-rose-600 text-white">
-          <DialogTitle className="text-xl font-black text-white tracking-tight">
-            Log Waste Material
-          </DialogTitle>
-          <DialogDescription className="text-white/80 text-xs font-bold mt-1 uppercase tracking-wider">
-            Deducts wasted length from the roll's live balance.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="overflow-y-auto max-h-[65vh]">
-          <ModalBody {...bodyProps} />
-        </div>
-        <DialogFooter className="p-0">
-          <FooterButtons />
-        </DialogFooter>
+    <Dialog
+      open={isOpen}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: 4, overflow: "hidden" } } }}
+    >
+      <DialogTitle
+        sx={{
+          p: 3,
+          bgcolor: "#dc2626",
+          color: "white",
+          "& .MuiDialogTitle-root": { p: 0 },
+        }}
+      >
+        <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "white", letterSpacing: "-0.02em" }}>
+          Log Waste Material
+        </Typography>
+        <Typography sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", mt: 0.5 }}>
+          Deducts wasted length from the roll's live balance.
+        </Typography>
+      </DialogTitle>
+      <DialogContent sx={{ p: 0, maxHeight: "65vh", overflowY: "auto" }}>
+        <ModalBody {...bodyProps} />
       </DialogContent>
+      <DialogActions sx={{ p: 0 }}>
+        <FooterButtons />
+      </DialogActions>
     </Dialog>
   );
 }

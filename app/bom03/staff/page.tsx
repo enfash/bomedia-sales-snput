@@ -1,4 +1,5 @@
 "use client";
+import { LoadingAnimation } from "@/components/loading-animation";
 
 import { useEffect, useState, useMemo } from "react";
 import {
@@ -20,17 +21,19 @@ import {
   Loader2,
   KeyRound,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import Stack from "@mui/material/Stack";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import ToggleButton from "@mui/material/ToggleButton";
 import { subDays, isWithinInterval, isSameDay } from "date-fns";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -88,6 +91,29 @@ const parseAmt = (v: any) =>
 const fmtMoney = (n: number) =>
   `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
+// ─── Avatar color helper ──────────────────────────────────────────────────────
+
+const AVATAR_COLORS = [
+  "#C8472E", // brand-600
+  "#059669", // emerald-600
+  "#7C3AED", // violet-600
+  "#E11D48", // rose-600
+  "#D97706", // amber-600
+  "#0891B2", // cyan-600
+];
+
+function avatarBg(name: string) {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() || "")
+    .join("");
+}
+
 // ─── Staff Performance Card ───────────────────────────────────────────────────
 
 function StaffCard({ stats }: { stats: StaffStats }) {
@@ -95,125 +121,382 @@ function StaffCard({ stats }: { stats: StaffStats }) {
 
   const collectionColor =
     stats.collectionRate >= 80
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "success.main"
       : stats.collectionRate >= 50
-      ? "text-amber-600 dark:text-amber-400"
-      : "text-rose-600 dark:text-rose-400";
+      ? "warning.main"
+      : "error.main";
 
-  const initials = stats.name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() || "")
-    .join("");
-
-  const colors = [
-    "bg-brand-600", "bg-emerald-600", "bg-violet-600",
-    "bg-rose-600", "bg-amber-600", "bg-cyan-600",
+  const statItems = [
+    {
+      label: "Collected",
+      val: fmtMoney(stats.totalCollected),
+      icon: Wallet,
+      color: "success.main",
+    },
+    {
+      label: "Debt Left",
+      val: fmtMoney(stats.totalDebt),
+      icon: AlertTriangle,
+      color: stats.totalDebt > 0 ? "error.main" : "text.disabled",
+    },
+    {
+      label: "Collection %",
+      val: `${stats.collectionRate.toFixed(0)}%`,
+      icon: TrendingUp,
+      color: collectionColor,
+    },
+    {
+      label: "Top Material",
+      val: stats.topMaterial || "—",
+      icon: BarChart3,
+      color: "primary.main",
+    },
   ];
-  const avatarColor = colors[stats.name.charCodeAt(0) % colors.length];
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-      <button
+    <Box
+      sx={{
+        bgcolor: "background.paper",
+        borderRadius: 3,
+        border: "1px solid",
+        borderColor: "grey.100",
+        boxShadow: "0 1px 2px rgba(31,41,51,.04)",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header row — clickable */}
+      <Box
+        component="button"
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full p-5 flex items-center gap-4 text-left hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97]"
+        sx={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          p: 2.5,
+          textAlign: "left",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          transition: "background-color 0.15s ease-out, transform 0.15s ease-out",
+          "&:hover": { bgcolor: "grey.50" },
+          "&:active": { transform: "scale(0.97)" },
+        }}
       >
-        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white text-sm font-black shrink-0", avatarColor)}>
-          {initials}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-black text-gray-900 dark:text-white">{stats.name}</p>
+        {/* Avatar */}
+        <Box
+          sx={{
+            width: 48,
+            height: 48,
+            borderRadius: 2,
+            bgcolor: avatarBg(stats.name),
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontSize: "0.8rem",
+            fontWeight: 900,
+            flexShrink: 0,
+          }}
+        >
+          {initials(stats.name)}
+        </Box>
+
+        {/* Name + jobs */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+            <Typography
+              sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}
+            >
+              {stats.name}
+            </Typography>
             {stats.isOnline && (
-              <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <Box
+                component="span"
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  fontSize: "0.625rem",
+                  fontWeight: 900,
+                  color: "success.main",
+                  bgcolor: "rgba(46,125,91,0.08)",
+                  px: 0.75,
+                  py: 0.25,
+                  borderRadius: 10,
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    bgcolor: "success.main",
+                    display: "inline-block",
+                  }}
+                />
                 Online
-              </span>
+              </Box>
             )}
-          </div>
-          <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium mt-0.5">
+          </Stack>
+          <Typography
+            sx={{
+              fontSize: "0.625rem",
+              color: "text.secondary",
+              fontWeight: 500,
+              mt: 0.25,
+            }}
+          >
             {stats.totalJobs} total jobs · {stats.jobsToday} today
-          </p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-sm font-black text-gray-900 dark:text-white">{fmtMoney(stats.totalRevenue)}</p>
-          <p className="text-[10px] text-gray-400 dark:text-zinc-500">all time revenue</p>
-        </div>
-        <ChevronDown className={cn("w-4 h-4 text-gray-300 shrink-0 ml-1 transition-[transform] duration-200 ease-out", expanded && "rotate-180")} />
-      </button>
+          </Typography>
+        </Box>
 
-      <div className="grid grid-cols-4 border-t border-gray-50 dark:border-zinc-800">
-        {[
-          { label: "Collected", val: fmtMoney(stats.totalCollected), icon: Wallet, color: "text-emerald-600 dark:text-emerald-400" },
-          { label: "Debt Left", val: fmtMoney(stats.totalDebt), icon: AlertTriangle, color: stats.totalDebt > 0 ? "text-rose-500 dark:text-rose-400" : "text-gray-300 dark:text-zinc-700" },
-          { label: "Collection %", val: `${stats.collectionRate.toFixed(0)}%`, icon: TrendingUp, color: collectionColor },
-          { label: "Top Material", val: stats.topMaterial || "—", icon: BarChart3, color: "text-brand-600 dark:text-brand-400" },
-        ].map(({ label, val, icon: Icon, color }) => (
-          <div key={label} className="p-3 text-center border-r border-gray-50 dark:border-zinc-800 last:border-0">
-            <Icon className={cn("w-3.5 h-3.5 mx-auto mb-1", color)} />
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-600 mb-0.5">{label}</p>
-            <p className={cn("text-xs font-black truncate", color)}>{val}</p>
-          </div>
+        {/* Revenue */}
+        <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
+            {fmtMoney(stats.totalRevenue)}
+          </Typography>
+          <Typography sx={{ fontSize: "0.625rem", color: "text.secondary" }}>
+            all time revenue
+          </Typography>
+        </Box>
+
+        {/* Chevron */}
+        <Box
+          component={ChevronDown}
+          sx={{
+            width: 16,
+            height: 16,
+            color: "text.disabled",
+            flexShrink: 0,
+            ml: 0.5,
+            transition: "transform 0.2s ease-out",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        />
+      </Box>
+
+      {/* Stats grid */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          borderTop: "1px solid",
+          borderColor: "grey.50",
+        }}
+      >
+        {statItems.map(({ label, val, icon: Icon, color }, idx) => (
+          <Box
+            key={label}
+            sx={{
+              p: 1.5,
+              textAlign: "center",
+              borderRight: idx < 3 ? "1px solid" : "none",
+              borderColor: "grey.50",
+            }}
+          >
+            <Box component={Icon} sx={{ width: 14, height: 14, color, mx: "auto", mb: 0.5 }} />
+            <Typography
+              sx={{
+                fontSize: "0.5625rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                color: "text.secondary",
+                mb: 0.25,
+              }}
+            >
+              {label}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: "0.75rem",
+                fontWeight: 900,
+                color,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {val}
+            </Typography>
+          </Box>
         ))}
-      </div>
+      </Box>
 
-      <div className={cn("grid transition-[grid-template-rows]", expanded ? "grid-rows-[1fr] duration-300 ease-out" : "grid-rows-[0fr] duration-200 ease-in")}>
-        <div className="min-h-0 overflow-hidden">
-          <div className="border-t border-gray-50 dark:border-zinc-800 p-4 bg-gray-50/50 dark:bg-zinc-800/20">
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">Today's Jobs</p>
-                <p className="text-lg font-black text-gray-900 dark:text-white">{stats.jobsToday}</p>
-              </div>
-              <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">Today's Revenue</p>
-                <p className="text-lg font-black text-gray-900 dark:text-white">{fmtMoney(stats.revenueToday)}</p>
-              </div>
-            </div>
+      {/* Expandable section */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateRows: expanded ? "1fr" : "0fr",
+          transition: expanded
+            ? "grid-template-rows 0.3s ease-out"
+            : "grid-template-rows 0.2s ease-in",
+        }}
+      >
+        <Box sx={{ minHeight: 0, overflow: "hidden" }}>
+          <Box
+            sx={{
+              borderTop: "1px solid",
+              borderColor: "grey.50",
+              p: 2,
+              bgcolor: "grey.50",
+            }}
+          >
+            {/* Today summary */}
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5, mb: 2 }}>
+              {[
+                { label: "Today's Jobs", val: String(stats.jobsToday) },
+                { label: "Today's Revenue", val: fmtMoney(stats.revenueToday) },
+              ].map(({ label, val }) => (
+                <Box
+                  key={label}
+                  sx={{
+                    p: 1.5,
+                    bgcolor: "background.paper",
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: "grey.100",
+                    textAlign: "center",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: "0.5625rem",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: "text.secondary",
+                      mb: 0.5,
+                    }}
+                  >
+                    {label}
+                  </Typography>
+                  <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary" }}>
+                    {val}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+
+            {/* Recent jobs */}
             {stats.recentJobs.length > 0 && (
               <>
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-2">Recent Jobs (last 5)</p>
-                <div className="space-y-1.5">
+                <Typography
+                  sx={{
+                    fontSize: "0.5625rem",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    color: "text.secondary",
+                    mb: 1,
+                  }}
+                >
+                  Recent Jobs (last 5)
+                </Typography>
+                <Stack sx={{ gap: 0.75 }}>
                   {stats.recentJobs.slice(0, 5).map((job: any, i: number) => {
                     const client = job["CLIENT NAME"] || job["Client Name"] || "—";
                     const desc = job["JOB DESCRIPTION"] || job["Job Description"] || "—";
                     const amt = parseAmt(job["AMOUNT (₦)"] || job["Amount (₦)"]);
                     const status = job["PAYMENT STATUS"] || "Unpaid";
+                    const statusColors: Record<string, { bg: string; color: string }> = {
+                      Paid: { bg: "rgba(46,125,91,0.10)", color: "#2E7D5B" },
+                      "Part-payment": { bg: "rgba(232,161,58,0.12)", color: "#D97706" },
+                    };
+                    const sc = statusColors[status] ?? { bg: "rgba(192,57,43,0.10)", color: "#C0392B" };
                     return (
-                      <div key={i} className="flex items-center justify-between p-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800">
-                        <div className="min-w-0 flex-1 pr-2">
-                          <p className="text-xs font-bold text-gray-800 dark:text-zinc-200 truncate">{client}</p>
-                          <p className="text-[10px] text-gray-400 dark:text-zinc-500 truncate">{desc}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded", status === "Paid" ? "bg-emerald-100 text-emerald-700" : status === "Part-payment" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700")}>
+                      <Stack
+                        key={i}
+                        direction="row"
+                        sx={{
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          p: 1.25,
+                          bgcolor: "background.paper",
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "grey.100",
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0, flex: 1, pr: 1 }}>
+                          <Typography
+                            sx={{
+                              fontSize: "0.75rem",
+                              fontWeight: 700,
+                              color: "text.primary",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {client}
+                          </Typography>
+                          <Typography
+                            sx={{
+                              fontSize: "0.625rem",
+                              color: "text.secondary",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {desc}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexShrink: 0 }}>
+                          <Box
+                            component="span"
+                            sx={{
+                              fontSize: "0.5625rem",
+                              fontWeight: 900,
+                              px: 0.75,
+                              py: 0.25,
+                              borderRadius: 1,
+                              bgcolor: sc.bg,
+                              color: sc.color,
+                            }}
+                          >
                             {status}
-                          </span>
-                          <p className="text-xs font-black text-gray-900 dark:text-white">{fmtMoney(amt)}</p>
-                        </div>
-                      </div>
+                          </Box>
+                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary" }}>
+                            {fmtMoney(amt)}
+                          </Typography>
+                        </Stack>
+                      </Stack>
                     );
                   })}
-                </div>
+                </Stack>
               </>
             )}
+
+            {/* Last login */}
             {stats.lastLogin && (
-              <p className="text-[9px] text-gray-300 dark:text-zinc-700 mt-3 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Last login: {stats.lastLogin}
-              </p>
+              <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1.5 }}>
+                <Box component={Clock} sx={{ width: 12, height: 12, color: "text.disabled" }} />
+                <Typography sx={{ fontSize: "0.5625rem", color: "text.disabled" }}>
+                  Last login: {stats.lastLogin}
+                </Typography>
+              </Stack>
             )}
-          </div>
-        </div>
-      </div>
-    </div>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
 // ─── Manage Users Tab ─────────────────────────────────────────────────────────
 
-function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: () => void }) {
+function ManageUsers({
+  cashiers,
+  onRefresh,
+}: {
+  cashiers: Cashier[];
+  onRefresh: () => void;
+}) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPasscode, setNewPasscode] = useState("");
@@ -303,243 +586,473 @@ function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: 
     }
   };
 
-  const colors = [
-    "bg-brand-600", "bg-emerald-600", "bg-violet-600",
-    "bg-rose-600", "bg-amber-600", "bg-cyan-600",
-  ];
-
   return (
-    <div className="space-y-4">
+    <Stack sx={{ gap: 2 }}>
       {/* Header row */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
-          {cashiers.length} registered user{cashiers.length !== 1 ? "s" : ""}
-        </p>
-        <Button
-          size="sm"
-          onClick={() => { setShowForm(v => !v); setNewName(""); setNewPasscode(""); }}
-          className={cn(
-            "h-9 px-4 rounded-xl font-black text-[12px] flex items-center gap-1.5 transition-colors shadow-md",
-            showForm
-              ? "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 shadow-none"
-              : "bg-primary text-primary-foreground shadow-primary/20 dark:shadow-none"
-          )}
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+        <Typography
+          sx={{
+            fontSize: "0.75rem",
+            fontWeight: 900,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            color: "text.secondary",
+          }}
         >
-          {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+          {cashiers.length} registered user{cashiers.length !== 1 ? "s" : ""}
+        </Typography>
+        <Button
+          size="small"
+          variant={showForm ? "outlined" : "contained"}
+          startIcon={showForm ? <X size={14} /> : <Plus size={14} />}
+          onClick={() => {
+            setShowForm((v) => !v);
+            setNewName("");
+            setNewPasscode("");
+          }}
+          sx={{
+            borderRadius: 2,
+            fontWeight: 900,
+            fontSize: "0.75rem",
+            px: 2,
+            py: 0.875,
+            ...(showForm && {
+              borderColor: "grey.300",
+              color: "text.secondary",
+            }),
+          }}
+        >
           {showForm ? "Cancel" : "New User"}
         </Button>
-      </div>
+      </Stack>
 
       {/* Create form */}
       {showForm && (
-        <div className="animate-in slide-in-from-top-2 duration-200 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 p-4 shadow-sm space-y-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">
+        <Box
+          sx={{
+            bgcolor: "background.paper",
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "grey.100",
+            p: 2,
+            boxShadow: "0 1px 2px rgba(31,41,51,.04)",
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: "0.625rem",
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "text.secondary",
+              mb: 1.5,
+            }}
+          >
             Add New Cashier / User
-          </p>
-          <div className="flex flex-col md:flex-row gap-3">
-            <Input
+          </Typography>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            sx={{ gap: 1.5, mb: 1.5 }}
+          >
+            <TextField
               placeholder="Full name (e.g. Amara Okafor)"
               value={newName}
-              onChange={e => setNewName(e.target.value)}
-              className="h-11 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold flex-1"
+              onChange={(e) => setNewName(e.target.value)}
               disabled={creating}
               autoFocus
+              sx={{ flex: 1 }}
+              slotProps={{
+                htmlInput: { style: { fontWeight: 700 } },
+              }}
             />
-            <Input
+            <TextField
               placeholder="PIN (e.g. 1234)"
               value={newPasscode}
-              onChange={e => {
+              onChange={(e) => {
                 const v = e.target.value.replace(/\D/g, "").slice(0, 4);
                 setNewPasscode(v);
               }}
-              className="h-11 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold w-full md:w-36"
               disabled={creating}
-              maxLength={4}
               type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
+              sx={{ width: { xs: "100%", md: 144 } }}
+              slotProps={{
+                htmlInput: {
+                  maxLength: 4,
+                  inputMode: "numeric",
+                  pattern: "[0-9]*",
+                  style: { fontWeight: 700 },
+                },
+              }}
             />
             <Button
+              variant="contained"
               onClick={handleCreate}
               disabled={!newName.trim() || creating}
-              className="h-11 px-5 rounded-xl font-black shrink-0"
+              sx={{ borderRadius: 2, fontWeight: 900, flexShrink: 0, px: 2.5 }}
             >
-              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add User"}
+              {creating ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : "Add User"}
             </Button>
-          </div>
-          <p className="text-[10px] text-gray-400 dark:text-zinc-500">
+          </Stack>
+          <Typography sx={{ fontSize: "0.625rem", color: "text.secondary" }}>
             The cashier will select their name and type this 4-digit PIN to access their dashboard.
-          </p>
-        </div>
+          </Typography>
+        </Box>
       )}
 
       {/* Cashier list */}
       {cashiers.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800">
-          <Users className="w-9 h-9 text-gray-200 dark:text-zinc-700 mx-auto mb-3" />
-          <p className="text-sm font-black text-gray-400 dark:text-zinc-500">No users registered yet</p>
-          <p className="text-[11px] text-gray-300 dark:text-zinc-600 mt-1">Tap "New User" above to add your first cashier.</p>
-        </div>
+        <Box
+          sx={{
+            textAlign: "center",
+            py: 8,
+            bgcolor: "background.paper",
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "grey.100",
+          }}
+        >
+          <Box component={Users} sx={{ width: 36, height: 36, color: "text.disabled", mx: "auto", mb: 1.5 }} />
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.secondary" }}>
+            No users registered yet
+          </Typography>
+          <Typography sx={{ fontSize: "0.6875rem", color: "text.disabled", mt: 0.5 }}>
+            Tap "New User" above to add your first cashier.
+          </Typography>
+        </Box>
       ) : (
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-          <ul>
-            {cashiers.map((cashier, i) => {
-              const isOnline = isReallyOnline(cashier);
-              const initials = cashier.Name.split(" ").slice(0, 2).map(w => w[0]?.toUpperCase() || "").join("");
-              const avatarColor = colors[cashier.Name.charCodeAt(0) % colors.length];
+        <Box
+          sx={{
+            bgcolor: "background.paper",
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "grey.100",
+            boxShadow: "0 1px 2px rgba(31,41,51,.04)",
+            overflow: "hidden",
+          }}
+        >
+          {cashiers.map((cashier, i) => {
+            const isOnline = isReallyOnline(cashier);
+            const init = initials(cashier.Name);
+            const bg = avatarBg(cashier.Name);
 
-              return (
-                <li key={cashier.Name} className="flex items-center gap-4 px-4 py-3.5 border-b border-gray-50 dark:border-zinc-800 last:border-0">
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0", avatarColor)}>
-                    {initials}
-                  </div>
+            return (
+              <Stack
+                key={cashier.Name}
+                direction="row"
+                sx={{
+                  alignItems: "center",
+                  gap: 2,
+                  px: 2,
+                  py: 1.75,
+                  borderBottom: i < cashiers.length - 1 ? "1px solid" : "none",
+                  borderColor: "grey.50",
+                }}
+              >
+                {/* Avatar */}
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 2,
+                    bgcolor: bg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontSize: "0.75rem",
+                    fontWeight: 900,
+                    flexShrink: 0,
+                  }}
+                >
+                  {init}
+                </Box>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-black text-gray-900 dark:text-white truncate">{cashier.Name}</p>
-                      <span className={cn(
-                        "inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0",
-                        isOnline
-                          ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
-                          : "bg-gray-100 dark:bg-zinc-800 text-gray-400 dark:text-zinc-500"
-                      )}>
-                        {isOnline
-                          ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Online</>
-                          : <><UserX className="w-2.5 h-2.5" />Offline</>
-                        }
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium mt-0.5 flex items-center gap-1 flex-wrap">
-                      <Clock className="w-3 h-3" />
+                {/* Name + status */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                    <Typography
+                      sx={{
+                        fontSize: "0.875rem",
+                        fontWeight: 900,
+                        color: "text.primary",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cashier.Name}
+                    </Typography>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        fontSize: "0.5625rem",
+                        fontWeight: 900,
+                        px: 0.75,
+                        py: 0.25,
+                        borderRadius: 10,
+                        flexShrink: 0,
+                        ...(isOnline
+                          ? {
+                              bgcolor: "rgba(46,125,91,0.08)",
+                              color: "success.main",
+                            }
+                          : {
+                              bgcolor: "grey.100",
+                              color: "text.secondary",
+                            }),
+                      }}
+                    >
+                      {isOnline ? (
+                        <>
+                          <Box
+                            component="span"
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              bgcolor: "success.main",
+                              display: "inline-block",
+                            }}
+                          />
+                          Online
+                        </>
+                      ) : (
+                        <>
+                          <Box component={UserX} sx={{ width: 10, height: 10 }} />
+                          Offline
+                        </>
+                      )}
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 0.25, flexWrap: "wrap" }}>
+                    <Box component={Clock} sx={{ width: 12, height: 12, color: "text.secondary" }} />
+                    <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
                       {isOnline ? "Active now" : `Last seen: ${lastSeenLabel(cashier)}`}
-                      <span className="mx-1 text-gray-200 dark:text-zinc-800">|</span>
-                      <span className={cn(
-                        "font-bold rounded-md px-1 py-0.2",
-                        cashier.Passcode ? "text-orange-500 dark:text-orange-400" : "text-amber-500 font-bold bg-amber-500/10 px-1.5"
-                      )}>
-                        PIN: {cashier.Passcode ? cashier.Passcode : "None set"}
-                      </span>
-                    </p>
-                  </div>
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", mx: 0.5 }}>|</Typography>
+                    <Typography
+                      component="span"
+                      sx={{
+                        fontSize: "0.625rem",
+                        fontWeight: 700,
+                        borderRadius: 1,
+                        px: cashier.Passcode ? 0 : 0.75,
+                        ...(cashier.Passcode
+                          ? { color: "warning.dark" }
+                          : {
+                              color: "warning.main",
+                              bgcolor: "rgba(232,161,58,0.10)",
+                            }),
+                      }}
+                    >
+                      PIN: {cashier.Passcode ? cashier.Passcode : "None set"}
+                    </Typography>
+                  </Stack>
+                </Box>
 
-                  {/* Edit PIN Action */}
-                  <button
-                    type="button"
-                    onClick={() => { setPinEditTarget(cashier); setEditPinValue(cashier.Passcode || ""); }}
-                    className="p-2 rounded-xl text-gray-300 dark:text-zinc-600 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors shrink-0"
-                    title="Change PIN"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                  </button>
+                {/* Edit PIN */}
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setPinEditTarget(cashier);
+                    setEditPinValue(cashier.Passcode || "");
+                  }}
+                  title="Change PIN"
+                  sx={{
+                    color: "text.disabled",
+                    borderRadius: 2,
+                    flexShrink: 0,
+                    "&:hover": {
+                      color: "warning.main",
+                      bgcolor: "rgba(232,161,58,0.08)",
+                    },
+                  }}
+                >
+                  <KeyRound size={16} />
+                </IconButton>
 
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(cashier)}
-                    className="p-2 rounded-xl text-gray-300 dark:text-zinc-600 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors shrink-0"
-                    aria-label={`Remove ${cashier.Name}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+                {/* Delete */}
+                <IconButton
+                  size="small"
+                  onClick={() => setDeleteTarget(cashier)}
+                  aria-label={`Remove ${cashier.Name}`}
+                  sx={{
+                    color: "text.disabled",
+                    borderRadius: 2,
+                    flexShrink: 0,
+                    "&:hover": {
+                      color: "error.main",
+                      bgcolor: "rgba(192,57,43,0.08)",
+                    },
+                  }}
+                >
+                  <Trash2 size={16} />
+                </IconButton>
+              </Stack>
+            );
+          })}
+        </Box>
       )}
 
       {/* Info note */}
-      <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30">
-        <ShieldCheck className="w-4 h-4 text-blue-500 dark:text-blue-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-blue-700 dark:text-blue-400 font-medium">
+      <Stack
+        direction="row"
+        sx={{
+          gap: 1,
+          p: 1.5,
+          borderRadius: 2,
+          bgcolor: "rgba(59,130,246,0.06)",
+          border: "1px solid rgba(59,130,246,0.15)",
+          alignItems: "flex-start",
+        }}
+      >
+        <Box component={ShieldCheck} sx={{ width: 16, height: 16, color: "#3B82F6", flexShrink: 0, mt: 0.25 }} />
+        <Typography sx={{ fontSize: "0.6875rem", color: "#2563EB", fontWeight: 500 }}>
           Removing a user only deletes their login access. All sales they logged remain in the records.
-        </p>
-      </div>
+        </Typography>
+      </Stack>
 
       {/* PIN Edit Dialog */}
-      <Dialog open={!!pinEditTarget} onOpenChange={(o) => { if (!o) setPinEditTarget(null); }}>
-        <DialogContent className="max-w-sm rounded-2xl bg-white dark:bg-zinc-900 border-none shadow-2xl p-6">
-          <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/40 flex items-center justify-center mb-3">
-              <KeyRound className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <DialogTitle className="text-lg font-black text-gray-900 dark:text-white">
-              Change PIN for {pinEditTarget?.Name}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
-              Set a 4-digit PIN for cashier login. Leave it completely empty to allow login without a passcode.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-3 space-y-4">
-            <Input
-              placeholder="Enter 4-Digit PIN (e.g. 1234)"
-              value={editPinValue}
-              onChange={e => {
-                const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                setEditPinValue(v);
-              }}
-              className="h-12 rounded-xl border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 font-bold text-center text-lg tracking-widest"
-              maxLength={4}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              disabled={updatingPin}
-              autoFocus
-            />
-          </div>
-          <DialogFooter className="flex gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setPinEditTarget(null)}
-              className="flex-1 rounded-xl h-11 font-black border-gray-200 dark:border-zinc-700"
-              disabled={updatingPin}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdatePin}
-              disabled={updatingPin}
-              className="flex-1 rounded-xl h-11 font-black bg-orange-600 hover:bg-orange-700 text-white border-none shadow-none"
-            >
-              {updatingPin ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save PIN"}
-            </Button>
-          </DialogFooter>
+      <Dialog
+        open={!!pinEditTarget}
+        onClose={() => setPinEditTarget(null)}
+        slotProps={{ paper: { sx: { borderRadius: 3, maxWidth: 400 } } }}
+      >
+        <DialogContent sx={{ p: 3 }}>
+          {/* Icon */}
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: 2,
+              bgcolor: "rgba(217,119,6,0.10)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mb: 1.5,
+            }}
+          >
+            <Box component={KeyRound} sx={{ width: 20, height: 20, color: "warning.main" }} />
+          </Box>
+          <DialogTitle sx={{ p: 0, mb: 0.5, fontSize: "1.125rem", fontWeight: 900 }}>
+            Change PIN for {pinEditTarget?.Name}
+          </DialogTitle>
+          <DialogContentText sx={{ mb: 2, fontSize: "0.875rem" }}>
+            Set a 4-digit PIN for cashier login. Leave it completely empty to allow login without a
+            passcode.
+          </DialogContentText>
+          <TextField
+            placeholder="Enter 4-Digit PIN (e.g. 1234)"
+            value={editPinValue}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+              setEditPinValue(v);
+            }}
+            type="text"
+            disabled={updatingPin}
+            autoFocus
+            fullWidth
+            slotProps={{
+              htmlInput: {
+                maxLength: 4,
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+                style: {
+                  fontWeight: 700,
+                  textAlign: "center",
+                  fontSize: "1.125rem",
+                  letterSpacing: "0.25em",
+                },
+              },
+            }}
+            sx={{ mb: 0 }}
+          />
         </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setPinEditTarget(null)}
+            disabled={updatingPin}
+            sx={{ flex: 1, borderRadius: 2, fontWeight: 900, borderColor: "grey.300" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleUpdatePin}
+            disabled={updatingPin}
+            sx={{
+              flex: 1,
+              borderRadius: 2,
+              fontWeight: 900,
+              bgcolor: "#D97706",
+              "&:hover": { bgcolor: "#B45309" },
+            }}
+          >
+            {updatingPin ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : "Save PIN"}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Delete confirmation dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
-        <DialogContent className="max-w-sm rounded-2xl bg-white dark:bg-zinc-900 border-none shadow-2xl p-6">
-          <DialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center mb-3">
-              <Trash2 className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-            </div>
-            <DialogTitle className="text-lg font-black text-gray-900 dark:text-white">
-              Remove {deleteTarget?.Name}?
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
-              This removes their login access from the cashier portal. Their sales history will not be affected.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-              className="flex-1 rounded-xl h-11 font-black border-gray-200 dark:border-zinc-700"
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="flex-1 rounded-xl h-11 font-black bg-rose-600 hover:bg-rose-700 text-white border-none shadow-none"
-            >
-              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Remove"}
-            </Button>
-          </DialogFooter>
+      <Dialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        slotProps={{ paper: { sx: { borderRadius: 3, maxWidth: 400 } } }}
+      >
+        <DialogContent sx={{ p: 3 }}>
+          {/* Icon */}
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: 2,
+              bgcolor: "rgba(192,57,43,0.10)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mb: 1.5,
+            }}
+          >
+            <Box component={Trash2} sx={{ width: 20, height: 20, color: "error.main" }} />
+          </Box>
+          <DialogTitle sx={{ p: 0, mb: 0.5, fontSize: "1.125rem", fontWeight: 900 }}>
+            Remove {deleteTarget?.Name}?
+          </DialogTitle>
+          <DialogContentText sx={{ fontSize: "0.875rem" }}>
+            This removes their login access from the cashier portal. Their sales history will not be
+            affected.
+          </DialogContentText>
         </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setDeleteTarget(null)}
+            disabled={deleting}
+            sx={{ flex: 1, borderRadius: 2, fontWeight: 900, borderColor: "grey.300" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleDelete}
+            disabled={deleting}
+            sx={{
+              flex: 1,
+              borderRadius: 2,
+              fontWeight: 900,
+              bgcolor: "error.main",
+              "&:hover": { bgcolor: "error.dark" },
+            }}
+          >
+            {deleting ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : "Remove"}
+          </Button>
+        </DialogActions>
       </Dialog>
-    </div>
+    </Stack>
   );
 }
 
@@ -572,20 +1085,28 @@ export default function StaffManagerPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const now = new Date();
 
   const staffStats: StaffStats[] = useMemo(() => {
     const startDate =
-      dateRange === "7d" ? subDays(now, 7)
-      : dateRange === "30d" ? subDays(now, 30)
-      : new Date("2020-01-01");
+      dateRange === "7d"
+        ? subDays(now, 7)
+        : dateRange === "30d"
+        ? subDays(now, 30)
+        : new Date("2020-01-01");
 
     const namesFromSales = new Set<string>(
-      sales.map((s) => (s["LOGGED BY"] || s["Logged By"] || "").trim()).filter(Boolean)
+      sales
+        .map((s) => (s["LOGGED BY"] || s["Logged By"] || "").trim())
+        .filter(Boolean)
     );
-    cashiers.forEach((c) => { if (c.Name) namesFromSales.add(c.Name.trim()); });
+    cashiers.forEach((c) => {
+      if (c.Name) namesFromSales.add(c.Name.trim());
+    });
 
     return Array.from(namesFromSales)
       .filter((n) => n && n !== "Unknown")
@@ -601,13 +1122,38 @@ export default function StaffManagerPage() {
           const d = new Date(s.DATE || s.Date || "");
           return !isNaN(d.getTime()) && isSameDay(d, now);
         });
-        const totalRevenue = cashierSales.reduce((s, r) => s + parseAmt(r["AMOUNT (₦)"] || r["Amount (₦)"]), 0);
-        const totalCollected = cashierSales.reduce((s, r) => s + parseAmt(r["INITIAL PAYMENT (₦)"] || r["INITIAL PAYMENT"] || r["Initial Payment"]), 0);
-        const totalDebt = cashierSales.reduce((s, r) => s + Math.max(0, parseAmt(r["AMOUNT DIFFERENCES"] || r["Amount Differences"])), 0);
-        const collectionRate = totalRevenue > 0 ? (totalCollected / totalRevenue) * 100 : 0;
+        const totalRevenue = cashierSales.reduce(
+          (s, r) => s + parseAmt(r["AMOUNT (₦)"] || r["Amount (₦)"]),
+          0
+        );
+        const totalCollected = cashierSales.reduce(
+          (s, r) =>
+            s +
+            parseAmt(
+              r["INITIAL PAYMENT (₦)"] ||
+                r["INITIAL PAYMENT"] ||
+                r["Initial Payment"]
+            ),
+          0
+        );
+        const totalDebt = cashierSales.reduce(
+          (s, r) =>
+            s +
+            Math.max(
+              0,
+              parseAmt(r["AMOUNT DIFFERENCES"] || r["Amount Differences"])
+            ),
+          0
+        );
+        const collectionRate =
+          totalRevenue > 0 ? (totalCollected / totalRevenue) * 100 : 0;
         const matMap: Record<string, number> = {};
-        cashierSales.forEach((s) => { const mat = s.MATERIAL || s.Material || "Other"; matMap[mat] = (matMap[mat] || 0) + 1; });
-        const topMaterial = Object.entries(matMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+        cashierSales.forEach((s) => {
+          const mat = s.MATERIAL || s.Material || "Other";
+          matMap[mat] = (matMap[mat] || 0) + 1;
+        });
+        const topMaterial =
+          Object.entries(matMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
         const cashierRecord = cashiers.find((c) => c.Name?.trim() === name);
         return {
           name,
@@ -617,9 +1163,18 @@ export default function StaffManagerPage() {
           totalDebt,
           collectionRate,
           jobsToday: todaySales.length,
-          revenueToday: todaySales.reduce((s, r) => s + parseAmt(r["AMOUNT (₦)"] || r["Amount (₦)"]), 0),
+          revenueToday: todaySales.reduce(
+            (s, r) => s + parseAmt(r["AMOUNT (₦)"] || r["Amount (₦)"]),
+            0
+          ),
           topMaterial,
-          recentJobs: [...cashierSales].sort((a, b) => new Date(b.DATE || b.Date || "").getTime() - new Date(a.DATE || a.Date || "").getTime()).slice(0, 5),
+          recentJobs: [...cashierSales]
+            .sort(
+              (a, b) =>
+                new Date(b.DATE || b.Date || "").getTime() -
+                new Date(a.DATE || a.Date || "").getTime()
+            )
+            .slice(0, 5),
           isOnline: cashierRecord ? isReallyOnline(cashierRecord) : false,
           lastLogin: cashierRecord?.["Last Login"] || "",
         };
@@ -634,128 +1189,291 @@ export default function StaffManagerPage() {
     return { rev, col, dbt, avgCollection: rev > 0 ? (col / rev) * 100 : 0 };
   }, [staffStats]);
 
+  // ── Loading state ──────────────────────────────────────────────────────────
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50/80 dark:bg-zinc-950">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 text-brand-700 dark:text-brand-400 animate-spin mx-auto mb-4" />
-          <p className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">Loading staff data…</p>
-        </div>
-      </div>
+      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <LoadingAnimation text="Loading..." />
+      </Box>
     );
   }
 
+  // ── Tab toggle styles (shared) ────────────────────────────────────────────
+  const toggleSx = {
+    bgcolor: "grey.100",
+    borderRadius: 2,
+    p: 0.5,
+    "& .MuiToggleButton-root": {
+      border: "none",
+      borderRadius: "8px !important",
+      fontSize: "0.7rem",
+      fontWeight: 700,
+      px: 1.5,
+      py: 0.625,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      "&.Mui-selected": {
+        bgcolor: "primary.main",
+        color: "#fff",
+        boxShadow: "0 4px 14px rgba(200,71,46,.22)",
+        "&:hover": { bgcolor: "primary.dark" },
+      },
+    },
+  };
+
+  // ── Summary card data ──────────────────────────────────────────────────────
+  const summaryCards = [
+    {
+      label: "Active Staff",
+      val: String(staffStats.length),
+      sub: `${cashiers.filter((c) => isReallyOnline(c)).length} online now`,
+      icon: Users,
+      iconBg: "rgba(200,71,46,0.08)",
+      iconColor: "primary.main",
+    },
+    {
+      label: "Team Revenue",
+      val:
+        totals.rev >= 1000
+          ? `₦${(totals.rev / 1000).toFixed(0)}k`
+          : fmtMoney(totals.rev),
+      sub: fmtMoney(totals.rev),
+      icon: TrendingUp,
+      iconBg: "rgba(46,125,91,0.08)",
+      iconColor: "success.main",
+    },
+    {
+      label: "Cash Collected",
+      val:
+        totals.col >= 1000
+          ? `₦${(totals.col / 1000).toFixed(0)}k`
+          : fmtMoney(totals.col),
+      sub: `${totals.avgCollection.toFixed(0)}% collection rate`,
+      icon: Wallet,
+      iconBg: "rgba(59,130,246,0.08)",
+      iconColor: "#3B82F6",
+    },
+    {
+      label: "Team Debt",
+      val:
+        totals.dbt >= 1000
+          ? `₦${(totals.dbt / 1000).toFixed(0)}k`
+          : fmtMoney(totals.dbt),
+      sub: "outstanding across all",
+      icon: AlertTriangle,
+      iconBg: totals.dbt > 0 ? "rgba(192,57,43,0.08)" : "grey.50",
+      iconColor: totals.dbt > 0 ? "error.main" : "text.disabled",
+    },
+  ];
+
   return (
-    <div className="p-4 md:p-8 bg-slate-50/80 dark:bg-zinc-950 min-h-screen pb-24 transition-colors duration-500">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
+    <Box
+      sx={{
+        p: { xs: 2, md: 4 },
+        bgcolor: "background.default",
+        minHeight: "100vh",
+        pb: 12,
+      }}
+    >
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <Stack
+        direction="row"
+        sx={{ alignItems: "center", justifyContent: "space-between", gap: 2, mb: 3 }}
+      >
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
           <Link href="/bom03">
-            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
+            <IconButton
+              sx={{
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "grey.200",
+                bgcolor: "background.paper",
+                width: 36,
+                height: 36,
+              }}
+            >
+              <ArrowLeft size={16} />
+            </IconButton>
           </Link>
-          <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Staff Manager</h1>
-            <p className="text-gray-500 dark:text-zinc-400 text-xs mt-0.5">Performance, access & user management</p>
-          </div>
-        </div>
+          <Box>
+            <Typography
+              variant="h2"
+              sx={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "-0.02em" }}
+            >
+              Staff Manager
+            </Typography>
+            <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mt: 0.25 }}>
+              Performance, access & user management
+            </Typography>
+          </Box>
+        </Stack>
         <Button
-          variant="outline"
-          size="sm"
+          variant="outlined"
+          size="small"
           onClick={fetchData}
           disabled={refreshing}
-          className="h-9 px-4 rounded-xl bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-xs font-black"
+          startIcon={
+            <Box
+              component={RefreshCw}
+              sx={{
+                width: 14,
+                height: 14,
+                ...(refreshing && {
+                  animation: "spin 1s linear infinite",
+                  "@keyframes spin": {
+                    from: { transform: "rotate(0deg)" },
+                    to: { transform: "rotate(360deg)" },
+                  },
+                }),
+              }}
+            />
+          }
+          sx={{
+            borderRadius: 2,
+            borderColor: "grey.200",
+            bgcolor: "background.paper",
+            fontWeight: 900,
+            fontSize: "0.75rem",
+            px: 2,
+          }}
         >
-          <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", refreshing && "animate-spin")} />
           Refresh
         </Button>
-      </div>
+      </Stack>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {([
-          { key: "performance", label: "Performance", icon: BarChart3 },
-          { key: "manage",      label: "Manage Users", icon: UserCheck },
-        ] as const).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
-              tab === key
-                ? "bg-brand-700 text-white shadow-lg shadow-brand-700/20"
-                : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-200 dark:border-zinc-800"
-            )}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* ── Tab switcher ─────────────────────────────────────────────────── */}
+      <Box sx={{ mb: 3 }}>
+        <ToggleButtonGroup
+          value={tab}
+          exclusive
+          onChange={(_, val) => val && setTab(val)}
+          size="small"
+          sx={toggleSx}
+        >
+          <ToggleButton value="performance" disableRipple>
+            <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+              <Box component={BarChart3} sx={{ width: 14, height: 14 }} />
+              Performance
+            </Stack>
+          </ToggleButton>
+          <ToggleButton value="manage" disableRipple>
+            <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+              <Box component={UserCheck} sx={{ width: 14, height: 14 }} />
+              Manage Users
+            </Stack>
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
-      {/* ── Performance Tab ──────────────────────────────────────────────────── */}
+      {/* ── Performance Tab ─────────────────────────────────────────────── */}
       {tab === "performance" && (
         <>
           {/* Date range filter */}
-          <div className="flex gap-2 mb-6">
-            {(["7d", "30d", "all"] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setDateRange(r)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-black uppercase transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
-                  dateRange === r
-                    ? "bg-brand-700 text-white shadow-lg shadow-brand-700/20"
-                    : "bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-200 dark:border-zinc-800"
-                )}
-              >
-                {r === "all" ? "All Time" : r}
-              </button>
-            ))}
-          </div>
+          <Box sx={{ mb: 3 }}>
+            <ToggleButtonGroup
+              value={dateRange}
+              exclusive
+              onChange={(_, val) => val && setDateRange(val)}
+              size="small"
+              sx={toggleSx}
+            >
+              {(["7d", "30d", "all"] as const).map((r) => (
+                <ToggleButton key={r} value={r} disableRipple>
+                  {r === "all" ? "All Time" : r}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Box>
 
-          {/* Team summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {[
-              { label: "Active Staff", val: String(staffStats.length), sub: `${cashiers.filter(c => isReallyOnline(c)).length} online now`, icon: Users, color: "text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20" },
-              { label: "Team Revenue", val: totals.rev >= 1000 ? `₦${(totals.rev / 1000).toFixed(0)}k` : fmtMoney(totals.rev), sub: fmtMoney(totals.rev), icon: TrendingUp, color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20" },
-              { label: "Cash Collected", val: totals.col >= 1000 ? `₦${(totals.col / 1000).toFixed(0)}k` : fmtMoney(totals.col), sub: `${totals.avgCollection.toFixed(0)}% collection rate`, icon: Wallet, color: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" },
-              { label: "Team Debt", val: totals.dbt >= 1000 ? `₦${(totals.dbt / 1000).toFixed(0)}k` : fmtMoney(totals.dbt), sub: "outstanding across all", icon: AlertTriangle, color: totals.dbt > 0 ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20" : "text-gray-400 bg-gray-50 dark:bg-zinc-800" },
-            ].map(({ label, val, sub, icon: Icon, color }) => (
-              <div key={label} className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4">
-                <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center mb-3", color)}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-0.5">{label}</p>
-                <p className="text-xl font-black text-gray-900 dark:text-white">{val}</p>
-                <p className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium mt-0.5">{sub}</p>
-              </div>
+          {/* Team summary cards */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
+              gap: 1.5,
+              mb: 3,
+            }}
+          >
+            {summaryCards.map(({ label, val, sub, icon: Icon, iconBg, iconColor }) => (
+              <Box
+                key={label}
+                sx={{
+                  bgcolor: "background.paper",
+                  borderRadius: 3,
+                  border: "1px solid",
+                  borderColor: "grey.100",
+                  boxShadow: "0 1px 2px rgba(31,41,51,.04)",
+                  p: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 2,
+                    bgcolor: iconBg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 1.5,
+                  }}
+                >
+                  <Box component={Icon} sx={{ width: 16, height: 16, color: iconColor }} />
+                </Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.5625rem",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    color: "text.secondary",
+                    mb: 0.25,
+                  }}
+                >
+                  {label}
+                </Typography>
+                <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "text.primary" }}>
+                  {val}
+                </Typography>
+                <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, mt: 0.25 }}>
+                  {sub}
+                </Typography>
+              </Box>
             ))}
-          </div>
+          </Box>
 
           {/* Staff cards */}
           {staffStats.length === 0 ? (
-            <div className="text-center py-20 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800">
-              <Users className="w-10 h-10 text-gray-200 dark:text-zinc-700 mx-auto mb-3" />
-              <p className="text-sm font-bold text-gray-400 dark:text-zinc-600">No staff activity found for this period</p>
-            </div>
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 10,
+                bgcolor: "background.paper",
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "grey.100",
+              }}
+            >
+              <Box component={Users} sx={{ width: 40, height: 40, color: "text.disabled", mx: "auto", mb: 1.5 }} />
+              <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.secondary" }}>
+                No staff activity found for this period
+              </Typography>
+            </Box>
           ) : (
-            <div className="space-y-3">
-              {staffStats.map((stats, i) => (
-                <div key={`${stats.name}-${dateRange}`} className="staff-card-enter" style={{ transitionDelay: `${i * 55}ms` }}>
-                  <StaffCard stats={stats} />
-                </div>
+            <Stack sx={{ gap: 1.5 }}>
+              {staffStats.map((stats) => (
+                <StaffCard key={`${stats.name}-${dateRange}`} stats={stats} />
               ))}
-            </div>
+            </Stack>
           )}
         </>
       )}
 
-      {/* ── Manage Users Tab ─────────────────────────────────────────────────── */}
+      {/* ── Manage Users Tab ────────────────────────────────────────────── */}
       {tab === "manage" && (
         <ManageUsers cashiers={cashiers} onRefresh={fetchData} />
       )}
-    </div>
+    </Box>
   );
 }

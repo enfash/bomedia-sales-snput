@@ -1,23 +1,17 @@
 "use client";
 
 import { useState, useEffect, Fragment } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
 import { usePathname } from "next/navigation";
 
 type Cashier = {
@@ -83,18 +77,16 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
     setError("");
 
     try {
-      // Try to update status — but don't block login if it fails
       await fetch("/api/cashiers", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: nameToUse, status: "Online" }),
-      }).catch(() => {/* non-blocking */});
+      }).catch(() => {});
 
       localStorage.setItem("userName", nameToUse);
       setOpen(false);
       setError("");
     } catch {
-      // Even if the PATCH fails, let them in
       localStorage.setItem("userName", nameToUse);
       setOpen(false);
     } finally {
@@ -108,106 +100,130 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
 
   return (
     <Fragment>
-      {open && <div className="fixed inset-0 z-[150] bg-background" />}
-      <Dialog open={open} onOpenChange={() => {}}>
-        <DialogContent
-          className="sm:max-w-md"
-          onInteractOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              👋 Welcome to BOMedia
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              {apiFailed
-                ? "Type your name to continue to the cashier portal."
-                : "Select your name from the list to continue to the cashier portal."}
-            </DialogDescription>
-          </DialogHeader>
+      {open && (
+        <Box
+          sx={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 150,
+            bgcolor: "background.default",
+          }}
+        />
+      )}
+      <Dialog
+        open={open}
+        onClose={(_event: object, reason: string) => { void reason; }}
+        slotProps={{ paper: { sx: { borderRadius: 4, maxWidth: 440, width: "100%" } } }}
+      >
+        <DialogTitle>
+          <Typography sx={{ fontSize: "1.25rem", fontWeight: 700, color: "text.primary" }}>
+            👋 Welcome to BOMedia
+          </Typography>
+          <Typography sx={{ fontSize: "0.875rem", color: "text.secondary", mt: 0.5 }}>
+            {apiFailed
+              ? "Type your name to continue to the cashier portal."
+              : "Select your name from the list to continue to the cashier portal."}
+          </Typography>
+        </DialogTitle>
 
-          <div className="mt-2 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cashier-select">
-                {apiFailed ? "Your Name" : "Select Your Name"}
-              </Label>
-
+        <DialogContent>
+          <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box>
               {apiFailed ? (
-                <Input
+                <TextField
                   id="cashier-select"
+                  label="Your Name"
                   placeholder="Type your name…"
                   value={manualName}
                   onChange={(e) => {
                     setManualName(e.target.value);
                     setError("");
                   }}
-                  className="h-12 rounded-xl font-semibold"
+                  fullWidth
                   autoFocus
+                  error={!!error}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 600 } }}
                 />
               ) : (
-                <Select
-                  value={selectedName}
-                  onValueChange={(val) => {
-                    setSelectedName(val);
-                    setError("");
-                  }}
-                  disabled={isLoadingCashiers || isSaving}
-                >
-                  <SelectTrigger
+                <FormControl fullWidth error={!!error}>
+                  <InputLabel id="cashier-select-label">
+                    {isLoadingCashiers ? "Loading cashiers…" : "Select Your Name"}
+                  </InputLabel>
+                  <Select
+                    labelId="cashier-select-label"
                     id="cashier-select"
-                    className={`h-12 rounded-xl font-semibold ${error ? "border-red-500 focus:ring-red-500" : ""}`}
+                    value={selectedName}
+                    label={isLoadingCashiers ? "Loading cashiers…" : "Select Your Name"}
+                    onChange={(e) => {
+                      setSelectedName(e.target.value);
+                      setError("");
+                    }}
+                    disabled={isLoadingCashiers || isSaving}
+                    sx={{ borderRadius: 3, fontWeight: 600 }}
                   >
-                    <SelectValue
-                      placeholder={
-                        isLoadingCashiers ? "Loading cashiers..." : "Choose your name"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
                     {cashiers.map((c) => (
-                      <SelectItem
-                        key={c.Name}
-                        value={c.Name}
-                        className="font-semibold"
-                      >
+                      <MenuItem key={c.Name} value={c.Name} sx={{ fontWeight: 600 }}>
                         {c.Name}
                         {c.Status === "Online" && (
-                          <span className="ml-2 text-[10px] text-amber-500 font-bold">● active</span>
+                          <Typography
+                            component="span"
+                            sx={{ ml: 1, fontSize: "0.625rem", color: "warning.main", fontWeight: 700 }}
+                          >
+                            ● active
+                          </Typography>
                         )}
-                      </SelectItem>
+                      </MenuItem>
                     ))}
                     {cashiers.length === 0 && !isLoadingCashiers && (
-                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                        No cashiers found. Ask admin to add your name.
-                      </div>
+                      <MenuItem disabled>
+                        <Typography sx={{ fontSize: "0.875rem", color: "text.secondary" }}>
+                          No cashiers found. Ask admin to add your name.
+                        </Typography>
+                      </MenuItem>
                     )}
-                  </SelectContent>
-                </Select>
+                  </Select>
+                </FormControl>
               )}
 
               {!apiFailed && (
-                <button
+                <Box
+                  component="button"
                   type="button"
                   onClick={() => { setApiFailed(true); setError(""); }}
-                  className="text-[11px] text-muted-foreground hover:text-primary underline underline-offset-2 transition-colors"
+                  sx={{
+                    mt: 0.75,
+                    fontSize: "0.6875rem",
+                    color: "text.secondary",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                    p: 0,
+                    "&:hover": { color: "primary.main" },
+                  }}
                 >
                   My name isn't in the list
-                </button>
+                </Box>
               )}
 
               {error && (
-                <p className="text-xs text-red-500 font-medium mt-1">{error}</p>
+                <Typography sx={{ fontSize: "0.75rem", color: "error.main", fontWeight: 500, mt: 0.5 }}>
+                  {error}
+                </Typography>
               )}
-            </div>
+            </Box>
 
             <Button
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl"
+              variant="contained"
+              fullWidth
               onClick={handleSave}
               disabled={!activeName || isSaving || isLoadingCashiers}
+              sx={{ height: 48, borderRadius: 3, fontWeight: 700 }}
             >
-              {isSaving ? "Logging in..." : "Get Started"}
+              {isSaving ? "Logging in…" : "Get Started"}
             </Button>
-          </div>
+          </Box>
         </DialogContent>
       </Dialog>
     </Fragment>

@@ -4,29 +4,26 @@ import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { MoreHorizontal, MessageCircle, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Drawer } from "vaul";
 import { useSyncStore } from "@/lib/store";
 import {
+  Button,
   Dialog,
-  DialogContent,
-  DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
+  DialogContent,
+  DialogActions,
+  TextField,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Typography,
+  Box,
+  Stack,
+  IconButton,
+} from "@mui/material";
 import { RecordStatus } from "@/components/record-card";
+import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
 
 export interface UnifiedRecord {
   id: string;
@@ -65,33 +62,28 @@ export function ManageSaleAction({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addl1, setAddl1] = useState(record?.additionalPayment1 ? String(record.additionalPayment1) : "");
   const [addl2, setAddl2] = useState(record?.additionalPayment2 ? String(record.additionalPayment2) : "");
-  const [status, setStatus] = useState(record?.jobStatus ?? "Quoted");
+  const [status, setStatus] = useState(record?.jobStatus ?? JOB_STATUSES[0]);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const pathname = usePathname();
 
   const isLocked = useMemo(() => {
     if (!pathname?.includes('/cashier')) return false;
-    // Use the raw sheet date (r.DATE, e.g. "2026-04-26" or an ISO string) for
-    // accurate millisecond comparison. record.date is a display-formatted string
-    // like "Apr 26, 2026" which new Date() can misparse to midnight UTC and cause
-    // premature locking. record.timestamp is set for pending-queue entries.
     const rawDateStr = record.raw?.DATE || record.raw?.Date;
     const tsMs = record.timestamp ?? (rawDateStr ? new Date(rawDateStr).getTime() : NaN);
-    if (isNaN(tsMs)) return false; // Can't determine age — allow editing
+    if (isNaN(tsMs)) return false;
     return (Date.now() - tsMs) > 24 * 60 * 60 * 1000;
   }, [pathname, record.raw, record.timestamp]);
 
   if (!record || record.type === "Expense" || record.isPending || isLocked) {
     return variant === "icon" ? (
-      <Button
-        variant="ghost"
-        size="icon"
+      <IconButton
         disabled
-        className="h-8 w-8 text-gray-200"
+        size="small"
         title={isLocked ? "Cannot edit records older than 24 hours" : ""}
+        sx={{ color: "grey.300" }}
       >
-        {isLocked ? <Lock className="w-3 h-3" /> : <MoreHorizontal className="w-4 h-4" />}
-      </Button>
+        {isLocked ? <Lock size={12} /> : <MoreHorizontal size={16} />}
+      </IconButton>
     ) : null;
   }
 
@@ -128,10 +120,9 @@ export function ManageSaleAction({
           body: JSON.stringify(payload),
         });
         if (res.ok) {
-          // Log payment if there's a new payment
           if (newPaymentAmount > 0) {
             try {
-              const loggedBy = localStorage.getItem("userName") || "System";
+              const loggedBy = localStorage.getItem(STORAGE_KEYS.USER_NAME) || "System";
               await fetch("/api/payments", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -159,7 +150,6 @@ export function ManageSaleAction({
           toast.error(error.error || "Failed to update record");
         }
       } else {
-        // Offline: Add to pending queue
         const loggedBy = localStorage.getItem("userName") || "System";
         const paymentPayload = {
           salesId: record.salesId || record.id || '',
@@ -190,18 +180,19 @@ export function ManageSaleAction({
 
   const triggerButton =
     variant === "icon" ? (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-primary hover:text-primary/80 hover:bg-primary/10"
+      <IconButton
+        size="small"
+        onClick={() => setIsOpen(true)}
+        sx={{ color: "primary.main", "&:hover": { bgcolor: "primary.main", color: "white" } }}
       >
-        <MoreHorizontal className="w-4 h-4" />
-      </Button>
+        <MoreHorizontal size={16} />
+      </IconButton>
     ) : (
       <Button
-        variant="outline"
-        size="sm"
-        className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wider border-border dark:border-primary/30 text-primary dark:text-primary/90 hover:bg-primary/5 dark:hover:bg-primary/10"
+        variant="outlined"
+        size="small"
+        onClick={() => setIsOpen(true)}
+        sx={{ borderRadius: 2, fontSize: "0.625rem", fontWeight: 900, letterSpacing: "0.05em" }}
       >
         Manage
       </Button>
@@ -222,60 +213,105 @@ export function ManageSaleAction({
 
   if (isMobile) {
     return (
-      <Drawer.Root open={isOpen} onOpenChange={setIsOpen}>
-        <Drawer.Trigger asChild>{triggerButton}</Drawer.Trigger>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 animate-in fade-in" />
-          <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] mt-24 fixed bottom-0 left-0 right-0 z-50 p-6 outline-none shadow-2xl border-t dark:border-zinc-800">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mb-6" />
-            <Drawer.Title className="sr-only">Manage Sale Record</Drawer.Title>
-            <Drawer.Description className="sr-only">Update payments and job progress</Drawer.Description>
+      <>
+        {triggerButton}
+        <Dialog
+          fullScreen
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
+
+          slotProps={{
+            paper: {
+              sx: {
+                mt: "10vh",
+                borderTopLeftRadius: 32,
+                borderTopRightRadius: 32,
+                bgcolor: "background.default",
+                display: "flex",
+                flexDirection: "column",
+              }
+            }
+          }}
+          sx={{
+            "& .MuiDialog-container": {
+              alignItems: "flex-end",
+            }
+          }}
+        >
+          <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 1, flexShrink: 0 }} />
+          <Box sx={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+            <Box sx={{ px: 3, pt: 1, pb: 0 }}>
+              <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary" }}>
+                Manage Sale Record
+              </Typography>
+            </Box>
             <ContentBody {...contentProps} />
+          </Box>
+          <Box sx={{ px: 3 }}>
             <ContentFooter {...contentProps} drawer />
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+          </Box>
+        </Dialog>
+      </>
     );
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>{triggerButton}</DialogTrigger>
-      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl dark:shadow-none">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Manage Sale Record</DialogTitle>
-          <DialogDescription>Update payments and job progress</DialogDescription>
-        </DialogHeader>
-        <HeaderContent {...contentProps} />
-        <ContentBody {...contentProps} />
-        <ContentFooter {...contentProps} />
-      </DialogContent>
+    <>
+      {triggerButton}
+      <Dialog
+      open={isOpen}
+      onClose={() => setIsOpen(false)}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: 4, overflow: "hidden" } } }}
+    >
+      <HeaderContent {...contentProps} />
+      <ContentBody {...contentProps} />
+      <ContentFooter {...contentProps} />
     </Dialog>
+    </>
   );
 }
 
 function HeaderContent({ record }: any) {
   return (
-    <DialogHeader className="p-6 bg-primary text-primary-foreground">
-      <DialogTitle className="text-xl font-black">
+    <Box sx={{ p: 3, bgcolor: "primary.main", color: "primary.contrastText" }}>
+      <DialogTitle
+        sx={{
+          p: 0,
+          mb: 1,
+          color: "inherit",
+          fontWeight: 900,
+          fontSize: "1.25rem",
+        }}
+      >
         Manage Sale Record
       </DialogTitle>
-      <div className="flex justify-between items-end mt-1">
-        <p className="text-white font-medium">
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+        <Typography sx={{ fontWeight: 500, color: "inherit" }}>
           Update payments and job progress for {record.client}
-        </p>
-        <div className="text-right flex flex-col items-end">
-          <p className="text-[10px] uppercase font-black text-white/90 leading-none mb-0.5">
+        </Typography>
+        <Box sx={{ textAlign: "right" }}>
+          <Typography
+            sx={{
+              fontSize: "0.625rem",
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "rgba(255,255,255,0.9)",
+              lineHeight: 1,
+              mb: 0.25,
+            }}
+          >
             Current Balance
-          </p>
-          <p className="text-sm font-black text-white leading-none">
+          </Typography>
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "inherit", lineHeight: 1 }}>
             ₦{(record.balance || 0).toLocaleString()}
-          </p>
+          </Typography>
 
           {(record.balance || 0) > 0 && record.contact && (
             <Button
-              size="sm"
-              variant="secondary"
+              size="small"
               onClick={() => {
                 if (!record.contact) return;
                 const balance = (record.balance || 0).toLocaleString();
@@ -290,15 +326,27 @@ function HeaderContent({ record }: any) {
                   "_blank",
                 );
               }}
-              className="mt-2 h-7 px-2 rounded-lg bg-white/20 hover:bg-white/30 border-none text-[10px] font-black uppercase text-white tracking-wider flex items-center gap-1.5"
+              startIcon={<MessageCircle size={12} />}
+              sx={{
+                mt: 1,
+                height: 28,
+                px: 1,
+                borderRadius: 2,
+                bgcolor: "rgba(255,255,255,0.2)",
+                color: "white",
+                fontSize: "0.625rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+              }}
             >
-              <MessageCircle className="w-3 h-3" />
               WhatsApp Reminder
             </Button>
           )}
-        </div>
-      </div>
-    </DialogHeader>
+        </Box>
+      </Stack>
+    </Box>
   );
 }
 
@@ -317,160 +365,229 @@ function ContentBody({
   const maxSlotsReached = hasAddl1 && hasAddl2 && (record.balance ?? 0) > 0;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
-        <div>
-          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider mb-2 block">
-            Total Amount
-          </Label>
-          <p className="text-lg font-black text-gray-900 dark:text-white">
-            ₦{record.amount.toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider mb-2 block">
-            Current Status
-          </Label>
-          <p className="text-xs font-bold text-primary">
-            {record.status}
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {isFullyPaid && (
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-center">
-            <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-              Paid Completed
-            </p>
-          </div>
-        )}
-
-        {maxSlotsReached && !isFullyPaid && (
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
-              Maximum payment slots reached. Contact Admin to add more payments.
-            </p>
-          </div>
-        )}
-
-        <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider">
-            Additional Payment 1 (₦)
-          </Label>
-          <Input
-            type="number"
-            placeholder="Enter amount"
-            value={addl1}
-            onChange={(e) => setAddl1(e.target.value)}
-            disabled={hasAddl1 || isFullyPaid || maxSlotsReached}
-            className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider">
-            Additional Payment 2 (₦)
-          </Label>
-          <Input
-            type="number"
-            placeholder="Enter amount"
-            value={addl2}
-            onChange={(e) => setAddl2(e.target.value)}
-            disabled={!hasAddl1 || hasAddl2 || isFullyPaid || maxSlotsReached}
-            className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 focus:ring-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-700 dark:text-zinc-400 tracking-wider">
-            Job Status
-          </Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold shadow-sm">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent
-              className="rounded-xl border-gray-100 dark:border-zinc-800 dark:bg-zinc-900 shadow-xl z-[9999]"
-              position="popper"
-              sideOffset={5}
+    <DialogContent sx={{ p: 3 }}>
+      <Stack sx={{ gap: 3 }}>
+        <Stack
+          direction="row"
+          sx={{
+            gap: 2,
+            pb: 2,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography
+              sx={{
+                fontSize: "0.625rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "text.secondary",
+                mb: 0.5,
+                display: "block",
+              }}
             >
-              <SelectItem
-                value="Quoted"
-                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
+              Total Amount
+            </Typography>
+            <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary" }}>
+              ₦{record.amount.toLocaleString()}
+            </Typography>
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography
+              sx={{
+                fontSize: "0.625rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "text.secondary",
+                mb: 0.5,
+                display: "block",
+              }}
+            >
+              Current Status
+            </Typography>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>
+              {record.status}
+            </Typography>
+          </Box>
+        </Stack>
+
+        <Stack sx={{ gap: 2 }}>
+          {isFullyPaid && (
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: "success.light",
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "success.main",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  fontWeight: 900,
+                  color: "success.dark",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
               >
-                Quoted
-              </SelectItem>
-              <SelectItem
-                value="Printing"
-                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
-              >
-                Printing
-              </SelectItem>
-              <SelectItem
-                value="Finishing"
-                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
-              >
-                Finishing
-              </SelectItem>
-              <SelectItem
-                value="Ready"
-                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
-              >
-                Ready
-              </SelectItem>
-              <SelectItem
-                value="Delivered"
-                className="font-bold dark:text-zinc-300 dark:focus:bg-zinc-800"
-              >
-                Delivered
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
+                Paid Completed
+              </Typography>
+            </Box>
+          )}
+
+          {maxSlotsReached && !isFullyPaid && (
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: "warning.light",
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "warning.main",
+              }}
+            >
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "warning.dark" }}>
+                Maximum payment slots reached. Contact Admin to add more payments.
+              </Typography>
+            </Box>
+          )}
+
+          <Box>
+            <Typography
+              sx={{
+                fontSize: "0.625rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "text.secondary",
+                mb: 0.75,
+                display: "block",
+              }}
+            >
+              Additional Payment 1 (₦)
+            </Typography>
+            <TextField
+              type="number"
+              placeholder="Enter amount"
+              value={addl1}
+              onChange={(e) => setAddl1(e.target.value)}
+              disabled={hasAddl1 || isFullyPaid || maxSlotsReached}
+              fullWidth
+              size="medium"
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
+            />
+          </Box>
+
+          <Box>
+            <Typography
+              sx={{
+                fontSize: "0.625rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "text.secondary",
+                mb: 0.75,
+                display: "block",
+              }}
+            >
+              Additional Payment 2 (₦)
+            </Typography>
+            <TextField
+              type="number"
+              placeholder="Enter amount"
+              value={addl2}
+              onChange={(e) => setAddl2(e.target.value)}
+              disabled={!hasAddl1 || hasAddl2 || isFullyPaid || maxSlotsReached}
+              fullWidth
+              size="medium"
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
+            />
+          </Box>
+
+          <FormControl fullWidth size="medium">
+            <InputLabel
+              sx={{
+                fontSize: "0.625rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              Job Status
+            </InputLabel>
+            <Select
+              value={status}
+              label="Job Status"
+              onChange={(e) => setStatus(e.target.value)}
+              sx={{ borderRadius: 3, fontWeight: 700 }}
+            >
+              {JOB_STATUSES.map((s) => (
+                <MenuItem key={s} value={s} sx={{ fontWeight: 700 }}>{s}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
+      </Stack>
+    </DialogContent>
   );
 }
 
 function ContentFooter({ isSubmitting, handleUpdate, setIsOpen, drawer }: any) {
   if (drawer) {
     return (
-      <div className="flex flex-col gap-3 mt-8">
+      <Stack sx={{ gap: 1.5, mt: 4 }}>
         <Button
+          variant="contained"
           disabled={isSubmitting}
           onClick={handleUpdate}
-          className="w-full h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
+          fullWidth
+          sx={{ height: 48, borderRadius: 3, fontWeight: 900 }}
         >
           {isSubmitting ? "Updating..." : "Save Changes"}
         </Button>
         <Button
-          variant="outline"
+          variant="outlined"
           onClick={() => setIsOpen(false)}
-          className="w-full h-12 rounded-xl font-bold dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400"
+          fullWidth
+          sx={{ height: 48, borderRadius: 3, fontWeight: 700 }}
         >
           Cancel
         </Button>
-      </div>
+      </Stack>
     );
   }
 
   return (
-    <DialogFooter className="p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800">
+    <DialogActions
+      sx={{
+        p: 3,
+        bgcolor: "grey.50",
+        borderTop: "1px solid",
+        borderColor: "divider",
+        gap: 1.5,
+      }}
+    >
       <Button
-        variant="outline"
+        variant="outlined"
         onClick={() => setIsOpen(false)}
-        className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400"
+        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
       >
         Cancel
       </Button>
       <Button
+        variant="contained"
         disabled={isSubmitting}
         onClick={handleUpdate}
-        className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
+        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 900 }}
       >
         {isSubmitting ? "Updating..." : "Save Changes"}
       </Button>
-    </DialogFooter>
+    </DialogActions>
   );
 }

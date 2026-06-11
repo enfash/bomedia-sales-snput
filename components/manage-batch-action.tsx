@@ -2,19 +2,17 @@
 
 import { useState, useMemo } from "react";
 import { useMediaQuery } from "@/lib/useMediaQuery";
-import { Wallet, ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Wallet, CheckCircle2 } from "lucide-react";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogActions from "@mui/material/DialogActions";
+import IconButton from "@mui/material/IconButton";
 import { toast } from "sonner";
-import { Drawer } from "vaul";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
 import { computeWaterfall } from "@/lib/financial-utils";
 import { useSyncStore } from "@/lib/store";
@@ -23,10 +21,10 @@ interface ManageBatchActionProps {
   records: UnifiedRecord[];
   salesId: string;
   onUpdate: () => void;
+  variant?: "icon" | "button";
 }
 
-
-export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchActionProps) {
+export function ManageBatchAction({ records, salesId, onUpdate, variant = "button" }: ManageBatchActionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentInput, setPaymentInput] = useState("");
@@ -44,7 +42,7 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
   );
 
   const handleSubmit = async () => {
-    if (lumpSum <= 0) return; // nothing to apply — keep modal open for review
+    if (lumpSum <= 0) return;
     const steps = computeWaterfall(records, lumpSum);
     if (steps.length === 0) {
       toast.error("No eligible unpaid items to apply payment to.");
@@ -77,7 +75,6 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
             break;
           }
 
-          // Create payment event log for Payments sheet
           try {
             const loggedBy = localStorage.getItem("userName") || "System";
             await fetch("/api/payments", {
@@ -104,9 +101,8 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
         }
       }
     } else {
-      // Offline: Add each waterfall slice to the pendingQueue!
       const loggedBy = localStorage.getItem("userName") || "System";
-      
+
       steps.forEach((step) => {
         const payload: Record<string, any> = {
           rowIndex: step.record.rowIndex,
@@ -145,150 +141,242 @@ export function ManageBatchAction({ records, salesId, onUpdate }: ManageBatchAct
     }
   };
 
-  const trigger = (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider border-primary/30 text-primary hover:bg-primary/5"
+  const trigger = variant === "icon" ? (
+    <IconButton
+      size="small"
+      onClick={() => setIsOpen(true)}
+      title="Pay Batch"
+      sx={{ color: "primary.main", "&:hover": { bgcolor: "primary.main", color: "white" } }}
     >
-      <Wallet className="w-3 h-3 mr-1.5" />
+      <Wallet size={16} />
+    </IconButton>
+  ) : (
+    <Button
+      onClick={() => setIsOpen(true)}
+      variant="outlined"
+      size="small"
+      sx={{
+        height: 28,
+        px: 1.5,
+        borderRadius: 2,
+        fontSize: "0.625rem",
+        fontWeight: 900,
+        letterSpacing: "0.08em",
+        borderColor: "primary.main",
+        color: "primary.main",
+        whiteSpace: "nowrap",
+        minWidth: "max-content",
+        "&:hover": { bgcolor: "primary.main", color: "primary.contrastText" },
+      }}
+      startIcon={<Wallet style={{ width: 12, height: 12 }} />}
+    >
       Pay Batch
     </Button>
   );
 
+  const summaryCards = [
+    { label: "Grand Total", value: grandTotal, color: "text.primary" },
+    { label: "Paid", value: totalPaid, color: "success.main" },
+    { label: "Remaining", value: totalBalance, color: "error.main" },
+  ];
+
   const body = (
-    <div className="p-6 space-y-5">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Grand Total", value: grandTotal, color: "text-gray-900 dark:text-white" },
-          { label: "Paid", value: totalPaid, color: "text-emerald-600 dark:text-emerald-400" },
-          { label: "Remaining", value: totalBalance, color: "text-rose-600 dark:text-rose-400" },
-        ].map((m) => (
-          <div key={m.label} className="bg-gray-50 dark:bg-zinc-800 rounded-xl p-3">
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500 mb-1">{m.label}</p>
-            <p className={`text-sm font-black ${m.color}`}>
+    <Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2.5 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5 }}>
+        {summaryCards.map((m) => (
+          <Box key={m.label} sx={{ bgcolor: "grey.100", borderRadius: 2.5, p: 1.5 }}>
+            <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.5 }}>
+              {m.label}
+            </Typography>
+            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: m.color }}>
               ₦{m.value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-            </p>
-          </div>
+            </Typography>
+          </Box>
         ))}
-      </div>
+      </Box>
 
       {totalBalance <= 0 ? (
-        <div className="flex items-center justify-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, p: 2, bgcolor: "success.light", borderRadius: 2.5, border: "1px solid", borderColor: "success.light" }}>
+          <CheckCircle2 style={{ width: 16, height: 16 }} />
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "success.dark", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             All items fully paid
-          </p>
-        </div>
+          </Typography>
+        </Box>
       ) : (
         <>
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+            <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
               Lump-Sum Payment (₦)
-            </Label>
-            <Input
+            </Typography>
+            <TextField
               type="number"
               placeholder="Enter total payment amount"
               value={paymentInput}
               onChange={(e) => setPaymentInput(e.target.value)}
-              className="h-12 rounded-xl border-border dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold focus:ring-primary"
+              fullWidth
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
             />
             {lumpSum > totalBalance && (
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
+              <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5 }}>
+                <CheckCircle2 style={{ width: 12, height: 12 }} />
                 Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
-              </p>
+              </Typography>
             )}
-          </div>
+          </Box>
 
-          {/* Waterfall Preview */}
           {preview.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
                 Distribution Preview
-              </p>
-              <div className="border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden divide-y divide-gray-50 dark:divide-zinc-800">
+              </Typography>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2.5, overflow: "hidden" }}>
                 {preview.map((step, idx) => (
-                  <div key={step.record.id} className="flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-900">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        <span className="text-[9px] font-black text-primary">{idx + 1}</span>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-800 dark:text-zinc-100 leading-none">{step.record.description}</p>
-                        <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-0.5">Slot {step.slot}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                        +₦{step.toApply.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </p>
-                    </div>
-                  </div>
+                  <Box
+                    key={step.record.id}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      px: 2,
+                      py: 1.5,
+                      bgcolor: "background.paper",
+                      borderBottom: idx < preview.length - 1 ? "1px solid" : "none",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+                      <Box
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          bgcolor: "primary.main",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: "primary.contrastText" }}>
+                          {idx + 1}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary", lineHeight: 1 }}>
+                          {step.record.description}
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", mt: 0.5 }}>
+                          Slot {step.slot}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "success.main" }}>
+                      +₦{step.toApply.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                    </Typography>
+                  </Box>
                 ))}
-              </div>
-            </div>
+              </Box>
+            </Box>
           )}
         </>
       )}
-    </div>
+    </Box>
   );
 
   const footer = (drawer?: boolean) => (
-    <div className={drawer ? "flex flex-col gap-3 mt-4 px-6 pb-6" : "p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800"}>
+    <Box
+      sx={
+        drawer
+          ? { display: "flex", flexDirection: "column", gap: 1.5, mt: 2, px: 3, pb: 3 }
+          : { display: "flex", gap: 1.5, p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider" }
+      }
+    >
       <Button
-        variant="outline"
+        variant="outlined"
         onClick={() => setIsOpen(false)}
-        className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400"
+        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
       >
         Cancel
       </Button>
       <Button
+        variant="contained"
         disabled={isSubmitting || (totalBalance <= 0 && lumpSum <= 0)}
         onClick={handleSubmit}
-        className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-black shadow-lg shadow-primary/20 dark:shadow-none transition-[background-color,transform] active:scale-[0.97]"
+        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 900 }}
       >
-        {isSubmitting ? "Processing..." : lumpSum > 0 ? "Apply Payment" : totalBalance <= 0 ? "All Paid" : "Review"}
+        {isSubmitting ? "Processing…" : lumpSum > 0 ? "Apply Payment" : totalBalance <= 0 ? "All Paid" : "Review"}
       </Button>
-    </div>
+    </Box>
   );
 
   if (isMobile) {
     return (
-      <Drawer.Root open={isOpen} onOpenChange={setIsOpen}>
-        <Drawer.Trigger asChild>{trigger}</Drawer.Trigger>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 animate-in fade-in" />
-          <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] mt-24 fixed bottom-0 left-0 right-0 z-50 outline-none shadow-2xl border-t dark:border-zinc-800">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mt-4 mb-2" />
-            <div className="px-0 pb-0 overflow-y-auto max-h-[80vh]">
-              <div className="px-6 pb-2">
-                <p className="text-lg font-black text-gray-900 dark:text-white">Batch Payment</p>
-                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">{salesId}</p>
-              </div>
-              {body}
-            </div>
-            {footer(true)}
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+      <>
+        {trigger}
+        <Dialog
+          fullScreen
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
+
+          slotProps={{
+            paper: {
+              sx: {
+                mt: "10vh",
+                borderTopLeftRadius: 32,
+                borderTopRightRadius: 32,
+                bgcolor: "background.default",
+                display: "flex",
+                flexDirection: "column",
+              }
+            }
+          }}
+          sx={{
+            "& .MuiDialog-container": {
+              alignItems: "flex-end",
+            }
+          }}
+        >
+          <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 2, flexShrink: 0 }} />
+          <Box sx={{ flex: 1, overflowY: "auto" }}>
+            <Box sx={{ px: 3, pb: 1 }}>
+              <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary" }}>
+                Batch Payment
+              </Typography>
+              <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mt: 0.5 }}>
+                {salesId}
+              </Typography>
+            </Box>
+            {body}
+          </Box>
+          {footer(true)}
+        </Dialog>
+      </>
     );
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <button onClick={() => setIsOpen(true)}>{trigger}</button>
-      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl dark:shadow-none">
-        <DialogHeader className="p-6 pb-0 bg-primary text-primary-foreground rounded-t-3xl">
-          <DialogTitle className="text-xl font-black text-white">Batch Payment</DialogTitle>
-          <p className="text-white/70 text-xs font-medium mt-0.5 pb-4">{salesId} · {records.length} item{records.length !== 1 ? "s" : ""}</p>
-        </DialogHeader>
+    <>
+      {trigger}
+      <Dialog
+      open={isOpen}
+      onClose={() => setIsOpen(false)}
+      slotProps={{ paper: { sx: { borderRadius: 4, maxWidth: 448, width: "100%", p: 0 } } }}
+    >
+      <DialogTitle sx={{ bgcolor: "primary.main", color: "primary.contrastText", borderRadius: "16px 16px 0 0", pb: 2 }}>
+        <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "primary.contrastText" }}>
+          Batch Payment
+        </Typography>
+        <Typography sx={{ fontSize: "0.75rem", color: "primary.contrastText", opacity: 0.7, mt: 0.5 }}>
+          {salesId} · {records.length} item{records.length !== 1 ? "s" : ""}
+        </Typography>
+      </DialogTitle>
+      <DialogContent sx={{ p: 0 }}>
         {body}
-        <DialogFooter className="p-0">
-          {footer()}
-        </DialogFooter>
       </DialogContent>
+      <DialogActions sx={{ p: 0 }}>
+        {footer()}
+      </DialogActions>
     </Dialog>
+    </>
   );
 }

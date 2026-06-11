@@ -3,6 +3,9 @@
 import { forwardRef } from "react";
 import { UnifiedRecord } from "./manage-sale-action";
 import { format } from "date-fns";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 
 interface ReceiptTemplateProps {
   records: UnifiedRecord[];
@@ -46,134 +49,175 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     const hasMaterial = records.some((r) => r.material && r.material.trim() !== "");
 
     return (
-      <div
+      <Box
         ref={ref}
-        className="bg-white p-12 text-gray-900"
-        style={{ 
+        sx={{
+          bgcolor: "#ffffff",
+          p: 6,
+          color: "grey.900",
           fontFamily: "Inter, sans-serif",
-          width: "800px",
-          minHeight: "1131px", // A4 Ratio
-          boxSizing: "border-box"
+          width: 800,
+          minHeight: 1131, // A4 Ratio
+          boxSizing: "border-box",
         }}
       >
         {/* Header */}
-        <div className="flex justify-between items-start border-b-2 border-gray-100 pb-6 mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center font-bold text-white text-lg shrink-0">
-                B
-              </div>
-              <span className="font-black text-2xl tracking-tighter text-gray-900">
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            borderBottom: "2px solid",
+            borderColor: "grey.100",
+            pb: 3,
+            mb: 3,
+          }}
+        >
+          <Box>
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1 }}>
+              <Box
+                component="img"
+                src="/bomedia-icon.svg"
+                alt="BOMedia Logo"
+                sx={{
+                  width: 32,
+                  height: 32,
+                  objectFit: "contain",
+                  flexShrink: 0,
+                }}
+              />
+              <Typography sx={{ fontWeight: 900, fontSize: "1.5rem", letterSpacing: "-0.05em", color: "grey.900" }}>
                 BOMedia.
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 max-w-[200px]">
-              Large Format Printing, Branding &amp; Digital Services
-            </p>
-          </div>
-          <div className="text-right">
-            <h1 className="text-3xl font-black text-gray-200 tracking-widest uppercase mb-2">Invoice</h1>
-            <p className="text-sm font-bold text-gray-800">
+              </Typography>
+            </Stack>
+            <Typography sx={{ fontSize: "0.75rem", color: "grey.500", maxWidth: 200 }}>
+              Large Format Printing, Branding & Digital Services
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: "right" }}>
+            <Typography sx={{ fontSize: "1.875rem", fontWeight: 900, color: "grey.200", letterSpacing: "0.1em", textTransform: "uppercase", mb: 1 }}>
+              Invoice
+            </Typography>
+            <Typography sx={{ fontSize: "0.875rem", fontWeight: "bold", color: "grey.800" }}>
               {uniqueSalesIds.length > 1 ? "IDs: " : "#"}{salesIdDisplay}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">{format(recordDate, "MMM dd, yyyy")}</p>
-          </div>
-        </div>
+            </Typography>
+            <Typography sx={{ fontSize: "0.75rem", color: "grey.500", mt: 0.5 }}>
+              {format(recordDate, "MMM dd, yyyy")}
+            </Typography>
+          </Box>
+        </Stack>
 
         {/* Customer Details */}
-        <div className="mb-8">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Billed To</p>
-          <h2 className="text-lg font-black text-gray-800">{primary.client}</h2>
+        <Box sx={{ mb: 4 }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: "bold", color: "grey.400", textTransform: "uppercase", letterSpacing: "0.1em", mb: 0.5 }}>
+            Billed To
+          </Typography>
+          <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "grey.800" }}>
+            {primary.client}
+          </Typography>
           {primary.contact && (
-            <p className="text-sm text-gray-600 mt-0.5">{primary.contact}</p>
+            <Typography sx={{ fontSize: "0.875rem", color: "grey.600", mt: 0.25 }}>
+              {primary.contact}
+            </Typography>
           )}
-        </div>
+        </Box>
 
         {/* Line Items Table */}
-        <div className="mb-8 border border-gray-100 rounded-xl overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-500 font-bold text-xs uppercase tracking-wider">
+        <Box sx={{ mb: 4, border: "1px solid", borderColor: "grey.100", borderRadius: 3, overflow: "hidden" }}>
+          <Box component="table" sx={{ width: "100%", textAlign: "left", fontSize: "0.875rem", borderCollapse: "collapse" }}>
+            <Box component="thead" sx={{ bgcolor: "grey.50", color: "grey.500", fontWeight: "bold", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               <tr>
-                <th className="px-4 py-3 w-6 text-center">#</th>
-                <th className="px-4 py-3">Description</th>
-                {hasMaterial && <th className="px-4 py-3">Material</th>}
-                <th className="px-4 py-3 text-right">Amount</th>
-                <th className="px-4 py-3 text-right">Balance</th>
+                <Box component="th" sx={{ px: 2, py: 1.5, width: 24, textAlign: "center" }}>#</Box>
+                <Box component="th" sx={{ px: 2, py: 1.5 }}>Description</Box>
+                {hasMaterial && <Box component="th" sx={{ px: 2, py: 1.5 }}>Material</Box>}
+                <Box component="th" sx={{ px: 2, py: 1.5, textAlign: "right" }}>Amount</Box>
+                <Box component="th" sx={{ px: 2, py: 1.5, textAlign: "right" }}>Balance</Box>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+            </Box>
+            <Box component="tbody" sx={{ "& tr:not(:last-of-type)": { borderBottom: "1px solid", borderColor: "grey.100" } }}>
               {records.map((r, idx) => (
                 <tr key={r.id ?? idx}>
-                  <td className="px-4 py-3 text-center text-gray-400 text-xs font-bold">{idx + 1}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{r.description}</td>
+                  <Box component="td" sx={{ px: 2, py: 1.5, textAlign: "center", color: "grey.400", fontSize: "0.75rem", fontWeight: "bold" }}>
+                    {idx + 1}
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5, fontWeight: 500, color: "grey.900" }}>
+                    {r.description}
+                  </Box>
                   {hasMaterial && (
-                    <td className="px-4 py-3 text-gray-600 text-xs">
+                    <Box component="td" sx={{ px: 2, py: 1.5, color: "grey.600", fontSize: "0.75rem" }}>
                       {r.material || "—"}
-                    </td>
+                    </Box>
                   )}
-                  <td className="px-4 py-3 text-right font-bold text-gray-900">
+                  <Box component="td" sx={{ px: 2, py: 1.5, textAlign: "right", fontWeight: "bold", color: "grey.900" }}>
                     ₦{(r.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className={`px-4 py-3 text-right font-bold ${(r.balance ?? 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5, textAlign: "right", fontWeight: "bold", color: (r.balance ?? 0) > 0 ? "error.main" : "success.main" }}>
                     ₦{(r.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
+                  </Box>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Box>
+          </Box>
+        </Box>
 
         {/* Financial Summary */}
-        <div className="flex justify-end mb-12">
-          <div className="w-80 space-y-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500 font-medium">Grand Total</span>
-              <span className="font-bold text-gray-900">
+        <Stack direction="row" sx={{ justifyContent: "flex-end", mb: 6 }}>
+          <Stack sx={{ width: 320, gap: 2 }}>
+            <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
+              <Typography sx={{ color: "grey.500", fontWeight: 500 }}>Grand Total</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>
                 ₦{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500 font-medium">Amount Paid</span>
-              <span className="font-bold text-emerald-600">
+              </Typography>
+            </Stack>
+            <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
+              <Typography sx={{ color: "grey.500", fontWeight: 500 }}>Amount Paid</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "success.main" }}>
                 ₦{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between text-base pt-3 border-t-2 border-gray-900">
-              <span className="font-black text-gray-900">Balance Due</span>
-              <span className={`font-black ${totalBalance > 0 ? "text-rose-600" : "text-gray-900"}`}>
+              </Typography>
+            </Stack>
+            <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "1rem", pt: 1.5, borderTop: "2px solid", borderColor: "grey.900" }}>
+              <Typography sx={{ fontWeight: 900, color: "grey.900" }}>Balance Due</Typography>
+              <Typography sx={{ fontWeight: 900, color: totalBalance > 0 ? "error.main" : "grey.900" }}>
                 ₦{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-          </div>
-        </div>
+              </Typography>
+            </Stack>
+          </Stack>
+        </Stack>
 
         {/* Payment Details */}
-        <div className="mb-8 bg-gray-50 rounded-xl p-5 border border-gray-100">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Payment Details</p>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Account Name</span>
-              <span className="font-bold text-gray-900">Broad Options Media / Fasugba Elijah Niyi</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Account Number</span>
-              <span className="font-black text-gray-900 tracking-widest">5236650819</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Bank</span>
-              <span className="font-bold text-gray-900">Moniepoint MFB</span>
-            </div>
-          </div>
-        </div>
+        <Box sx={{ mb: 4, bgcolor: "grey.50", borderRadius: 3, p: 2.5, border: "1px solid", borderColor: "grey.100" }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: "bold", color: "grey.400", textTransform: "uppercase", letterSpacing: "0.1em", mb: 1.5 }}>
+            Payment Details
+          </Typography>
+          <Stack sx={{ gap: 0.75 }}>
+            <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
+              <Typography sx={{ color: "grey.500" }}>Account Name</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>Broad Options Media / Fasugba Elijah Niyi</Typography>
+            </Stack>
+            <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
+              <Typography sx={{ color: "grey.500" }}>Account Number</Typography>
+              <Typography sx={{ fontWeight: 900, color: "grey.900", letterSpacing: "0.1em" }}>5236650819</Typography>
+            </Stack>
+            <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
+              <Typography sx={{ color: "grey.500" }}>Bank</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>Moniepoint MFB</Typography>
+            </Stack>
+          </Stack>
+        </Box>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 pt-6 text-center">
-          <p className="text-sm font-bold text-gray-800 mb-1">Thank you for your business!</p>
-          <p className="text-xs text-gray-500">For inquiries, please contact us.</p>
-        </div>
-      </div>
+        <Box sx={{ borderTop: "1px solid", borderColor: "grey.200", pt: 3, textAlign: "center" }}>
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: "bold", color: "grey.800", mb: 0.5 }}>
+            Thank you for your business!
+          </Typography>
+          <Typography sx={{ fontSize: "0.75rem", color: "grey.500" }}>
+            For inquiries, please contact us.
+          </Typography>
+        </Box>
+      </Box>
     );
   }
 );
 
 ReceiptTemplate.displayName = "ReceiptTemplate";
+

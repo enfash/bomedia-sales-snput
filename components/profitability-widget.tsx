@@ -2,7 +2,9 @@
 
 import { useMemo } from "react";
 import { TrendingUp, TrendingDown, Minus, Package } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,42 +115,42 @@ export function ProfitabilityWidget({ sales, inventory }: ProfitabilityWidgetPro
 
   if (materialStats.length === 0) {
     return (
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-          <p className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
+      <Box sx={{ bgcolor: "background.paper", borderRadius: 4, border: "1px solid", borderColor: "grey.100", boxShadow: 1, p: 2.5 }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 2 }}>
+          <TrendingUp size={16} style={{ color: "var(--mui-palette-primary-main)" }} />
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.primary" }}>
             Material Profitability
-          </p>
-        </div>
-        <div className="text-center py-8">
-          <Package className="w-8 h-8 text-gray-200 dark:text-zinc-700 mx-auto mb-2" />
-          <p className="text-xs text-gray-400 dark:text-zinc-600 font-medium">
+          </Typography>
+        </Stack>
+        <Box sx={{ textAlign: "center", py: 4 }}>
+          <Package size={32} style={{ color: "var(--mui-palette-grey-300)", margin: "0 auto 8px" }} />
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" }}>
             No sales data to analyse
-          </p>
-        </div>
-      </div>
+          </Typography>
+        </Box>
+      </Box>
     );
   }
 
   const maxRevenue = Math.max(...materialStats.map((m) => m.revenue), 1);
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm p-5">
+    <Box sx={{ bgcolor: "background.paper", borderRadius: 4, border: "1px solid", borderColor: "grey.100", boxShadow: 1, p: 2.5 }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-          <p className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+          <TrendingUp size={16} style={{ color: "var(--mui-palette-primary-main)" }} />
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.primary" }}>
             Material Profitability
-          </p>
-        </div>
-        <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-600">
+          </Typography>
+        </Stack>
+        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
           {materialStats.reduce((s, m) => s + m.jobCount, 0)} jobs
-        </p>
-      </div>
+        </Typography>
+      </Stack>
 
       {/* Per-material rows */}
-      <div className="space-y-4">
+      <Stack sx={{ gap: 2 }}>
         {materialStats.map((mat) => {
           const margin = mat.marginPct;
           const isGood = margin !== null && margin >= 40;
@@ -157,88 +159,99 @@ export function ProfitabilityWidget({ sales, inventory }: ProfitabilityWidgetPro
           const noData = margin === null || !mat.hasCostData;
 
           const barColor = noData
-            ? "bg-gray-200 dark:bg-zinc-700"
+            ? "grey.200"
             : isGood
-            ? "bg-emerald-500"
+            ? "success.main"
             : isOk
-            ? "bg-amber-400"
-            : "bg-rose-500";
+            ? "warning.main"
+            : "error.main";
 
           const marginColor = noData
-            ? "text-gray-400 dark:text-zinc-600"
+            ? "text.disabled"
             : isGood
-            ? "text-emerald-600 dark:text-emerald-400"
+            ? "success.dark"
             : isOk
-            ? "text-amber-600 dark:text-amber-400"
-            : "text-rose-600 dark:text-rose-400";
+            ? "warning.dark"
+            : "error.dark";
 
           const Icon = noData ? Minus : isGood ? TrendingUp : isBad ? TrendingDown : Minus;
 
           return (
-            <div key={mat.name} className="space-y-2">
+            <Stack key={mat.name} sx={{ gap: 1 }}>
               {/* Top row */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Icon className={cn("w-3.5 h-3.5 shrink-0", marginColor)} />
-                  <span className="text-xs font-black text-gray-800 dark:text-zinc-200 truncate">
+              <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1, minWidth: 0 }}>
+                  <Box sx={{ color: marginColor, display: "flex" }}>
+                    <Icon size={14} />
+                  </Box>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {mat.name}
-                  </span>
-                  <span className="text-[9px] font-bold text-gray-400 dark:text-zinc-600 shrink-0">
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.secondary", flexShrink: 0 }}>
                     {mat.jobCount} job{mat.jobCount !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs font-black text-gray-900 dark:text-white">
+                  </Typography>
+                </Stack>
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexShrink: 0 }}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary" }}>
                     {fmtMoney(mat.revenue)}
-                  </span>
-                  <span className={cn("text-xs font-black min-w-[46px] text-right", marginColor)}>
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, minWidth: 46, textAlign: "right", color: marginColor }}>
                     {noData ? "—%" : `${margin!.toFixed(0)}%`}
-                  </span>
-                </div>
-              </div>
+                  </Typography>
+                </Stack>
+              </Stack>
 
               {/* Revenue bar */}
-              <div className="h-2 rounded-full bg-gray-100 dark:bg-zinc-800 overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full [transition:width_500ms_ease-out]", barColor)}
-                  style={{ width: `${(mat.revenue / maxRevenue) * 100}%` }}
+              <Box sx={{ height: 8, borderRadius: 99, bgcolor: "grey.100", overflow: "hidden" }}>
+                <Box
+                  sx={{
+                    height: "100%",
+                    borderRadius: 99,
+                    width: `${(mat.revenue / maxRevenue) * 100}%`,
+                    bgcolor: barColor,
+                    transition: "width 500ms ease-out",
+                  }}
                 />
-              </div>
+              </Box>
 
               {/* Sub-row: sqft & cost detail */}
-              <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-zinc-600 font-medium">
-                <span>
+              <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
                   {mat.sqftSold > 0 ? `${mat.sqftSold.toFixed(0)} sqft sold` : "no dimension data"}
                   {mat.avgPricePerSqft > 0 && ` · ₦${mat.avgPricePerSqft.toFixed(0)}/sqft avg`}
-                </span>
+                </Typography>
                 {mat.hasCostData && mat.estimatedCost > 0 && (
-                  <span>
+                  <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
                     est. cost {fmtMoney(mat.estimatedCost)} · profit {fmtMoney(mat.profit)}
-                  </span>
+                  </Typography>
                 )}
                 {!mat.hasCostData && (
-                  <span className="italic">add material cost to see margin</span>
+                  <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, fontStyle: "italic" }}>
+                    add material cost to see margin
+                  </Typography>
                 )}
-              </div>
-            </div>
+              </Stack>
+            </Stack>
           );
         })}
-      </div>
+      </Stack>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-5 pt-4 border-t border-gray-50 dark:border-zinc-800">
+      <Stack direction="row" sx={{ alignItems: "center", gap: 2, mt: 2.5, pt: 2, borderTop: "1px solid", borderColor: "grey.50" }}>
         {[
-          { color: "bg-emerald-500", label: "≥40% margin" },
-          { color: "bg-amber-400", label: "20–40%" },
-          { color: "bg-rose-500", label: "<20%" },
-          { color: "bg-gray-200 dark:bg-zinc-700", label: "No cost data" },
+          { color: "success.main", label: "≥40% margin" },
+          { color: "warning.main", label: "20–40%" },
+          { color: "error.main", label: "<20%" },
+          { color: "grey.200", label: "No cost data" },
         ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <div className={cn("w-2 h-2 rounded-full", color)} />
-            <span className="text-[9px] text-gray-400 dark:text-zinc-600 font-medium">{label}</span>
-          </div>
+          <Stack key={label} direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
+            <Typography sx={{ fontSize: "0.5625rem", color: "text.secondary", fontWeight: 500 }}>
+              {label}
+            </Typography>
+          </Stack>
         ))}
-      </div>
-    </div>
+      </Stack>
+    </Box>
   );
 }

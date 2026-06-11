@@ -5,19 +5,16 @@ import { useSyncStore } from "@/lib/store";
 import { parseAmount, computeWaterfall } from "@/lib/financial-utils";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { Wallet, ChevronRight, CheckCircle2, AlertCircle, User, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Drawer } from "vaul";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
 
 interface DebtorPaymentModalProps {
@@ -25,7 +22,7 @@ interface DebtorPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
-  theme?: "brand" | "amber"; // brand = admin (blue/purple), amber = cashier (orange)
+  theme?: "brand" | "amber";
 }
 
 const mapSale = (r: any): UnifiedRecord => {
@@ -61,16 +58,12 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
   const [paymentInput, setPaymentInput] = useState("");
   const isMobile = useMediaQuery("(max-width: 768px)");
 
-  const primaryColor = theme === "brand" ? "bg-brand-700" : "bg-amber-600";
-  const textColor = theme === "brand" ? "text-brand-700" : "text-amber-600";
-  const hoverColor = theme === "brand" ? "hover:bg-brand-800" : "hover:bg-amber-700";
+  const primaryColor = theme === "brand" ? "#3b56c8" : "#C0392B";
 
-  // Filter for all unpaid records for this client
   const clientRecords = useMemo(() => {
     if (!clientName) return [];
-    
+
     const sales = (cachedSales || []).map(mapSale);
-    // Include pending sales from queue too
     const pending = pendingQueue
       .filter(item => item.type === "sale" && (item.data[1] || "").trim() === clientName.trim())
       .map(item => ({
@@ -81,8 +74,8 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
         isPending: true,
       } as unknown as UnifiedRecord));
 
-    return [...sales, ...pending].filter(r => 
-      r.client.trim() === clientName.trim() && 
+    return [...sales, ...pending].filter(r =>
+      r.client.trim() === clientName.trim() &&
       !r.isPending &&
       ((r.balance || 0) > 0 || (r.additionalPayment1 === 0 || r.additionalPayment2 === 0))
     );
@@ -156,9 +149,8 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
         }
       }
     } else {
-      // Offline: Add each waterfall slice to the pendingQueue!
       const loggedBy = localStorage.getItem("userName") || "System";
-      
+
       steps.forEach((step) => {
         const payload: Record<string, any> = {
           rowIndex: step.record.rowIndex,
@@ -200,155 +192,271 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
   };
 
   const body = (
-    <div className="p-6 space-y-5">
-      {/* Client Info */}
-      <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800">
-        <div className={`w-10 h-10 rounded-xl ${primaryColor} flex items-center justify-center`}>
-          <User className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Selected Client</p>
-          <p className="text-sm font-black text-gray-900 dark:text-white truncate max-w-[200px]">{clientName}</p>
-        </div>
-        <div className="ml-auto text-right">
-          <p className="text-[10px] font-black uppercase tracking-widest text-rose-500">Total Debt</p>
-          <p className="text-sm font-black text-rose-600">₦{totalBalance.toLocaleString()}</p>
-        </div>
-      </div>
+    <Box sx={{ p: 3 }}>
+      <Stack sx={{ gap: 2.5 }}>
+        <Box sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+          p: 2,
+          bgcolor: "grey.50",
+          borderRadius: 3,
+          border: "1px solid",
+          borderColor: "grey.100",
+        }}>
+          <Box sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 2,
+            bgcolor: primaryColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <User size={20} color="#fff" />
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.secondary" }}>
+              Selected Client
+            </Typography>
+            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
+              {clientName}
+            </Typography>
+          </Box>
+          <Box sx={{ ml: "auto", textAlign: "right" }}>
+            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "error.main" }}>
+              Total Debt
+            </Typography>
+            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
+              ₦{totalBalance.toLocaleString()}
+            </Typography>
+          </Box>
+        </Box>
 
-      {clientRecords.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-          <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-            No payment slots available
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 dark:text-zinc-500 tracking-wider">
-              Apply Payment (₦)
-            </Label>
-            <Input
-              type="number"
-              placeholder="Enter amount to pay off"
-              value={paymentInput}
-              onChange={(e) => setPaymentInput(e.target.value)}
-              className="h-12 rounded-xl border-gray-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 font-bold focus:ring-primary text-lg"
-            />
-          </div>
+        {clientRecords.length === 0 ? (
+          <Box sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 1,
+            p: 3,
+            bgcolor: "#f0fdf4",
+            borderRadius: 3,
+            border: "1px solid #bbf7d0",
+          }}>
+            <CheckCircle2 size={20} color="#16a34a" />
+            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#15803d", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              No payment slots available
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            <Box>
+              <Typography component="label" sx={{ display: "block", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.12em", mb: 0.75 }}>
+                Apply Payment (₦)
+              </Typography>
+              <TextField
+                type="number"
+                placeholder="Enter amount to pay off"
+                value={paymentInput}
+                onChange={(e) => setPaymentInput(e.target.value)}
+                fullWidth
+                slotProps={{ htmlInput: { style: { fontWeight: 700, fontSize: "1.125rem" } } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
+              />
+            </Box>
 
-          {/* Distribution Preview */}
-          {preview.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider">
-                  Auto-Distribution Preview
-                </p>
-                <span className="text-[10px] font-bold text-gray-400">{preview.length} item{preview.length !== 1 ? "s" : ""}</span>
-              </div>
-              <div className="max-h-[200px] overflow-y-auto border border-gray-100 dark:border-zinc-800 rounded-xl divide-y divide-gray-50 dark:divide-zinc-800">
-                {preview.map((step, idx) => (
-                  <div key={step.record.id} className="flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-900/50">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-5 h-5 rounded-full ${primaryColor}/10 flex items-center justify-center flex-shrink-0`}>
-                        <span className={`text-[9px] font-black ${textColor}`}>{idx + 1}</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-gray-800 dark:text-zinc-100 leading-none truncate">{step.record.description}</p>
-                        <p className="text-[9px] text-gray-400 mt-1 uppercase font-bold">{step.record.date?.split(',')[0]}</p>
-                      </div>
-                    </div>
-                    <div className="text-right ml-2 shrink-0">
-                      <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                        +₦{step.toApply.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {lumpSum > totalBalance && totalBalance > 0 && (
-                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-2">
-                   <CheckCircle2 className="w-3 h-3" />
-                   Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
-                 </p>
-              )}
-              {totalBalance <= 0 && lumpSum > 0 && (
-                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-2">
-                   <CheckCircle2 className="w-3 h-3" />
-                   ₦{lumpSum.toLocaleString()} will be applied as credit.
-                 </p>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+            {preview.length > 0 && (
+              <Box>
+                <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                  <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.12em" }}>
+                    Auto-Distribution Preview
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "text.secondary" }}>
+                    {preview.length} item{preview.length !== 1 ? "s" : ""}
+                  </Typography>
+                </Stack>
+                <Box sx={{
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  border: "1px solid",
+                  borderColor: "grey.100",
+                  borderRadius: 3,
+                }}>
+                  {preview.map((step, idx) => (
+                    <Box key={step.record.id} sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      px: 2,
+                      py: 1.5,
+                      bgcolor: "background.paper",
+                      borderBottom: "1px solid",
+                      borderColor: "grey.50",
+                      "&:last-child": { borderBottom: "none" },
+                    }}>
+                      <Stack direction="row" sx={{ alignItems: "center", gap: 1.25 }}>
+                        <Box sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          bgcolor: `${primaryColor}18`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}>
+                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: primaryColor }}>
+                            {idx + 1}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {step.record.description}
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.5625rem", color: "text.secondary", mt: 0.5, textTransform: "uppercase", fontWeight: 700 }}>
+                            {step.record.date?.split(',')[0]}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <Box sx={{ textAlign: "right", ml: 1, flexShrink: 0 }}>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "success.main" }}>
+                          +₦{step.toApply.toLocaleString()}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+                {lumpSum > totalBalance && totalBalance > 0 && (
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
+                    <CheckCircle2 size={12} color="#16a34a" />
+                    <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700 }}>
+                      Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
+                    </Typography>
+                  </Stack>
+                )}
+                {totalBalance <= 0 && lumpSum > 0 && (
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
+                    <CheckCircle2 size={12} color="#16a34a" />
+                    <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700 }}>
+                      ₦{lumpSum.toLocaleString()} will be applied as credit.
+                    </Typography>
+                  </Stack>
+                )}
+              </Box>
+            )}
+          </>
+        )}
+      </Stack>
+    </Box>
   );
 
   const footer = (drawer?: boolean) => (
-    <div className={drawer ? "flex flex-col gap-3 mt-4 px-6 pb-8" : "p-6 bg-gray-50 dark:bg-zinc-900/50 flex gap-3 border-t dark:border-zinc-800"}>
+    <Box sx={drawer
+      ? { display: "flex", flexDirection: "column", gap: 1.5, mt: 2, px: 3, pb: 4 }
+      : { p: 3, bgcolor: "grey.50", display: "flex", gap: 1.5, borderTop: "1px solid", borderColor: "grey.100" }
+    }>
       <Button
-        variant="outline"
+        variant="outlined"
         onClick={onClose}
-        className="flex-1 h-12 rounded-xl font-bold dark:bg-zinc-950 dark:border-zinc-800"
+        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
       >
         Close
       </Button>
       {totalBalance > 0 && (
         <Button
+          variant="contained"
           disabled={isSubmitting || lumpSum <= 0 || preview.length === 0}
           onClick={handleSubmit}
-          className={`flex-1 h-12 rounded-xl ${primaryColor} ${hoverColor} text-white font-black shadow-lg transition-[background-color,transform] active:scale-[0.97]`}
+          sx={{
+            flex: 1,
+            height: 48,
+            borderRadius: 3,
+            bgcolor: primaryColor,
+            fontWeight: 900,
+            "&:hover": { bgcolor: theme === "brand" ? "#2e45b0" : "#8b2a1f" },
+            "&:active": { transform: "scale(0.97)" },
+          }}
         >
           {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+              <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
+                <Loader2 size={16} />
+              </Box>
               Processing...
-            </>
+            </Stack>
           ) : "Apply Payment"}
         </Button>
       )}
-    </div>
+    </Box>
   );
 
   if (isMobile) {
     return (
-      <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm" />
-          <Drawer.Content className="bg-white dark:bg-zinc-950 flex flex-col rounded-t-[2.5rem] fixed bottom-0 left-0 right-0 z-50 outline-none shadow-2xl border-t dark:border-zinc-800 max-h-[90vh]">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-200 dark:bg-zinc-800 mt-4 mb-2" />
-            <div className="overflow-y-auto">
-              <div className="px-6 py-2">
-                <Drawer.Title className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Client Payment</Drawer.Title>
-                <Drawer.Description className="sr-only">
-                  Apply a lump-sum payment to {clientName}'s outstanding debt.
-                </Drawer.Description>
-              </div>
-              {body}
-            </div>
-            {footer(true)}
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+      <Dialog
+        fullScreen
+        open={isOpen}
+        onClose={onClose}
+
+        slotProps={{
+          paper: {
+            sx: {
+              mt: "10vh",
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              bgcolor: "background.default",
+              display: "flex",
+              flexDirection: "column",
+            }
+          }
+        }}
+        sx={{
+          "& .MuiDialog-container": {
+            alignItems: "flex-end",
+          }
+        }}
+      >
+        <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 2, flexShrink: 0 }} />
+        <Box sx={{ flex: 1, overflowY: "auto" }}>
+          <Box sx={{ px: 3, py: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary", letterSpacing: "-0.02em" }}>Client Payment</Typography>
+          </Box>
+          {body}
+        </Box>
+        {footer(true)}
+      </Dialog>
     );
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 rounded-3xl p-0 border-none shadow-2xl overflow-hidden">
-        <DialogHeader className={`p-6 pb-6 ${primaryColor} text-white rounded-t-3xl`}>
-          <DialogTitle className="text-xl font-black text-white tracking-tight">Client Account Overlook</DialogTitle>
-          <DialogDescription className="text-white/80 text-xs font-bold mt-1 uppercase tracking-wider">
-            Lump-sum Debt Recovery for {clientName}
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: 4, overflow: "hidden" } } }}
+    >
+      <DialogTitle sx={{
+        bgcolor: primaryColor,
+        color: "#fff",
+        pt: 3,
+        pb: 2,
+        px: 3,
+      }}>
+        <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "#fff", lineHeight: 1.2 }}>
+          Client Account Overlook
+        </Typography>
+        <Typography sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", mt: 0.5 }}>
+          Lump-sum Debt Recovery for {clientName}
+        </Typography>
+      </DialogTitle>
+      <DialogContent sx={{ p: 0 }}>
         {body}
-        <DialogFooter className="p-0">
-          {footer()}
-        </DialogFooter>
       </DialogContent>
+      <DialogActions sx={{ p: 0 }}>
+        {footer()}
+      </DialogActions>
     </Dialog>
   );
 }

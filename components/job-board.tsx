@@ -2,12 +2,18 @@
 
 import { UnifiedRecord } from "@/components/manage-sale-action";
 import { useState, useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import { MaterialBadge } from "@/components/material-badge";
-import { Clock, CheckCircle2, RefreshCw, X, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Clock, CheckCircle2, RefreshCw, X, Check, MoreVertical } from "lucide-react";
 import { useSyncStore } from "@/lib/store";
 
 const parseAmount = (val: any): number => {
@@ -18,8 +24,10 @@ const parseAmount = (val: any): number => {
 
 const mapSale = (r: any): UnifiedRecord => {
   const amount = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
+  const sId = r["Sales ID"] || r["Sales Id"] || r["SALES ID"] || "";
+  const rowIndexStr = r._rowIndex !== undefined ? r._rowIndex.toString() : "";
   return {
-    id: r["Sales ID"] || r["SALES ID"] || `sale-${r.DATE}-${r["CLIENT NAME"]}-${Math.random()}`,
+    id: sId ? `${sId}-${rowIndexStr}` : `sale-${r.DATE || r.Date || ""}-${r["CLIENT NAME"] || r["Client Name"] || ""}-${rowIndexStr}`,
     date: r.DATE || r.Date || "N/A",
     type: "Sale",
     client: r["CLIENT NAME"] || r["Client Name"] || "N/A",
@@ -32,17 +40,52 @@ const mapSale = (r: any): UnifiedRecord => {
     jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
     material: r["Material"] || r["MATERIAL"] || r["material"] || "",
     balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
-    salesId: r["Sales ID"] || r["SALES ID"],
+    salesId: sId,
     raw: r
   };
 };
 
 const COLUMNS = [
-  { id: "Quoted", label: "Quoted / Pending", color: "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300", accent: "border-gray-300 dark:border-zinc-600" },
-  { id: "Printing", label: "Printing", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400", accent: "border-amber-400 dark:border-amber-500" },
-  { id: "Finishing", label: "Finishing / In Progress", color: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400", accent: "border-sky-400 dark:border-sky-500" },
-  { id: "Ready", label: "Ready", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400", accent: "border-emerald-400 dark:border-emerald-500" },
-  { id: "Delivered", label: "Delivered / Completed", color: "bg-primary/10 dark:bg-primary/20 text-primary", accent: "border-primary/50 dark:border-primary/40" },
+  {
+    id: "Quoted",
+    label: "Quoted / Pending",
+    chipColor: "#6b7280",
+    chipBg: "rgba(107,114,128,0.1)",
+    accentColor: "#9ca3af",
+    stripBg: "#e5e7eb",
+  },
+  {
+    id: "Printing",
+    label: "Printing",
+    chipColor: "#d97706",
+    chipBg: "rgba(245,158,11,0.1)",
+    accentColor: "#f59e0b",
+    stripBg: "#fde68a",
+  },
+  {
+    id: "Finishing",
+    label: "Finishing / In Progress",
+    chipColor: "#0284c7",
+    chipBg: "rgba(2,132,199,0.1)",
+    accentColor: "#38bdf8",
+    stripBg: "#bae6fd",
+  },
+  {
+    id: "Ready",
+    label: "Ready",
+    chipColor: "#059669",
+    chipBg: "rgba(5,150,105,0.1)",
+    accentColor: "#34d399",
+    stripBg: "#a7f3d0",
+  },
+  {
+    id: "Delivered",
+    label: "Delivered / Completed",
+    chipColor: "#C8472E",
+    chipBg: "rgba(200,71,46,0.1)",
+    accentColor: "#C8472E",
+    stripBg: "#fca5a5",
+  },
 ];
 
 const getColumnId = (status: string) => {
@@ -51,7 +94,7 @@ const getColumnId = (status: string) => {
   if (status === "Completed" || status === "Delivered") return "Delivered";
   if (status === "Ready") return "Ready";
   if (status === "Printing") return "Printing";
-  return "Quoted"; // fallback
+  return "Quoted";
 };
 
 interface JobBoardProps {
@@ -65,10 +108,33 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Status Menu State for Mobile & Touch interactions
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [menuActiveJob, setMenuActiveJob] = useState<UnifiedRecord | null>(null);
+
+  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>, job: UnifiedRecord) => {
+    e.stopPropagation();
+    setMenuAnchorEl(e.currentTarget);
+    setMenuActiveJob(job);
+  };
+
+  const handleMenuClose = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setMenuAnchorEl(null);
+    setMenuActiveJob(null);
+  };
+
+  const handleStatusSelect = (dbStatus: string) => {
+    if (menuActiveJob) {
+      updateSaleStatus(menuActiveJob.salesId || "", menuActiveJob.rowIndex, dbStatus);
+    }
+    handleMenuClose();
+  };
+
   const records = useMemo(() => {
     let mapped = (cachedSales || []).map((r: any) => mapSale(r));
     if (filterClient) {
-      mapped = mapped.filter((r: UnifiedRecord) => 
+      mapped = mapped.filter((r: UnifiedRecord) =>
         r.client.toLowerCase().includes(filterClient.toLowerCase())
       );
     }
@@ -101,25 +167,28 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
     });
   };
 
-  const handleDrop = (e: React.DragEvent, targetStatus: string) => {
+  const handleDrop = (e: React.DragEvent, columnId: string) => {
     e.preventDefault();
     if (!draggedJob) return;
 
     const currentId = getColumnId(draggedJob.jobStatus || "Quoted");
-    if (currentId !== targetStatus) {
-      // If the dragged item is part of the selection, move all selected items
+    if (currentId !== columnId) {
+      // Map columnId back to standard database JOB STATUS strings
+      let dbStatus = columnId;
+      if (columnId === "Finishing") dbStatus = "In Progress";
+      if (columnId === "Delivered") dbStatus = "Delivered";
+
       if (selectedJobIds.has(draggedJob.id)) {
         const jobsToMove = records.filter(r => selectedJobIds.has(r.id));
         jobsToMove.forEach(job => {
           const jobCurrentId = getColumnId(job.jobStatus || "Quoted");
-          if (jobCurrentId !== targetStatus) {
-            updateSaleStatus(job.salesId || "", job.rowIndex, targetStatus);
+          if (jobCurrentId !== columnId) {
+            updateSaleStatus(job.salesId || "", job.rowIndex, dbStatus);
           }
         });
-        setSelectedJobIds(new Set()); // clear selection after mass move
+        setSelectedJobIds(new Set());
       } else {
-        // Move only the single dragged item
-        updateSaleStatus(draggedJob.salesId || "", draggedJob.rowIndex, targetStatus);
+        updateSaleStatus(draggedJob.salesId || "", draggedJob.rowIndex, dbStatus);
       }
     }
     setDraggedJob(null);
@@ -131,121 +200,341 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
   }));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between min-h-[36px]">
-         <div className="flex items-center">
-           {selectedJobIds.size > 0 && (
-             <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-300">
-               <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 text-sm py-1 font-bold">
-                 {selectedJobIds.size} selected
-               </Badge>
-               <Button 
-                 variant="ghost" 
-                 size="sm" 
-                 onClick={() => setSelectedJobIds(new Set())}
-                 className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-zinc-100 h-8 px-2"
-               >
-                 <X className="w-3.5 h-3.5 mr-1" />
-                 Clear
-               </Button>
-               <span className="text-xs font-medium text-gray-400">Drag any selected card to move all</span>
-             </div>
-           )}
-         </div>
-         <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-9 shrink-0">
-           <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
-           Refresh Board
-         </Button>
-      </div>
-      
-      <div className="flex h-full min-h-[calc(100vh-14rem)] gap-4 overflow-x-auto pb-4 snap-x">
-      {boardData.map((column) => (
-        <div 
-          key={column.id} 
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => handleDrop(e, column.id)}
-          className="flex-none w-[320px] flex flex-col bg-gray-50/50 dark:bg-zinc-900/20 rounded-2xl border border-gray-100 dark:border-zinc-800/50 snap-start h-full max-h-[calc(100vh-10rem)] transition-colors"
+    <Stack sx={{ gap: 2 }}>
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", minHeight: 36 }}>
+        <Box>
+          {selectedJobIds.size > 0 && (
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+              <Chip
+                label={`${selectedJobIds.size} selected`}
+                size="small"
+                sx={{
+                  bgcolor: "primary.main" + "1A",
+                  color: "primary.main",
+                  fontWeight: 700,
+                  fontSize: "0.875rem",
+                  height: 28,
+                  border: "1px solid",
+                  borderColor: "primary.main" + "33",
+                }}
+              />
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => setSelectedJobIds(new Set())}
+                sx={{ color: "text.secondary", fontSize: "0.75rem", "&:hover": { color: "text.primary" }, height: 32, px: 1 }}
+                startIcon={<X size={14} />}
+              >
+                Clear
+              </Button>
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.disabled" }}>
+                Drag any selected card to move all
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          startIcon={<RefreshCw size={16} style={{ animation: isRefreshing ? "spin 1s linear infinite" : "none" }} />}
+          sx={{ height: 36, flexShrink: 0 }}
         >
-          {/* Column Header */}
-          <div className="p-4 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between sticky top-0 bg-gray-50/95 dark:bg-zinc-900/95 backdrop-blur z-10 rounded-t-2xl">
-            <div className="flex items-center gap-2">
-              <div className={cn("w-3 h-3 rounded-full border-2", column.accent, column.color.split(" ")[0])} />
-              <h3 className="font-bold text-gray-800 dark:text-zinc-100">{column.label}</h3>
-            </div>
-            <Badge variant="secondary" className="bg-white dark:bg-zinc-800 text-xs font-bold tabular-nums">
-              {column.items.length}
-            </Badge>
-          </div>
+          Refresh Board
+        </Button>
+      </Stack>
 
-          {/* Column Body */}
-          <div className="p-3 flex-1 overflow-y-auto space-y-3">
-            {column.items.map((job) => {
-              const isSelected = selectedJobIds.has(job.id);
-              const isDraggingSelected = draggedJob && selectedJobIds.has(draggedJob.id) && isSelected;
-              const isDraggingThis = draggedJob?.id === job.id;
-              
-              return (
-                <Card 
-                  key={job.id} 
-                  draggable
-                  onClick={() => toggleSelection(job.id)}
-                  onDragStart={() => setDraggedJob(job)}
-                  onDragEnd={() => setDraggedJob(null)}
-                  className={cn(
-                    "p-3 transition-all relative group cursor-grab active:cursor-grabbing",
-                    isSelected 
-                      ? "ring-2 ring-primary bg-primary/5 dark:bg-primary/10 border-primary shadow-md" 
-                      : "shadow-sm border-gray-200 dark:border-zinc-800 hover:shadow-md hover:border-gray-300 dark:hover:border-zinc-700",
-                    (isDraggingThis || isDraggingSelected) ? "opacity-50 scale-95" : "opacity-100"
-                  )}
-                >
-                  <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-lg", column.color.split(" ")[0])} />
-                  
-                  {isSelected && (
-                    <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground w-5 h-5 rounded-full flex items-center justify-center shadow-sm z-10">
-                      <Check className="w-3 h-3" />
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-start mb-2 pl-2">
-                    <div className="min-w-0 pr-2 pointer-events-none">
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium truncate">{job.client}</p>
-                      <p className="text-sm font-bold text-gray-800 dark:text-zinc-100 leading-tight line-clamp-2 mt-0.5">
-                        {job.description}
-                      </p>
-                    </div>
-                  </div>
+      <Box
+        sx={{
+          display: "flex",
+          gap: 2,
+          overflowX: "auto",
+          pb: 2,
+          minHeight: "calc(100vh - 14rem)",
+          scrollSnapType: "x mandatory",
+        }}
+      >
+        {boardData.map((column) => (
+          <Box
+            key={column.id}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, column.id)}
+            sx={{
+              flexShrink: 0,
+              width: 320,
+              display: "flex",
+              flexDirection: "column",
+              bgcolor: (theme) => theme.palette.mode === "dark" ? "rgba(30, 41, 59, 0.5)" : "rgba(249,250,251,0.5)",
+              borderRadius: 3,
+              border: "1px solid",
+              borderColor: "grey.100",
+              scrollSnapAlign: "start",
+              maxHeight: "calc(100vh - 10rem)",
+              transition: "background-color 0.2s",
+            }}
+          >
+            <Stack
+              direction="row"
+              sx={{
+                alignItems: "center",
+                justifyContent: "space-between",
+                p: 2,
+                borderBottom: "1px solid",
+                borderColor: "grey.100",
+                position: "sticky",
+                top: 0,
+                bgcolor: (theme) => theme.palette.mode === "dark" ? "rgba(30, 41, 59, 0.95)" : "rgba(249,250,251,0.95)",
+                backdropFilter: "blur(8px)",
+                zIndex: 10,
+                borderRadius: "12px 12px 0 0",
+              }}
+            >
+              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
+                    bgcolor: (theme) => theme.palette.mode === "dark" ? column.chipColor : column.stripBg,
+                    border: "2px solid",
+                    borderColor: column.accentColor,
+                  }}
+                />
+                <Typography sx={{ fontWeight: 700, color: "text.primary", fontSize: "0.875rem" }}>
+                  {column.label}
+                </Typography>
+              </Stack>
+              <Chip
+                label={column.items.length}
+                size="small"
+                sx={{
+                  bgcolor: "background.paper",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  height: 22,
+                  "& .MuiChip-label": { px: 1 },
+                }}
+              />
+            </Stack>
 
-                  <div className="flex flex-wrap gap-1.5 pl-2 mb-3 pointer-events-none">
-                    {job.material && <MaterialBadge material={job.material} />}
-                  </div>
+            <Box sx={{ p: 1.5, flex: 1, overflowY: "auto" }}>
+              <Stack sx={{ gap: 1.5 }}>
+                {column.items.map((job) => {
+                  const isSelected = selectedJobIds.has(job.id);
+                  const isDraggingSelected = draggedJob && selectedJobIds.has(draggedJob.id) && isSelected;
+                  const isDraggingThis = draggedJob?.id === job.id;
 
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-zinc-800 pl-2 pointer-events-none">
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-zinc-400">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{job.date?.split(',')[0]}</span>
-                    </div>
-                    
-                    {column.id === "Delivered" && (
-                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Done
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-            
-            {column.items.length === 0 && (
-              <div className="h-24 flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-zinc-800 rounded-xl">
-                <p className="text-xs text-gray-400 dark:text-zinc-500 font-medium">Drop jobs here</p>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-      </div>
-    </div>
+                  return (
+                    <Card
+                      key={job.id}
+                      draggable
+                      onClick={() => toggleSelection(job.id)}
+                      onDragStart={() => setDraggedJob(job)}
+                      onDragEnd={() => setDraggedJob(null)}
+                      sx={{
+                        position: "relative",
+                        cursor: "grab",
+                        "&:active": { cursor: "grabbing" },
+                        transition: "all 0.2s",
+                        opacity: isDraggingThis || isDraggingSelected ? 0.5 : 1,
+                        transform: isDraggingThis || isDraggingSelected ? "scale(0.95)" : "scale(1)",
+                        ...(isSelected
+                          ? {
+                              outline: "2px solid",
+                              outlineColor: "primary.main",
+                              bgcolor: "primary.main" + "0D",
+                              borderColor: "primary.main",
+                              boxShadow: "0 4px 12px rgba(200,71,46,0.15)",
+                            }
+                          : {
+                              "&:hover": {
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                                borderColor: "grey.300",
+                              },
+                            }),
+                        borderRadius: "16px",
+                        overflow: "visible",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: 4,
+                          borderRadius: "10px 0 0 10px",
+                          bgcolor: (theme) => theme.palette.mode === "dark" ? column.chipColor : column.stripBg,
+                        }}
+                      />
+
+                      {isSelected && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            top: -8,
+                            right: -8,
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          <Check size={12} />
+                        </Box>
+                      )}
+
+                      <CardContent sx={{ p: "12px !important", pl: "20px !important" }}>
+                        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+                          <Box sx={{ minWidth: 0, pr: 1, pointerEvents: "none", flex: 1 }}>
+                            <Typography sx={{ fontSize: "0.7rem", color: "text.secondary", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {job.client}
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", mt: 0.25 }}>
+                              {job.description}
+                            </Typography>
+                          </Box>
+
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMenuOpen(e, job)}
+                            sx={{
+                              p: 0.5,
+                              mt: -0.5,
+                              mr: -0.5,
+                              color: "text.secondary",
+                              "&:hover": { color: "text.primary", bgcolor: "action.hover" }
+                            }}
+                          >
+                            <MoreVertical size={16} />
+                          </IconButton>
+                        </Stack>
+
+                        <Box sx={{ mb: 1.5, pointerEvents: "none" }}>
+                          {job.material && <MaterialBadge material={job.material} />}
+                        </Box>
+
+                        <Stack
+                          direction="row"
+                          sx={{
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            pt: 1,
+                            borderTop: "1px solid",
+                            borderColor: "grey.100",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+                            <Clock size={14} color="#6b7280" />
+                            <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+                              {job.date?.split(",")[0]}
+                            </Typography>
+                          </Stack>
+
+                          {column.id === "Delivered" && (
+                            <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                              <CheckCircle2 size={14} color="#059669" />
+                              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#059669" }}>
+                                Done
+                              </Typography>
+                            </Stack>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+                {column.items.length === 0 && (
+                  <Box
+                    sx={{
+                      height: 96,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "2px dashed",
+                      borderColor: "grey.200",
+                      borderRadius: 3,
+                    }}
+                  >
+                    <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontWeight: 500 }}>
+                      Drop jobs here
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+
+      {/* Tactile Status Selector for Mobile/Desktop */}
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={() => handleMenuClose()}
+        onClick={(e) => e.stopPropagation()}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              border: "1px solid",
+              borderColor: "divider",
+              minWidth: 180,
+            }
+          }
+        }}
+      >
+        <Box sx={{ px: 2, py: 1, borderBottom: "1px solid", borderColor: "divider", mb: 0.5 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: "text.disabled", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Move Job To
+          </Typography>
+        </Box>
+        {COLUMNS.map((col) => {
+          let dbStatus = col.id;
+          if (col.id === "Finishing") dbStatus = "In Progress";
+          if (col.id === "Delivered") dbStatus = "Delivered";
+
+          const isCurrent = getColumnId(menuActiveJob?.jobStatus || "Quoted") === col.id;
+
+          return (
+            <MenuItem
+              key={col.id}
+              onClick={() => handleStatusSelect(dbStatus)}
+              disabled={isCurrent}
+              sx={{
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                py: 1,
+                px: 2,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                color: isCurrent ? "text.disabled" : "text.primary"
+              }}
+            >
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  bgcolor: col.chipColor,
+                }}
+              />
+              {col.label}
+            </MenuItem>
+          );
+        })}
+      </Menu>
+    </Stack>
   );
 }

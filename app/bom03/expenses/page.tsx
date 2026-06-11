@@ -3,37 +3,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExpenseEntry } from "@/components/expense-entry";
+import { StatusBadge } from "@/components/status-badge";
 import {
-  Receipt,
-  ArrowLeft,
-  Plus,
-  X,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Loader2,
-  CheckCircle2,
-  Clock,
+  Receipt, ArrowLeft, Plus, X, RefreshCw, ChevronDown, ChevronUp,
+  ExternalLink, Loader2, CheckCircle2, Clock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSyncStore } from "@/lib/store";
 
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Chip from "@mui/material/Chip";
+
 type Expense = {
-  DATE: string;
-  AMOUNT: string;
-  CATEGORY: string;
-  DESCRIPTION: string;
-  "PAID TO": string;
-  "PAYMENT METHOD": string;
-  "RECEIPT URL": string;
-  "Logged By": string;
-  STATUS: string;
-  "PAID BY": string;
-  "PAID AT": string;
-  TIMESTAMP: string;
+  DATE: string; AMOUNT: string; CATEGORY: string; DESCRIPTION: string;
+  "PAID TO": string; "PAYMENT METHOD": string; "RECEIPT URL": string;
+  "Logged By": string; STATUS: string; "PAID BY": string; "PAID AT": string; TIMESTAMP: string;
 };
 
 function formatDate(d: string) {
@@ -47,26 +35,10 @@ function formatDateTime(d: string) {
   if (!d) return "—";
   const date = new Date(d);
   if (isNaN(date.getTime())) return d;
-  return date.toLocaleString("en-NG", {
-    day: "numeric", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return date.toLocaleString("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const isPaid = status === "Paid";
-  return (
-    <span className={cn(
-      "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black",
-      isPaid
-        ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
-        : "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400"
-    )}>
-      {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-      {isPaid ? "Paid" : "Unpaid"}
-    </span>
-  );
-}
+
 
 function ExpenseRow({ expense, onStatusToggle }: {
   expense: Expense;
@@ -84,95 +56,107 @@ function ExpenseRow({ expense, onStatusToggle }: {
   };
 
   return (
-    <li className="border-b border-gray-100 dark:border-zinc-800 last:border-0">
-      <button
+    <Box sx={{ borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: "none" } }}>
+      <Box
+        component="button"
         type="button"
         onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/40 active:bg-gray-100 dark:active:bg-zinc-800"
+        sx={{
+          width: "100%", display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.75,
+          textAlign: "left", bgcolor: "transparent", border: "none", cursor: "pointer",
+          "&:hover": { bgcolor: "action.hover" }, transition: "background-color 0.15s",
+        }}
       >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-black text-gray-900 dark:text-white truncate">{expense.CATEGORY}</p>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography variant="body2" sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {expense.CATEGORY}
+            </Typography>
             {expense["PAID TO"] && (
-              <span className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium truncate">
+              <Typography variant="caption" sx={{ color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 · {expense["PAID TO"]}
-              </span>
+              </Typography>
             )}
-          </div>
-          <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">
+          </Box>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
             {formatDate(expense.DATE)}{expense.DESCRIPTION ? ` · ${expense.DESCRIPTION}` : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-sm font-black text-rose-600 dark:text-rose-400">
+          </Typography>
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+          <Typography variant="body2" sx={{ fontWeight: 800, color: "error.main" }}>
             ₦{Number(expense.AMOUNT || 0).toLocaleString()}
-          </span>
-          <StatusBadge status={expense.STATUS || "Unpaid"} />
-          {expanded
-            ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-zinc-500" />
-            : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-zinc-500" />
-          }
-        </div>
-      </button>
+          </Typography>
+          <StatusBadge variant="expenses" status={expense.STATUS || "Unpaid"} />
+          {expanded ? <ChevronUp size={16} color="#9CA3AF" /> : <ChevronDown size={16} color="#9CA3AF" />}
+        </Box>
+      </Box>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-1 bg-gray-50/60 dark:bg-zinc-800/20 space-y-3">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-            <div>
-              <p className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-0.5">Method</p>
-              <p className="font-bold text-gray-900 dark:text-zinc-100">{expense["PAYMENT METHOD"] || "—"}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-0.5">Logged By</p>
-              <p className="font-bold text-gray-900 dark:text-zinc-100">{expense["Logged By"] || "—"}</p>
-            </div>
+        <Box sx={{ px: 2, pb: 2, pt: 0.5, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.100' : 'grey.50' }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
+            <Box>
+              <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>Method</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{expense["PAYMENT METHOD"] || "—"}</Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>Logged By</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{expense["Logged By"] || "—"}</Typography>
+            </Box>
             {expense.DESCRIPTION && (
-              <div className="col-span-2">
-                <p className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-0.5">Description</p>
-                <p className="font-medium text-gray-700 dark:text-zinc-300">{expense.DESCRIPTION}</p>
-              </div>
+              <Box sx={{ gridColumn: "span 2" }}>
+                <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>Description</Typography>
+                <Typography variant="body2">{expense.DESCRIPTION}</Typography>
+              </Box>
             )}
             {expense["RECEIPT URL"] && (
-              <div className="col-span-2">
-                <p className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-1">Receipt</p>
-                <a
-                  href={expense["RECEIPT URL"]}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="inline-flex items-center gap-1.5 text-xs font-black text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
+              <Box sx={{ gridColumn: "span 2" }}>
+                <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.5 }}>Receipt</Typography>
+                <Box component="a" href={expense["RECEIPT URL"]} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", fontWeight: 800, color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
+                  <ExternalLink size={12} />
                   View Receipt
-                </a>
-              </div>
+                </Box>
+              </Box>
             )}
-          </div>
+          </Box>
 
-          <div className="border-t border-gray-200 dark:border-zinc-700 pt-3">
-            <p className="text-[10px] uppercase font-black text-gray-400 dark:text-zinc-500 tracking-wider mb-2">Payment Status</p>
-            {isPaid && expense["PAID BY"] ? (
-              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium mb-2">
-                Marked paid by <span className="font-black">{expense["PAID BY"]}</span> on {formatDateTime(expense["PAID AT"])}
-              </p>
-            ) : null}
+          <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
+            <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 1 }}>Payment Status</Typography>
+            {isPaid && expense["PAID BY"] && (
+              <Typography variant="caption" sx={{ color: "success.main", display: "block", mb: 1 }}>
+                Marked paid by <strong>{expense["PAID BY"]}</strong> on {formatDateTime(expense["PAID AT"])}
+              </Typography>
+            )}
             <Button
-              size="sm"
+              size="small"
               disabled={toggling}
               onClick={handleToggle}
-              className={cn(
-                "h-8 px-4 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors",
-                isPaid
-                  ? "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-900/50 shadow-none"
-                  : "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900/50 shadow-none"
-              )}
+              sx={{
+                height: 32, px: 2, borderRadius: 2, fontSize: "0.6875rem", fontWeight: 800, boxShadow: "none",
+                bgcolor: isPaid 
+                  ? (theme) => theme.palette.mode === "dark" ? "rgba(192, 57, 43, 0.15)" : "#fee2e2"
+                  : (theme) => theme.palette.mode === "dark" ? "rgba(46, 125, 91, 0.15)" : "#d1fae5",
+                color: isPaid 
+                  ? (theme) => theme.palette.mode === "dark" ? "#fca5a5" : "#991b1b"
+                  : (theme) => theme.palette.mode === "dark" ? "#6ee7b7" : "#065f46",
+                border: "1px solid",
+                borderColor: isPaid 
+                  ? (theme) => theme.palette.mode === "dark" ? "rgba(192, 57, 43, 0.3)" : "#fca5a5"
+                  : (theme) => theme.palette.mode === "dark" ? "rgba(46, 125, 91, 0.3)" : "#86efac",
+                "&:hover": { 
+                  bgcolor: isPaid 
+                    ? (theme) => theme.palette.mode === "dark" ? "rgba(192, 57, 43, 0.25)" : "#fecaca"
+                    : (theme) => theme.palette.mode === "dark" ? "rgba(46, 125, 91, 0.25)" : "#bbf7d0", 
+                  boxShadow: "none" 
+                },
+              }}
             >
-              {toggling ? <Loader2 className="w-3 h-3 animate-spin" /> : isPaid ? "Mark as Unpaid" : "Mark as Paid"}
+              {toggling ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : isPaid ? "Mark as Unpaid" : "Mark as Paid"}
             </Button>
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
-    </li>
+    </Box>
   );
 }
 
@@ -219,12 +203,7 @@ export default function ExpensesPage() {
       if (!res.ok) throw new Error("Failed to update");
       setExpenses(prev => prev.map(e =>
         e.TIMESTAMP === timestamp
-          ? {
-              ...e,
-              STATUS: newStatus,
-              "PAID BY": newStatus === "Paid" ? userName : "",
-              "PAID AT": newStatus === "Paid" ? new Date().toISOString() : "",
-            }
+          ? { ...e, STATUS: newStatus, "PAID BY": newStatus === "Paid" ? userName : "", "PAID AT": newStatus === "Paid" ? new Date().toISOString() : "" }
           : e
       ));
       toast.success(`Marked as ${newStatus}`);
@@ -238,106 +217,95 @@ export default function ExpensesPage() {
   const totalUnpaid = unpaidExpenses.reduce((sum, e) => sum + (Number(e.AMOUNT) || 0), 0);
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl min-h-screen bg-transparent">
-      <div className="mb-5">
-        <div className="flex items-center justify-between gap-3 mb-1">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={() => router.back()}
-              className="md:hidden rounded-xl h-9 w-9 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 transition-[transform] duration-150 ease-out active:scale-[0.97]">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-red-500 dark:text-rose-500" />
-              <h1 className="text-2xl font-black text-gray-900 dark:text-white">Expenses</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 14, md: 4 }, maxWidth: 768, minHeight: "100vh"}}>
+      {/* Header */}
+      <Box sx={{ mb: 2.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, mb: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <IconButton size="small" onClick={() => router.back()} sx={{ display: { md: "none" }, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+              <ArrowLeft size={16} />
+            </IconButton>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Receipt size={20} color="#2E388E" />
+              <Typography variant="h4" sx={{ fontWeight: 800 }}>Expenses</Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton size="small" onClick={() => fetchExpenses(true)} disabled={refreshing}
+              sx={{ bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+              <RefreshCw size={16} style={refreshing ? { animation: "spin 1s linear infinite" } : undefined} />
+            </IconButton>
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => fetchExpenses(true)}
-              disabled={refreshing}
-              className="h-9 w-9 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-              aria-label="Refresh"
-            >
-              <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-            </Button>
-            <Button
-              size="sm"
+              size="small"
               onClick={() => setShowForm(v => !v)}
-              className={cn(
-                "h-9 px-4 rounded-xl font-black text-[12px] flex items-center gap-1.5 shadow-md transition-colors",
-                showForm
-                  ? "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 shadow-none"
-                  : "bg-primary text-primary-foreground shadow-primary/20 dark:shadow-none"
-              )}
+              variant={showForm ? "outlined" : "contained"}
+              startIcon={showForm ? <X size={14} /> : <Plus size={14} />}
+              sx={{ height: 36, px: 2, borderRadius: 2, fontWeight: 800, fontSize: "0.75rem" }}
             >
-              {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
               {showForm ? "Cancel" : "New"}
             </Button>
-          </div>
-        </div>
-        <p className="text-gray-500 dark:text-zinc-400 text-sm font-medium">Track and manage business expenses.</p>
-      </div>
+          </Box>
+        </Box>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>Track and manage business expenses.</Typography>
+      </Box>
 
+      {/* Unpaid alert */}
       {totalUnpaid > 0 && (
-        <div className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30">
-          <Clock className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
-          <p className="text-sm font-black text-rose-700 dark:text-rose-400">
+        <Box sx={{ 
+          display: "flex", alignItems: "center", gap: 1, px: 2, py: 1.25, borderRadius: 2.5, 
+          bgcolor: (theme) => theme.palette.mode === "dark" ? "rgba(192, 57, 43, 0.15)" : "#fff1f2", 
+          border: "1px solid",
+          borderColor: (theme) => theme.palette.mode === "dark" ? "rgba(192, 57, 43, 0.3)" : "#fecdd3", 
+          mb: 2 
+        }}>
+          <Clock size={16} color="#f43f5e" style={{ flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ fontWeight: 800, color: (theme) => theme.palette.mode === "dark" ? "#fca5a5" : "#9f1239" }}>
             ₦{totalUnpaid.toLocaleString()} unpaid
-          </p>
-          <span className="text-[11px] text-rose-500/70 dark:text-rose-500 font-medium">
+          </Typography>
+          <Typography variant="caption" sx={{ color: (theme) => theme.palette.mode === "dark" ? "text.secondary" : "#f43f5e" }}>
             across {unpaidExpenses.length} expense{unpaidExpenses.length !== 1 ? "s" : ""}
-          </span>
-        </div>
+          </Typography>
+        </Box>
       )}
 
+      {/* Inline form */}
       {showForm && (
-        <div className="mb-6 animate-in slide-in-from-top-2 duration-200">
+        <Box sx={{ mb: 3 }}>
           <ExpenseEntry onSaved={() => { fetchExpenses(); setShowForm(false); }} />
-        </div>
+        </Box>
       )}
 
-      <div className="flex gap-2 mb-4">
+      {/* Filter pills */}
+      <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
         {(["All", "Unpaid", "Paid"] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={cn(
-              "px-4 py-1.5 rounded-xl text-[12px] font-black border transition-colors",
-              filter === f
-                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-400 hover:border-gray-300 dark:hover:border-zinc-700"
-            )}>
+          <Button key={f} size="small" onClick={() => setFilter(f)}
+            variant={filter === f ? "contained" : "outlined"}
+            sx={{ borderRadius: 2, fontWeight: 800, fontSize: "0.75rem", height: 32, px: 2 }}>
             {f}
-          </button>
+          </Button>
         ))}
-      </div>
+      </Box>
 
-      <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm mb-6">
+      {/* Expense list */}
+      <Paper variant="outlined" sx={{ borderRadius: "16px", overflow: "hidden", mb: 3 }}>
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-12 text-gray-400 dark:text-zinc-500">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm font-medium">Loading expenses...</span>
-          </div>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, py: 6, color: "text.secondary" }}>
+            <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+            <Typography variant="body2">Loading expenses...</Typography>
+          </Box>
         ) : filtered.length === 0 ? (
-          <div className="py-12 text-center">
-            <Receipt className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-zinc-600" />
-            <p className="text-sm font-black text-gray-400 dark:text-zinc-500">
+          <Box sx={{ py: 6, textAlign: "center" }}>
+            <Receipt size={32} color="#D1D5DB" style={{ margin: "0 auto 8px" }} />
+            <Typography variant="body2" sx={{ fontWeight: 800, color: "text.disabled" }}>
               {filter === "All" ? "No expenses logged yet" : `No ${filter.toLowerCase()} expenses`}
-            </p>
-          </div>
+            </Typography>
+          </Box>
         ) : (
-          <ul>
-            {filtered.map((expense, i) => (
-              <ExpenseRow
-                key={expense.TIMESTAMP || i}
-                expense={expense}
-                onStatusToggle={handleStatusToggle}
-              />
-            ))}
-          </ul>
+          filtered.map((expense, i) => (
+            <ExpenseRow key={expense.TIMESTAMP ? `${expense.TIMESTAMP}-${i}` : i} expense={expense} onStatusToggle={handleStatusToggle} />
+          ))
         )}
-      </div>
-
-    </div>
+      </Paper>
+    </Box>
   );
 }
