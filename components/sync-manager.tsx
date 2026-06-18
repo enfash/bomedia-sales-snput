@@ -12,6 +12,22 @@ import Typography from "@mui/material/Typography";
 
 const MAX_RETRIES = 3;
 
+function translateApiError(status: number | undefined, rawMessage: string): string {
+  const msgLower = (rawMessage || "").toLowerCase();
+  
+  if (status === 403 || msgLower.includes("403")) {
+    return 'Permission Denied: Please check the billing or service account status.';
+  }
+  if (status === 409 || msgLower.includes("409")) {
+    return 'Sync Conflict: This entry is stuck. Please clear pending entries.';
+  }
+  if (status === 503 || msgLower.includes("503")) {
+    return 'Server Offline: The system is down. Please wait a moment.';
+  }
+  
+  return 'An unexpected error occurred during sync. Please try again.';
+}
+
 export function SyncManager() {
   const {
     pendingQueue,
@@ -20,6 +36,7 @@ export function SyncManager() {
     removeEntry,
     setLastSyncTime,
     updateEntryRetry,
+    updateEntryError,
   } = useSyncStore();
   const isSyncingRef = useRef(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -86,8 +103,10 @@ export function SyncManager() {
               body: JSON.stringify(item.data.salesUpdate),
             });
             if (!salesRes.ok) {
-              const errData = await salesRes.json();
-              throw new Error(errData.error || "Sales PATCH failed during sync");
+              const errData = await salesRes.json().catch(() => ({}));
+              const error = new Error(errData.error || "Sales PATCH failed during sync");
+              (error as any).status = salesRes.status;
+              throw error;
             }
 
             const paymentsRes = await fetch("/api/payments", {
@@ -96,8 +115,10 @@ export function SyncManager() {
               body: JSON.stringify(item.data.paymentLog),
             });
             if (!paymentsRes.ok) {
-              const errData = await paymentsRes.json();
-              throw new Error(errData.error || "Payments POST failed during sync");
+              const errData = await paymentsRes.json().catch(() => ({}));
+              const error = new Error(errData.error || "Payments POST failed during sync");
+              (error as any).status = paymentsRes.status;
+              throw error;
             }
 
             removeEntry(item.id);
@@ -109,8 +130,10 @@ export function SyncManager() {
               body: JSON.stringify(item.data),
             });
             if (!res.ok) {
-              const errData = await res.json();
-              throw new Error(errData.error || "Sales Status PATCH failed during sync");
+              const errData = await res.json().catch(() => ({}));
+              const error = new Error(errData.error || "Sales Status PATCH failed during sync");
+              (error as any).status = res.status;
+              throw error;
             }
             removeEntry(item.id);
             successCount++;
@@ -133,15 +156,25 @@ export function SyncManager() {
               removeEntry(item.id);
               successCount++;
             } else {
-              const errData = await res.json();
-              throw new Error(errData.error || "Server error");
+              const errData = await res.json().catch(() => ({}));
+              const error = new Error(errData.error || `Server error (${res.status})`);
+              (error as any).status = res.status;
+              throw error;
             }
           }
         } catch (err: any) {
           console.error(`Failed to sync item ${item.id}:`, err);
           errorCount++;
-          const newRetryCount = (item.retryCount || 0) + 1;
+          
+          // Determine if it's a fatal client error that shouldn't be retried
+          const msg = err.message || "";
+          const isFatal = msg.includes("403") || msg.includes("409") || msg.includes("400") || msg.includes("404");
+          
+          const newRetryCount = isFatal ? MAX_RETRIES : (item.retryCount || 0) + 1;
           updateEntryRetry(item.id, newRetryCount, Date.now());
+          
+          const translatedMsg = translateApiError(err.status, msg);
+          useSyncStore.getState().updateEntryError(item.id, translatedMsg);
         }
       }
 
@@ -193,15 +226,24 @@ export function SyncManager() {
             <Typography variant="body2" sx={{ fontWeight: 900, lineHeight: 1.3, color: "inherit" }}>
               {exhaustedItems.length} entr{exhaustedItems.length === 1 ? "y" : "ies"} failed to sync
             </Typography>
-            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)", display: "block", mt: 0.5 }}>
-              These records are saved locally. Tap Retry when you have a stable connection.
+            
+            <Box sx={{ mt: 1, maxHeight: '80px', overflowY: 'auto' }}>
+              {exhaustedItems.map((item, idx) => (
+                <Typography key={item.id} variant="caption" sx={{ color: "rgba(255,255,255,0.9)", display: "block", mb: 0.5, lineHeight: 1.2 }}>
+                  <strong style={{ opacity: 0.8 }}>Item {idx + 1}:</strong> {item.lastError || "Network error or unavailable"}
+                </Typography>
+              ))}
+            </Box>
+
+            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)", display: "block", mt: 1, fontStyle: 'italic' }}>
+              These records are saved locally.
             </Typography>
             <Button
               size="small"
               onClick={handleForceRetry}
               startIcon={<RefreshCw size={12} />}
               sx={{
-                mt: 1,
+                mt: 1.5,
                 height: 32,
                 px: 2,
                 borderRadius: 3,
