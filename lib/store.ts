@@ -9,6 +9,7 @@ export type QueueItem = {
   timestamp: number;
   retryCount?: number;
   lastRetryAt?: number;
+  lastError?: string;
 };
 
 interface SyncState {
@@ -32,6 +33,7 @@ interface SyncState {
   cachedPayments: any[];
   setCachedData: (sales: any[], expenses: any[], inventory?: any[], payments?: any[], materials?: any[]) => void;
   updateEntryRetry: (id: string, retryCount: number, lastRetryAt: number) => void;
+  updateEntryError: (id: string, error: string) => void;
   updateSaleStatus: (saleId: string, rowIndex: number | undefined, newStatus: string) => void;
 }
 
@@ -200,6 +202,12 @@ export const useSyncStore = create<SyncState>()(
       updateEntryRetry: (id, retryCount, lastRetryAt) => set((state) => ({
         pendingQueue: state.pendingQueue.map(item => 
           item.id === id ? { ...item, retryCount, lastRetryAt } : item
+        )
+      })),
+
+      updateEntryError: (id, error) => set((state) => ({
+        pendingQueue: state.pendingQueue.map(item => 
+          item.id === id ? { ...item, lastError: error } : item
         )
       })),
 
