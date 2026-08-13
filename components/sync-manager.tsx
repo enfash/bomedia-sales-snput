@@ -12,20 +12,49 @@ import Typography from "@mui/material/Typography";
 
 const MAX_RETRIES = 3;
 
+/**
+ * Statuses no amount of retrying can fix — they need a person to act
+ * (restock a material, fix a value, repair credentials).
+ *
+ * Everything else (429 rate limits, 5xx, network failures) stays retryable.
+ */
+const FATAL_STATUSES = [400, 403, 404, 409];
+
+/**
+ * NOTE: classification keys off the HTTP status only — never the message text.
+ * Server messages embed figures like "Needed ≈400.0ft, available 409.0ft", and
+ * the old substring match on "400"/"409" turned those into permanent failures.
+ */
+function isFatalError(status: number | undefined): boolean {
+  return typeof status === "number" && FATAL_STATUSES.includes(status);
+}
+
 function translateApiError(status: number | undefined, rawMessage: string): string {
-  const msgLower = (rawMessage || "").toLowerCase();
-  
-  if (status === 403 || msgLower.includes("403")) {
-    return 'Permission Denied: Please check the billing or service account status.';
+  const msg = (rawMessage || "").trim();
+
+  switch (status) {
+    case 400:
+      return msg || "Invalid entry — please check the values and re-enter.";
+    case 403:
+      return "Permission Denied: Please check the billing or service account status.";
+    case 404:
+      return "Record not found on the server. It may have been deleted.";
+    case 409:
+      // The server sends an actionable reason here — usually a stock shortage
+      // naming the material and the shortfall. Show it verbatim; the old generic
+      // "clear pending entries" text sent staff down a destructive dead end.
+      return msg || "This entry conflicts with the current sheet data.";
+    case 429:
+      return "Google Sheets is rate-limiting us — retrying automatically.";
+    case 503:
+      return "Server Offline: The system is down. Please wait a moment.";
   }
-  if (status === 409 || msgLower.includes("409")) {
-    return 'Sync Conflict: This entry is stuck. Please clear pending entries.';
+
+  if (status && status >= 500) {
+    return "Server error — retrying automatically.";
   }
-  if (status === 503 || msgLower.includes("503")) {
-    return 'Server Offline: The system is down. Please wait a moment.';
-  }
-  
-  return 'An unexpected error occurred during sync. Please try again.';
+
+  return msg || "An unexpected error occurred during sync. Please try again.";
 }
 
 export function SyncManager() {
@@ -71,134 +100,178 @@ export function SyncManager() {
       isSyncingRef.current = true;
       setSyncStatus("syncing");
 
-      const now = Date.now();
-      const itemsToSync = pendingQueue.filter((item) => {
-        if ((item.retryCount ?? 0) >= MAX_RETRIES) return false;
-        if (!item.retryCount || !item.lastRetryAt) return true;
-        const backoffDelay = Math.pow(2, item.retryCount - 1) * 5000;
-        return now - item.lastRetryAt >= backoffDelay;
-      });
-
-      if (itemsToSync.length === 0) {
-        isSyncingRef.current = false;
-        if (pendingQueue.every((i) => (i.retryCount ?? 0) >= MAX_RETRIES)) {
-          setSyncStatus("error", "Sync failed after maximum retries.");
-        } else {
-          setSyncStatus("error", "Sync pending (waiting for retry backoff)");
+      const performSync = async () => {
+        // Read the latest state of pendingQueue to avoid race conditions and stale closures
+        const currentQueue = useSyncStore.getState().pendingQueue;
+        if (currentQueue.length === 0 || !navigator.onLine) {
+          return;
         }
-        return;
-      }
 
-      console.log(`Starting sync for ${itemsToSync.length} items...`);
+        const now = Date.now();
+        const itemsToSync = currentQueue.filter((item) => {
+          if ((item.retryCount ?? 0) >= MAX_RETRIES) return false;
+          if (!item.retryCount || !item.lastRetryAt) return true;
+          const backoffDelay = Math.pow(2, item.retryCount - 1) * 5000;
+          return now - item.lastRetryAt >= backoffDelay;
+        });
 
-      let successCount = 0;
-      let errorCount = 0;
-
-      for (const item of itemsToSync) {
-        try {
-          if (item.type === "payment") {
-            const salesRes = await fetch("/api/sales", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(item.data.salesUpdate),
-            });
-            if (!salesRes.ok) {
-              const errData = await salesRes.json().catch(() => ({}));
-              const error = new Error(errData.error || "Sales PATCH failed during sync");
-              (error as any).status = salesRes.status;
-              throw error;
-            }
-
-            const paymentsRes = await fetch("/api/payments", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(item.data.paymentLog),
-            });
-            if (!paymentsRes.ok) {
-              const errData = await paymentsRes.json().catch(() => ({}));
-              const error = new Error(errData.error || "Payments POST failed during sync");
-              (error as any).status = paymentsRes.status;
-              throw error;
-            }
-
-            removeEntry(item.id);
-            successCount++;
-          } else if (item.type === "sale_status") {
-            const res = await fetch("/api/sales", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(item.data),
-            });
-            if (!res.ok) {
-              const errData = await res.json().catch(() => ({}));
-              const error = new Error(errData.error || "Sales Status PATCH failed during sync");
-              (error as any).status = res.status;
-              throw error;
-            }
-            removeEntry(item.id);
-            successCount++;
+        if (itemsToSync.length === 0) {
+          if (currentQueue.every((i) => (i.retryCount ?? 0) >= MAX_RETRIES)) {
+            setSyncStatus("error", "Sync failed after maximum retries.");
           } else {
-            const endpoint = item.type === "sale" ? "/api/sales" : "/api/expenses";
-            const payload =
-              item.type === "sale"
-                ? item.data.batch === true
-                  ? { ...item.data, transactionId: item.id }
-                  : { ...item.data, type: "array", transactionId: item.id }
-                : { ...item.data, transactionId: item.id };
+            setSyncStatus("error", "Sync pending (waiting for retry backoff)");
+          }
+          return;
+        }
 
-            const res = await fetch(endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
+        console.log(`Starting sync for ${itemsToSync.length} items...`);
 
-            if (res.ok) {
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const item of itemsToSync) {
+          // Double check if the item hasn't been processed already
+          if (!useSyncStore.getState().pendingQueue.some(q => q.id === item.id)) {
+            continue;
+          }
+          try {
+            if (item.type === "payment") {
+              const salesRes = await fetch("/api/sales", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(item.data.salesUpdate),
+              });
+              if (!salesRes.ok) {
+                const errData = await salesRes.json().catch(() => ({}));
+                const error = new Error(errData.error || "Sales PATCH failed during sync");
+                (error as any).status = salesRes.status;
+                throw error;
+              }
+
+              const paymentsRes = await fetch("/api/payments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...item.data.paymentLog, transactionId: item.id }),
+              });
+              if (!paymentsRes.ok) {
+                const errData = await paymentsRes.json().catch(() => ({}));
+                const error = new Error(errData.error || "Payments POST failed during sync");
+                (error as any).status = paymentsRes.status;
+                throw error;
+              }
+
+              removeEntry(item.id);
+              successCount++;
+            } else if (item.type === "sale_status") {
+              const res = await fetch("/api/sales", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(item.data),
+              });
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                const error = new Error(errData.error || "Sales Status PATCH failed during sync");
+                (error as any).status = res.status;
+                throw error;
+              }
               removeEntry(item.id);
               successCount++;
             } else {
-              const errData = await res.json().catch(() => ({}));
-              const error = new Error(errData.error || `Server error (${res.status})`);
-              (error as any).status = res.status;
-              throw error;
+              const endpoint = item.type === "sale" ? "/api/sales" : "/api/expenses";
+              const payload =
+                item.type === "sale"
+                  ? item.data.batch === true
+                    ? { ...item.data, transactionId: item.id }
+                    : { ...item.data, type: "array", transactionId: item.id }
+                  : { ...item.data, transactionId: item.id };
+
+              const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+
+              if (res.ok) {
+                // The sale is written even when stock could not be adjusted —
+                // surface that so someone reconciles the sheet by hand.
+                const okData = await res.json().catch(() => ({}));
+                if (okData?.inventoryWarnings?.length) {
+                  toast.warning(okData.message || "Sale recorded, but stock was not updated.", {
+                    duration: 10000,
+                  });
+                }
+                removeEntry(item.id);
+                successCount++;
+              } else {
+                const errData = await res.json().catch(() => ({}));
+                const error = new Error(errData.error || `Server error (${res.status})`);
+                (error as any).status = res.status;
+                throw error;
+              }
             }
+          } catch (err: any) {
+            console.error(`Failed to sync item ${item.id}:`, err);
+            errorCount++;
+            
+            const msg = err.message || "";
+            const isFatal = isFatalError(err.status);
+
+            const newRetryCount = isFatal ? MAX_RETRIES : (item.retryCount || 0) + 1;
+            updateEntryRetry(item.id, newRetryCount, Date.now());
+            
+            const translatedMsg = translateApiError(err.status, msg);
+            useSyncStore.getState().updateEntryError(item.id, translatedMsg);
           }
-        } catch (err: any) {
-          console.error(`Failed to sync item ${item.id}:`, err);
-          errorCount++;
-          
-          // Determine if it's a fatal client error that shouldn't be retried
-          const msg = err.message || "";
-          const isFatal = msg.includes("403") || msg.includes("409") || msg.includes("400") || msg.includes("404");
-          
-          const newRetryCount = isFatal ? MAX_RETRIES : (item.retryCount || 0) + 1;
-          updateEntryRetry(item.id, newRetryCount, Date.now());
-          
-          const translatedMsg = translateApiError(err.status, msg);
-          useSyncStore.getState().updateEntryError(item.id, translatedMsg);
         }
-      }
 
-      if (successCount > 0) {
-        setLastSyncTime(Date.now());
-      }
-
-      if (errorCount > 0) {
-        setSyncStatus("error", `${errorCount} items failed to sync.`);
-      } else {
-        setSyncStatus("idle");
         if (successCount > 0) {
-          toast.success(`Successfully synced ${successCount} background logs.`);
+          setLastSyncTime(Date.now());
+        }
+
+        if (errorCount > 0) {
+          setSyncStatus("error", `${errorCount} items failed to sync.`);
+        } else {
+          setSyncStatus("idle");
+          if (successCount > 0) {
+            toast.success(`Successfully synced ${successCount} background logs.`);
+          }
+        }
+      };
+
+      if (typeof window !== "undefined" && navigator.locks) {
+        try {
+          await navigator.locks.request("bomedia_sync_lock", async () => {
+            await performSync();
+          });
+        } catch (e) {
+          console.error("Lock error:", e);
+        } finally {
+          isSyncingRef.current = false;
+        }
+      } else {
+        try {
+          await performSync();
+        } finally {
+          isSyncingRef.current = false;
         }
       }
-
-      isSyncingRef.current = false;
     };
 
     handleSync();
 
+    let intervalId: any = null;
+    if (pendingQueue.length > 0) {
+      intervalId = setInterval(() => {
+        handleSync();
+      }, 15000);
+    }
+
     window.addEventListener("online", handleSync);
-    return () => window.removeEventListener("online", handleSync);
-  }, [pendingQueue.length, removeEntry, setSyncStatus, setLastSyncTime, updateEntryRetry]);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener("online", handleSync);
+    };
+  }, [pendingQueue.length, removeEntry, setSyncStatus, setLastSyncTime, updateEntryRetry, updateEntryError]);
 
   if (exhaustedItems.length > 0 && !bannerDismissed) {
     return (
@@ -206,7 +279,7 @@ export function SyncManager() {
         role="alert"
         sx={{
           position: "fixed",
-          bottom: { xs: 72 + 8, md: 16 },
+          bottom: { xs: 72 + 24 + 8, md: 16 },
           left: { xs: 12, md: "auto" },
           right: { xs: 12, md: 16 },
           width: { md: 380 },

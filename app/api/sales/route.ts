@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
-import { deductFromInventory } from '@/lib/inventory-deduction';
+import { deductBatchFromInventory } from '@/lib/inventory-deduction';
 import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 import { verifyToken } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
+
+// Safety net for large multi-item orders. The batched deduction keeps a typical
+// order well under this, but a slow Sheets API shouldn't truncate a write that
+// is already partway through.
+export const maxDuration = 300;
 
 const SHEET_TITLE = 'Sales';
 const SALES_HEADERS = [
@@ -57,11 +62,15 @@ export async function PATCH(request: Request) {
     
     if (saleId) {
       const rows = await sheet.getRows();
-      const targetRow = rows.find((r: any) => r.get('Sales ID') === saleId);
+      const targetRow = rows.find((r: any) => r.get('Sales ID') === saleId || r.get('TRANSACTION ID') === saleId);
       if (!targetRow) {
-        return NextResponse.json({ error: `Sale not found with ID ${saleId}` }, { status: 404 });
+        return NextResponse.json({ error: `Sale not found with ID ${saleId}` }, { status: 400 });
       }
       targetRowIndex = targetRow.rowNumber;
+    }
+
+    if (!targetRowIndex) {
+      return NextResponse.json({ error: "A valid rowIndex or matching saleId is required" }, { status: 400 });
     }
 
     await sheet.loadCells(`A${targetRowIndex}:W${targetRowIndex}`);
@@ -129,6 +138,19 @@ export async function POST(request: Request) {
       await ensureHeaders(inventorySheet, INVENTORY_HEADERS);
     }
     if (body.batch && Array.isArray(body.items)) {
+      // Validate dimensions and quantity
+      for (const item of body.items) {
+        if (item.jobWidth !== undefined && parseFloat(item.jobWidth) <= 0) {
+          return NextResponse.json({ error: "Job width must be greater than zero" }, { status: 400 });
+        }
+        if (item.jobHeight !== undefined && parseFloat(item.jobHeight) <= 0) {
+          return NextResponse.json({ error: "Job height must be greater than zero" }, { status: 400 });
+        }
+        if (item.qty !== undefined && parseFloat(item.qty) <= 0) {
+          return NextResponse.json({ error: "Quantity must be greater than zero" }, { status: 400 });
+        }
+      }
+
       await ensureHeaders(sheet, SALES_HEADERS);
       const rows = await sheet.getRows();
       let nextRow = rows.length + 2; // Assuming 1-based index and row 1 is header
@@ -184,13 +206,19 @@ export async function POST(request: Request) {
       const salesId = `BOM-${cleanDate}-${uniqueSuffix}`;
 
       const newRows = [];
+      const deductions: Array<{
+        materialId?: string;
+        rollId?: string;
+        jobWidth: number;
+        jobHeight: number;
+        qty: number;
+        unit: 'ft' | 'in';
+      }> = [];
 
       for (const item of body.items) {
         // Prefer canonicalItemName (exact name from inventory popover selection) to avoid
         // fragile text matching on the user-edited job description field.
         const matchedItemName = item.canonicalItemName || item.jobDescription || (item.values && item.values[2]) || '';
-        const quantityToSubtract = parseFloat(item.qty || (item.values && item.values[12])) || 0;
-        const totalArea = item.totalArea || quantityToSubtract; // Fallback to qty if area missing
 
         // Replace placeholders [ROW] with the actual row number
         const processedValues = item.values.map((val: any) => {
@@ -238,27 +266,51 @@ export async function POST(request: Request) {
         newRows.push(processedValues);
         nextRow++;
 
-        // Decrement Inventory using upgraded utility
+        // Collect the deduction — it runs after the sale rows are safely written.
         if (matchedItemName && item.jobWidth && item.jobHeight) {
-          const deductResult = await deductFromInventory(doc, {
+          deductions.push({
             materialId: item.canonicalItemName, // selected material
             rollId: item.rollId,               // specific roll if any
             jobWidth: parseFloat(item.jobWidth),
             jobHeight: parseFloat(item.jobHeight),
             qty: parseFloat(item.qty) || 1,
-            unit: item.dimUnit || 'ft'
+            unit: item.dimUnit || 'ft',
           });
-
-          if (!deductResult.success) {
-            console.error(`[Sales] Inventory deduction failed: ${deductResult.error}`);
-            return NextResponse.json({
-              error: `Inventory deduction failed for ${item.canonicalItemName}: ${deductResult.error}. Sale not recorded.`,
-            }, { status: 409 });
-          }
         }
       }
 
+      // Write the sale FIRST, then adjust stock. Deduction used to run inside the
+      // loop above, so a failure partway through a large order left inventory
+      // consumed with no sale rows behind it — unrecoverable, and it re-deducted
+      // on every retry. A sale recorded against slightly stale stock is the
+      // recoverable direction: stock can be reconciled, a lost sale cannot.
       await sheet.addRows(newRows);
+
+      // One batched pass: the sheets are read once for the whole order rather
+      // than once per item, which is what used to exhaust the Sheets read quota
+      // on orders of ~12 items or more.
+      const deductResults = await deductBatchFromInventory(doc, deductions);
+
+      const inventoryWarnings: string[] = [];
+      deductResults.forEach((result, i) => {
+        if (!result.success) {
+          console.error(`[Sales] Inventory deduction failed: ${result.error}`);
+          const req = deductions[i];
+          inventoryWarnings.push(`${req.materialId || req.rollId}: ${result.error}`);
+        }
+      });
+
+      if (inventoryWarnings.length > 0) {
+        // The sale is recorded — do NOT fail the request, or the client will retry
+        // and double-deduct. Surface the discrepancy for manual reconciliation.
+        invalidateSheet(SHEET_TITLE, 'Materials', 'Inventory');
+        return NextResponse.json({
+          success: true,
+          salesId,
+          inventoryWarnings,
+          message: `Sale recorded (${salesId}), but stock could not be updated for ${inventoryWarnings.length} item(s). Please adjust inventory manually.`,
+        });
+      }
 
     } else if (body.type === "array" && Array.isArray(body.values)) {
       // Legacy single-item fallback

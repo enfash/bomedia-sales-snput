@@ -40,6 +40,20 @@ export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId:
 
   const [mRows, iRows] = await Promise.all([mSheet.getRows(), iSheet.getRows()]);
 
+  await refreshMaterialProfileFromRows(mSheet, materialId, mRows, iRows);
+}
+
+/**
+ * Same as refreshMaterialProfile, but operates on rows the caller has already
+ * loaded. Batch callers pass their rows in so a whole order costs one pair of
+ * reads instead of one pair per item.
+ */
+async function refreshMaterialProfileFromRows(
+  mSheet: any,
+  materialId: string,
+  mRows: any[],
+  iRows: any[]
+) {
   const rolls = iRows.filter(r => r.get('Material ID') === materialId);
   if (rolls.length === 0) return;
 
@@ -106,165 +120,227 @@ export async function refreshMaterialProfile(doc: GoogleSpreadsheet, materialId:
   await mRow.save();
 }
 
-/**
- * Deducts consumed length from the active roll of a material.
- * Includes orientation flip logic and unit conversion.
- */
-export async function deductFromInventory(
-  doc: GoogleSpreadsheet,
-  params: {
-    materialId?: string;
-    rollId?: string;
-    jobWidth: number;
-    jobHeight: number;
-    qty: number;
-    unit?: 'ft' | 'in';
-  }
-): Promise<{
+export type DeductionRequest = {
+  materialId?: string;
+  rollId?: string;
+  jobWidth: number;
+  jobHeight: number;
+  qty: number;
+  unit?: 'ft' | 'in';
+};
+
+export type DeductionResult = {
   success: boolean;
   rollId?: string;
   remainingLength?: number;
   status?: string;
   error?: string;
-}> {
-  const { materialId, rollId, jobWidth, jobHeight, qty, unit = 'ft' } = params;
+};
+
+/**
+ * Deducts a whole batch of jobs in one pass.
+ *
+ * The sheets are read ONCE for the entire batch and every deduction is applied
+ * to an in-memory ledger, so a 20-item order costs the same handful of API
+ * calls as a 1-item order. The previous per-item function issued 5 reads and
+ * 2 writes each, which blew straight through the Google Sheets 60-reads-per-
+ * minute-per-user quota partway through a large order.
+ *
+ * Returns one result per request, in the same order as the input.
+ */
+export async function deductBatchFromInventory(
+  doc: GoogleSpreadsheet,
+  requests: DeductionRequest[]
+): Promise<DeductionResult[]> {
+  if (requests.length === 0) return [];
+
+  const fail = (error: string): DeductionResult[] => requests.map(() => ({ success: false, error }));
 
   try {
     const iSheet = doc.sheetsByTitle[INVENTORY_SHEET];
     const mSheet = doc.sheetsByTitle[MATERIALS_SHEET];
-    if (!iSheet || !mSheet) return { success: false, error: "Inventory or Materials sheet not found" };
+    if (!iSheet || !mSheet) return fail('Inventory or Materials sheet not found');
 
-    const mRows = await mSheet.getRows();
-    const iRows = await iSheet.getRows();
+    await ensureHeaders(mSheet, MATERIALS_HEADERS);
+    const [mRows, iRows] = await Promise.all([mSheet.getRows(), iSheet.getRows()]);
 
-    // 1. Conversion to feet
-    let jW = jobWidth;
-    let jH = jobHeight;
-    if (unit === 'in') {
-      jW /= 12;
-      jH /= 12;
-    }
+    // Working ledger of remaining length per roll. Items later in the batch see
+    // the stock consumed by earlier ones, which the old per-item flow only got
+    // by re-reading the whole sheet every time.
+    const remainingByRoll = new Map<string, number>();
+    iRows.forEach((r: any) => {
+      const id = r.get('Roll ID');
+      if (id) remainingByRoll.set(id, parseFloat(r.get('Remaining Length (ft)') || '0') || 0);
+    });
 
-    let materialRow: any = null;
-    let rollRow: any = null;
+    const touchedRolls = new Set<string>();
+    const touchedMaterials = new Set<string>();
+    const results: DeductionResult[] = [];
 
-    // Identify the roll to deduct from
-    if (rollId) {
-      rollRow = iRows.find(r => r.get('Roll ID') === rollId);
-      if (rollRow) {
-        const mId = rollRow.get('Material ID') || materialId;
-        materialRow = mRows.find(r => r.get('Material ID') === mId);
+    for (const params of requests) {
+      const { materialId, rollId, jobWidth, jobHeight, qty, unit = 'ft' } = params;
+
+      // 1. Conversion to feet
+      let jW = jobWidth;
+      let jH = jobHeight;
+      if (unit === 'in') {
+        jW /= 12;
+        jH /= 12;
       }
-    } else if (materialId) {
-      materialRow = mRows.find(r => r.get('Material ID') === materialId);
-      if (materialRow) {
-        const activeRollId = materialRow.get('Active Roll ID');
-        rollRow = iRows.find(r => r.get('Roll ID') === activeRollId);
+
+      let materialRow: any = null;
+      let rollRow: any = null;
+
+      // Identify the roll to deduct from
+      if (rollId) {
+        rollRow = iRows.find((r: any) => r.get('Roll ID') === rollId);
+        if (rollRow) {
+          const mId = rollRow.get('Material ID') || materialId;
+          materialRow = mRows.find((r: any) => r.get('Material ID') === mId);
+        }
+      } else if (materialId) {
+        materialRow = mRows.find((r: any) => r.get('Material ID') === materialId);
+        if (materialRow) {
+          const activeRollId = materialRow.get('Active Roll ID');
+          rollRow = iRows.find((r: any) => r.get('Roll ID') === activeRollId);
+        }
       }
-    }
 
-    if (!rollRow || !materialRow) {
-      return { success: false, error: `Could not identify active roll for ${materialId || rollId}` };
-    }
-
-    const rollWidth = parseFloat(rollRow.get('Width (ft)') || '0');
-
-    // 2. Tiling/Nesting: calculate rows needed for each orientation, pick the shorter one.
-    let normalLen = Infinity;
-    if (jW <= rollWidth + 0.01) {
-      const itemsPerRow = Math.floor((rollWidth + 0.01) / jW);
-      normalLen = Math.ceil(qty / itemsPerRow) * jH;
-    }
-
-    let flippedLen = Infinity;
-    if (jH <= rollWidth + 0.01) {
-      const itemsPerRow = Math.floor((rollWidth + 0.01) / jH);
-      flippedLen = Math.ceil(qty / itemsPerRow) * jW;
-    }
-
-    if (normalLen === Infinity && flippedLen === Infinity) {
-      return {
-        success: false,
-        error: `Job dimension exceeds roll width (${rollWidth}ft). Requested: ${jW.toFixed(1)}ft x ${jH.toFixed(1)}ft`,
-      };
-    }
-
-    const isFlipped = flippedLen < normalLen;
-    const totalConsumedLength = isFlipped ? flippedLen : normalLen;
-    console.log(`[Inventory] Tiling (${isFlipped ? 'flipped' : 'normal'}): ${qty}× ${jW.toFixed(2)}ft×${jH.toFixed(2)}ft → ${totalConsumedLength.toFixed(2)}ft on ${rollWidth}ft roll`);
-
-    // 3. Cascade Logic: Find all rolls for this material, sorted by Roll ID (FIFO)
-    const mId = materialRow.get('Material ID');
-    let allRolls = iRows.filter(r => r.get('Material ID') === mId);
-    allRolls.sort((a, b) => (a.get('Roll ID') || '').localeCompare(b.get('Roll ID') || ''));
-
-    // If a specific roll was manually selected, start the cascade from there.
-    // Otherwise, filter to rolls that actually have stock.
-    if (rollId) {
-      const startIndex = allRolls.findIndex(r => r.get('Roll ID') === rollId);
-      if (startIndex > -1) {
-        allRolls = allRolls.slice(startIndex);
+      if (!rollRow || !materialRow) {
+        results.push({
+          success: false,
+          error: `Could not identify active roll for ${materialId || rollId}`,
+        });
+        continue;
       }
-    } else {
-      allRolls = allRolls.filter(r => (parseFloat(r.get("Remaining Length (ft)") || "0") || 0) > 0.1);
+
+      const rollWidth = parseFloat(rollRow.get('Width (ft)') || '0');
+
+      // 2. Tiling/Nesting: calculate rows needed for each orientation, pick the shorter one.
+      let normalLen = Infinity;
+      if (jW <= rollWidth + 0.01) {
+        const itemsPerRow = Math.floor((rollWidth + 0.01) / jW);
+        normalLen = Math.ceil(qty / itemsPerRow) * jH;
+      }
+
+      let flippedLen = Infinity;
+      if (jH <= rollWidth + 0.01) {
+        const itemsPerRow = Math.floor((rollWidth + 0.01) / jH);
+        flippedLen = Math.ceil(qty / itemsPerRow) * jW;
+      }
+
+      if (normalLen === Infinity && flippedLen === Infinity) {
+        results.push({
+          success: false,
+          error: `Job dimension exceeds roll width (${rollWidth}ft). Requested: ${jW.toFixed(1)}ft x ${jH.toFixed(1)}ft`,
+        });
+        continue;
+      }
+
+      const isFlipped = flippedLen < normalLen;
+      const totalConsumedLength = isFlipped ? flippedLen : normalLen;
+      console.log(`[Inventory] Tiling (${isFlipped ? 'flipped' : 'normal'}): ${qty}× ${jW.toFixed(2)}ft×${jH.toFixed(2)}ft → ${totalConsumedLength.toFixed(2)}ft on ${rollWidth}ft roll`);
+
+      // 3. Cascade Logic: Find all rolls for this material, sorted by Roll ID (FIFO)
+      const mId = materialRow.get('Material ID');
+      let allRolls = iRows.filter((r: any) => r.get('Material ID') === mId);
+      allRolls.sort((a: any, b: any) => (a.get('Roll ID') || '').localeCompare(b.get('Roll ID') || ''));
+
+      // If a specific roll was manually selected, start the cascade from there.
+      // Otherwise, filter to rolls that actually have stock.
+      if (rollId) {
+        const startIndex = allRolls.findIndex((r: any) => r.get('Roll ID') === rollId);
+        if (startIndex > -1) {
+          allRolls = allRolls.slice(startIndex);
+        }
+      } else {
+        allRolls = allRolls.filter(
+          (r: any) => (remainingByRoll.get(r.get('Roll ID')) ?? 0) > 0.1
+        );
+      }
+
+      // 4. Execute the cross-roll deduction against the in-memory ledger
+      let remainingToDeduct = totalConsumedLength;
+      const modifiedRolls = [];
+
+      for (const currentRoll of allRolls) {
+        if (remainingToDeduct <= 0) break;
+
+        const currentRollId = currentRoll.get('Roll ID');
+        const currentRemaining = remainingByRoll.get(currentRollId) ?? 0;
+        if (currentRemaining <= 0) continue;
+
+        // Take what we need, or exhaust the roll entirely
+        const amountToTake = Math.min(currentRemaining, remainingToDeduct);
+        remainingToDeduct -= amountToTake;
+
+        remainingByRoll.set(currentRollId, currentRemaining - amountToTake);
+        touchedRolls.add(currentRollId);
+
+        modifiedRolls.push({ id: currentRollId, deducted: amountToTake.toFixed(2) });
+      }
+
+      touchedMaterials.add(mId);
+
+      if (remainingToDeduct > 0.1) {
+        console.warn(`[Inventory] System completely out of stock for ${mId}. ${remainingToDeduct.toFixed(2)}ft unfulfilled.`);
+      }
+
+      console.log(`[Inventory] Deduction cascaded:`, modifiedRolls);
+
+      const selectedRollId = rollRow.get('Roll ID');
+      results.push({
+        success: true,
+        rollId: selectedRollId,
+        remainingLength: remainingByRoll.get(selectedRollId) ?? 0,
+      });
     }
 
-    // 4. Execute the cross-roll deduction
-    let remainingToDeduct = totalConsumedLength;
-    const modifiedRolls = [];
-    let finalStatus = 'Active';
+    // 5. Flush — one write per touched roll, not one per item.
+    for (const id of touchedRolls) {
+      const row = iRows.find((r: any) => r.get('Roll ID') === id);
+      if (!row) continue;
 
-    for (const currentRoll of allRolls) {
-      if (remainingToDeduct <= 0) break;
+      const newRemaining = remainingByRoll.get(id) ?? 0;
+      const threshold = parseFloat(row.get('Low Stock Threshold (ft)') || '20') || 20;
 
-      const currentRemaining = parseFloat(currentRoll.get("Remaining Length (ft)") || "0") || 0;
-      if (currentRemaining <= 0) continue;
-
-      // Take what we need, or exhaust the roll entirely
-      const amountToTake = Math.min(currentRemaining, remainingToDeduct);
-      const newRemaining = currentRemaining - amountToTake;
-      remainingToDeduct -= amountToTake;
-
-      const threshold = parseFloat(currentRoll.get("Low Stock Threshold (ft)") || "20") || 20;
-      
       let newStatus = 'Active';
       if (newRemaining <= 0.1) newStatus = 'Depleted';
       else if (newRemaining <= threshold) newStatus = 'Low Stock';
 
-      currentRoll.set("Remaining Length (ft)", newRemaining.toFixed(2));
-      currentRoll.set("Status", newStatus);
-      await currentRoll.save();
+      row.set('Remaining Length (ft)', newRemaining.toFixed(2));
+      row.set('Status', newStatus);
+      await row.save();
 
-      modifiedRolls.push({
-        id: currentRoll.get("Roll ID"),
-        deducted: amountToTake.toFixed(2)
-      });
-      
-      finalStatus = newStatus;
+      console.log(`[Inventory] ${id} → ${newRemaining.toFixed(2)}ft (${newStatus})`);
     }
 
-    if (remainingToDeduct > 0.1) {
-      console.warn(`[Inventory] System completely out of stock for ${mId}. ${remainingToDeduct.toFixed(2)}ft unfulfilled.`);
+    // Reuse the rows already in memory — they carry the updated values set above.
+    for (const matId of touchedMaterials) {
+      await refreshMaterialProfileFromRows(mSheet, matId, mRows, iRows);
     }
 
-    console.log(`[Inventory] Deduction cascaded:`, modifiedRolls);
+    // Backfill the per-request status now that rolls carry their final state.
+    results.forEach((r) => {
+      if (!r.success || !r.rollId) return;
+      const row = iRows.find((x: any) => x.get('Roll ID') === r.rollId);
+      if (row) r.status = row.get('Status') || 'Active';
+    });
 
-    const newRemaining = parseFloat(rollRow.get("Remaining Length (ft)") || "0") || 0;
-    const newStatus = rollRow.get("Status") || "Active";
-
-    // 5. Update Material Profile (handles auto-promotion)
-    await refreshMaterialProfile(doc, materialRow.get('Material ID'));
-
-    console.log(`[Inventory] ${rollRow.get("Roll ID")}: −${totalConsumedLength.toFixed(2)}ft → ${newRemaining.toFixed(2)}ft (${newStatus})`);
-
-    return { 
-      success: true, 
-      rollId: rollRow.get("Roll ID"), 
-      remainingLength: newRemaining, 
-      status: newStatus 
-    };
+    return results;
   } catch (err: any) {
-    console.error("[Inventory] deductFromInventory error:", err);
-    return { success: false, error: err.message };
+    console.error('[Inventory] deductBatchFromInventory error:', err);
+    return fail(err.message);
   }
+}
+
+/**
+ * Single-item convenience wrapper around deductBatchFromInventory.
+ */
+export async function deductFromInventory(
+  doc: GoogleSpreadsheet,
+  params: DeductionRequest
+): Promise<DeductionResult> {
+  const [result] = await deductBatchFromInventory(doc, [params]);
+  return result ?? { success: false, error: 'Deduction produced no result' };
 }
