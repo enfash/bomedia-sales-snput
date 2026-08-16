@@ -1,10 +1,40 @@
-const SECRET_KEY = process.env.ADMIN_PASSWORD || "bomedia-sales-and-expenses-secret-key-2026";
+/**
+ * Resolves the HMAC key used to sign and verify session tokens.
+ *
+ * This used to fall back to a hardcoded constant when ADMIN_PASSWORD was
+ * unset. In a public repository that meant the signing key was readable by
+ * anyone, so a missing environment variable would have let a stranger forge an
+ * admin_session cookie. It now refuses to sign anything in production rather
+ * than quietly signing with a guessable key — the same fail-closed behaviour
+ * the login route already uses for credentials.
+ *
+ * SESSION_SECRET is preferred, with ADMIN_PASSWORD accepted as a fallback so
+ * existing sessions stay valid. They should not stay the same value: the login
+ * password and the token signing key are separate concerns, and sharing one
+ * means rotating the password silently signs every user out.
+ *
+ * Resolved per call rather than at module load, so a misconfiguration surfaces
+ * as a clear auth failure instead of preventing the app from booting at all.
+ */
+function getSecret(): string {
+  const secret = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD;
+  if (secret) return secret;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SESSION_SECRET is not set. Refusing to sign session tokens with a " +
+      "default key in production."
+    );
+  }
+
+  return "dev-only-insecure-session-secret";
+}
 
 async function getSigningKey() {
   const enc = new TextEncoder();
   return crypto.subtle.importKey(
     "raw",
-    enc.encode(SECRET_KEY),
+    enc.encode(getSecret()),
     { name: "HMAC", hash: { name: "SHA-256" } },
     false,
     ["sign", "verify"]
