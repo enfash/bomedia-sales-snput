@@ -39,3 +39,10 @@ next-env.d.ts
 scratch/
 .vscode/
 .claude
+
+# agent run output — one folder per agent per run, regenerated every time.
+# .agents/skills/ is deliberately kept: it holds real, reusable skill scripts.
+# The rule ignores the *contents* of .agents rather than the directory itself,
+# because git will not descend into an excluded directory to re-include a path.
+.agents/*
+!.agents/skills/
