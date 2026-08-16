@@ -17,6 +17,7 @@ import { useState } from "react";
 import { ReceiptModal } from "./receipt-modal";
 import { WhatsAppReminder } from "./whatsapp-reminder";
 import { useSyncStore } from "@/lib/store";
+import { describeBalance } from "@/lib/balance-display";
 
 export type RecordStatus =
   | "Settled"
@@ -187,13 +188,11 @@ export function RecordCard({
           </Typography>
         </Box>
         <Box sx={{ textAlign: "right" }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "error.light", display: "block", lineHeight: 1, mb: 0.5, letterSpacing: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "text.secondary", display: "block", lineHeight: 1, mb: 0.5, letterSpacing: 1 }}>
             Difference
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 900, color: "error.main", lineHeight: 1, fontFamily: "monospace" }}>
-            {record?.type === "Sale"
-              ? `₦${(record.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-              : "—"}
+          <Typography variant="body2" sx={{ fontWeight: 900, color: record?.type === "Sale" ? describeBalance(record.balance).color : "text.disabled", lineHeight: 1, fontFamily: "monospace" }}>
+            {record?.type === "Sale" ? describeBalance(record.balance).label : "—"}
           </Typography>
         </Box>
       </Stack>

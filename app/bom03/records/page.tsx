@@ -38,6 +38,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import { describeBalance, hasOutstandingDebt } from "@/lib/balance-display";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ function PillBtn({ active, onClick, children }: { active: boolean; onClick: () =
 
 export default function RecordsPage() {
   const router = useRouter();
-  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData } = useSyncStore();
+  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, lastSyncTime, setCachedData } = useSyncStore();
 
   const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
   const [expensesData, setExpensesData] = useState<Row[]>(cachedExpenses || []);
@@ -140,6 +141,18 @@ export default function RecordsPage() {
     window.addEventListener("online", handleOnline);
     return () => window.removeEventListener("online", handleOnline);
   }, []);
+
+  useEffect(() => {
+    if (cachedSales) {
+      setSalesData(cachedSales);
+    }
+  }, [cachedSales]);
+
+  useEffect(() => {
+    if (lastSyncTime) {
+      fetchData();
+    }
+  }, [lastSyncTime]);
 
   const mapSale = (r: Row, isPending: boolean, timestamp?: number): UnifiedRecord => {
     const amount = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
@@ -237,6 +250,10 @@ export default function RecordsPage() {
       r.client.toLowerCase().includes(search.toLowerCase()) ||
       r.description.toLowerCase().includes(search.toLowerCase()) ||
       r.date.includes(search);
+    // Sorting by debt turns the list into a debtors view, so settled and
+    // overpaid rows drop out rather than sorting to the bottom. Expenses
+    // carry no balance, so they drop out too.
+    if (sortBy === "debt" && !(r.type === "Sale" && hasOutstandingDebt(r.balance))) return false;
     if (activeTab === "Sales") return matchesSearch && r.type === "Sale";
     if (activeTab === "Expenses") return matchesSearch && r.type === "Expense";
     if (activeTab === "Pending") return matchesSearch && r.isPending;
@@ -527,7 +544,7 @@ export default function RecordsPage() {
               ) : paginatedUnits.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} sx={{ textAlign: "center", py: 10, color: "text.disabled" }}>
-                    No records found matching your search.
+                    {sortBy === "debt" ? "No outstanding balances in this period." : "No records found matching your search."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -541,8 +558,8 @@ export default function RecordsPage() {
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>{r.client}</TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: "error.main", textAlign: "right", fontFamily: "monospace" }}>
-                          {r.type === "Sale" ? `₦${(r.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: r.type === "Sale" ? describeBalance(r.balance).color : "text.disabled", textAlign: "right", fontFamily: "monospace" }}>
+                          {r.type === "Sale" ? describeBalance(r.balance).label : "—"}
                         </TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={r.status} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{r.loggedBy}</TableCell>
@@ -601,7 +618,7 @@ export default function RecordsPage() {
                         </TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>{unit.items.length} Batched Items</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: "error.main", textAlign: "right", fontFamily: "monospace" }}>₦{totalBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: describeBalance(totalBal).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(totalBal).label}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={groupStatus(unit.items)} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>Multiple</TableCell>
                         <TableCell sx={{ textAlign: "center" }}>—</TableCell>
@@ -621,7 +638,7 @@ export default function RecordsPage() {
                           <TableCell sx={{ fontSize: "0.75rem", color: "text.disabled" }}>—</TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary" }}>{item.description || "No description"}</TableCell>
                           <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: "error.light", textAlign: "right", fontFamily: "monospace" }}>₦{(item.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(item.balance, true).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(item.balance, true).label}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}><StatusBadge status={item.status} /></TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{item.loggedBy}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}>
@@ -659,7 +676,7 @@ export default function RecordsPage() {
             ))}
           </Box>
         ) : paginatedUnits.length === 0 ? (
-          <Box sx={{ textAlign: "center", py: 10, color: "text.disabled" }}>No records found.</Box>
+          <Box sx={{ textAlign: "center", py: 10, color: "text.disabled" }}>{sortBy === "debt" ? "No outstanding balances in this period." : "No records found."}</Box>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
             {paginatedUnits.map(unit => {

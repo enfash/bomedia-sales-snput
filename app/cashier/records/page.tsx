@@ -35,6 +35,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import { describeBalance, hasOutstandingDebt } from "@/lib/balance-display";
 
 // ─── Animation Variants ───────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ function PillBtn({ active, onClick, children }: { active: boolean; onClick: () =
 
 export default function CashierRecordsPage() {
   const router = useRouter();
-  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData } = useSyncStore();
+  const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, lastSyncTime, setCachedData } = useSyncStore();
 
   const [salesData, setSalesData] = useState<Row[]>(cachedSales || []);
   const [loading, setLoading] = useState(cachedSales.length === 0);
@@ -158,6 +159,18 @@ export default function CashierRecordsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (cachedSales) {
+      setSalesData(cachedSales);
+    }
+  }, [cachedSales]);
+
+  useEffect(() => {
+    if (lastSyncTime) {
+      fetchData();
+    }
+  }, [lastSyncTime]);
+
   const mapSale = (r: Row, isPending: boolean, timestamp?: number): UnifiedRecord => {
     const amount = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
     let status: RecordStatus = "In Progress";
@@ -181,12 +194,12 @@ export default function CashierRecordsPage() {
       additionalPayment1: parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]),
       additionalPayment2: parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]),
       jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
-      balance: Math.max(0,
-        amount
-        - parseAmount(r["INITIAL PAYMENT (₦)"] || r["Initial Payment (₦)"])
-        - parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"])
-        - parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"])
-      ),
+      // Read the sheet's own AMOUNT DIFFERENCES column rather than recomputing.
+      // It carries the same formula (amount less every payment) but keeps the
+      // sign, so overpayments stay negative instead of being clamped to zero.
+      // Pending rows supply "0" here, so they don't read as a false credit
+      // while their amount formula is still unevaluated.
+      balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
       salesId: r["Sales ID"] || r["SALES ID"] || r["Sales Id"] || "",
       raw: r,
     };
@@ -233,6 +246,9 @@ export default function CashierRecordsPage() {
     const matchesSearch =
       r.client.toLowerCase().includes(search.toLowerCase()) ||
       r.description.toLowerCase().includes(search.toLowerCase());
+    // Sorting by debt turns the list into a debtors view, so settled and
+    // overpaid rows drop out rather than sorting to the bottom.
+    if (sortBy === "debt" && !hasOutstandingDebt(r.balance)) return false;
     if (activeTab === "Pending") return matchesSearch && r.isPending;
     return matchesSearch;
   });
@@ -445,7 +461,7 @@ export default function CashierRecordsPage() {
                 <TableCell sx={TH}>Client</TableCell>
                 <TableCell sx={TH}>Description</TableCell>
                 <TableCell sx={{ ...TH, textAlign: "right" }}>Amount</TableCell>
-                <TableCell sx={{ ...TH, textAlign: "right" }}>Debt</TableCell>
+                <TableCell sx={{ ...TH, textAlign: "right" }}>Balance</TableCell>
                 <TableCell sx={{ ...TH, textAlign: "center" }}>Status</TableCell>
                 <TableCell sx={TH}>Logged By</TableCell>
                 <TableCell sx={{ ...TH, textAlign: "center" }}>Actions</TableCell>
@@ -467,7 +483,7 @@ export default function CashierRecordsPage() {
               ) : paginatedUnits.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} sx={{ textAlign: "center", py: 10, color: "text.disabled" }}>
-                    No records found matching your search.
+                    {sortBy === "debt" ? "No outstanding balances in this period." : "No records found matching your search."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -479,7 +495,7 @@ export default function CashierRecordsPage() {
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>{r.client}</TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: "error.main", textAlign: "right", fontFamily: "monospace" }}>₦{(r.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(r.balance).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(r.balance).label}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={r.status} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{r.loggedBy}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}>
@@ -526,7 +542,7 @@ export default function CashierRecordsPage() {
                         </TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>{unit.items.length} Batched Items</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: "error.main", textAlign: "right", fontFamily: "monospace" }}>₦{totalBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: describeBalance(totalBal).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(totalBal).label}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={groupStatus(unit.items)} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>Multiple</TableCell>
                         <TableCell sx={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
@@ -543,7 +559,7 @@ export default function CashierRecordsPage() {
                           <TableCell sx={{ pl: 4, fontSize: "0.75rem", color: "text.disabled" }}>—</TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary" }}>{item.description || "No description"}</TableCell>
                           <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: "error.light", textAlign: "right", fontFamily: "monospace" }}>₦{(item.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(item.balance, true).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(item.balance, true).label}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}><StatusBadge status={item.status} /></TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{item.loggedBy}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}><ManageSaleAction record={item} onUpdate={fetchData} /></TableCell>
@@ -576,7 +592,7 @@ export default function CashierRecordsPage() {
             ))}
           </Box>
         ) : paginatedUnits.length === 0 ? (
-          <Box sx={{ textAlign: "center", py: 10, color: "text.disabled" }}>No records found.</Box>
+          <Box sx={{ textAlign: "center", py: 10, color: "text.disabled" }}>{sortBy === "debt" ? "No outstanding balances in this period." : "No records found."}</Box>
         ) : (
           <Box
             component={motion.div}

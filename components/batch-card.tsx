@@ -14,6 +14,7 @@ import { ReceiptModal } from "./receipt-modal";
 import { ManageBatchAction } from "./manage-batch-action";
 import { RecordCard, RecordStatus } from "./record-card";
 import { toast } from "sonner";
+import { describeBalance } from "@/lib/balance-display";
 
 interface BatchCardProps {
   salesId: string;
@@ -120,11 +121,11 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
             </Typography>
           </Box>
           <Box sx={{ textAlign: "right" }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "error.light", letterSpacing: 1, display: "block", mb: 0.25 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "text.disabled", letterSpacing: 1, display: "block", mb: 0.25 }}>
               Total Balance
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 900, color: "error.main", fontFamily: "monospace" }}>
-              ₦{totalBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <Typography variant="body2" sx={{ fontWeight: 900, color: describeBalance(totalBal).color, fontFamily: "monospace" }}>
+              {describeBalance(totalBal).label}
             </Typography>
           </Box>
         </Stack>
