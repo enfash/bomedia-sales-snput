@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import { UnifiedRecord } from "./manage-sale-action";
 import { format } from "date-fns";
 import { RECEIPT_LOGO_DATA_URI } from "@/lib/receipt-logo";
+import { BUSINESS_DETAILS } from "@/lib/constants";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -206,15 +207,15 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           <Stack sx={{ gap: 0.75 }}>
             <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
               <Typography sx={{ color: "grey.500" }}>Account Name</Typography>
-              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>Broad Options Media / Fasugba Elijah Niyi</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>{BUSINESS_DETAILS.accountName}</Typography>
             </Stack>
             <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
               <Typography sx={{ color: "grey.500" }}>Account Number</Typography>
-              <Typography sx={{ fontWeight: 900, color: "grey.900", letterSpacing: "0.1em" }}>5236650819</Typography>
+              <Typography sx={{ fontWeight: 900, color: "grey.900", letterSpacing: "0.1em" }}>{BUSINESS_DETAILS.accountNumber}</Typography>
             </Stack>
             <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
               <Typography sx={{ color: "grey.500" }}>Bank</Typography>
-              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>Moniepoint MFB</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>{BUSINESS_DETAILS.bank}</Typography>
             </Stack>
           </Stack>
         </Box>

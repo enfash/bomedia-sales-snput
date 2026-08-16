@@ -54,3 +54,18 @@ export const RECORD_STATUSES = {
   IN_PROGRESS: "In Progress",
   SYNCING: "Syncing",
 } as const;
+
+/**
+ * Business details printed on the customer invoice.
+ *
+ * Kept in code rather than environment variables on purpose: a missing env var
+ * would render an invoice with blank payment details, and a customer would
+ * receive a bill they cannot pay from. These are meant to be on the document —
+ * the reason to centralise them is so there is one obvious place to edit when
+ * the account changes, not secrecy.
+ */
+export const BUSINESS_DETAILS = {
+  accountName: "Broad Options Media / Fasugba Elijah Niyi",
+  accountNumber: "5236650819",
+  bank: "Moniepoint MFB",
+} as const;
