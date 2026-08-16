@@ -6,7 +6,7 @@ export function PWAManager() {
   useEffect(() => {
     // Register Service Worker
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
+      const registerSW = () => {
         navigator.serviceWorker
           .register("/sw.js")
           .then((registration) => {
@@ -15,7 +15,13 @@ export function PWAManager() {
           .catch((err) => {
             console.error("Service Worker registration failed:", err);
           });
-      });
+      };
+
+      if (document.readyState === "complete") {
+        registerSW();
+      } else {
+        window.addEventListener("load", registerSW);
+      }
     }
 
     // Request Notification Permissions
@@ -31,7 +37,7 @@ export function PWAManager() {
       if (Notification.permission === "granted" && title) {
         new Notification(title, {
           body: body || "",
-          icon: "/icon-192x192.png", // Ensure this exists or use a generic icon
+          icon: "/icon-192.png", // Ensure this exists or use a generic icon
         });
       }
     };

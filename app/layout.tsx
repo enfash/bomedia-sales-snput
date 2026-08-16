@@ -34,6 +34,13 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#2e388d",
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -47,7 +54,6 @@ export default async function RootLayout({
   return (
     <html lang="en" className={plusJakarta.className} suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#2e388d" />
         <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
