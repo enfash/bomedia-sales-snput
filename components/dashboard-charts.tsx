@@ -25,6 +25,65 @@ import {
   useTheme,
 } from "@mui/material";
 import { Inbox, BarChart3, PieChart as PieIcon, TrendingUp, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+/**
+ * Holds a fixed-size box for a chart and only mounts its children once the box
+ * has actually been laid out.
+ *
+ * The dashboards render a mobile layout and a desktop layout at the same time
+ * and hide one with `display: none`. Recharts' ResponsiveContainer measures its
+ * parent on mount, and a `display: none` ancestor makes that measurement come
+ * back as -1 x -1, which is what produces the "width(-1) and height(-1) of
+ * chart should be greater than 0" console warnings. Gating on a real
+ * measurement keeps the hidden copy unmounted until its breakpoint actually
+ * applies, and the ResizeObserver mounts it the moment it does.
+ */
+function ChartFrame({
+  height,
+  children,
+  sx,
+}: {
+  height: number;
+  children: React.ReactNode;
+  sx?: object;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [measured, setMeasured] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    // Measured from the element itself rather than from the observer entry.
+    // ResizeObserver delivers nothing for an element with no layout box, so an
+    // entry-only check can get stuck at `true` when a visible layout becomes
+    // display:none on a breakpoint change — leaving the chart mounted inside a
+    // hidden container, which is what produces the -1 x -1 warning.
+    // getBoundingClientRect() reports zeros in that state, so this settles
+    // correctly in both directions.
+    const evaluate = () => {
+      const { width, height: h } = el.getBoundingClientRect();
+      setMeasured(width > 0 && h > 0);
+    };
+
+    evaluate();
+    const observer = new ResizeObserver(evaluate);
+    observer.observe(el);
+    window.addEventListener("resize", evaluate);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", evaluate);
+    };
+  }, []);
+
+  return (
+    <Box ref={ref} sx={{ height, width: "100%", ...sx }}>
+      {measured ? children : null}
+    </Box>
+  );
+}
 
 interface SalesExpenseData {
   date: string;
@@ -140,7 +199,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
         </Stack>
       </Box>
       <CardContent sx={{ px: 1, pb: 2 }}>
-        <Box sx={{ height: 280, width: "100%" }}>
+        <ChartFrame height={280}>
           {!hasData ? (
             <EmptyState
               icon={BarChart3}
@@ -205,7 +264,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
               </AreaChart>
             </ResponsiveContainer>
           )}
-        </Box>
+        </ChartFrame>
 
         {hasData && (
           <Stack
@@ -256,7 +315,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
         </Typography>
       </Box>
       <CardContent sx={{ px: 1, pb: 2 }}>
-        <Box sx={{ height: 280, width: "100%", position: "relative" }}>
+        <ChartFrame height={280} sx={{ position: "relative" }}>
           {!hasData ? (
             <EmptyState
               icon={PieIcon}
@@ -313,7 +372,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
               </Box>
             </>
           )}
-        </Box>
+        </ChartFrame>
       </CardContent>
     </Card>
   );
@@ -333,7 +392,7 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
         </Typography>
       </Box>
       <CardContent sx={{ px: 1, pb: 2 }}>
-        <Box sx={{ height: 280, width: "100%", position: "relative" }}>
+        <ChartFrame height={280} sx={{ position: "relative" }}>
           {!hasData ? (
             <EmptyState
               icon={BarChart3}
@@ -389,7 +448,7 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
               </Box>
             </>
           )}
-        </Box>
+        </ChartFrame>
       </CardContent>
     </Card>
   );
@@ -461,7 +520,7 @@ export function OutstandingDebtChart({ data, onClientClick, ageMap }: Outstandin
             ))}
           </Stack>
         )}
-        <Box sx={{ height: 240, width: "100%" }}>
+        <ChartFrame height={240}>
           {!hasData ? (
             <EmptyState
               icon={Inbox}
@@ -524,7 +583,7 @@ export function OutstandingDebtChart({ data, onClientClick, ageMap }: Outstandin
               </BarChart>
             </ResponsiveContainer>
           )}
-        </Box>
+        </ChartFrame>
       </CardContent>
     </Card>
   );
