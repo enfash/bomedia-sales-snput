@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2, Percent } from "lucide-react";
 import { motion, animate } from "framer-motion";
 import Box from "@mui/material/Box";
@@ -16,6 +16,8 @@ const cardItemVariants = {
 };
 
 function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: string }) {
+  const uid = useId();
+  const gradId = `spark-fill-${uid.replace(/:/g, "")}`;
   if (!data || data.length < 2) return null;
   const max = Math.max(...data, 1);
   const min = Math.min(...data);
@@ -33,12 +35,12 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
   return (
     <Box component="svg" viewBox={`0 0 ${w} ${h}`} sx={{ width: '100%', height: 32, overflow: 'visible' }} preserveAspectRatio="none">
       <defs>
-        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={fill} fill="url(#spark-fill)" />
+      <path d={fill} fill={`url(#${gradId})`} />
       <polyline points={polyline} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Box>
   );

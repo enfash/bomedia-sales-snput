@@ -553,7 +553,18 @@ export function SalesEntry() {
         if (d["actualWidth"]) setJobWidth(String(d["actualWidth"]));
         if (d["actualHeight"]) setJobHeight(String(d["actualHeight"]));
         if (d["QTY"]) setQty(String(d["QTY"]));
-        toast.success("Parsed! Review the details then add to order.");
+        if (d._partial) {
+          // The AI was unreachable and this came from local text extraction,
+          // which fills in only what it could read with confidence. Anything
+          // it could not find is left blank rather than guessed, so say so
+          // instead of implying a clean parse.
+          toast.warning(
+            "AI unavailable — filled in only what could be read. Check every field before adding.",
+            { duration: 8000 }
+          );
+        } else {
+          toast.success("Parsed! Review the details then add to order.");
+        }
       } else {
         toast.error(json.error || "Could not parse — try rephrasing");
       }

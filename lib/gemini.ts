@@ -43,7 +43,50 @@ Text: "${text}"
     
     return JSON.parse(result.response.text() || "{}");
   } catch (error) {
-    console.error("Gemini parse error", error);
-    throw new Error("Failed to parse natural language.");
+    console.warn("Gemini parse error — falling back to local extraction:", error);
+
+    // Degraded fallback for when the AI is unreachable.
+    //
+    // It returns ONLY what can be read out of the text with confidence, and
+    // never invents a value. An earlier version filled the gaps with defaults
+    // ("E2E Test Client NLP", a placeholder phone number, 4x5 dimensions, a
+    // hardcoded per-sqft price) which silently wrote fabricated figures into
+    // the sales ledger whenever a regex missed.
+    //
+    // Omitting a field is safe: the sales form applies each one conditionally
+    // and nothing is written until the cashier reviews and confirms. Pricing
+    // is deliberately never guessed — it belongs to the Materials sheet.
+    const partial: Record<string, any> = { _partial: true };
+
+    // The wording is exactly what the cashier typed, so it is never a guess.
+    partial["JOB DESCRIPTION"] = text;
+
+    // Dimensions: "5x4", "5 by 4", "5.5 x 4"
+    const dimMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:x|by)\s*(\d+(?:\.\d+)?)/i);
+    if (dimMatch) {
+      partial.actualWidth = parseFloat(dimMatch[1]);
+      partial.actualHeight = parseFloat(dimMatch[2]);
+    }
+
+    // Quantity only when explicitly labelled — a bare number is too ambiguous.
+    const qtyMatch = text.match(/(\d+)\s*(?:qty|quantity|pcs|pieces|copies)\b/i);
+    if (qtyMatch) {
+      partial.QTY = parseInt(qtyMatch[1], 10);
+    }
+
+    // Client name: up to three alphabetic words after "for"/"client"/"customer".
+    // Bounded on purpose — an open-ended match swallows the rest of the
+    // sentence, e.g. "for John 5x4 flex" capturing "John 5x4 flex".
+    const clientMatch = text.match(
+      /(?:\bfor\b|\bclient\b|\bcustomer\b)\s+([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,2})/i
+    );
+    if (clientMatch) {
+      partial["CLIENT NAME"] = clientMatch[1].trim();
+    }
+
+    if (/\bflex\b/i.test(text)) partial.Material = "Flex";
+    else if (/\bsav\b/i.test(text)) partial.Material = "SAV";
+
+    return partial;
   }
 }

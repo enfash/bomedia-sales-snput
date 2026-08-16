@@ -10,7 +10,8 @@ const BOTTOM_NAV_HANDLES_NEW_ENTRY = [
   "/cashier/records",
   "/cashier/expenses",
   "/cashier/board",
-  "/new-entry",
+  "/cashier/new-entry",
+  "/bom03/new-entry",
 ];
 
 export function FloatingSaleActionButton() {
@@ -33,7 +34,7 @@ export function FloatingSaleActionButton() {
         display: { xs: "block", md: "none" },
       }}
     >
-      <Link href="/new-entry">
+      <Link href={isAdmin ? "/bom03/new-entry" : "/cashier/new-entry"}>
         <Fab
           sx={{
             width: 56,

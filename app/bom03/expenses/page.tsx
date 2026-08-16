@@ -162,7 +162,7 @@ function ExpenseRow({ expense, onStatusToggle }: {
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const { cachedExpenses, cachedSales, cachedInventory, cachedPayments, cachedMaterials, setCachedData } = useSyncStore();
+  const { cachedExpenses, cachedSales, cachedInventory, cachedPayments, cachedMaterials, lastSyncTime, setCachedData } = useSyncStore();
 
   const [expenses, setExpenses] = useState<Expense[]>(() =>
     cachedExpenses.length > 0 ? [...cachedExpenses].reverse() : []
@@ -188,9 +188,15 @@ export default function ExpensesPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [cachedSales, cachedInventory, cachedPayments, cachedMaterials, setCachedData]);
+  }, [cachedSales, cachedInventory, cachedPayments, cachedMaterials, lastSyncTime, setCachedData]);
 
   useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
+
+  useEffect(() => {
+    if (cachedExpenses) {
+      setExpenses([...cachedExpenses].reverse());
+    }
+  }, [cachedExpenses]);
 
   const handleStatusToggle = async (timestamp: string, newStatus: "Paid" | "Unpaid") => {
     const userName = localStorage.getItem("userName") || "Unknown";

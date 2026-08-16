@@ -47,6 +47,8 @@ function ModalBody({
   setDescription,
   jobRef,
   setJobRef,
+  responsiblePerson,
+  setResponsiblePerson,
   date,
   setDate,
 }: {
@@ -59,6 +61,8 @@ function ModalBody({
   setDescription: (v: string) => void;
   jobRef: string;
   setJobRef: (v: string) => void;
+  responsiblePerson: string;
+  setResponsiblePerson: (v: string) => void;
   date: string;
   setDate: (v: string) => void;
 }) {
@@ -208,6 +212,16 @@ function ModalBody({
       />
 
       <TextField
+        label="Responsible Person (Operator / Cashier) *"
+        placeholder="e.g. John Doe"
+        value={responsiblePerson}
+        onChange={(e) => setResponsiblePerson(e.target.value)}
+        fullWidth
+        slotProps={{ htmlInput: { style: { height: 44 } } }}
+        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
+      />
+
+      <TextField
         label="Description / Notes"
         placeholder="Explain what happened — e.g. 'Ink streaking on first 2ft, re-ran head clean then continued job'"
         value={description}
@@ -228,6 +242,7 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
   const [jobRef, setJobRef] = useState("");
+  const [responsiblePerson, setResponsiblePerson] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [saving, setSaving] = useState(false);
 
@@ -236,14 +251,15 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
     setReason("");
     setDescription("");
     setJobRef("");
+    setResponsiblePerson("");
     setDate(new Date().toISOString().split("T")[0]);
   };
 
   const handleClose = () => { resetForm(); onClose(); };
 
   const handleSave = async () => {
-    if (!wasteLength || !reason) {
-      toast.error("Waste length and reason are required.");
+    if (!wasteLength || !reason || !responsiblePerson) {
+      toast.error("Waste length, reason, and responsible person are required.");
       return;
     }
     const waste = parseFloat(wasteLength);
@@ -279,7 +295,7 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
           DATE: date,
           AMOUNT: "0",
           CATEGORY: "Material Waste",
-          DESCRIPTION: `[WASTE] ${roll["Roll ID"]} · ${waste.toFixed(1)}ft · ${reason}${description ? ` — ${description}` : ""}`,
+          DESCRIPTION: `[WASTE] ${roll["Roll ID"]} · ${waste.toFixed(1)}ft · ${reason}${description ? ` — ${description}` : ""} (Responsible: ${responsiblePerson})`,
           "PAID TO": "—",
           "PAYMENT METHOD": "N/A",
           "RECEIPT URL": "",
@@ -304,7 +320,7 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
   const wasteNum = parseFloat(wasteLength) || 0;
   const overrun = wasteNum > 0 && wasteNum > remaining;
 
-  const bodyProps = { roll, wasteLength, setWasteLength, reason, setReason, description, setDescription, jobRef, setJobRef, date, setDate };
+  const bodyProps = { roll, wasteLength, setWasteLength, reason, setReason, description, setDescription, jobRef, setJobRef, responsiblePerson, setResponsiblePerson, date, setDate };
 
   const FooterButtons = ({ drawer = false }: { drawer?: boolean }) => (
     <Stack
@@ -324,7 +340,7 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
         Cancel
       </Button>
       <Button
-        disabled={saving || !wasteLength || !reason || overrun}
+        disabled={saving || !wasteLength || !reason || !responsiblePerson || overrun}
         onClick={handleSave}
         sx={{
           flex: 1,
