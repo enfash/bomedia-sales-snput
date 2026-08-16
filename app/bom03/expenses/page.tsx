@@ -20,6 +20,7 @@ import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 
 type Expense = {
+  _rowIndex?: number;
   DATE: string; AMOUNT: string; CATEGORY: string; DESCRIPTION: string;
   "PAID TO": string; "PAYMENT METHOD": string; "RECEIPT URL": string;
   "Logged By": string; STATUS: string; "PAID BY": string; "PAID AT": string; TIMESTAMP: string;
@@ -163,7 +164,11 @@ function ExpenseRow({ expense, onStatusToggle }: {
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const { cachedExpenses, cachedSales, cachedInventory, cachedPayments, cachedMaterials, lastSyncTime, setCachedData } = useSyncStore();
+  // Selectors rather than destructuring the whole store: subscribing to
+  // everything re-rendered this page on any unrelated write in the app.
+  const cachedExpenses = useSyncStore((s) => s.cachedExpenses);
+  const lastSyncTime = useSyncStore((s) => s.lastSyncTime);
+  const setCachedData = useSyncStore((s) => s.setCachedData);
 
   const [expenses, setExpenses] = useState<Expense[]>(() =>
     cachedExpenses.length > 0 ? [...cachedExpenses].reverse() : []
@@ -179,8 +184,16 @@ export default function ExpensesPage() {
       const res = await fetch("/api/expenses");
       if (!res.ok) throw new Error("Failed to fetch");
       const { data } = await res.json();
-      const sorted = (data as Expense[]).reverse();
-      setExpenses(sorted);
+      // Copy before reversing — Array.reverse mutates, so reversing `data`
+      // in place meant the array handed to the cache was already flipped and
+      // the effect below flipped it a second time.
+      setExpenses([...(data as Expense[])].reverse());
+      // Read the other slices at call time instead of listing them as
+      // dependencies. They are only passed through, but as dependencies they
+      // gave this callback a new identity every time anything else in the
+      // store was replaced, which re-triggered the fetch effect.
+      const { cachedSales, cachedInventory, cachedPayments, cachedMaterials } =
+        useSyncStore.getState();
       setCachedData(cachedSales, data, cachedInventory, cachedPayments, cachedMaterials);
       if (isManual) toast.success("Expenses refreshed");
     } catch {
@@ -189,9 +202,10 @@ export default function ExpensesPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [cachedSales, cachedInventory, cachedPayments, cachedMaterials, lastSyncTime, setCachedData]);
+  }, [setCachedData]);
 
-  useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
+  // Fetch on mount, and again when a background sync reports new data.
+  useEffect(() => { fetchExpenses(); }, [fetchExpenses, lastSyncTime]);
 
   useEffect(() => {
     if (cachedExpenses) {
@@ -309,7 +323,7 @@ export default function ExpensesPage() {
           </Box>
         ) : (
           filtered.map((expense, i) => (
-            <ExpenseRow key={expense.TIMESTAMP ? `${expense.TIMESTAMP}-${i}` : i} expense={expense} onStatusToggle={handleStatusToggle} />
+            <ExpenseRow key={expense._rowIndex ?? `${expense.TIMESTAMP}-${expense.DESCRIPTION}-${i}`} expense={expense} onStatusToggle={handleStatusToggle} />
           ))
         )}
       </Paper>

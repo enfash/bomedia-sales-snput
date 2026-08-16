@@ -16,7 +16,11 @@ export async function GET() {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
     const rows = await getCachedRows(SHEET_TITLE, () => sheet.getRows());
-    const data = rows.map(row => row.toObject());
+    // _rowIndex matches what the sales, inventory and payments routes return.
+    // It gives the client a stable identity per expense: TIMESTAMP is empty on
+    // 11 rows and duplicated across batch items written in the same
+    // millisecond, so it cannot be used as a React key on its own.
+    const data = rows.map(row => ({ ...row.toObject(), _rowIndex: row.rowNumber }));
     return NextResponse.json({ data });
   } catch (error: any) {
     console.error('GET Expenses Error:', error);
