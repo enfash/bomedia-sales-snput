@@ -75,13 +75,23 @@ export async function PATCH(request: Request) {
 
     await sheet.loadCells(`A${targetRowIndex}:W${targetRowIndex}`);
     
-    // Role-based Access Control: Cashiers cannot edit records older than 24 hours
+    // Role-based access control: cashiers cannot change the job status on
+    // records older than 24 hours.
+    //
+    // Recording a payment is deliberately exempt. Collecting on an aged debt is
+    // routine counter work, and this endpoint cannot alter what a customer was
+    // charged — it only writes the two payment columns and the job status. A
+    // cashier can already log a brand-new sale for any amount with no time
+    // limit at all, so blocking yesterday's collection was never a real
+    // boundary. The control that does the work is the audit trail: every
+    // payment writes a Payments row naming who collected it, when, and the
+    // balance either side of it.
     const cookieStore = await cookies();
     const adminToken = cookieStore.get('admin_session')?.value;
     const adminPayload = adminToken ? await verifyToken(adminToken) : null;
     const isAdmin = adminPayload && adminPayload.role === 'admin';
-    
-    if (!isAdmin) {
+
+    if (!isAdmin && jobStatus !== undefined) {
       const dateCell = sheet.getCellByA1(`A${targetRowIndex}`);
       const recordDateStr = dateCell.value;
       if (recordDateStr) {
@@ -89,7 +99,7 @@ export async function PATCH(request: Request) {
         if (!isNaN(recordDate)) {
           const ageInMs = Date.now() - recordDate;
           if (ageInMs > 24 * 60 * 60 * 1000) {
-            return NextResponse.json({ error: "Cashiers cannot edit records older than 24 hours" }, { status: 403 });
+            return NextResponse.json({ error: "Cashiers cannot change the job status on records older than 24 hours" }, { status: 403 });
           }
         }
       }

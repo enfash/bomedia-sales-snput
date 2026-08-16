@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { invalidateSheet } from '@/lib/sheet-cache';
-import { verifyToken } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,33 +115,20 @@ export async function POST(request: Request) {
     const ranges = steps.map(s => `${COL.date}${s.rowIndex}:${COL.paymentStatus}${s.rowIndex}`);
     await salesSheet.loadCells(ranges);
 
-    // Role-based access control, matching PATCH /api/sales: cashiers may not
-    // edit records older than 24 hours. Validated for every row up front so the
-    // batch is rejected as a whole rather than applying part of the lump sum.
-    const cookieStore = await cookies();
-    const adminToken = cookieStore.get('admin_session')?.value;
-    const adminPayload = adminToken ? await verifyToken(adminToken) : null;
-    const isAdmin = adminPayload && adminPayload.role === 'admin';
-
-    if (!isAdmin) {
-      const blocked: number[] = [];
-      for (const s of steps) {
-        const recordDateStr = salesSheet.getCellByA1(`${COL.date}${s.rowIndex}`).value;
-        if (!recordDateStr) continue;
-        const recordDate = new Date(recordDateStr.toString()).getTime();
-        if (isNaN(recordDate)) continue;
-        if (Date.now() - recordDate > 24 * 60 * 60 * 1000) blocked.push(s.rowIndex);
-      }
-      if (blocked.length > 0) {
-        return NextResponse.json({
-          error:
-            `Cashiers cannot edit records older than 24 hours. ` +
-            `${blocked.length} of ${steps.length} item(s) in this payment are older than that. ` +
-            `An admin must apply this payment.`,
-          blockedRows: blocked,
-        }, { status: 403 });
-      }
-    }
+    // No 24-hour age gate here, unlike the job-status path in PATCH /api/sales.
+    // Debt recovery targets old invoices by definition, so gating it would have
+    // meant an admin had to apply every counter collection on anything older
+    // than a day. This endpoint cannot change what a customer was charged — it
+    // only adds to the payment columns — and every row it writes lands in the
+    // Payments sheet naming who collected it. Payments applied to aged debt are
+    // tagged below so they can be reviewed at a glance.
+    const AGED_MS = 24 * 60 * 60 * 1000;
+    const isAged = (rowIndex: number) => {
+      const raw = salesSheet.getCellByA1(`${COL.date}${rowIndex}`).value;
+      if (!raw) return false;
+      const t = new Date(raw.toString()).getTime();
+      return !isNaN(t) && Date.now() - t > AGED_MS;
+    };
 
     // ── Stage every cell change in memory ────────────────────────────────────
     const timestamp = new Date().toISOString();
@@ -186,7 +171,7 @@ export async function POST(request: Request) {
         'BALANCE BEFORE': balanceBefore,
         'BALANCE AFTER': balanceBefore - s.toApply,
         'COLLECTED BY': collectedBy || 'System',
-        'NOTES': notes || 'Auto-distributed lump sum',
+        'NOTES': `${notes || 'Auto-distributed lump sum'}${isAged(s.rowIndex) ? ' [aged debt]' : ''}`,
         'TIMESTAMP': timestamp,
       });
     });
