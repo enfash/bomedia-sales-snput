@@ -1,4 +1,5 @@
 import { type UnifiedRecord } from "@/components/manage-sale-action";
+import { collectableAmount } from "@/lib/balance-display";
 
 /**
  * Parses a currency string or numeric value into a float.
@@ -63,8 +64,9 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
     steps.push({ record: rec, slot, mode, toApply, remainingAfter: remaining });
   }
 
-  // Phase 2: Handle overpayment (rounding up / intentional credit).
-  // Leftover money goes onto the last record in the set. If that record already
+  // Phase 2: Handle the rounded-up remainder. Customers commonly settle on a
+  // figure above the invoice, so leftover money is recorded rather than
+  // refused; it lands on the last record in the set. If that record already
   // took a payment above, top up that same step instead of writing to the cell
   // twice — one cell, one amount.
   if (remaining > 0 && sorted.length > 0) {
@@ -87,16 +89,23 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
 
 /**
  * Processes a flat list of sales into a grouped chart data format for outstanding debt.
- * Net balances are calculated per client — overpayments (negative balances) reduce the total.
- * Only clients with a net balance > 1 (to handle float rounding) are included.
+ *
+ * Only rows that are still owed count. An overpaid row contributes nothing
+ * rather than a negative: invoices are rounded so customers settle on a figure
+ * they will not shave, which makes the difference margin rather than credit
+ * held against future work. Netting it away would refund it against an
+ * unrelated debt and hide both figures — a shortfall that will never be paid
+ * and a gain already taken.
  *
  * Balance is computed directly from the three payment columns (O, Q, R) rather than
  * reading AMOUNT DIFFERENCES (Col S), which may be a stale static value or an old
  * formula that only subtracted the initial payment.
  */
 export function processDebtData(sales: any[], limit = 7) {
-  // Step 1: Accumulate net balance per client (positive = owed, negative = overpaid)
-  const netByClient: Record<string, number> = {};
+  // Step 1: Accumulate what is still collectable per client. Overpaid rows add
+  // zero rather than a negative, so a rounded-up payment on one job cannot
+  // cancel out a genuine debt on another.
+  const owedByClient: Record<string, number> = {};
 
   sales.forEach((r) => {
     const total       = parseAmount(r["AMOUNT (₦)"]          || r["Amount (₦)"]);
@@ -107,17 +116,17 @@ export function processDebtData(sales: any[], limit = 7) {
 
     const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
     if (!client) return;
-    netByClient[client] = (netByClient[client] || 0) + balance;
+    owedByClient[client] = (owedByClient[client] || 0) + collectableAmount(balance);
   });
 
-  // Step 2: Only keep clients with a net outstanding balance > 1 (ignore overpayments + rounding noise)
+  // Step 2: Keep clients still owing more than a naira (ignores rounding noise)
   let totalDebt = 0;
   const debtors: Record<string, number> = {};
 
-  Object.entries(netByClient).forEach(([client, net]) => {
-    if (net > 1) {
-      debtors[client] = net;
-      totalDebt += net;
+  Object.entries(owedByClient).forEach(([client, owed]) => {
+    if (owed > 1) {
+      debtors[client] = owed;
+      totalDebt += owed;
     }
   });
 

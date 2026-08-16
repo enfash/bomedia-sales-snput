@@ -44,10 +44,13 @@ export function describeBalance(
   }
 
   if (value < -EPSILON) {
-    // Overpayment: shown as a credit we owe the customer, never as debt.
+    // Overpayment. Deliberately NOT labelled as credit: invoices are rounded so
+    // customers settle on a figure they will not shave, and the difference is
+    // margin rather than money owed back. "CR" would read as a liability and
+    // invite staff to hand it back on the next job.
     return {
       tone: "credit",
-      label: `${formatNaira(Math.abs(value))} CR`,
+      label: `${formatNaira(Math.abs(value))} over`,
       color: "success.main",
     };
   }
@@ -62,4 +65,17 @@ export function describeBalance(
  */
 export function hasOutstandingDebt(balance: number | null | undefined): boolean {
   return (balance ?? 0) > EPSILON;
+}
+
+/**
+ * What a row contributes to an amount still collectable.
+ *
+ * Overpaid rows contribute nothing rather than a negative. Rounding a customer
+ * up is margin, not a credit held against future work, so letting it offset a
+ * later debt would quietly refund it — and it would also net a permanent
+ * shortfall against an unrelated gain, hiding both.
+ */
+export function collectableAmount(balance: number | null | undefined): number {
+  const value = balance ?? 0;
+  return value > EPSILON ? value : 0;
 }

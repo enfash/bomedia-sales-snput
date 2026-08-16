@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useSyncStore } from "@/lib/store";
 import { parseAmount, computeWaterfall } from "@/lib/financial-utils";
+import { collectableAmount } from "@/lib/balance-display";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { Wallet, ChevronRight, CheckCircle2, AlertCircle, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,8 +31,9 @@ const mapSale = (r: any): UnifiedRecord => {
   const initialPay  = parseAmount(r["INITIAL PAYMENT (₦)"] || r["Initial Payment (₦)"]);
   const addl1       = parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]);
   const addl2       = parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]);
-  // Not clamped at zero: a customer who paid above the invoice carries a
-  // credit, and hiding it here made overpayments read as fully settled.
+  // Not clamped at zero, so an overpaid row stays visible as such rather than
+  // reading as exactly settled. It is surfaced for information only — see
+  // collectableAmount for why it never reduces what is owed elsewhere.
   const balance     = amount - initialPay - addl1 - addl2;
   return {
     id: `sale-${r.DATE}-${r["CLIENT NAME"]}-${r._rowIndex}`,
@@ -83,7 +85,10 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
     );
   }, [clientName, cachedSales, pendingQueue]);
 
-  const totalBalance = clientRecords.reduce((s, r) => s + (r.balance || 0), 0);
+  // Sums only what is still collectable. An earlier overpayment is margin
+  // from rounding the customer up, not credit held against future work, so
+  // it must not reduce what they owe on a later job.
+  const totalBalance = clientRecords.reduce((s, r) => s + collectableAmount(r.balance), 0);
   const lumpSum = parseFloat(paymentInput) || 0;
 
   const preview = useMemo(
@@ -340,7 +345,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
                   <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
                     <CheckCircle2 size={12} color="#16a34a" />
                     <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700 }}>
-                      Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
+                      Extra of ₦{(lumpSum - totalBalance).toLocaleString()} will be recorded against the last item.
                     </Typography>
                   </Stack>
                 )}
@@ -348,7 +353,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
                   <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
                     <CheckCircle2 size={12} color="#16a34a" />
                     <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700 }}>
-                      ₦{lumpSum.toLocaleString()} will be applied as credit.
+                      ₦{lumpSum.toLocaleString()} will be recorded against the last item.
                     </Typography>
                   </Stack>
                 )}
