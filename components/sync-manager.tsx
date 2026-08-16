@@ -135,7 +135,39 @@ export function SyncManager() {
             continue;
           }
           try {
-            if (item.type === "payment") {
+            if (item.type === "payment_batch") {
+              // A whole lump-sum distribution retried as one call. Replaying it
+              // as individual payments would re-create the quota blowout that
+              // queued it in the first place. The stored transactionId makes
+              // the replay safe — the server no-ops if it already landed.
+              const res = await fetch("/api/payments/batch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(item.data),
+              });
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+
+                if (errData?.needsReconciliation) {
+                  // The payment landed in the audit log but the balances did
+                  // not update. Leaving it queued is worse than useless: the
+                  // next attempt finds the claim, reports "already applied",
+                  // and drops it — with the balance still unpaid and nobody
+                  // told. Surface it and stop retrying.
+                  toast.error(errData.error, { duration: 30000 });
+                  removeEntry(item.id);
+                  errorCount++;
+                  continue;
+                }
+
+                const error = new Error(errData.error || "Payment batch failed during sync");
+                (error as any).status = res.status;
+                throw error;
+              }
+
+              removeEntry(item.id);
+              successCount++;
+            } else if (item.type === "payment") {
               const salesRes = await fetch("/api/sales", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },

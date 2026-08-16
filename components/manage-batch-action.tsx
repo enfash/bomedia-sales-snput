@@ -49,95 +49,84 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       return;
     }
 
-    setIsSubmitting(true);
-    let allOk = true;
-
-    const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
-
-    if (isOnline) {
-      for (const step of steps) {
-        const payload: Record<string, any> = {
-          rowIndex: step.record.rowIndex,
-        };
-        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
-        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
-
-        try {
-          const res = await fetch("/api/sales", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) {
-            const err = await res.json();
-            toast.error(`Failed for ${step.record.client}: ${err.error || "Unknown error"}`);
-            allOk = false;
-            break;
-          }
-
-          try {
-            const loggedBy = localStorage.getItem("userName") || "System";
-            await fetch("/api/payments", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                salesId: step.record.salesId || step.record.id || '',
-                clientName: step.record.client || '',
-                amount: step.toApply,
-                paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
-                balanceBefore: step.record.balance || 0,
-                balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
-                collectedBy: loggedBy,
-                notes: `Logged via Batch Payment distribution (${salesId})`
-              })
-            });
-          } catch (e) {
-            console.error("Failed to log payment event", e);
-          }
-        } catch {
-          toast.error("Network error — some payments may not have been saved.");
-          allOk = false;
-          break;
-        }
-      }
-    } else {
-      const loggedBy = localStorage.getItem("userName") || "System";
-
-      steps.forEach((step) => {
-        const payload: Record<string, any> = {
-          rowIndex: step.record.rowIndex,
-        };
-        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
-        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
-
-        const paymentPayload = {
-          salesId: step.record.salesId || step.record.id || '',
-          clientName: step.record.client || '',
-          amount: step.toApply,
-          paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
-          balanceBefore: step.record.balance || 0,
-          balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
-          collectedBy: loggedBy,
-          notes: `Logged via Offline Batch Payment distribution (${salesId})`
-        };
-
-        useSyncStore.getState().addPendingEntry("payment", {
-          salesUpdate: payload,
-          paymentLog: paymentPayload,
-        });
-      });
-
-      toast.success(`Batch payment of ₦${lumpSum.toLocaleString()} saved locally. Syncing will run in background.`);
+    if (steps.some((step) => !step.record.rowIndex)) {
+      toast.error("Some sales are still syncing. Please refresh and try again.");
+      return;
     }
 
-    setIsSubmitting(false);
-    if (allOk) {
-      if (isOnline) {
-        toast.success(`Payment of ₦${lumpSum.toLocaleString()} distributed successfully!`);
-      }
+    setIsSubmitting(true);
+
+    // One id for the whole distribution, reused on every retry so the server
+    // can recognise a replay. Required because a step whose payment slots are
+    // both full appends to the cell rather than replacing it.
+    const transactionId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : "pay-" + Date.now() + "-" + Math.random().toString(36).slice(2, 11);
+
+    const payload = {
+      transactionId,
+      clientName: records[0]?.client || "",
+      collectedBy: localStorage.getItem("userName") || "System",
+      notes: `Logged via Batch Payment distribution (${salesId})`,
+      steps: steps.map((step) => ({
+        rowIndex: step.record.rowIndex,
+        salesId: step.record.salesId || "",
+        slot: step.slot,
+        mode: step.mode,
+        toApply: step.toApply,
+        balanceBefore: step.record.balance ?? 0,
+      })),
+    };
+
+    const finish = () => {
       setPaymentInput("");
       setIsOpen(false);
       onUpdate();
+    };
+
+    const queueForBackground = (reason: string) => {
+      useSyncStore.getState().addPendingEntry("payment_batch", payload);
+      toast.success(`Payment of ₦${lumpSum.toLocaleString()} queued. ${reason}`);
+      finish();
+    };
+
+    const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
+    if (!isOnline) {
+      queueForBackground("It will sync when you are back online.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/payments/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json: any = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        toast.success(
+          json.alreadyApplied
+            ? "This payment was already recorded."
+            : `Payment of ₦${lumpSum.toLocaleString()} distributed successfully!`
+        );
+        finish();
+      } else if (json?.needsReconciliation) {
+        // Recorded but not applied — a retry would refuse, so a person must fix it.
+        toast.error(json.error, { duration: 20000 });
+        finish();
+      } else if (res.status === 429 || res.status >= 500) {
+        queueForBackground("Google Sheets is busy; it will retry automatically.");
+      } else {
+        toast.error(json.error || "Failed to distribute payment.");
+      }
+    } catch {
+      queueForBackground("You appear to be offline; it will retry automatically.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -266,7 +255,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
                           {step.record.description}
                         </Typography>
                         <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", mt: 0.5 }}>
-                          Slot {step.slot}
+                          Slot {step.slot}{step.mode === "append" ? " · added to existing" : ""}
                         </Typography>
                       </Box>
                     </Box>

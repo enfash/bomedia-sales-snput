@@ -4,7 +4,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type QueueItem = {
   id: string;
-  type: 'sale' | 'expense' | 'payment' | 'sale_status';
+  type: 'sale' | 'expense' | 'payment' | 'payment_batch' | 'sale_status';
   data: any; // The payload as an array (for sales) or object (for expenses/payments/sale_status)
   timestamp: number;
   retryCount?: number;
@@ -19,7 +19,7 @@ interface SyncState {
   errorMessage: string | null;
   
   // Actions
-  addPendingEntry: (type: 'sale' | 'expense' | 'payment', data: any) => void;
+  addPendingEntry: (type: 'sale' | 'expense' | 'payment' | 'payment_batch', data: any) => void;
   removeEntry: (id: string) => void;
   setSyncStatus: (status: 'idle' | 'syncing' | 'error', error?: string) => void;
   setLastSyncTime: (time: number) => void;
@@ -141,6 +141,63 @@ export const useSyncStore = create<SyncState>()(
               "NOTES": (paymentLog.notes || '') + " (Offline Pending)",
               "TIMESTAMP": new Date().toISOString(),
             },
+            ...updatedPayments,
+          ];
+        }
+
+        // 3. Optimistic update for a queued lump-sum distribution, so the
+        // debtor stops showing the full balance the moment it is queued rather
+        // than only after the background sync lands.
+        else if (type === 'payment_batch') {
+          const steps: any[] = Array.isArray(data?.steps) ? data.steps : [];
+          const now = new Date().toISOString();
+
+          for (const step of steps) {
+            updatedSales = updatedSales.map((s: any) => {
+              if (s._rowIndex !== step.rowIndex && s.rowNumber !== step.rowIndex) return s;
+
+              const updatedRow = { ...s };
+              const col = step.slot === 1 ? 'ADDITIONAL PAYMENT 1' : 'ADDITIONAL PAYMENT 2';
+              const existing = parseAmountLocal(updatedRow[col]);
+              // "append" adds to whatever is already in the slot; "set" replaces
+              // it — mirroring what the server writes to the sheet.
+              updatedRow[col] = step.mode === 'append'
+                ? existing + (step.toApply || 0)
+                : (step.toApply || 0);
+
+              const amount = parseAmountLocal(updatedRow["AMOUNT (₦)"] || updatedRow["Amount (₦)"]);
+              const initialPay = parseAmountLocal(updatedRow["INITIAL PAYMENT (₦)"] || updatedRow["Initial Payment (₦)"]);
+              const addl1 = parseAmountLocal(updatedRow["ADDITIONAL PAYMENT 1"] || updatedRow["Additional Payment 1"]);
+              const addl2 = parseAmountLocal(updatedRow["ADDITIONAL PAYMENT 2"] || updatedRow["Additional Payment 2"]);
+              const balance = amount - initialPay - addl1 - addl2;
+
+              updatedRow["AMOUNT DIFFERENCES"] = balance;
+              updatedRow["PAYMENT STATUS"] = amount === 0
+                ? "Unpaid"
+                : balance <= 0
+                  ? "Paid"
+                  : balance < amount
+                    ? "Part-payment"
+                    : "Unpaid";
+
+              return updatedRow;
+            });
+          }
+
+          updatedPayments = [
+            ...steps.map((step: any, i: number) => ({
+              "PAYMENT ID": `${data.transactionId}-${i}`,
+              "SALES ID": step.salesId || '',
+              "CLIENT NAME": data.clientName || '',
+              "DATE": now.split('T')[0],
+              "AMOUNT": step.toApply || 0,
+              "PAYMENT TYPE": step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
+              "BALANCE BEFORE": step.balanceBefore || 0,
+              "BALANCE AFTER": (step.balanceBefore || 0) - (step.toApply || 0),
+              "COLLECTED BY": data.collectedBy || 'System',
+              "NOTES": (data.notes || '') + " (Pending Sync)",
+              "TIMESTAMP": now,
+            })),
             ...updatedPayments,
           ];
         }

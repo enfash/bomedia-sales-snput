@@ -12,14 +12,32 @@ export const parseAmount = (val: any): number => {
 
 export interface WaterfallStep {
   record: UnifiedRecord;
-  slot: 1 | 2 | null;
+  slot: 1 | 2;
+  /**
+   * How the amount lands in the slot:
+   *   "set"    — the slot is empty, write the amount as a plain number.
+   *   "append" — both slots are already used, so slot 2 becomes a running
+   *              chain (=old+new). This is what stops a payment from being
+   *              silently skipped once a sale has been paid more than twice.
+   */
+  mode: "set" | "append";
   toApply: number;
   remainingAfter: number;
 }
 
+/** Picks the slot and write mode for the next payment against a record. */
+function nextSlot(rec: UnifiedRecord): { slot: 1 | 2; mode: "set" | "append" } {
+  if (!((rec.additionalPayment1 ?? 0) > 0)) return { slot: 1, mode: "set" };
+  if (!((rec.additionalPayment2 ?? 0) > 0)) return { slot: 2, mode: "set" };
+  return { slot: 2, mode: "append" };
+}
+
 /**
- * Distributes a lump sum payment across a set of records using waterfall logic.
- * Respects existing slots (Additional Payment 1 and 2).
+ * Distributes a lump sum payment across a set of records, oldest first.
+ *
+ * Every record with an outstanding balance receives something as long as money
+ * remains — a record whose two payment slots are both full chains onto slot 2
+ * rather than being passed over.
  */
 export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): WaterfallStep[] {
   const steps: WaterfallStep[] = [];
@@ -38,46 +56,29 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
     const balance = rec.balance ?? 0;
     if (balance <= 0) continue;
 
-    // Check availability of additional payment slots
-    const hasSlot1 = !((rec.additionalPayment1 ?? 0) > 0);
-    const hasSlot2 = !((rec.additionalPayment2 ?? 0) > 0);
-
-    let slot: 1 | 2 | null = null;
-    if (hasSlot1) slot = 1;
-    else if (hasSlot2) slot = 2;
-
-    if (slot === null) continue;
-
+    const { slot, mode } = nextSlot(rec);
     const toApply = Math.min(remaining, balance);
     remaining -= toApply;
 
-    steps.push({ record: rec, slot, toApply, remainingAfter: remaining });
+    steps.push({ record: rec, slot, mode, toApply, remainingAfter: remaining });
   }
 
-  // Phase 2: Handle Overpayments (Rounding up/Intentional credit)
-  // If there's leftover money, dump it into the last available slot in the set.
+  // Phase 2: Handle overpayment (rounding up / intentional credit).
+  // Leftover money goes onto the last record in the set. If that record already
+  // took a payment above, top up that same step instead of writing to the cell
+  // twice — one cell, one amount.
   if (remaining > 0 && sorted.length > 0) {
-    // Find the last record in the sorted set that has an available slot
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const rec = sorted[i];
-      const hasSlot1 = !((rec.additionalPayment1 ?? 0) > 0);
-      const hasSlot2 = !((rec.additionalPayment2 ?? 0) > 0);
+    const last = sorted[sorted.length - 1];
+    const existing = steps.find(s => s.record.rowIndex === last.rowIndex);
 
-      // We need to ensure we don't double-use a slot we just filled in Phase 1
-      const usedSlotsForThisRec = steps
-        .filter(s => s.record.salesId === rec.salesId)
-        .map(s => s.slot);
-
-      let availableSlot: 1 | 2 | null = null;
-      if (hasSlot1 && !usedSlotsForThisRec.includes(1)) availableSlot = 1;
-      else if (hasSlot2 && !usedSlotsForThisRec.includes(2)) availableSlot = 2;
-
-      if (availableSlot) {
-        steps.push({ record: rec, slot: availableSlot, toApply: remaining, remainingAfter: 0 });
-        remaining = 0;
-        break;
-      }
+    if (existing) {
+      existing.toApply += remaining;
+      existing.remainingAfter = 0;
+    } else {
+      const { slot, mode } = nextSlot(last);
+      steps.push({ record: last, slot, mode, toApply: remaining, remainingAfter: 0 });
     }
+    remaining = 0;
   }
 
   return steps;

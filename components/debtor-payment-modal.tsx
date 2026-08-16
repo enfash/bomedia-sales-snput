@@ -30,7 +30,9 @@ const mapSale = (r: any): UnifiedRecord => {
   const initialPay  = parseAmount(r["INITIAL PAYMENT (₦)"] || r["Initial Payment (₦)"]);
   const addl1       = parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]);
   const addl2       = parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]);
-  const balance     = Math.max(0, amount - initialPay - addl1 - addl2);
+  // Not clamped at zero: a customer who paid above the invoice carries a
+  // credit, and hiding it here made overpayments read as fully settled.
+  const balance     = amount - initialPay - addl1 - addl2;
   return {
     id: `sale-${r.DATE}-${r["CLIENT NAME"]}-${r._rowIndex}`,
     date: r.DATE || r.Date || "N/A",
@@ -100,94 +102,99 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
       return;
     }
 
-    setIsSubmitting(true);
-    let allOk = true;
-
-    const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
-
-    if (isOnline) {
-      for (const step of steps) {
-        const payload: Record<string, any> = {
-          rowIndex: step.record.rowIndex,
-        };
-        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
-        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
-
-        try {
-          const res = await fetch("/api/sales", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) {
-            allOk = false;
-            break;
-          }
-
-          try {
-            await fetch("/api/payments", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                salesId: step.record.salesId || step.record.id || '',
-                clientName: step.record.client || '',
-                amount: step.toApply,
-                paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
-                balanceBefore: step.record.balance || 0,
-                balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
-                collectedBy: localStorage.getItem("userName") || "System",
-                notes: `Auto-distributed lump sum`
-              })
-            });
-          } catch (e) {
-            console.error("Failed to log payment event", e);
-          }
-
-        } catch {
-          allOk = false;
-          break;
-        }
-      }
-    } else {
-      const loggedBy = localStorage.getItem("userName") || "System";
-
-      steps.forEach((step) => {
-        const payload: Record<string, any> = {
-          rowIndex: step.record.rowIndex,
-        };
-        if (step.slot === 1) payload.additionalPayment1 = step.toApply;
-        else if (step.slot === 2) payload.additionalPayment2 = step.toApply;
-
-        const paymentPayload = {
-          salesId: step.record.salesId || step.record.id || '',
-          clientName: step.record.client || '',
-          amount: step.toApply,
-          paymentType: step.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
-          balanceBefore: step.record.balance || 0,
-          balanceAfter: Math.max(0, (step.record.balance || 0) - step.toApply),
-          collectedBy: loggedBy,
-          notes: `Auto-distributed lump sum (Offline)`
-        };
-
-        useSyncStore.getState().addPendingEntry("payment", {
-          salesUpdate: payload,
-          paymentLog: paymentPayload,
-        });
-      });
-
-      toast.success(`₦${lumpSum.toLocaleString()} applied to ${clientName}'s account locally (offline). Syncing in background.`);
+    // Every step is applied by sheet row number. A record that has not finished
+    // syncing has no row yet, so bail out rather than send an unusable batch.
+    if (steps.some((step) => !step.record.rowIndex)) {
+      toast.error("Some sales are still syncing. Please refresh and try again.");
+      return;
     }
 
-    setIsSubmitting(false);
-    if (allOk) {
-      if (isOnline) {
-        toast.success(`₦${lumpSum.toLocaleString()} applied to ${clientName}'s account.`);
-      }
+    setIsSubmitting(true);
+
+    // One id for the whole submission, generated before the first attempt and
+    // reused by every retry. The server keys the payment rows off it, so a
+    // replay is recognised and refused instead of paying the client twice.
+    // This is essential: slots that are already full are *appended* to, and a
+    // blind retry of an append would double-count the money.
+    const transactionId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : "pay-" + Date.now() + "-" + Math.random().toString(36).slice(2, 11);
+
+    const payload = {
+      transactionId,
+      clientName: clientName ?? "",
+      collectedBy: localStorage.getItem("userName") || "System",
+      notes: "Auto-distributed lump sum",
+      steps: steps.map((step) => ({
+        rowIndex: step.record.rowIndex,
+        salesId: step.record.salesId || "",
+        slot: step.slot,
+        mode: step.mode,
+        toApply: step.toApply,
+        balanceBefore: step.record.balance ?? 0,
+      })),
+    };
+
+    const finish = () => {
       setPaymentInput("");
       onUpdate();
       onClose();
-    } else {
-      toast.error("Failed to apply some payments. Please check your connection.");
+    };
+
+    // Hand the batch to the offline queue, which sync-manager drains and
+    // retries. The queue is persisted to localStorage, so this survives the
+    // browser being closed.
+    const queueForBackground = (reason: string) => {
+      useSyncStore.getState().addPendingEntry("payment_batch", payload);
+      toast.success(
+        `₦${lumpSum.toLocaleString()} queued for ${clientName}. ${reason}`
+      );
+      finish();
+    };
+
+    const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
+    if (!isOnline) {
+      queueForBackground("It will sync when you are back online.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/payments/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json: any = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        toast.success(
+          json.alreadyApplied
+            ? "This payment was already recorded."
+            : `₦${lumpSum.toLocaleString()} applied to ${clientName}'s account.`
+        );
+        finish();
+      } else if (json?.needsReconciliation) {
+        // The payment is on record but the balances did not update. Retrying
+        // would correctly refuse (the claim already exists) and change nothing,
+        // so this needs a person rather than another attempt.
+        toast.error(json.error, { duration: 20000 });
+        finish();
+      } else if (res.status === 429 || res.status >= 500) {
+        // Rate limit or a server hiccup — both are worth retrying, so queue
+        // rather than showing a dead end.
+        queueForBackground("Google Sheets is busy; it will retry automatically.");
+      } else {
+        // 400/403 are permanent (bad data, or the 24-hour cashier rule).
+        // Retrying would loop forever, so surface the reason instead.
+        toast.error(json.error || "Failed to apply payment.");
+      }
+    } catch {
+      queueForBackground("You appear to be offline; it will retry automatically.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -317,6 +324,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
                           </Typography>
                           <Typography sx={{ fontSize: "0.5625rem", color: "text.secondary", mt: 0.5, textTransform: "uppercase", fontWeight: 700 }}>
                             {step.record.date?.split(',')[0]}
+                            {step.mode === "append" ? " · added to existing payment" : ""}
                           </Typography>
                         </Box>
                       </Stack>
