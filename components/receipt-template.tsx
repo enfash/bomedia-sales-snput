@@ -3,6 +3,7 @@
 import { forwardRef } from "react";
 import { UnifiedRecord } from "./manage-sale-action";
 import { format } from "date-fns";
+import { RECEIPT_LOGO_DATA_URI } from "@/lib/receipt-logo";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -48,6 +49,13 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     // Determine if any material present
     const hasMaterial = records.some((r) => r.material && r.material.trim() !== "");
 
+    // Quantity lives on the sheet row rather than on UnifiedRecord itself
+    const qtyOf = (r: UnifiedRecord) => {
+      const q = parseFloat(r.raw?.["QTY"] ?? r.raw?.["Qty"] ?? "");
+      return Number.isFinite(q) && q > 0 ? q : null;
+    };
+    const hasQty = records.some((r) => qtyOf(r) !== null);
+
     return (
       <Box
         ref={ref}
@@ -77,7 +85,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
             <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1 }}>
               <Box
                 component="img"
-                src="/bomedia-icon.svg"
+                src={RECEIPT_LOGO_DATA_URI}
                 alt="BOMedia Logo"
                 sx={{
                   width: 32,
@@ -102,7 +110,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
               {uniqueSalesIds.length > 1 ? "IDs: " : "#"}{salesIdDisplay}
             </Typography>
             <Typography sx={{ fontSize: "0.75rem", color: "grey.500", mt: 0.5 }}>
-              {format(recordDate, "MMM dd, yyyy")}
+              {format(recordDate, "EEEE, MMM dd, yyyy")}
             </Typography>
           </Box>
         </Stack>
@@ -130,6 +138,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
                 <Box component="th" sx={{ px: 2, py: 1.5, width: 24, textAlign: "center" }}>#</Box>
                 <Box component="th" sx={{ px: 2, py: 1.5 }}>Description</Box>
                 {hasMaterial && <Box component="th" sx={{ px: 2, py: 1.5 }}>Material</Box>}
+                {hasQty && <Box component="th" sx={{ px: 2, py: 1.5, width: 48, textAlign: "center" }}>Qty</Box>}
                 <Box component="th" sx={{ px: 2, py: 1.5, textAlign: "right" }}>Amount</Box>
                 <Box component="th" sx={{ px: 2, py: 1.5, textAlign: "right" }}>Balance</Box>
               </tr>
@@ -146,6 +155,11 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
                   {hasMaterial && (
                     <Box component="td" sx={{ px: 2, py: 1.5, color: "grey.600", fontSize: "0.75rem" }}>
                       {r.material || "—"}
+                    </Box>
+                  )}
+                  {hasQty && (
+                    <Box component="td" sx={{ px: 2, py: 1.5, textAlign: "center", fontWeight: "bold", color: "grey.900" }}>
+                      {qtyOf(r) ?? "—"}
                     </Box>
                   )}
                   <Box component="td" sx={{ px: 2, py: 1.5, textAlign: "right", fontWeight: "bold", color: "grey.900" }}>

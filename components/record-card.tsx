@@ -104,7 +104,7 @@ export function RecordCard({
             balance: 0,
             salesId,
             material: v[4] || "",
-            raw: {},
+            raw: { QTY: String(v[12] ?? "") },
           } as UnifiedRecord;
         });
 
