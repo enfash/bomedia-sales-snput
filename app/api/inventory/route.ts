@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { refreshMaterialProfile } from '@/lib/inventory-deduction';
+import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +52,7 @@ export async function GET() {
       }, { status: 404 });
     }
 
-    const rows = await sheet.getRows();
+    const rows = await getCachedRows(SHEET_TITLE, () => sheet.getRows());
     const data = rows.map((row) => ({ ...row.toObject(), _rowIndex: row.rowNumber }));
     return NextResponse.json({ data });
   } catch (error: any) {
@@ -200,6 +201,8 @@ export async function POST(request: Request) {
     // Refresh or create material profile
     await refreshMaterialProfile(doc, materialId);
 
+    // A roll purchase rewrites the material profile, and can log an expense.
+    invalidateSheet(SHEET_TITLE, 'Materials', 'Expenses');
     return NextResponse.json({ success: true, rollIds });
   } catch (error: any) {
     console.error('POST Inventory Error:', error);
@@ -254,6 +257,17 @@ export async function PATCH(request: Request) {
       const current = parseFloat(row.get('Remaining Length (ft)') || '0') || 0;
       const currentWaste = parseFloat(row.get('Waste Logged (ft)') || '0') || 0;
       const waste = parseFloat(wasteLength) || 0;
+
+      if (waste <= 0) {
+        return NextResponse.json({ error: "Waste length must be greater than zero" }, { status: 400 });
+      }
+      if (waste > current) {
+        return NextResponse.json({ error: `Waste length (${waste}ft) cannot exceed remaining roll length (${current}ft)` }, { status: 400 });
+      }
+      if (row.get('Status') === 'Depleted') {
+        return NextResponse.json({ error: "Cannot log waste against a depleted roll" }, { status: 400 });
+      }
+
       const newRemaining = Math.max(0, current - waste);
       row.set('Remaining Length (ft)', newRemaining.toFixed(2));
       row.set('Waste Logged (ft)', (currentWaste + waste).toFixed(2));
@@ -280,6 +294,7 @@ export async function PATCH(request: Request) {
       await refreshMaterialProfile(doc, mId);
     }
 
+    invalidateSheet(SHEET_TITLE, 'Materials');
     return NextResponse.json({
       success: true,
       remainingLength: parseFloat(row.get('Remaining Length (ft)') || '0'),

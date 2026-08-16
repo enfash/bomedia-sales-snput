@@ -12,7 +12,7 @@
  * within the window are instant.
  */
 
-const TTL_MS = 30_000; // 30 seconds
+const TTL_MS = 60_000; // 60 seconds
 
 type Entry = {
   data: any[];

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDoc } from "@/lib/google-sheets";
+import { getCachedRows } from "@/lib/sheet-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,11 @@ export async function GET() {
     // manual traceability, but row.get() returns the formula text instead of
     // the computed value — so we aggregate here in JS.
     const iSheet = doc.sheetsByTitle[INVENTORY_SHEET];
+    // Both reads share the same cache keys the Materials and Inventory routes
+    // use, so this endpoint costs nothing when either has been read recently.
     const [materialRows, inventoryRows] = await Promise.all([
-      mSheet.getRows(),
-      iSheet ? iSheet.getRows() : Promise.resolve([]),
+      getCachedRows(MATERIALS_SHEET, () => mSheet.getRows()),
+      iSheet ? getCachedRows(INVENTORY_SHEET, () => iSheet.getRows()) : Promise.resolve([]),
     ]);
 
     // Pre-aggregate inventory values by Material ID

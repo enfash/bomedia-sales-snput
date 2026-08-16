@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { verifyToken } from '@/lib/auth-utils';
+import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,7 @@ export async function GET() {
       await sheet.setHeaderRow([...existingHeaders, 'Passcode']);
     }
 
-    const rows = await sheet.getRows();
+    const rows = await getCachedRows(SHEET_TITLE, () => sheet.getRows());
     const isAdmin = await isAdminUser();
 
     const data = rows.map((row: any) => {
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
       Passcode: passcode ? passcode.toString().trim() : '' 
     });
 
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("POST Cashiers Error:", error);
@@ -159,6 +161,7 @@ export async function PATCH(request: Request) {
     }
 
     await row.save();
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("PATCH Cashiers Error:", error);
@@ -186,6 +189,7 @@ export async function DELETE(request: Request) {
     if (!row) return NextResponse.json({ error: "Cashier not found" }, { status: 404 });
 
     await row.delete();
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("DELETE Cashiers Error:", error);

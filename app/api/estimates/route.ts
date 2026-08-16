@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
+import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Estimates sheet not found" }, { status: 404 });
     }
 
-    const rows = await sheet.getRows();
+    const rows = await getCachedRows(SHEET_TITLE, () => sheet.getRows());
     const data = rows.map(row => row.toObject());
 
     if (quoteId) {
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       'CART DATA': JSON.stringify(cartData)
     });
 
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true, quoteId });
   } catch (error: any) {
     console.error("POST Estimates Error:", error);

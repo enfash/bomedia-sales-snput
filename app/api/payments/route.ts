@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
+import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +19,8 @@ export async function GET() {
       return NextResponse.json({ data: [] });
     }
 
-    const rows = await sheet.getRows();
-    
+    const rows = await getCachedRows(SHEET_TITLE, () => sheet.getRows());
+
     const data = rows.map(row => ({
       ...row.toObject(),
       _rowIndex: row.rowNumber
@@ -44,11 +45,22 @@ export async function POST(request: Request) {
 
     await ensureHeaders(sheet, PAYMENTS_HEADERS);
 
-    // Auto-generate Payment ID: PAY-YYYYMMDD-XXXX
     const now = new Date();
-    const cleanDate = now.toISOString().split('T')[0].replace(/-/g, '');
-    const uniqueSuffix = (Date.now() % 9000 + 1000).toString().slice(-4);
-    const paymentId = `PAY-${cleanDate}-${uniqueSuffix}`;
+    let paymentId: string;
+
+    if (body.transactionId) {
+      paymentId = body.transactionId;
+      const rows = await sheet.getRows();
+      const isDuplicate = rows.some((row: any) => row.get('PAYMENT ID') === paymentId);
+      if (isDuplicate) {
+        return NextResponse.json({ success: true, message: 'Payment already logged (duplicate)' });
+      }
+    } else {
+      // Auto-generate Payment ID: PAY-YYYYMMDD-XXXX
+      const cleanDate = now.toISOString().split('T')[0].replace(/-/g, '');
+      const uniqueSuffix = (Date.now() % 9000 + 1000).toString().slice(-4);
+      paymentId = `PAY-${cleanDate}-${uniqueSuffix}`;
+    }
 
     const timestamp = now.toISOString();
 
@@ -67,7 +79,8 @@ export async function POST(request: Request) {
     };
 
     await sheet.addRow(newRow);
-    
+
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true, paymentId });
   } catch (error: any) {
     console.error("POST Payments Error:", error);

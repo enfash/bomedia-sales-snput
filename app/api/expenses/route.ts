@@ -15,7 +15,7 @@ export async function GET() {
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
-    const rows = await sheet.getRows();
+    const rows = await getCachedRows(SHEET_TITLE, () => sheet.getRows());
     const data = rows.map(row => row.toObject());
     return NextResponse.json({ data });
   } catch (error: any) {
@@ -27,9 +27,50 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // Validate expense amount
+    if (body.AMOUNT !== undefined && parseFloat(body.AMOUNT) < 0) {
+      return NextResponse.json({ error: "Expense amount cannot be negative" }, { status: 400 });
+    }
+    if (body.batch === true && Array.isArray(body.items)) {
+      for (const it of body.items) {
+        if (it.AMOUNT !== undefined && parseFloat(it.AMOUNT) < 0) {
+          return NextResponse.json({ error: "Expense amount cannot be negative" }, { status: 400 });
+        }
+      }
+    }
+
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
     await ensureHeaders(sheet, EXPENSES_HEADERS);
+
+    // --- Deduplication Check ---
+    const sheetRows = await sheet.getRows();
+    let isDuplicate = false;
+    if (body && body.batch === true && Array.isArray(body.items)) {
+      const txId = body.transactionId;
+      if (txId) {
+        isDuplicate = sheetRows.some((r: any) => r.get('EXPENSE ID') === txId);
+      }
+      if (!isDuplicate) {
+        for (const it of body.items) {
+          const expenseId = it['EXPENSE ID'] || txId;
+          if (expenseId && sheetRows.some((r: any) => r.get('EXPENSE ID') === expenseId)) {
+            isDuplicate = true;
+            break;
+          }
+        }
+      }
+    } else if (body) {
+      const expenseId = body['EXPENSE ID'] || body.transactionId;
+      if (expenseId) {
+        isDuplicate = sheetRows.some((r: any) => r.get('EXPENSE ID') === expenseId);
+      }
+    }
+
+    if (isDuplicate) {
+      return NextResponse.json({ message: "Expense already recorded" }, { status: 200 });
+    }
 
     // Support both single expense objects and batch posts from the client.
     // For batch posts, client sends { batch: true, items: [...], transactionId }
@@ -52,6 +93,7 @@ export async function POST(request: Request) {
       await sheet.addRow(rowData);
     }
 
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('POST Expenses Error:', error);
@@ -86,6 +128,7 @@ export async function PATCH(request: Request) {
     }
     await row.save();
 
+    invalidateSheet(SHEET_TITLE);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('PATCH Expenses Error:', error);
