@@ -12,6 +12,7 @@ import { MaterialSelector } from "@/components/material-selector";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
+import { canonicalClientName } from "@/lib/client-names";
 
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -338,6 +339,16 @@ export function SalesEntry() {
     return Array.from(names).sort();
   }, [cachedSales]);
 
+  // Raw list, one entry per sale — duplicates identify the dominant spelling
+  // when the sheet holds more than one version of a customer's name.
+  const allClientNames = useMemo(
+    () =>
+      cachedSales
+        .map((s: any) => ((s["CLIENT NAME"] || s["Client Name"] || "") as string).trim())
+        .filter(Boolean),
+    [cachedSales]
+  );
+
   const clientContacts = useMemo(() => {
     const map: Record<string, string> = {};
     cachedSales.forEach((s: any) => {
@@ -581,6 +592,10 @@ export function SalesEntry() {
 
   const handleReview = () => {
     if (!meta.clientName.trim()) { toast.error("Client name is required"); return; }
+    // Safety net: blur normally handles this, but nothing should reach the
+    // sheet under a spelling that splits an existing customer's history.
+    const canonicalClient = canonicalClientName(meta.clientName, allClientNames);
+    if (canonicalClient !== meta.clientName) setMetaField("clientName", canonicalClient);
     if (cart.length === 0) { toast.error("Add at least one job to the order"); return; }
     setShowConfirm(true);
   };
@@ -738,7 +753,13 @@ export function SalesEntry() {
                     placeholder="Sarah Jones"
                     value={meta.clientName}
                     onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
+                    onBlur={() => {
+                      // Correct to the spelling already on file. Runs on tap-away,
+                      // so it does not depend on a keyboard. Suggestion taps fire
+                      // onMouseDown first, so this only ever confirms their choice.
+                      setMetaField("clientName", canonicalClientName(meta.clientName, allClientNames));
+                      setTimeout(() => setShowSuggestions(false), 180);
+                    }}
                     onChange={(e) => { setMetaField("clientName", e.target.value); setShowSuggestions(true); }}
                   />
                   {showSuggestions && filteredClients.length > 0 && (
