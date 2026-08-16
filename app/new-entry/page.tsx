@@ -1,21 +1,19 @@
 "use client";
 
-import { Box, Typography } from "@mui/material";
-import { SalesEntry } from "@/components/sales-entry";
-import { PlusCircle } from "lucide-react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function NewEntryPage() {
-  return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 12, md: 4 }}}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 900, color: "text.primary", mb: 0.5 }}>
-          Log New Sale Entry
-        </Typography>
-        <Typography sx={{ color: "text.secondary" }}>
-          Log a new print job using manual entry or AI natural language.
-        </Typography>
-      </Box>
-      <SalesEntry />
-    </Box>
-  );
+export default function RootNewEntryRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const userName = localStorage.getItem("userName");
+    if (userName?.toLowerCase() === "admin") {
+      router.replace("/bom03/new-entry");
+    } else {
+      router.replace("/cashier/new-entry");
+    }
+  }, [router]);
+
+  return null;
 }

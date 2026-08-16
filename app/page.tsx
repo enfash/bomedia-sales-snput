@@ -25,6 +25,21 @@ export default function LandingPage() {
         <Button component={Link} href="/cashier" variant="contained" fullWidth size="large" sx={{ height: 56, fontSize: "1.125rem" }}>
           Start Recording (Cashier)
         </Button>
+        <Box sx={{ mt: 3, pt: 3, borderTop: "1px solid", borderColor: "divider" }}>
+          <Typography
+            component={Link}
+            href="/bom03/login"
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+              textDecoration: "none",
+              "&:hover": { color: "text.secondary", textDecoration: "underline" },
+              transition: "color 0.2s",
+            }}
+          >
+            Admin Login →
+          </Typography>
+        </Box>
       </Paper>
     </Box>
   );

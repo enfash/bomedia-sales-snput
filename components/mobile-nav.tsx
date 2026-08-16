@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, LayoutDashboard, PlusCircle, Receipt, BarChart3,
   Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare,
-  Package, Volume2, VolumeX, Ruler, ArrowLeftRight,
+  Package, Volume2, VolumeX, Ruler, ArrowLeftRight, Calculator,
 } from "lucide-react";
 import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
@@ -86,20 +86,22 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
   const currentNavItems = isInCashierView
     ? [
-        { href: "/cashier",           label: "Dashboard",   icon: LayoutDashboard },
-        { href: "/cashier/new-entry", label: "New Sale",    icon: PlusCircle },
-        { href: "/cashier/board",     label: "Job Board",   icon: KanbanSquare },
-        { href: "/cashier/customers", label: "Customers",   icon: Users },
-        { href: "/quick-check",       label: "Quick-Check", icon: Ruler },
-        { href: "/cashier/records",   label: "Records",     icon: BarChart3 },
-        { href: "/cashier/expenses",  label: "Expenses",    icon: Receipt },
+        { href: "/cashier",             label: "Dashboard",   icon: LayoutDashboard },
+        { href: "/cashier/new-entry",   label: "New Sale",    icon: PlusCircle },
+        { href: "/cashier/board",       label: "Job Board",   icon: KanbanSquare },
+        { href: "/cashier/customers",   label: "Customers",   icon: Users },
+        { href: "/cashier/inventory",   label: "Stock",       icon: Package },
+        { href: "/cashier/estimator",   label: "Estimator",   icon: Calculator },
+        { href: "/cashier/quick-check", label: "Quick-Check", icon: Ruler },
+        { href: "/cashier/records",     label: "Records",     icon: BarChart3 },
+        { href: "/cashier/expenses",    label: "Expenses",    icon: Receipt },
       ]
     : [
         { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
         { href: "/bom03/new-entry", label: "New Sale",     icon: PlusCircle },
         { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
         { href: "/bom03/customers", label: "Customers",    icon: Users },
-        { href: "/quick-check",     label: "Quick-Check",  icon: Ruler },
+        { href: "/bom03/quick-check", label: "Quick-Check",  icon: Ruler },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
         { href: "/bom03/inventory", label: "Inventory",    icon: Package },
@@ -118,6 +120,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
           borderBottom: "1px solid",
           borderColor: "divider",
           color: "text.primary",
+          paddingTop: "env(safe-area-inset-top)",
         }}
       >
         <Toolbar sx={{ justifyContent: "space-between", minHeight: 64 }}>

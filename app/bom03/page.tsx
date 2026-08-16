@@ -685,7 +685,7 @@ export default function DashboardPage() {
                 color: { bg: "#eff6ff", border: "#bfdbfe", icon: "#2e388d", label: "#2e388d" },
               },
               {
-                href: "/quick-check",
+                href: "/bom03/quick-check",
                 label: "Verification",
                 title: "Material Quick-Check",
                 desc: "Test viability before job",

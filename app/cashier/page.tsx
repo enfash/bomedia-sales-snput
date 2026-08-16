@@ -21,6 +21,7 @@ import {
   ShoppingBag,
   Users,
   Package,
+  Scissors,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useSyncStore } from "@/lib/store";
@@ -241,7 +242,8 @@ function ShiftHero({
 
 const actionsList = [
   { label: "New Sale", sub: "Log a job", href: "/cashier/new-entry", icon: Plus, primary: true },
-  { label: "Quick Check", sub: "Test a roll", href: "/quick-check", icon: Ruler },
+  { label: "Quick Check", sub: "Test a roll", href: "/cashier/quick-check", icon: Ruler },
+  { label: "Log Waste", sub: "Record loss", href: "/cashier/waste", icon: Scissors },
   { label: "Records", sub: "Today's jobs", href: "/cashier/records", icon: BarChart3 },
   { label: "Log Expense", sub: "Record payout", href: "/cashier/expenses", icon: Receipt },
   { label: "Estimator", sub: "Price a job", href: "/cashier/estimator", icon: Zap },
@@ -855,7 +857,7 @@ function DesktopSidePanel({
           { label: "Job Board", href: "/cashier/board", icon: BarChart3 },
           { label: "Customers", href: "/cashier/customers", icon: Users },
           { label: "Price Estimator", href: "/cashier/estimator", icon: Zap },
-          { label: "Material Quick-Check", href: "/quick-check", icon: Ruler },
+          { label: "Material Quick-Check", href: "/cashier/quick-check", icon: Ruler },
         ].map(({ label, href, icon: Icon }) => (
           <Link key={href} href={href} style={{ textDecoration: "none" }}>
             <Stack
@@ -1367,7 +1369,7 @@ export default function CashierDashboardPage() {
                   {[
                     { label: "Log New Sale", href: "/cashier/new-entry", icon: Plus, primary: true },
                     { label: "Price Estimator", href: "/cashier/estimator", icon: Zap },
-                    { label: "Quick Check", href: "/quick-check", icon: Ruler },
+                    { label: "Quick Check", href: "/cashier/quick-check", icon: Ruler },
                   ].map(({ label, href, icon: Icon, primary }) => (
                     <Link key={href} href={href} style={{ textDecoration: "none" }}>
                       <motion.div whileTap={{ scale: 0.97 }}>
