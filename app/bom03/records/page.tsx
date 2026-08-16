@@ -185,8 +185,10 @@ export default function RecordsPage() {
   };
 
   const mapExpense = (r: Row, isPending: boolean, timestamp?: number): UnifiedRecord => {
-    const amountStr = r["AMOUNT"] || "0";
-    const amount = parseFloat(amountStr.replace(/,/g, "")) || 0;
+    // parseAmount, not a bare parseFloat: the sheet stores expense amounts
+    // currency-formatted ("₦184,000.00"), and stripping only commas leaves the
+    // naira sign behind, which parses as NaN and silently becomes zero.
+    const amount = parseAmount(r["AMOUNT"]);
     return {
       id: `expense-${r.DATE}-${r.DESCRIPTION}-${Math.random()}`,
       date: r.DATE,

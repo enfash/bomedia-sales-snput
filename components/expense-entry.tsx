@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { parseAmount } from "@/lib/financial-utils";
 import { toast } from "sonner";
 import { useSyncStore } from "@/lib/store";
 import { Camera, Check, Loader2, Receipt } from "lucide-react";
@@ -640,7 +641,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
                       </Typography>
                     </Box>
                     <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
-                      ₦{Number(b.AMOUNT).toLocaleString()}
+                      ₦{parseAmount(b.AMOUNT).toLocaleString()}
                     </Typography>
                   </ListItem>
                 ))}

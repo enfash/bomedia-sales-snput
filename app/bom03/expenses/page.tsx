@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { parseAmount } from "@/lib/financial-utils";
 import { useRouter } from "next/navigation";
 import { ExpenseEntry } from "@/components/expense-entry";
 import { StatusBadge } from "@/components/status-badge";
@@ -84,7 +85,7 @@ function ExpenseRow({ expense, onStatusToggle }: {
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
           <Typography variant="body2" sx={{ fontWeight: 800, color: "error.main" }}>
-            ₦{Number(expense.AMOUNT || 0).toLocaleString()}
+            ₦{parseAmount(expense.AMOUNT).toLocaleString()}
           </Typography>
           <StatusBadge variant="expenses" status={expense.STATUS || "Unpaid"} />
           {expanded ? <ChevronUp size={16} color="#9CA3AF" /> : <ChevronDown size={16} color="#9CA3AF" />}
@@ -220,7 +221,7 @@ export default function ExpensesPage() {
 
   const filtered = expenses.filter(e => filter === "All" || (e.STATUS || "Unpaid") === filter);
   const unpaidExpenses = expenses.filter(e => (e.STATUS || "Unpaid") === "Unpaid");
-  const totalUnpaid = unpaidExpenses.reduce((sum, e) => sum + (Number(e.AMOUNT) || 0), 0);
+  const totalUnpaid = unpaidExpenses.reduce((sum, e) => sum + parseAmount(e.AMOUNT), 0);
 
   return (
     <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 14, md: 4 }, maxWidth: 768, minHeight: "100vh"}}>
