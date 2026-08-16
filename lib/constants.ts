@@ -68,4 +68,12 @@ export const BUSINESS_DETAILS = {
   accountName: "Broad Options Media / Fasugba Elijah Niyi",
   accountNumber: "5236650819",
   bank: "Moniepoint MFB",
+
+  // Contact block printed in the invoice footer. `phone` is spaced for
+  // readability on the printed page; `phoneRaw` is the dialable form, kept
+  // separate so a tel:/wa.me link never inherits the spacing.
+  phone: "+234 802 224 7567",
+  phoneRaw: "+2348022247567",
+  email: "info@bomedia.com.ng",
+  address: "65, New Ipaja Road, Alaguntan BRT Bus Stop, Alimosho, Lagos.",
 } as const;

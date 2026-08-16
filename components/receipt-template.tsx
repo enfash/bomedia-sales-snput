@@ -10,7 +10,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
 /** Rendered logo width on the 800px-wide receipt. */
-const LOGO_WIDTH = 210;
+const LOGO_WIDTH = 157.5;
 
 interface ReceiptTemplateProps {
   records: UnifiedRecord[];
@@ -224,11 +224,18 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
 
         {/* Footer */}
         <Box sx={{ borderTop: "1px solid", borderColor: "grey.200", pt: 3, textAlign: "center" }}>
-          <Typography sx={{ fontSize: "0.875rem", fontWeight: "bold", color: "grey.800", mb: 0.5 }}>
+          <Typography sx={{ fontSize: "0.875rem", fontWeight: "bold", color: "grey.800", mb: 1 }}>
             Thank you for your business!
           </Typography>
-          <Typography sx={{ fontSize: "0.75rem", color: "grey.500" }}>
-            For inquiries, please contact us.
+          {/* The footer used to read "For inquiries, please contact us" with no
+              way to actually do so. */}
+          <Typography sx={{ fontSize: "0.75rem", color: "grey.600", fontWeight: 500 }}>
+            {BUSINESS_DETAILS.phone}
+            <Box component="span" sx={{ color: "grey.300", mx: 1 }}>|</Box>
+            {BUSINESS_DETAILS.email}
+          </Typography>
+          <Typography sx={{ fontSize: "0.75rem", color: "grey.500", mt: 0.5 }}>
+            {BUSINESS_DETAILS.address}
           </Typography>
         </Box>
       </Box>
