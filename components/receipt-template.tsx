@@ -3,11 +3,14 @@
 import { forwardRef } from "react";
 import { UnifiedRecord } from "./manage-sale-action";
 import { format } from "date-fns";
-import { RECEIPT_LOGO_DATA_URI } from "@/lib/receipt-logo";
+import { RECEIPT_LOGO_DATA_URI, RECEIPT_LOGO_ASPECT } from "@/lib/receipt-logo";
 import { BUSINESS_DETAILS } from "@/lib/constants";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+
+/** Rendered logo width on the 800px-wide receipt. */
+const LOGO_WIDTH = 210;
 
 interface ReceiptTemplateProps {
   records: UnifiedRecord[];
@@ -83,23 +86,22 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           }}
         >
           <Box>
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1 }}>
-              <Box
-                component="img"
-                src={RECEIPT_LOGO_DATA_URI}
-                alt="BOMedia Logo"
-                sx={{
-                  width: 32,
-                  height: 32,
-                  objectFit: "contain",
-                  flexShrink: 0,
-                }}
-              />
-              <Typography sx={{ fontWeight: 900, fontSize: "1.5rem", letterSpacing: "-0.05em", color: "grey.900" }}>
-                BOMedia.
-              </Typography>
-            </Stack>
-            <Typography sx={{ fontSize: "0.75rem", color: "grey.500", maxWidth: 200 }}>
+            {/* The full logo already carries the business name, so it replaces
+                the icon-plus-wordmark pairing. Height is derived from the
+                intrinsic aspect ratio so it cannot be stretched. */}
+            <Box
+              component="img"
+              src={RECEIPT_LOGO_DATA_URI}
+              alt="Broad Options Media"
+              sx={{
+                width: LOGO_WIDTH,
+                height: LOGO_WIDTH / RECEIPT_LOGO_ASPECT,
+                objectFit: "contain",
+                display: "block",
+                mb: 1.5,
+              }}
+            />
+            <Typography sx={{ fontSize: "0.75rem", color: "grey.500", maxWidth: 240 }}>
               Large Format Printing, Branding & Digital Services
             </Typography>
           </Box>
