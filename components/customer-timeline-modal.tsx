@@ -85,7 +85,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
     if (!clientName) return [];
     const events: TimelineEvent[] = [];
 
-    cachedSales.forEach((s) => {
+    cachedSales.forEach((s, i) => {
       const name = (s["CLIENT NAME"] || s["Client Name"] || "").trim();
       if (name.toLowerCase() !== clientName.toLowerCase()) return;
 
@@ -97,7 +97,11 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
       const dateStr = s["TIMESTAMP"] || s["DATE"] || s["Date"] || new Date().toISOString();
 
       events.push({
-        id: `sale-${s["Sales ID"] || s["SALES ID"] || s._rowIndex}`,
+        // Keyed by sheet row, not Sales ID: a Sales ID identifies an *order*,
+        // and 436 of them cover more than one row — one covers 17. Keying by it
+        // gave every line item in a batch the same React key. Rows that have not
+        // synced yet have no row number, so they fall back to their position.
+        id: `sale-${s._rowIndex ?? `unsynced-${i}`}`,
         type: "SALE",
         date: dateStr,
         amount,
@@ -111,7 +115,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
       });
     });
 
-    cachedPayments.forEach((p) => {
+    cachedPayments.forEach((p, i) => {
       const name = (p["CLIENT NAME"] || "").trim();
       if (name.toLowerCase() !== clientName.toLowerCase()) return;
 
@@ -119,7 +123,10 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
       const dateStr = p["TIMESTAMP"] || p["DATE"] || new Date().toISOString();
 
       events.push({
-        id: `pay-${p["PAYMENT ID"] || p._rowIndex}`,
+        // Same reasoning. PAYMENT ID is very nearly unique but not guaranteed —
+        // one pair already collides in the sheet, and optimistic rows added
+        // offline have no row number at all.
+        id: `pay-${p._rowIndex ?? `unsynced-${i}`}`,
         type: "PAYMENT",
         date: dateStr,
         amount,
