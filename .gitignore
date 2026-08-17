@@ -12,6 +12,8 @@
 # next.js
 /.next/
 /out/
+# scratch output dir for verification builds run while `next dev` is up
+/.next-verify/
 
 # production
 /build
