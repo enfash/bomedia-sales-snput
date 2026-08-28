@@ -179,7 +179,8 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
     }
   };
 
-  const widthOptions = ["3", "4", "5", "6", "8", "10"];
+  const widthOptions = ["3", "4", "5", "6", "7", "8", "10"];
+  const [showCustomWidth, setShowCustomWidth] = useState(false);
 
   return (
     <>
@@ -296,15 +297,16 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                 <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
                   Roll Width (feet) *
                 </Typography>
-                <Stack direction="row" sx={{ gap: 1 }}>
+                <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
                   {widthOptions.map(w => (
                     <Box
                       key={w}
                       component="button"
                       type="button"
-                      onClick={() => set("widthFt", w)}
+                      onClick={() => { setShowCustomWidth(false); set("widthFt", w); }}
                       sx={{
                         flex: 1,
+                        minWidth: 44,
                         height: 40,
                         borderRadius: 2,
                         fontSize: "0.75rem",
@@ -313,15 +315,49 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                         cursor: "pointer",
                         transition: "all 0.15s ease-out",
                         "&:active": { transform: "scale(0.97)" },
-                        borderColor: form.widthFt === w ? "primary.main" : "divider",
-                        bgcolor: form.widthFt === w ? "primary.main" : "background.paper",
-                        color: form.widthFt === w ? "primary.contrastText" : "text.secondary",
+                        borderColor: !showCustomWidth && form.widthFt === w ? "primary.main" : "divider",
+                        bgcolor: !showCustomWidth && form.widthFt === w ? "primary.main" : "background.paper",
+                        color: !showCustomWidth && form.widthFt === w ? "primary.contrastText" : "text.secondary",
                       }}
                     >
                       {w}ft
                     </Box>
                   ))}
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={() => { setShowCustomWidth(true); set("widthFt", ""); }}
+                    sx={{
+                      flex: 1,
+                      minWidth: 44,
+                      height: 40,
+                      borderRadius: 2,
+                      fontSize: "0.75rem",
+                      fontWeight: 900,
+                      border: "2px solid",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease-out",
+                      "&:active": { transform: "scale(0.97)" },
+                      borderColor: showCustomWidth ? "primary.main" : "divider",
+                      bgcolor: showCustomWidth ? "primary.main" : "background.paper",
+                      color: showCustomWidth ? "primary.contrastText" : "text.secondary",
+                    }}
+                  >
+                    Other
+                  </Box>
                 </Stack>
+                {showCustomWidth && (
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    autoFocus
+                    placeholder="Enter roll width in feet, e.g. 12"
+                    value={form.widthFt}
+                    onChange={e => set("widthFt", e.target.value)}
+                    sx={{ mt: 1, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                  />
+                )}
               </Box>
 
               {/* Length input + unit toggle */}

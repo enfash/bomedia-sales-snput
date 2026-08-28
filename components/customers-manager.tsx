@@ -797,6 +797,8 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
         onClose={() => setSelectedClient(null)}
         clientName={selectedClient?.name ?? null}
         contact={selectedClient?.contact}
+        onUpdate={fetchData}
+        theme={isAdmin ? "brand" : "amber"}
       />
     </Box>
   );

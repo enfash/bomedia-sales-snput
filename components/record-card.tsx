@@ -128,12 +128,12 @@ export function RecordCard({
   let qty = 0;
 
   if (record?.raw) {
-    const sizes = ["3FT", "4FT", "5FT", "6FT", "8FT", "10FT"];
+    const sizes = ["3FT", "4FT", "5FT", "6FT", "7FT", "8FT", "10FT", "custom"];
     for (const size of sizes) {
       if (record.raw[size]) {
         const val = parseFloat(record.raw[size]);
         if (val > 0) {
-          rollSize = size;
+          rollSize = size === "custom" ? "Custom" : size;
           sqft = val;
           break;
         }

@@ -620,8 +620,11 @@ export function SalesEntry() {
       const hRaw = item.jobHeight;
       const sizeFormula = needsInchDiv ? `=(${wRaw}*${hRaw})/144` : `=(${wRaw}*${hRaw})`;
       const rollWidthFt = item.widthFt;
-      const colMap: Record<number, string> = { 3: "G", 4: "H", 5: "I", 6: "J", 8: "K", 10: "L" };
-      const col = colMap[rollWidthFt] || "H";
+      // Maps a roll width to its column on the Sales sheet. Any width not in
+      // this list (a one-off/odd roll) falls into "custom" instead of being
+      // silently misfiled under the nearest standard size.
+      const colMap: Record<number, string> = { 3: "G", 4: "H", 5: "I", 6: "J", 7: "K", 8: "L", 10: "M" };
+      const col = colMap[rollWidthFt] || "N"; // "N" = custom
       return [
         meta.date, meta.clientName,
         `${item.jobDescription} [${item.jobWidth}x${item.jobHeight}${item.dimUnit}]`,
@@ -629,13 +632,14 @@ export function SalesEntry() {
         col === "G" ? sizeFormula : "", col === "H" ? sizeFormula : "",
         col === "I" ? sizeFormula : "", col === "J" ? sizeFormula : "",
         col === "K" ? sizeFormula : "", col === "L" ? sizeFormula : "",
+        col === "M" ? sizeFormula : "", col === "N" ? sizeFormula : "",
         item.qty,
         `=([COL_G_L][ROW]*F[ROW])`,
         paymentForRow,
-        `=(M[ROW]*N[ROW])`,
+        `=(O[ROW]*P[ROW])`,
         "", "",
-        `=(P[ROW]-SUM(O[ROW],Q[ROW],R[ROW]))`,
-        `=IF(P[ROW]=0,"Unpaid",IF(S[ROW]<=0,"Paid",IF(S[ROW]<P[ROW],"Part-payment","Unpaid")))`,
+        `=(R[ROW]-SUM(Q[ROW],S[ROW],T[ROW]))`,
+        `=IF(R[ROW]=0,"Unpaid",IF(U[ROW]<=0,"Paid",IF(U[ROW]<R[ROW],"Part-payment","Unpaid")))`,
         meta.jobStatus, loggedBy, "",
       ];
     });
@@ -1229,7 +1233,7 @@ export function SalesEntry() {
         slotProps={{ paper: { sx: { borderRadius: 3, overflow: "hidden" } } }}
       >
         <DialogTitle sx={{ bgcolor: "primary.main", color: "primary.contrastText", pb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 800, color: "inherit" }}>Confirm Order</Typography>
+          <Typography component="span" variant="h6" sx={{ fontWeight: 800, color: "inherit", display: "block" }}>Confirm Order</Typography>
           <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)", display: "block" }}>
             Review before pushing to Google Sheets
           </Typography>

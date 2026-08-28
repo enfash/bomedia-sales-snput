@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Drawer } from "vaul";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useSyncStore } from "@/lib/store";
@@ -8,8 +8,9 @@ import { parseAmount } from "@/lib/financial-utils";
 import { format } from "date-fns";
 import {
   Receipt, CreditCard, CheckCircle2, User, Phone,
-  Calendar, Clock, X, ArrowRight, Package, AlertTriangle
+  Calendar, Clock, X, ArrowRight, Package, AlertTriangle, Wallet
 } from "lucide-react";
+import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -24,6 +25,10 @@ interface CustomerTimelineModalProps {
   isOpen: boolean;
   onClose: () => void;
   contact?: string;
+  /** Called after a payment is applied via "Pay Debt", so the caller can refetch. */
+  onUpdate?: () => void;
+  /** "amber" preserves the cashier portal's identity on the Pay Debt modal. */
+  theme?: "brand" | "amber";
 }
 
 interface TimelineEvent {
@@ -77,9 +82,10 @@ function PersonChip({ name, label }: { name: string; label: string }) {
   );
 }
 
-export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: CustomerTimelineModalProps) {
+export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, onUpdate, theme = "brand" }: CustomerTimelineModalProps) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const { cachedSales, cachedPayments } = useSyncStore();
+  const [payOpen, setPayOpen] = useState(false);
 
   const timelineEvents = useMemo(() => {
     if (!clientName) return [];
@@ -194,9 +200,18 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
               <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "error.light", mb: 0.25 }}>
                 Balance Due
               </Typography>
-              <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "error.main" }}>
+              <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "error.main", mb: 0.75 }}>
                 ₦{stats.totalDebt.toLocaleString()}
               </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => setPayOpen(true)}
+                startIcon={<Wallet size={13} />}
+                sx={{ height: 30, px: 1.5, borderRadius: 2.5, fontWeight: 800, fontSize: "0.6875rem" }}
+              >
+                Pay Debt
+              </Button>
             </Box>
           ) : (
             <Chip
@@ -433,8 +448,19 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
     </Box>
   );
 
+  const payModal = (
+    <DebtorPaymentModal
+      clientName={clientName}
+      isOpen={payOpen}
+      onClose={() => setPayOpen(false)}
+      onUpdate={() => onUpdate?.()}
+      theme={theme}
+    />
+  );
+
   if (isMobile) {
     return (
+      <>
       <Dialog
         fullScreen
         open={isOpen}
@@ -482,10 +508,13 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
           {body}
         </Box>
       </Dialog>
+      {payModal}
+      </>
     );
   }
 
   return (
+    <>
     <Dialog
       open={isOpen}
       onClose={onClose}
@@ -511,5 +540,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact }: 
         {body}
       </DialogContent>
     </Dialog>
+    {payModal}
+    </>
   );
 }

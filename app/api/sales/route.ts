@@ -13,12 +13,20 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const SHEET_TITLE = 'Sales';
+// Mirrors the live Sales sheet's actual column order (A onward). '7FT' and
+// 'custom' were added between '6FT'/'10FT' and 'QTY' directly on the sheet —
+// every position-dependent reference below (sizeColLetters, the PATCH/batch
+// column letters, and the row-array padding) must stay in sync with this list.
 const SALES_HEADERS = [
-  'DATE', 'CLIENT NAME', 'JOB DESCRIPTION', 'CONTACT', 'MATERIAL', 'Cost Per SQRFT', 
-  '3FT', '4FT', '5FT', '6FT', '8FT', '10FT', 'QTY', 'UNIT COST (₦)', 'INITIAL PAYMENT (₦)', 
-  'AMOUNT (₦)', 'ADDITIONAL PAYMENT 1', 'ADDITIONAL PAYMENT 2', 'AMOUNT DIFFERENCES', 'PAYMENT STATUS', 
+  'DATE', 'CLIENT NAME', 'JOB DESCRIPTION', 'CONTACT', 'MATERIAL', 'Cost Per SQRFT',
+  '3FT', '4FT', '5FT', '6FT', '7FT', '8FT', '10FT', 'custom', 'QTY', 'UNIT COST (₦)', 'INITIAL PAYMENT (₦)',
+  'AMOUNT (₦)', 'ADDITIONAL PAYMENT 1', 'ADDITIONAL PAYMENT 2', 'AMOUNT DIFFERENCES', 'PAYMENT STATUS',
   'JOB STATUS', 'Logged By', 'Sales ID', 'TIMESTAMP', 'TRANSACTION ID'
 ];
+// Column letters for the 8 size slots (G..N), in SALES_HEADERS order: 3,4,5,6,7,8,10ft, then custom.
+const SIZE_COL_LETTERS = ['G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'];
+const SIZE_COL_START_INDEX = 6; // 0-based index of '3FT' in the row-values array
+const SIZE_COL_END_INDEX = SIZE_COL_START_INDEX + SIZE_COL_LETTERS.length - 1; // 'custom'
 const INVENTORY_HEADERS = [
   'Roll ID', 'Item Name', 'Category', 'Width (ft)', 'Raw Length (ft)',
   'Total Length (ft)', 'Remaining Length (ft)', 'Waste Logged (ft)', 'Unit',
@@ -73,7 +81,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "A valid rowIndex or matching saleId is required" }, { status: 400 });
     }
 
-    await sheet.loadCells(`A${targetRowIndex}:W${targetRowIndex}`);
+    await sheet.loadCells(`A${targetRowIndex}:AA${targetRowIndex}`);
     
     // Role-based access control: cashiers cannot change the job status on
     // records older than 24 hours.
@@ -106,24 +114,28 @@ export async function PATCH(request: Request) {
     }
 
     // Update fields if provided
+    // Column letters below reflect the current sheet layout: INITIAL PAYMENT=Q,
+    // AMOUNT=R, ADDITIONAL PAYMENT 1=S, ADDITIONAL PAYMENT 2=T, AMOUNT
+    // DIFFERENCES=U, PAYMENT STATUS=V, JOB STATUS=W — shifted from the original
+    // O/P/Q/R/S/T/U layout by the '7FT' and 'custom' columns inserted at K/N.
     if (additionalPayment1 !== undefined) {
-      sheet.getCellByA1(`Q${targetRowIndex}`).value = additionalPayment1;
+      sheet.getCellByA1(`S${targetRowIndex}`).value = additionalPayment1;
     }
     if (additionalPayment2 !== undefined) {
-      sheet.getCellByA1(`R${targetRowIndex}`).value = additionalPayment2;
+      sheet.getCellByA1(`T${targetRowIndex}`).value = additionalPayment2;
     }
     if (jobStatus !== undefined) {
-      sheet.getCellByA1(`U${targetRowIndex}`).value = jobStatus;
+      sheet.getCellByA1(`W${targetRowIndex}`).value = jobStatus;
     }
 
     // Re-stamp the balance and payment-status formulas so that old/static rows
     // (Col S previously had =P-O instead of =P-SUM(O,Q,R)) are corrected whenever
     // a payment is recorded.
     if (additionalPayment1 !== undefined || additionalPayment2 !== undefined) {
-      sheet.getCellByA1(`S${targetRowIndex}`).formula =
-        `=(P${targetRowIndex}-SUM(O${targetRowIndex},Q${targetRowIndex},R${targetRowIndex}))`;
-      sheet.getCellByA1(`T${targetRowIndex}`).formula =
-        `=IF(P${targetRowIndex}=0,"Unpaid",IF(S${targetRowIndex}<=0,"Paid",IF(S${targetRowIndex}<P${targetRowIndex},"Part-payment","Unpaid")))`;
+      sheet.getCellByA1(`U${targetRowIndex}`).formula =
+        `=(R${targetRowIndex}-SUM(Q${targetRowIndex},S${targetRowIndex},T${targetRowIndex}))`;
+      sheet.getCellByA1(`V${targetRowIndex}`).formula =
+        `=IF(R${targetRowIndex}=0,"Unpaid",IF(U${targetRowIndex}<=0,"Paid",IF(U${targetRowIndex}<R${targetRowIndex},"Part-payment","Unpaid")))`;
     }
 
     await sheet.saveUpdatedCells();
@@ -236,15 +248,14 @@ export async function POST(request: Request) {
             // 1. Handle dynamic formulas
             if (val.includes("[ROW]")) {
               let updated = val.replace(/\[ROW\]/g, nextRow.toString());
-              const sizeColLetters = ['G', 'H', 'I', 'J', 'K', 'L'];
               const sizeColIndex = item.values.findIndex((v: any, i: number) => {
-                if (i < 6 || i > 11) return false;
+                if (i < SIZE_COL_START_INDEX || i > SIZE_COL_END_INDEX) return false;
                 if (v === undefined || v === null || v === "") return false;
                 const s = v.toString();
                 return s.startsWith('=') || parseFloat(s) > 0;
               });
               if (sizeColIndex !== -1) {
-                 const colLetter = sizeColLetters[sizeColIndex - 6];
+                 const colLetter = SIZE_COL_LETTERS[sizeColIndex - SIZE_COL_START_INDEX];
                  updated = updated.replace(/\[COL_G_L\]/g, colLetter);
               }
               return updated;
@@ -265,13 +276,13 @@ export async function POST(request: Request) {
           return val;
         });
 
-        // Append Sales ID (W/22), TIMESTAMP (X/23), and TRANSACTION ID (Y/24)
-        while (processedValues.length < 25) {
+        // Append Sales ID (Y/24), TIMESTAMP (Z/25), and TRANSACTION ID (AA/26)
+        while (processedValues.length < 27) {
           processedValues.push("");
         }
-        processedValues[22] = processedValues[22] || salesId;
-        processedValues[23] = new Date().toISOString();
-        processedValues[24] = body.transactionId || "";
+        processedValues[24] = processedValues[24] || salesId;
+        processedValues[25] = new Date().toISOString();
+        processedValues[26] = body.transactionId || "";
         
         newRows.push(processedValues);
         nextRow++;
@@ -344,15 +355,14 @@ export async function POST(request: Request) {
           // 1. Handle dynamic formulas
           if (val.includes("[ROW]")) {
             let updated = val.replace(/\[ROW\]/g, nextRow.toString());
-            const sizeColLetters = ['G', 'H', 'I', 'J', 'K', 'L'];
             const sizeColIndex = body.values.findIndex((v: any, i: number) => {
-              if (i < 6 || i > 11) return false;
+              if (i < SIZE_COL_START_INDEX || i > SIZE_COL_END_INDEX) return false;
               if (v === undefined || v === null || v === "") return false;
               const s = v.toString();
               return s.startsWith('=') || parseFloat(s) > 0;
             });
             if (sizeColIndex !== -1) {
-               const colLetter = sizeColLetters[sizeColIndex - 6];
+               const colLetter = SIZE_COL_LETTERS[sizeColIndex - SIZE_COL_START_INDEX];
                updated = updated.replace(/\[COL_G_L\]/g, colLetter);
             }
             return updated;
@@ -374,12 +384,12 @@ export async function POST(request: Request) {
       });
 
       // Provide empty Sales ID for legacy and TIMESTAMP and TRANSACTION ID
-      while (processedValues.length < 25) {
+      while (processedValues.length < 27) {
         processedValues.push("");
       }
-      processedValues[22] = processedValues[22] || "";
-      processedValues[23] = new Date().toISOString();
-      processedValues[24] = body.transactionId || "";
+      processedValues[24] = processedValues[24] || "";
+      processedValues[25] = new Date().toISOString();
+      processedValues[26] = body.transactionId || "";
 
       await sheet.addRow(processedValues);
 

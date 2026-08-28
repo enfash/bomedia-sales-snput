@@ -16,15 +16,16 @@ const PAYMENTS_HEADERS = [
   'BALANCE BEFORE', 'BALANCE AFTER', 'COLLECTED BY', 'NOTES', 'TIMESTAMP',
 ];
 
-/** Column letters on the Sales sheet. */
+// Column letters on the Sales sheet. Shifted from the original O/P/Q/R/S/T
+// layout by the '7FT' and 'custom' size columns inserted at K/N.
 const COL = {
   date: 'A',
-  initialPayment: 'O',
-  amount: 'P',
-  addl1: 'Q',
-  addl2: 'R',
-  balance: 'S',
-  paymentStatus: 'T',
+  initialPayment: 'Q',
+  amount: 'R',
+  addl1: 'S',
+  addl2: 'T',
+  balance: 'U',
+  paymentStatus: 'V',
 } as const;
 
 interface BatchStep {
