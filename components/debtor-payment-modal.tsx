@@ -131,6 +131,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
       clientName: clientName ?? "",
       collectedBy: localStorage.getItem("userName") || "System",
       notes: "Auto-distributed lump sum",
+      lumpSum,
       steps: steps.map((step) => ({
         rowIndex: step.record.rowIndex,
         salesId: step.record.salesId || "",
@@ -138,6 +139,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
         mode: step.mode,
         toApply: step.toApply,
         balanceBefore: step.record.balance ?? 0,
+        overpayment: step.overpayment,
       })),
     };
 

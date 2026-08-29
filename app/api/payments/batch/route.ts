@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { invalidateSheet } from '@/lib/sheet-cache';
+import { buildPaymentAuditRows, validateLumpSum, assertRowsSumToBatchTotal, round2 } from '@/lib/financial-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,9 +12,13 @@ export const maxDuration = 300;
 const SALES_SHEET = 'Sales';
 const PAYMENTS_SHEET = 'Payments';
 
+// 'BATCH ID' and 'BATCH TOTAL' were added manually to the live sheet, appended
+// after 'TIMESTAMP' — ensureHeaders never mutates a non-empty sheet, so this
+// list must mirror that real column order.
 const PAYMENTS_HEADERS = [
   'PAYMENT ID', 'SALES ID', 'CLIENT NAME', 'DATE', 'AMOUNT', 'PAYMENT TYPE',
   'BALANCE BEFORE', 'BALANCE AFTER', 'COLLECTED BY', 'NOTES', 'TIMESTAMP',
+  'BATCH ID', 'BATCH TOTAL',
 ];
 
 // Column letters on the Sales sheet. Shifted from the original O/P/Q/R/S/T
@@ -36,6 +41,8 @@ interface BatchStep {
   toApply: number;
   balanceBefore?: number;
   description?: string;
+  /** The slice of toApply that is rounding remainder — see computeWaterfall. */
+  overpayment?: number;
 }
 
 /**
@@ -56,12 +63,13 @@ interface BatchStep {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { transactionId, clientName, collectedBy, steps, notes } = body as {
+    const { transactionId, clientName, collectedBy, steps, notes, lumpSum } = body as {
       transactionId?: string;
       clientName?: string;
       collectedBy?: string;
       notes?: string;
       steps?: BatchStep[];
+      lumpSum?: number;
     };
 
     if (!transactionId) {
@@ -85,6 +93,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'append mode is only valid on slot 2' }, { status: 400 });
       }
     }
+
+    // The batch's declared total must be traceable back to what the steps
+    // actually allocate. Older/already-queued payloads have no lumpSum at
+    // all — that's fine, BATCH TOTAL just falls back to the step sum.
+    const stepTotal = round2(steps.reduce((sum, s) => sum + s.toApply, 0));
+    const lumpSumCheck = validateLumpSum(lumpSum, stepTotal);
+    if (!lumpSumCheck.ok) {
+      return NextResponse.json({ error: lumpSumCheck.error }, { status: 400 });
+    }
+    const batchTotal = lumpSumCheck.batchTotal;
 
     const doc = await getDoc();
     const salesSheet = doc.sheetsByTitle[SALES_SHEET] || doc.sheetsByIndex[0];
@@ -134,9 +152,8 @@ export async function POST(request: Request) {
     // ── Stage every cell change in memory ────────────────────────────────────
     const timestamp = new Date().toISOString();
     const today = timestamp.split('T')[0];
-    const newPaymentRows: Record<string, any>[] = [];
 
-    steps.forEach((s, i) => {
+    steps.forEach((s) => {
       const slotCol = s.slot === 1 ? COL.addl1 : COL.addl2;
       const cell = salesSheet.getCellByA1(`${slotCol}${s.rowIndex}`);
 
@@ -160,22 +177,23 @@ export async function POST(request: Request) {
       salesSheet.getCellByA1(`${COL.paymentStatus}${r}`).formula =
         `=IF(${COL.amount}${r}=0,"Unpaid",IF(${COL.balance}${r}<=0,"Paid",` +
         `IF(${COL.balance}${r}<${COL.amount}${r},"Part-payment","Unpaid")))`;
-
-      const balanceBefore = s.balanceBefore ?? 0;
-      newPaymentRows.push({
-        'PAYMENT ID': `${transactionId}-${i}`,
-        'SALES ID': s.salesId || '',
-        'CLIENT NAME': clientName || '',
-        'DATE': today,
-        'AMOUNT': s.toApply,
-        'PAYMENT TYPE': s.slot === 1 ? 'Additional Payment 1' : 'Additional Payment 2',
-        'BALANCE BEFORE': balanceBefore,
-        'BALANCE AFTER': balanceBefore - s.toApply,
-        'COLLECTED BY': collectedBy || 'System',
-        'NOTES': `${notes || 'Auto-distributed lump sum'}${isAged(s.rowIndex) ? ' [aged debt]' : ''}`,
-        'TIMESTAMP': timestamp,
-      });
     });
+
+    // A step carrying a rounding remainder (see computeWaterfall's Phase 2)
+    // becomes two Payments rows — a Settlement row and a Rounding row — so
+    // the split is visible in the audit trail even though the Sales-sheet
+    // cell itself still receives one combined number.
+    const newPaymentRows = buildPaymentAuditRows(steps, {
+      transactionId,
+      clientName,
+      collectedBy,
+      notes,
+      today,
+      timestamp,
+      batchTotal,
+      isAged,
+    });
+    assertRowsSumToBatchTotal(newPaymentRows, batchTotal);
 
     // ── WRITE 1 — the audit rows, which double as the idempotency claim ──────
     // These go FIRST, and the ordering is load-bearing. "append" mode adds to

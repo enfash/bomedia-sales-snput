@@ -24,6 +24,13 @@ export interface WaterfallStep {
   mode: "set" | "append";
   toApply: number;
   remainingAfter: number;
+  /**
+   * The slice of `toApply` that is rounding remainder rather than a real
+   * settlement (see Phase 2 below) — undefined/0 for an ordinary step. The
+   * cell still receives one combined number; this only marks the split for
+   * the audit trail (see buildPaymentAuditRows).
+   */
+  overpayment?: number;
 }
 
 /** Picks the slot and write mode for the next payment against a record. */
@@ -75,15 +82,147 @@ export function computeWaterfall(records: UnifiedRecord[], lumpSum: number): Wat
 
     if (existing) {
       existing.toApply += remaining;
+      existing.overpayment = remaining;
       existing.remainingAfter = 0;
     } else {
       const { slot, mode } = nextSlot(last);
-      steps.push({ record: last, slot, mode, toApply: remaining, remainingAfter: 0 });
+      steps.push({ record: last, slot, mode, toApply: remaining, remainingAfter: 0, overpayment: remaining });
     }
     remaining = 0;
   }
 
   return steps;
+}
+
+/** Rounds to 2 decimal places (kobo-safe) at arithmetic boundaries. */
+export function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// One kobo — the smallest unit of currency this app writes, and the
+// tolerance for float drift when comparing two money figures.
+const AMOUNT_EPSILON = 0.01;
+
+export interface PaymentAuditStepInput {
+  rowIndex: number;
+  salesId?: string;
+  slot: 1 | 2;
+  mode: "set" | "append";
+  toApply: number;
+  balanceBefore?: number;
+  overpayment?: number;
+}
+
+export interface PaymentAuditContext {
+  transactionId: string;
+  clientName?: string;
+  collectedBy?: string;
+  notes?: string;
+  today: string;
+  timestamp: string;
+  batchTotal: number;
+  isAged?: (rowIndex: number) => boolean;
+}
+
+/**
+ * Turns a waterfall distribution into Payments-sheet audit rows.
+ *
+ * A step carrying a rounding remainder (computeWaterfall's Phase 2) is split
+ * into two rows so the remainder is visible in the audit trail instead of
+ * being folded silently into one combined figure: a "Settlement" row for the
+ * amount that actually paid down the balance, and a "Rounding" row for the
+ * excess. The Sales-sheet cell still receives one combined number — this
+ * split only affects what gets written to the Payments sheet.
+ *
+ * PAYMENT ID suffixes are sequential across emitted ROWS, not steps, so a
+ * step that expands into two rows doesn't collide with the next step's id.
+ */
+export function buildPaymentAuditRows(
+  steps: PaymentAuditStepInput[],
+  ctx: PaymentAuditContext
+): Record<string, any>[] {
+  const rows: Record<string, any>[] = [];
+  const baseNotes = ctx.notes || "Auto-distributed lump sum";
+  let seq = 0;
+
+  for (const s of steps) {
+    const balanceBefore = s.balanceBefore ?? 0;
+    const balanceAfter = round2(balanceBefore - s.toApply);
+    const agedTag = ctx.isAged?.(s.rowIndex) ? " [aged debt]" : "";
+    const notes = `${baseNotes}${agedTag} [slot:${s.slot} ${s.mode}]`;
+
+    const pushRow = (amount: number, type: "Settlement" | "Rounding") => {
+      rows.push({
+        "PAYMENT ID": `${ctx.transactionId}-${seq++}`,
+        "SALES ID": s.salesId || "",
+        "CLIENT NAME": ctx.clientName || "",
+        "DATE": ctx.today,
+        "AMOUNT": amount,
+        "PAYMENT TYPE": type,
+        "BALANCE BEFORE": balanceBefore,
+        "BALANCE AFTER": balanceAfter,
+        "COLLECTED BY": ctx.collectedBy || "System",
+        "NOTES": notes,
+        "TIMESTAMP": ctx.timestamp,
+        "BATCH ID": ctx.transactionId,
+        "BATCH TOTAL": ctx.batchTotal,
+      });
+    };
+
+    const overpayment = round2(s.overpayment ?? 0);
+    const settlement = round2(s.toApply - overpayment);
+
+    if (overpayment > AMOUNT_EPSILON) {
+      if (settlement > AMOUNT_EPSILON) pushRow(settlement, "Settlement");
+      pushRow(overpayment, "Rounding");
+    } else {
+      pushRow(round2(s.toApply), "Settlement");
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Reconciles the client-declared lump sum against what the steps actually
+ * allocate. A mismatch beyond a kobo means the client and server disagree
+ * about what was collected — refuse rather than silently trusting either
+ * figure. Absent lumpSum (older/queued payloads recorded before this field
+ * existed) falls back to the step total, so nothing already queued breaks.
+ */
+export function validateLumpSum(
+  lumpSum: number | undefined,
+  stepTotal: number
+): { ok: true; batchTotal: number } | { ok: false; error: string } {
+  const roundedStepTotal = round2(stepTotal);
+  if (typeof lumpSum !== "number" || Number.isNaN(lumpSum)) {
+    return { ok: true, batchTotal: roundedStepTotal };
+  }
+  const roundedLumpSum = round2(lumpSum);
+  if (Math.abs(roundedStepTotal - roundedLumpSum) > AMOUNT_EPSILON) {
+    return {
+      ok: false,
+      error:
+        `Lump sum (₦${roundedLumpSum.toLocaleString()}) does not match the sum of ` +
+        `allocated steps (₦${roundedStepTotal.toLocaleString()}).`,
+    };
+  }
+  return { ok: true, batchTotal: roundedLumpSum };
+}
+
+/**
+ * Dev-time guard: every naira in BATCH TOTAL must be accounted for across the
+ * rows actually written. Silent in production — a real mismatch here is a
+ * bug in buildPaymentAuditRows, not something to surface to a cashier mid-sale.
+ */
+export function assertRowsSumToBatchTotal(rows: Record<string, any>[], batchTotal: number): void {
+  if (process.env.NODE_ENV === "production") return;
+  const sum = round2(rows.reduce((s, r) => s + (Number(r["AMOUNT"]) || 0), 0));
+  if (Math.abs(sum - round2(batchTotal)) > AMOUNT_EPSILON) {
+    throw new Error(
+      `buildPaymentAuditRows: rows sum to ₦${sum} but BATCH TOTAL is ₦${round2(batchTotal)}.`
+    );
+  }
 }
 
 

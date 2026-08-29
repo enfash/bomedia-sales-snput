@@ -8,7 +8,8 @@ import { parseAmount } from "@/lib/financial-utils";
 import { format } from "date-fns";
 import {
   Receipt, CreditCard, CheckCircle2, User, Phone,
-  Calendar, Clock, X, ArrowRight, Package, AlertTriangle, Wallet
+  Calendar, Clock, X, ArrowRight, Package, AlertTriangle, Wallet,
+  ChevronDown, ChevronUp, Layers
 } from "lucide-react";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import Dialog from "@mui/material/Dialog";
@@ -47,6 +48,10 @@ interface TimelineEvent {
   salesId?: string;
   notes?: string;
   raw: any;
+  /** Set when this payment is part of a lump sum split across rows/jobs. */
+  batchId?: string;
+  /** The individual Settlement/Rounding allocations this entry summarizes. */
+  subPayments?: TimelineEvent[];
 }
 
 const avatarBgColors = [
@@ -86,6 +91,13 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
   const isMobile = useMediaQuery("(max-width: 768px)");
   const { cachedSales, cachedPayments } = useSyncStore();
   const [payOpen, setPayOpen] = useState(false);
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+  const toggleBatch = (id: string) =>
+    setExpandedBatches(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
 
   const timelineEvents = useMemo(() => {
     if (!clientName) return [];
@@ -121,14 +133,29 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
       });
     });
 
+    // A job's description, looked up by Sales ID, so a payment allocation can
+    // say which job it covered instead of just "Settlement"/"Rounding".
+    const descriptionBySalesId = new Map<string, string>();
+    cachedSales.forEach((s) => {
+      const salesId = s["Sales ID"] || s["SALES ID"] || "";
+      if (salesId && !descriptionBySalesId.has(salesId)) {
+        descriptionBySalesId.set(salesId, s["JOB DESCRIPTION"] || s["Job Description"] || "Sale");
+      }
+    });
+
+    const paymentEvents: TimelineEvent[] = [];
+    const batchGroups = new Map<string, TimelineEvent[]>();
+
     cachedPayments.forEach((p, i) => {
       const name = (p["CLIENT NAME"] || "").trim();
       if (name.toLowerCase() !== clientName.toLowerCase()) return;
 
       const amount = parseAmount(p["AMOUNT"]);
       const dateStr = p["TIMESTAMP"] || p["DATE"] || new Date().toISOString();
+      const salesId = p["SALES ID"] || p["Sales ID"] || "";
+      const batchId = (p["BATCH ID"] || "").trim();
 
-      events.push({
+      const event: TimelineEvent = {
         // Same reasoning. PAYMENT ID is very nearly unique but not guaranteed —
         // one pair already collides in the sheet, and optimistic rows added
         // offline have no row number at all.
@@ -136,15 +163,53 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
         type: "PAYMENT",
         date: dateStr,
         amount,
-        description: p["PAYMENT TYPE"] || "Payment",
+        description: descriptionBySalesId.get(salesId) || p["PAYMENT TYPE"] || "Payment",
         balanceAfter: parseAmount(p["BALANCE AFTER"]),
         balanceBefore: parseAmount(p["BALANCE BEFORE"]),
         collectedBy: p["COLLECTED BY"] || "",
         paymentType: p["PAYMENT TYPE"] || "",
         notes: p["NOTES"] || "",
+        salesId,
+        batchId,
         raw: p,
+      };
+
+      if (batchId) {
+        if (!batchGroups.has(batchId)) batchGroups.set(batchId, []);
+        batchGroups.get(batchId)!.push(event);
+      } else {
+        paymentEvents.push(event);
+      }
+    });
+
+    // A lump sum that lands on more than one row/job — or splits into a
+    // Settlement + Rounding pair on one row — otherwise shows up as several
+    // disconnected "Payment" entries with no way to tell they were one
+    // collection. Grouping by BATCH ID turns them back into a single entry
+    // for the total actually collected, expandable to see where it went.
+    batchGroups.forEach((group) => {
+      if (group.length === 1) {
+        paymentEvents.push(group[0]);
+        return;
+      }
+      const batchTotal = parseAmount(group[0].raw["BATCH TOTAL"]) || group.reduce((s, e) => s + e.amount, 0);
+      const sorted = [...group].sort((a, b) => (a.raw?._rowIndex ?? 0) - (b.raw?._rowIndex ?? 0));
+      paymentEvents.push({
+        id: `paybatch-${group[0].batchId}`,
+        type: "PAYMENT",
+        date: group[0].date,
+        amount: batchTotal,
+        description: `Lump-sum payment · ${group.length} allocation${group.length !== 1 ? "s" : ""}`,
+        collectedBy: group[0].collectedBy,
+        paymentType: "Lump Sum",
+        notes: "",
+        batchId: group[0].batchId,
+        subPayments: sorted,
+        raw: group[0].raw,
       });
     });
+
+    events.push(...paymentEvents);
 
     return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [clientName, cachedSales, cachedPayments]);
@@ -370,7 +435,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                         </Stack>
                       )}
 
-                      {!isSale && (
+                      {!isSale && !event.subPayments && (
                         <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5, bgcolor: "grey.50", borderRadius: 2, px: 1.5, py: 1 }}>
                           <Box sx={{ textAlign: "center" }}>
                             <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", mb: 0.25 }}>Before</Typography>
@@ -390,6 +455,51 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                             </Stack>
                           )}
                         </Stack>
+                      )}
+
+                      {!isSale && event.subPayments && (
+                        <Box sx={{ mb: 1.5 }}>
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() => toggleBatch(event.id)}
+                            sx={{
+                              display: "flex", alignItems: "center", gap: 0.5, width: "100%",
+                              bgcolor: "grey.50", borderRadius: 2, px: 1.5, py: 1,
+                              border: "none", cursor: "pointer", color: "text.secondary",
+                            }}
+                          >
+                            <Layers size={12} />
+                            <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, flex: 1, textAlign: "left" }}>
+                              {expandedBatches.has(event.id) ? "Hide" : "Show"} allocation{event.subPayments.length !== 1 ? "s" : ""}
+                            </Typography>
+                            {expandedBatches.has(event.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </Box>
+
+                          {expandedBatches.has(event.id) && (
+                            <Stack sx={{ gap: 0.75, mt: 0.75 }}>
+                              {event.subPayments.map((sub) => (
+                                <Stack key={sub.id} direction="row" sx={{
+                                  alignItems: "center", justifyContent: "space-between", gap: 1,
+                                  bgcolor: "grey.50", borderRadius: 2, px: 1.5, py: 1,
+                                }}>
+                                  <Box sx={{ minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {sub.description}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", mt: 0.25 }}>
+                                      {sub.paymentType}{sub.salesId ? ` · ${sub.salesId}` : ""}
+                                      {" · balance "}₦{(sub.balanceBefore ?? 0).toLocaleString()} → ₦{(sub.balanceAfter ?? 0).toLocaleString()}
+                                    </Typography>
+                                  </Box>
+                                  <Typography sx={{ fontSize: "0.8125rem", fontWeight: 900, color: "success.main", flexShrink: 0 }}>
+                                    +₦{sub.amount.toLocaleString()}
+                                  </Typography>
+                                </Stack>
+                              ))}
+                            </Stack>
+                          )}
+                        </Box>
                       )}
 
                       {isSale && (event.balanceAfter ?? 0) > 0 && (

@@ -69,6 +69,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       clientName: records[0]?.client || "",
       collectedBy: localStorage.getItem("userName") || "System",
       notes: `Logged via Batch Payment distribution (${salesId})`,
+      lumpSum,
       steps: steps.map((step) => ({
         rowIndex: step.record.rowIndex,
         salesId: step.record.salesId || "",
@@ -76,6 +77,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
         mode: step.mode,
         toApply: step.toApply,
         balanceBefore: step.record.balance ?? 0,
+        overpayment: step.overpayment,
       })),
     };
 

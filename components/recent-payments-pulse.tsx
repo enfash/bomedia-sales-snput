@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Box from "@mui/material/Box";
@@ -5,14 +6,56 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import { formatDistanceToNow } from "date-fns";
-import { Activity, ArrowRight, CircleDollarSign, User, TrendingDown } from "lucide-react";
+import { Activity, ArrowRight, CircleDollarSign, User, TrendingDown, Layers, ChevronDown, ChevronUp } from "lucide-react";
 import { parseAmount } from "@/lib/financial-utils";
 
 const PAYMENT_TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   "Initial Payment":      { bg: "#dbeafe", text: "#1d4ed8", label: "Initial" },
   "Additional Payment 1": { bg: "#fef3c7", text: "#b45309", label: "Addl. 1" },
   "Additional Payment 2": { bg: "#ede9fe", text: "#7c3aed", label: "Addl. 2" },
+  "Settlement":           { bg: "#d1fae5", text: "#065f46", label: "Settlement" },
+  "Rounding":             { bg: "#fce7f3", text: "#9d174d", label: "Rounding" },
+  "Lump Sum":             { bg: "#e0e7ff", text: "#3730a3", label: "Lump Sum" },
 };
+
+/**
+ * A lump sum split across several jobs (or into a Settlement + Rounding pair
+ * on one job) writes one Payments row per allocation, all sharing a BATCH ID.
+ * Left ungrouped, that reads as several disconnected payments instead of the
+ * one collection it actually was — merge each batch into a single entry for
+ * the true total, keeping the individual rows for an expandable breakdown.
+ */
+function groupByBatch(payments: any[]): any[] {
+  const batchGroups = new Map<string, any[]>();
+  const merged: any[] = [];
+
+  payments.forEach((p) => {
+    const batchId = (p["BATCH ID"] || "").toString().trim();
+    if (!batchId) {
+      merged.push(p);
+      return;
+    }
+    if (!batchGroups.has(batchId)) batchGroups.set(batchId, []);
+    batchGroups.get(batchId)!.push(p);
+  });
+
+  batchGroups.forEach((group) => {
+    if (group.length === 1) {
+      merged.push(group[0]);
+      return;
+    }
+    const batchTotal = parseAmount(group[0]["BATCH TOTAL"]) || group.reduce((s, p) => s + parseAmount(p["AMOUNT"]), 0);
+    merged.push({
+      ...group[0],
+      AMOUNT: batchTotal,
+      "PAYMENT TYPE": "Lump Sum",
+      NOTES: "",
+      _subPayments: group,
+    });
+  });
+
+  return merged;
+}
 
 function getPaymentStyle(type: string) {
   return (
@@ -41,7 +84,15 @@ function getAvatarColor(name: string) {
 }
 
 export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
-  const sortedPayments = [...payments].sort((a, b) => {
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+  const toggleBatch = (id: string) =>
+    setExpandedBatches(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  const sortedPayments = groupByBatch(payments).sort((a, b) => {
     const timeA = new Date(a.TIMESTAMP || a.Timestamp).getTime();
     const timeB = new Date(b.TIMESTAMP || b.Timestamp).getTime();
     return timeB - timeA;
@@ -97,6 +148,8 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
               const timeAgo       = date ? formatDistanceToNow(date, { addSuffix: true }) : "Unknown time";
               const style         = getPaymentStyle(type);
               const debtDropped   = balanceBefore > 0 && balanceAfter < balanceBefore;
+              const subPayments: any[] | undefined = payment._subPayments;
+              const rowKey        = payment["PAYMENT ID"] || idx;
 
               return (
                 <Box
@@ -130,7 +183,59 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
                     </Typography>
                   </Stack>
 
-                  {(balanceBefore > 0 || balanceAfter >= 0) && (
+                  {subPayments ? (
+                    <Box sx={{ mt: 1, pl: 6 }}>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={() => toggleBatch(String(rowKey))}
+                        sx={{
+                          display: "flex", alignItems: "center", gap: 0.5,
+                          border: "none", bgcolor: "transparent", cursor: "pointer", p: 0, color: "text.secondary",
+                        }}
+                      >
+                        <Layers size={11} />
+                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                          {expandedBatches.has(String(rowKey)) ? "Hide" : "Show"} {subPayments.length} allocations
+                        </Typography>
+                        {expandedBatches.has(String(rowKey)) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </Box>
+
+                      {expandedBatches.has(String(rowKey)) && (
+                        <Stack sx={{ gap: 0.5, mt: 0.75 }}>
+                          {subPayments.map((sub, subIdx) => {
+                            const subAmount = parseAmount(sub["AMOUNT"]);
+                            const subBefore = parseAmount(sub["BALANCE BEFORE"]);
+                            const subAfter = parseAmount(sub["BALANCE AFTER"]);
+                            const subType = sub["PAYMENT TYPE"] || "Payment";
+                            const subSalesId = sub["SALES ID"] || "";
+                            const subStyle = getPaymentStyle(subType);
+                            return (
+                              <Stack key={sub["PAYMENT ID"] || subIdx} direction="row" sx={{
+                                alignItems: "center", justifyContent: "space-between", gap: 1,
+                                bgcolor: "action.hover", borderRadius: 1.5, px: 1, py: 0.5,
+                              }}>
+                                <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, minWidth: 0 }}>
+                                  <Box
+                                    component="span"
+                                    sx={{ flexShrink: 0, fontSize: "0.5rem", fontWeight: 900, textTransform: "uppercase", px: 0.5, py: 0.125, borderRadius: 0.75, bgcolor: subStyle.bg, color: subStyle.text }}
+                                  >
+                                    {subStyle.label}
+                                  </Box>
+                                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.625rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {subSalesId} · ₦{subBefore.toLocaleString()} → {subAfter <= 0 ? "Cleared" : `₦${subAfter.toLocaleString()}`}
+                                  </Typography>
+                                </Stack>
+                                <Typography variant="caption" sx={{ fontWeight: 900, color: "#059669", fontFamily: "monospace", flexShrink: 0 }}>
+                                  +₦{subAmount.toLocaleString()}
+                                </Typography>
+                              </Stack>
+                            );
+                          })}
+                        </Stack>
+                      )}
+                    </Box>
+                  ) : (balanceBefore > 0 || balanceAfter >= 0) && (
                     <Stack direction="row" sx={{ mt: 1, pl: 6, alignItems: "center", gap: 0.5 }}>
                       <TrendingDown size={12} color="#9ca3af" />
                       <Typography variant="caption" sx={{ color: "text.secondary" }}>Debt:</Typography>
@@ -160,7 +265,7 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
                       <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.5625rem" }}>·</Typography>
                     )}
                     <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.5625rem" }}>{timeAgo}</Typography>
-                    {salesId && (
+                    {!subPayments && salesId && (
                       <>
                         <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.5625rem" }}>·</Typography>
                         <Typography variant="caption" sx={{ color: "text.disabled", fontFamily: "monospace", fontSize: "0.5625rem" }}>{salesId}</Typography>
