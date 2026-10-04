@@ -30,6 +30,12 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# Private workbook snapshots, exports and database backups.
+/migration-data/
+/supabase/.temp/
+/supabase/.branches/
+*.dump
+
 # vercel
 .vercel
 

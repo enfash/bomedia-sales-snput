@@ -18,7 +18,7 @@ const MAX_RETRIES = 3;
  *
  * Everything else (429 rate limits, 5xx, network failures) stays retryable.
  */
-const FATAL_STATUSES = [400, 403, 404, 409];
+const FATAL_STATUSES = [400, 404, 409];
 
 /**
  * NOTE: classification keys off the HTTP status only — never the message text.
@@ -68,6 +68,7 @@ export function SyncManager() {
     updateEntryError,
   } = useSyncStore();
   const isSyncingRef = useRef(false);
+  const authPausedRef = useRef(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export function SyncManager() {
   }, [exhaustedItems.length]);
 
   const handleForceRetry = () => {
+    authPausedRef.current = false;
     exhaustedItems.forEach((item) => updateEntryRetry(item.id, 0, 0));
     setBannerDismissed(true);
     window.dispatchEvent(new Event("online"));
@@ -93,7 +95,7 @@ export function SyncManager() {
 
   useEffect(() => {
     const handleSync = async () => {
-      if (isSyncingRef.current || pendingQueue.length === 0 || !navigator.onLine) {
+      if (authPausedRef.current || isSyncingRef.current || pendingQueue.length === 0 || !navigator.onLine) {
         return;
       }
 
@@ -244,7 +246,14 @@ export function SyncManager() {
           } catch (err: any) {
             console.error(`Failed to sync item ${item.id}:`, err);
             errorCount++;
-            
+            if (err.status === 401 || err.status === 403) {
+              authPausedRef.current = true;
+              const message = 'Sync paused. Sign in again or ask the administrator to restore access. Your pending entries are kept.';
+              updateEntryError(item.id, message);
+              setSyncStatus('error', message);
+              if (successCount > 0) setLastSyncTime(Date.now());
+              return;
+            }
             const msg = err.message || "";
             const isFatal = isFatalError(err.status);
 

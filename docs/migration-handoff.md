@@ -1,0 +1,71 @@
+# BOMedia migration handoff
+
+Updated 4 October 2026, 22:45 (Africa/Lagos), by Claude after Codex stopped. Branch: `codex/supabase-migration`. Work is uncommitted; preserve the current working tree. The live app still uses Google Sheets. No production switch is complete.
+
+## Completed and verified
+
+- Nine migrations are on the hosted project (backup `-06` captured all nine from it): private schemas, atomic sale/payment primitives, inventory precision, accounting ledger, authentication, restricted financial APIs, accounted tracked sales, `0006` collection request-key namespace and `0007` payment methods (Cash 1000 / Transfer 1010 / POS 1020; staff choose a method, the server picks the ledger account). A tenth, `0008_expense_writes`, exists **locally only** — see below. Earlier hosted checks found 32 RLS-enabled tables and no private-schema access for Supabase API roles.
+- Encrypted October 3 rehearsal archive and redacted staging: 16 tabs, 5,851 rows, checksums and source lineage.
+- Verified imports: 146 expenses, 3 estimates, 14 materials, 176 rolls, 31 opening stock movements and 2 staff accounts with salted PIN hashes.
+- Fifteen starter accounting accounts; balanced immutable journals, standalone reversals and atomic receipt/allocation/journal posting. No opening books or journals posted.
+- Underpayments remain exact debt, including one kobo. No automatic discount or write-off. Excess collections are rejected until a deposit/credit policy is implemented.
+- Local PostgreSQL authentication adapters, throttling, revocable sessions, staff management and offline authorization-pause behavior. Authentication still defaults to Sheets.
+- Latest full-suite checks (23:02, owner's Mac): `npm test` 226 tests in 24 files passed; `npm run build` passed (Next.js 16.3.8, TypeScript included) with the new expense routes listed; `tsconfig.json` stayed clean. The lock now resolves Next.js 16.3.8 (HEAD had 16.2.9; same `^16.2.9` range). Provisioning script syntax/lint passed.
+
+## Session of 4 October, 22:20–22:45 (Claude)
+
+- Handoff was stale on arrival: Codex added migrations `0006`/`0007`, backup `-06` and a new accounting entry screen (`/cashier/accounting`, `/bom03/accounting`; customer, tracked sale and collection with a per-staff pending-entry queue in `lib/accounting-pending.ts`) after this note was written. This note now reflects them.
+- Backup `migration-data/postgres-recovery-20261004-06/` is verified: 33 tables, 6,274 rows, all nine migrations, every exact value and foreign key checked. Use `-06`; `-05` is also verified but predates `0006`/`0007`; `-01`–`-03` remain unusable. Still local only, not independent.
+- `tsconfig.json` `.next-verify` additions removed again (the 21:41 build re-added them). The file now matches HEAD.
+- Added expense writes, inactive: `supabase/migrations/202610040008_expense_writes.sql`, `lib/server/expense-service.ts`, `lib/server/expense-routes.ts`, `app/api/accounting/expenses/`, `app/api/accounting/expense-payments/`, tests `supabase/tests/expense-writes.test.ts` (6) and `lib/server/expense-routes.test.ts` (3). Details in [financial runtime](financial-runtime.md#expenses-migration-0008-local-only). Design choice to confirm with the owner: unpaid expenses credit a new account `2010 Expenses awaiting payment`; only the owner can mark one paid; legacy unpaid expenses cannot be paid here.
+- `0008` is **not applied to hosted**. Before applying: owner reviews the 2010 decision, take a fresh backup, apply, then re-run `migration:verify-financial` (it does not yet exercise expenses; extend it first).
+- Lockfile is fine: `npm ci` works with npm 11 (the Mac's version). An earlier "out of sync" report came from the sandbox's npm 10, which handles vite's optional `yaml` peer differently. Use npm 11 for installs. Owner ran `npm install` at 22:56: up to date, 5 high-severity audit warnings not yet reviewed, and npm 11 blocked install scripts for core-js, fsevents and unrs-resolver (tests pass without them).
+- A leftover empty `.git/index.lock` (from a sandbox `git status`) was removed. Agents working through the sandbox should use `git --no-optional-locks`. `node_modules` is macOS-native; run tests in a separate Linux copy, never reinstall in the user's folder.
+- The dev server's one-off `sw.js` registration error was a startup race; the next load registered successfully.
+
+## Current execution checkpoint
+
+All nine hosted migrations (`0006`/`0007` inferred applied because backup `-06`, taken from hosted, lists them; hosted verification for them was not re-run this session), including authentication, financial capabilities and accounted tracked sales, are applied. Both restricted server logins are provisioned; credentials are saved privately. Hosted authentication verification passed with zero residual synthetic activity. Hosted financial verification also passed: exact collection, one-kobo residual, excess rejection, idempotent replay and privilege denial. Synthetic changes and the temporary owner test membership were rolled back and verified unchanged. Runtime activity intentionally blocks rehearsal importers; keep all synthetic writes inside rolled-back transactions. Authentication and financial API activation remain off.
+
+The seventh migration adds explicit customer creation and tracked-sale accounting. Its 12 local tests and hosted real-role verification passed, including trusted tiling, stock deduction, accounting posting and replay. It computes catalog prices/tiling, exact per-roll material cost and journals atomically; stale quotes and missing stock/accounting value fail safely.
+
+Added inactive accounting endpoints for exact collections, paginated reads across operational records, and owner-only period reporting. They are used by the new standalone accounting entry screen but not yet by the existing screens/offline queue payloads. See [financial runtime](financial-runtime.md). Encrypted database backup and fresh-local-database restoration are implemented. Recovery is verified for `-04` (six migrations), `-05` (seven) and `-06` (all nine; 33 tables, 6,274 rows), each with every exact value and foreign key checked. Use `-06`. These are local encrypted copies, not independent off-device backups. Earlier `-01`, `-02` and `-03` attempts are unverified and must not be used. Capture uses bounded pages and JSON arrays of text/null values after real-data testing exposed an array-codec null conversion and a large-query timeout.
+
+## Remaining implementation, in order
+
+1. Hosted authentication, collection and tracked-sale verification are complete. Local encrypted backup recovery is verified through `-06` (all nine hosted migrations). Take a new backup before applying `0008`. Keep the live backend on Sheets until all remaining acceptance work is complete.
+2. Collection/read/report, customer/tracked-sale and (local) expense APIs are implemented but inactive; a separate accounting entry screen covers customer, sale and collection. Connect existing screens/offline queues to their stable IDs, and implement remaining stock (restock/waste, which also write expenses today), estimate and non-stock sale writes using the restricted financial role. Derive identity from verified sessions, calculate trusted prices/stock on the server and preserve stable IDs/idempotency.
+3. Tracked-sale revenue/material-cost/initial-receipt journals and period reporting are implemented. Expense journals are done locally; finish restock/waste/correction journals, real cash/bank accounts and opening balances. Never grant the legacy payment primitive as a standalone production accounting write path.
+4. Prepare a fresh final snapshot and evidence-backed opening balances. Do not merge customers by name alone, invent missing payments or treat unresolved balances as zero. Complete imports before runtime/opening posting locks them out.
+5. Preserve pending phone entries and map legacy row references or hold ambiguity for review. Preserve all manually used tabs; implement or export dependencies for Budget/Calculator.
+6. Verify hosted concurrency, end-to-end workflows, production configuration, independent backups and an actual restore. Build-generated `.next-verify` additions were removed from `tsconfig.json`.
+7. Agree the quiet window, account for queues, freeze migrated writes, reconcile/load final data, deploy and verify before releasing staff. After new PostgreSQL writes, rollback requires preserving/reconciling those writes.
+
+## Acceptance checks
+
+Login/reset/disable/logout/revocation; database outage without fallback; exact short payments and old-debt collection; new sale/expense/stock; simultaneous writes; duplicate offline retries; ledger/operational agreement; no historical double counting; denied browser/API/private-table privileges; successful backup restore.
+
+## Next concrete implementation step
+
+1. Mac checks are done (23:02). Review `npm audit` (5 high) separately; do not run `npm audit fix --force`. Commit the working tree once the owner agrees, without `migration-data` or secrets.
+2. Add Expense to the accounting entry screen (`components/accounting-entry.tsx`, operation `expenses`, extend `lib/accounting-pending.ts` operations and success-ID check for `expense_id`) and an owner "mark paid" action; mock the screen as a design first.
+3. Build the stock (restock/waste) and estimate write adapters in the same pattern, then non-stock/manual-priced sales.
+4. Connect the existing screens to the new accounting endpoints. Keep the old Sheets routes authoritative until this is complete. Replace the two-request legacy payment flow with the single accounting endpoint; preserve queued entries and require mapping for old row references. Add explicit customer selection/creation, cash/bank-account selection, exact balance display and stale-quote review. Non-stock/manual-priced services and accounting corrections need explicit supported workflows before cutover.
+
+Local flags were checked (unchanged this session): `AUTH_BACKEND` resolves to `sheets`; `POSTGRES_FINANCIAL_API_ENABLED` is false; both dedicated runtime credentials are configured; `SUPABASE_ADMIN_STAFF_ID` is not yet configured. No deployment or production environment change was performed.
+
+## Owner inputs pending
+
+Closing time and earliest customer arrival; Monday opening confirmed as 9:00 a.m. with possible earlier customers; phones with unsynced entries; real cash/bank account names and closing balances; evidence for customer debts/credits, supplier balances and stock/other opening balances. Confirm the expense design: unpaid expenses held in `2010 Expenses awaiting payment` and only the owner marks them paid. Never request banking credentials. Unknown/disputed amounts remain explicit.
+
+The target is Monday, 5 October 2026 accounting. If deployment is not ready, preserve Monday transactions in the working system and migrate each exactly once. The October 3 snapshot is rehearsal evidence, not final opening books. Full historical reconstruction (845 unresolved payment rows / 334 review cases) is not required where opening balances can be independently established.
+
+## Operational boundaries
+
+- One authoritative system per migrated workflow; no silent Sheets fallback after PostgreSQL activation.
+- Migration owner credentials are setup-only; runtime secrets stay server-only and `.env.local` is not production configuration.
+- Keep encrypted archives/passphrases independently backed up; do not commit `migration-data` or secrets.
+- Preserve `codex/phone-access-checkpoint`; physical device enforcement still needs certificate/gateway enrollment. Do not blindly merge its Redis implementation.
+- Staff, accounting, overall migration and Supabase documents have been refreshed. Use this handoff as the latest checkpoint; historical verification files describe the state at their capture time.
+
+Related plans: [cutover](monday-accounting-cutover.md), [accounting](accounting-foundation.md), [staff](staff-migration.md), [overall migration](database-migration-plan.md).
