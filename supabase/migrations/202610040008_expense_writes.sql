@@ -2,6 +2,10 @@
 -- Logging an expense recognises the cost on its business date. An expense
 -- already paid credits the chosen Cash/Transfer/POS account; an unpaid one
 -- credits 2010 until a separate, owner-recorded payment settles it.
+-- The category decides the debit account: running costs hit 6000, Equipment
+-- is capitalised to 1500. Stock purchases (SAV, Flex, Raw Materials) are not
+-- accepted here; they belong to the restock workflow so rolls and the 1200
+-- inventory balance move together.
 -- Legacy (imported, pre-books) unpaid expenses have no accrual journal, so
 -- they cannot be paid here; they belong in evidence-backed opening balances.
 begin;
@@ -12,11 +16,27 @@ do $$ begin
 end $$;
 insert into bomedia.ledger_accounts(code,name,category,normal_side,purpose) values
   ('2010','Expenses awaiting payment','liability','credit','general');
+create table bomedia.expense_categories (
+  name text primary key check (btrim(name)<>'' and length(name)<=100),
+  account_code text not null references bomedia.ledger_accounts(code) check (account_code in ('6000','1500')),
+  enabled boolean not null default true
+);
+insert into bomedia.expense_categories(name,account_code) values
+  ('Ink','6000'),('Utilities','6000'),('Salaries','6000'),('Transport','6000'),('Maintenance','6000'),
+  ('Marketing','6000'),('Office Supplies','6000'),('Miscellaneous','6000'),('Equipment','1500');
+alter table bomedia.expense_categories enable row level security;
+revoke all on bomedia.expense_categories from public;
+create function bomedia.api_expense_categories() returns jsonb
+language sql security definer set search_path=pg_catalog,bomedia as $$
+  select jsonb_build_object('data',coalesce(jsonb_agg(jsonb_build_object('name',c.name,'capital',c.account_code='1500') order by c.name),'[]'),
+    'next_after_id',null) from bomedia.expense_categories c join bomedia.ledger_accounts a on a.code=c.account_code
+    where c.enabled and a.active
+$$;
 
 create function bomedia.api_expense(request_id text,payload jsonb) returns jsonb
 language plpgsql security definer set search_path=pg_catalog,bomedia as $$
 declare previous jsonb; result jsonb; actor uuid; expense uuid; amount bigint; paid boolean;
-  method_value jsonb; credit_code text; journal jsonb; status_value text;
+  method_value jsonb; credit_code text; debit_code text; category_value text; journal jsonb; status_value text;
 begin
   if jsonb_typeof(payload) is distinct from 'object' then
     raise exception 'Expense payload is required' using errcode='22023'; end if;
@@ -37,6 +57,10 @@ begin
   if coalesce(length(btrim(payload->>'category')),0) not between 1 and 100
     or length(coalesce(payload->>'description',''))>1000 or length(coalesce(payload->>'paid_to',''))>200 then
     raise exception 'Category required; description and payee are bounded' using errcode='22023'; end if;
+  select c.name,c.account_code into category_value,debit_code from bomedia.expense_categories c
+    join bomedia.ledger_accounts a on a.code=c.account_code where c.name=btrim(payload->>'category') and c.enabled and a.active;
+  if category_value is null then
+    raise exception 'Unsupported expense category; stock purchases use restock' using errcode='22023'; end if;
   if payload->>'status' not in ('paid','unpaid') then
     raise exception 'Expense status must be paid or unpaid' using errcode='22023'; end if;
   paid:=payload->>'status'='paid';
@@ -49,13 +73,13 @@ begin
   status_value:=case when paid then 'Paid' else 'Unpaid' end;
   insert into bomedia.expenses(amount_kobo,business_date,category,description,paid_to,payment_method,status,
       logged_by,paid_by,paid_at,occurred_at)
-    values(amount,(payload->>'business_date')::date,btrim(payload->>'category'),nullif(btrim(payload->>'description'),''),
+    values(amount,(payload->>'business_date')::date,category_value,nullif(btrim(payload->>'description'),''),
       nullif(btrim(payload->>'paid_to'),''),method_value->>'label',status_value,actor,
       case when paid then actor end,case when paid then now() end,now())
     returning id into expense;
   journal:=bomedia.post_journal('api-expense/'||expense::text,jsonb_build_object('actor_id',actor,'kind','expense',
-    'memo','Expense: '||btrim(payload->>'category'),'business_date',payload->>'business_date','source_type','expense','source_id',expense,
-    'lines',jsonb_build_array(jsonb_build_object('account_code','6000','debit_kobo',amount::text),
+    'memo','Expense: '||category_value,'business_date',payload->>'business_date','source_type','expense','source_id',expense,
+    'lines',jsonb_build_array(jsonb_build_object('account_code',debit_code,'debit_kobo',amount::text),
       jsonb_build_object('account_code',credit_code,'credit_kobo',amount::text))));
   result:=jsonb_build_object('expense_id',expense,'journal_entry_id',journal->>'journal_entry_id',
     'amount_kobo',amount::text,'status',status_value);
@@ -103,6 +127,6 @@ begin
   insert into bomedia.audit_events(actor_id,action,entity_type,entity_id) values(actor,'expense_paid','expense',target.id);
   return result;
 end $$;
-revoke all on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb) from public;
-grant execute on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb) to bomedia_financial_runtime;
+revoke all on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb),bomedia.api_expense_categories() from public;
+grant execute on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb),bomedia.api_expense_categories() to bomedia_financial_runtime;
 commit;

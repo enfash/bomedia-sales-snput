@@ -2,11 +2,13 @@ import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
 import { testDatabase, insertId } from './helpers';
 import { createExpenseService } from '../../lib/server/expense-service';
+import { createFinancialService } from '../../lib/server/financial-service';
 import type { FinancialCall } from '../../lib/server/financial-db';
 let db: PGlite, actor: string;
 const call: FinancialCall = async <T>(method: string,key: string,payload: Record<string,unknown>): Promise<T> =>
-  (await db.query<{result:T}>(`select bomedia.${method}($1,$2::jsonb) as result`,[key,JSON.stringify(payload)])).rows[0].result;
-const service=createExpenseService(call);
+  (await db.query<{result:T}>(method==='api_expense_categories' ? 'select bomedia.api_expense_categories() as result' : `select bomedia.${method}($1,$2::jsonb) as result`,
+    method==='api_expense_categories' ? [] : [key,JSON.stringify(payload)])).rows[0].result;
+const service=createExpenseService(call),financial=createFinancialService(call);
 beforeAll(async()=>{db=await testDatabase();},30_000);
 afterAll(async()=>{await db?.close();});
 beforeEach(async()=>{
@@ -16,7 +18,7 @@ beforeEach(async()=>{
   await db.exec('set local role bomedia_financial_runtime');
 });
 afterEach(async()=>{await db.exec('rollback');});
-const expense=(extra={})=>({requestId:'expense-1',businessDate:'2026-10-05',amountKobo:'250050',category:'Fuel',
+const expense=(extra={})=>({requestId:'expense-1',businessDate:'2026-10-05',amountKobo:'250050',category:'Transport',
   description:'Generator diesel',paidTo:'Filling station',status:'paid',paymentMethod:'transfer',...extra});
 async function balances(entity: string) {
   await db.exec('reset role');
@@ -73,4 +75,15 @@ it('keeps the runtime role away from tables, journals and spoofed accrual',async
     "select bomedia.post_journal('bad','{}')"]) {
     await db.exec('savepoint bad'); await expect(db.query(sql)).rejects.toThrow(); await db.exec('rollback to savepoint bad');
   }
+});
+it('maps categories to accounts, capitalises equipment and sends stock purchases to restock',async()=>{
+  const categories=(await financial.read('expense_categories',{})).data;
+  expect(categories).toContainEqual({name:'Equipment',capital:true});
+  expect(categories.map(c=>c.name)).not.toContain('SAV 3ft');
+  const equipment=await service.log({staffId:actor},expense({requestId:'equipment',category:'Equipment',paymentMethod:'cash'}));
+  expect(await balances(equipment.expense_id)).toEqual({'1000':'-250050','1500':'250050'});
+  for (const category of ['SAV 3ft','Flex 10ft','Raw Materials','Fuel']) {
+    await savepointFailure(()=>service.log({staffId:actor},expense({requestId:`stock-${category}`,category})),{status:409});
+  }
+  await expect(financial.read('expense_categories',{limit:5})).rejects.toMatchObject({status:400});
 });

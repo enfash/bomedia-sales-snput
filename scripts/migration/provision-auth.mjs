@@ -14,7 +14,7 @@ const groupName = financial ? 'bomedia_financial_runtime' : 'bomedia_auth_runtim
 const variableName = financial ? 'SUPABASE_FINANCIAL_DATABASE_URL' : 'SUPABASE_AUTH_DATABASE_URL';
 const pendingPath = join(root, `migration-data/${financial ? 'financial' : 'auth'}-runtime-credential.pending.json`);
 const configuredPattern = new RegExp(`^${variableName}=`, 'gm');
-const allowedFunctions = financial ? ['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods'] : ['auth_reserve_login','auth_claim_session','auth_read_session','auth_revoke_session','auth_presence','auth_list_staff','auth_manage_staff'];
+const allowedFunctions = financial ? ['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories'] : ['auth_reserve_login','auth_claim_session','auth_read_session','auth_revoke_session','auth_presence','auth_list_staff','auth_manage_staff'];
 let sql;
 try {
   const [flag, confirmedRef, ...extra] = process.argv.slice(2, financial ? -1 : undefined);

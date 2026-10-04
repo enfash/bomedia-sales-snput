@@ -67,6 +67,10 @@ export function createFinancialService(call: FinancialCall = callFinancial) {
         if (Object.keys(filter).length) throw invalid('Payment methods do not accept filters.');
         return call<FinancialPage>('api_payment_methods','',{});
       }
+      if (resource==='expense_categories') {
+        if (Object.keys(filter).length) throw invalid('Expense categories do not accept filters.');
+        return call<FinancialPage>('api_expense_categories','',{});
+      }
       if (!['customers','jobs','payments','cash_accounts','expenses','materials','inventory','estimates'].includes(resource)) throw invalid('Unknown accounting resource.');
       if (Object.keys(filter).some(key=>!['limit','after_id','customer_id'].includes(key))) throw invalid('Unknown filter.');
       if (filter.limit!==undefined && (!Number.isInteger(filter.limit) || Number(filter.limit)<1 || Number(filter.limit)>500)) throw invalid('Limit must be 1 to 500.');

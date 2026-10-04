@@ -25,14 +25,17 @@ try {
   assert.equal(privateGrants.direct_access,false);
   const functions=await owner`select p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
     where n.nspname in ('bomedia','migration','migration_control') and has_function_privilege('bomedia_financial_server',p.oid,'EXECUTE')`;
-  assert.deepEqual(functions.map(f=>f.proname).sort(),['api_collect','api_customer','api_payment_methods','api_read','api_report','api_sale']);
+  assert.deepEqual(functions.map(f=>f.proname).sort(),['api_collect','api_customer','api_expense','api_expense_categories','api_expense_payment','api_payment_methods','api_read','api_report','api_sale']);
   for(const roleName of ['anon','authenticated','service_role','bomedia_auth_runtime']) {
     const [permission]=await owner`select has_function_privilege(${roleName},'bomedia.api_collect(text,jsonb)','EXECUTE')
       or has_function_privilege(${roleName},'bomedia.api_read(text,jsonb)','EXECUTE')
       or has_function_privilege(${roleName},'bomedia.api_report(date,date)','EXECUTE')
       or has_function_privilege(${roleName},'bomedia.api_sale(text,jsonb)','EXECUTE')
       or has_function_privilege(${roleName},'bomedia.api_customer(text,jsonb)','EXECUTE')
-      or has_function_privilege(${roleName},'bomedia.api_payment_methods()','EXECUTE') as granted`;
+      or has_function_privilege(${roleName},'bomedia.api_payment_methods()','EXECUTE')
+      or has_function_privilege(${roleName},'bomedia.api_expense(text,jsonb)','EXECUTE')
+      or has_function_privilege(${roleName},'bomedia.api_expense_payment(text,jsonb)','EXECUTE')
+      or has_function_privilege(${roleName},'bomedia.api_expense_categories()','EXECUTE') as granted`;
     assert.equal(permission.granted,false);
   }
   const ledger=await owner`select name,checksum from migration_control.applied_migrations order by name`;
