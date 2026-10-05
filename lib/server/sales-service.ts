@@ -51,13 +51,18 @@ export function createSalesService(call:FinancialCall=callFinancial) {
         || Number.isNaN(Date.parse(body.businessDate)) || new Date(body.businessDate).toISOString().slice(0,10)!==body.businessDate)throw invalid('Use a valid business date.');
       if(!Array.isArray(body.jobs) || body.jobs.length<1 || body.jobs.length>100)throw invalid('Select 1 to 100 tracked jobs.');
       const jobs=body.jobs.map(value=>{
-        const job=object(value,['materialId','description','quantity','widthFt','heightFt','expectedUnitPriceKobo','priceRequestId']);
+        const job=object(value,['materialId','serviceId','description','quantity','widthFt','heightFt','expectedUnitPriceKobo','priceRequestId']);
         if(job.priceRequestId!==undefined && !validUUID(job.priceRequestId))throw invalid('Invalid price approval.');
-        if(!validUUID(job.materialId))throw invalid('Select a material identity.');
         if(typeof job.quantity!=='string' || !/^[1-9][0-9]{0,4}$/.test(job.quantity) || Number(job.quantity)>10000)throw invalid('Use a whole quantity from 1 to 10,000.');
+        const approval=job.priceRequestId!==undefined ? {price_request_id:String(job.priceRequestId).toLowerCase()} : {};
+        if(job.serviceId!==undefined) {
+          if(!validUUID(job.serviceId) || job.materialId!==undefined || job.widthFt!==undefined || job.heightFt!==undefined)throw invalid('Select one service, without a size.');
+          return {service_id:job.serviceId.toLowerCase(),description:text(job.description,1000,'Description'),quantity:job.quantity,
+            expected_unit_price_kobo:money(job.expectedUnitPriceKobo),...approval};
+        }
+        if(!validUUID(job.materialId))throw invalid('Select a material identity.');
         return {material_id:job.materialId.toLowerCase(),description:text(job.description,1000,'Description'),quantity:job.quantity,
-          width_ft:dimension(job.widthFt),height_ft:dimension(job.heightFt),expected_unit_price_kobo:money(job.expectedUnitPriceKobo),
-          ...(job.priceRequestId!==undefined ? {price_request_id:String(job.priceRequestId).toLowerCase()} : {})};
+          width_ft:dimension(job.widthFt),height_ft:dimension(job.heightFt),expected_unit_price_kobo:money(job.expectedUnitPriceKobo),...approval};
       });
       const initial=money(body.initialPaymentKobo ?? '0',true);
       const method=normalizePaymentMethod(body.paymentMethod);

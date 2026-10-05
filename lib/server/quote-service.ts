@@ -48,9 +48,13 @@ export function createQuoteService(call:FinancialCall=callFinancial) {
       else payload.client_name=text(body.clientName,200,'Customer or client name');
       if(!Array.isArray(body.items) || body.items.length<1 || body.items.length>100)throw invalid('Add 1 to 100 items.');
       payload.items=body.items.map(value=>{
-        const item=object(value,['materialId','description','quantity','widthFt','heightFt']);
-        if(!validUUID(item.materialId))throw invalid('Select a material.');
+        const item=object(value,['materialId','serviceId','description','quantity','widthFt','heightFt']);
         if(typeof item.quantity!=='string' || !/^[1-9][0-9]{0,4}$/.test(item.quantity) || Number(item.quantity)>10000)throw invalid('Use a whole quantity from 1 to 10,000.');
+        if(item.serviceId!==undefined) {
+          if(!validUUID(item.serviceId) || item.materialId!==undefined || item.widthFt!==undefined || item.heightFt!==undefined)throw invalid('Select one service, without a size.');
+          return {service_id:item.serviceId.toLowerCase(),description:text(item.description,1000,'Description'),quantity:item.quantity};
+        }
+        if(!validUUID(item.materialId))throw invalid('Select a material.');
         return {material_id:item.materialId.toLowerCase(),description:text(item.description,1000,'Description'),quantity:item.quantity,
           width_ft:dimension(item.widthFt),height_ft:dimension(item.heightFt)};
       });
