@@ -4,8 +4,15 @@ import { useEffect } from "react";
 
 export function PWAManager() {
   useEffect(() => {
-    // Register Service Worker
-    if ("serviceWorker" in navigator) {
+    // The service worker caches pages cache-first. In development that serves
+    // stale screens and races the dev server while it recompiles ("unknown
+    // error occurred when fetching the script"), so it is production-only and
+    // any worker left over from an earlier dev session is removed.
+    if ("serviceWorker" in navigator && process.env.NODE_ENV !== "production") {
+      void navigator.serviceWorker.getRegistrations()
+        .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+        .catch(() => undefined);
+    } else if ("serviceWorker" in navigator) {
       const registerSW = () => {
         navigator.serviceWorker
           .register("/sw.js")
