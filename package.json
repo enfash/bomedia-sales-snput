@@ -29,7 +29,9 @@
     "migration:provision-financial": "node --env-file-if-exists=.env.local scripts/migration/provision-financial.mjs",
     "migration:verify-financial": "node --env-file-if-exists=.env.local scripts/migration/verify-financial.mjs",
     "migration:backup-db": "node --env-file-if-exists=.env.local scripts/migration/backup-database.mjs",
-    "migration:verify-backup": "node --env-file-if-exists=.env.local scripts/migration/verify-backup.mjs"
+    "migration:verify-backup": "node --env-file-if-exists=.env.local scripts/migration/verify-backup.mjs",
+    "sandbox:setup": "node scripts/migration/sandbox-setup.mjs",
+    "sandbox:dev": "node scripts/migration/sandbox-dev.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

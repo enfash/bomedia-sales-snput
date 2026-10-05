@@ -7,12 +7,14 @@ import postgres from 'postgres';
 import { testConnection } from './cli.mjs';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const envPath = join(root, '.env.local');
+// The sandbox runner points this at .env.sandbox.local; normal runs keep .env.local.
+const envPath = join(root, process.env.BOMEDIA_ENV_FILE === '.env.sandbox.local' ? '.env.sandbox.local' : '.env.local');
+const pendingPrefix = envPath.endsWith('.env.sandbox.local') ? 'sandbox-' : '';
 const financial = process.argv.at(-1) === '--financial';
 const roleName = financial ? 'bomedia_financial_server' : 'bomedia_auth_server';
 const groupName = financial ? 'bomedia_financial_runtime' : 'bomedia_auth_runtime';
 const variableName = financial ? 'SUPABASE_FINANCIAL_DATABASE_URL' : 'SUPABASE_AUTH_DATABASE_URL';
-const pendingPath = join(root, `migration-data/${financial ? 'financial' : 'auth'}-runtime-credential.pending.json`);
+const pendingPath = join(root, `migration-data/${pendingPrefix}${financial ? 'financial' : 'auth'}-runtime-credential.pending.json`);
 const configuredPattern = new RegExp(`^${variableName}=`, 'gm');
 const allowedFunctions = financial ? ['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_restock','api_waste','api_stock_count','api_quote','api_quote_lookup','api_price_requests','api_price_decision','api_services','api_service_save'] : ['auth_reserve_login','auth_claim_session','auth_read_session','auth_revoke_session','auth_presence','auth_list_staff','auth_manage_staff'];
 let sql;
