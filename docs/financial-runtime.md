@@ -65,3 +65,13 @@ Migration `202610040009_stock_writes.sql` adds ledger account `5100 Material was
 - `POST /api/accounting/stock-counts` (owner): `{requestId, rollId, countedLengthFt, reason, businessDate}`. Sets a roll to its measured length (up to its usable length; must differ). Loss: Dr 5100 / Cr 1200; gain: Dr 1200 / Cr 5100.
 
 Waste and count costs use the same rounded-remaining-value method as tracked sales, so all journals for a roll sum to its purchase cost exactly. Write-offs are refused while 1200 holds less value than the write-off, so imported rolls cannot be wasted or corrected until opening balances are posted. Responses carry `stock_entry_id`.
+
+## Quotes and owner-approved prices (migration 0010, local only)
+
+Migration `202610040010_quotes.sql`. Local PGlite tests only; **not applied to hosted**.
+
+- `POST /api/accounting/quotes` (staff): `{requestId, customerId | clientName, businessDate, items[{materialId, description, quantity, widthFt, heightFt}], priceRequests?[{itemIndex, requestedUnitPriceKobo, reason}]}`. Prices every item from the catalog, assigns `QT-NNNNN` from a sequence (legacy Sheets numbers are 4 digits, so they never clash), stores the priced items. No stock, no debt, no journal. Price requests need a chosen customer.
+- `GET /api/accounting/quotes?number=QT-00042` (staff): the quote, each item's quoted and current list price, and any price request with its status. Legacy Sheets quotes return `legacy:true` only.
+- `GET /api/accounting/price-requests` and `POST /api/accounting/price-requests` `{requestId, priceRequestId, decision: approve|decline, note?}`: owner only.
+- `POST /api/accounting/sales` now also takes `quoteId` and per-job `priceRequestId`. The `api_sale` wrapper verifies the approval (same quote, customer, material, width, height and pieces; status approved), injects the approved unit price into the private tracked-sale core, and marks the quote and approvals used. A quote can be used once. Staff can never send a price: `approvedUnitPriceKobo` is refused at the service, and only the wrapper can set it inside the database.
+- The private core `post_tracked_sale` was re-created with that single change; everything else is identical to migration 0005.

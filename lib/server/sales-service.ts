@@ -44,24 +44,28 @@ export function createSalesService(call:FinancialCall=callFinancial) {
         actor_id:identity(actor),name:text(body.name,200,'Customer name'),...(body.contact!==undefined ? {contact:text(body.contact,200,'Contact')} : {})});
     },
     async sale(actor:FinancialActor,input:unknown) {
-      const body=object(input,['requestId','expectedStaffId','customerId','businessDate','jobs','initialPaymentKobo','cashAccountCode','paymentMethod']);
+      const body=object(input,['requestId','expectedStaffId','customerId','businessDate','jobs','initialPaymentKobo','cashAccountCode','paymentMethod','quoteId']);
       checkExpectedActor(actor,body);
       if(!validUUID(body.customerId))throw invalid('Select a customer identity.');
       if(typeof body.businessDate!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.businessDate) || body.businessDate.startsWith('0000-')
         || Number.isNaN(Date.parse(body.businessDate)) || new Date(body.businessDate).toISOString().slice(0,10)!==body.businessDate)throw invalid('Use a valid business date.');
       if(!Array.isArray(body.jobs) || body.jobs.length<1 || body.jobs.length>100)throw invalid('Select 1 to 100 tracked jobs.');
       const jobs=body.jobs.map(value=>{
-        const job=object(value,['materialId','description','quantity','widthFt','heightFt','expectedUnitPriceKobo']);
+        const job=object(value,['materialId','description','quantity','widthFt','heightFt','expectedUnitPriceKobo','priceRequestId']);
+        if(job.priceRequestId!==undefined && !validUUID(job.priceRequestId))throw invalid('Invalid price approval.');
         if(!validUUID(job.materialId))throw invalid('Select a material identity.');
         if(typeof job.quantity!=='string' || !/^[1-9][0-9]{0,4}$/.test(job.quantity) || Number(job.quantity)>10000)throw invalid('Use a whole quantity from 1 to 10,000.');
         return {material_id:job.materialId.toLowerCase(),description:text(job.description,1000,'Description'),quantity:job.quantity,
-          width_ft:dimension(job.widthFt),height_ft:dimension(job.heightFt),expected_unit_price_kobo:money(job.expectedUnitPriceKobo)};
+          width_ft:dimension(job.widthFt),height_ft:dimension(job.heightFt),expected_unit_price_kobo:money(job.expectedUnitPriceKobo),
+          ...(job.priceRequestId!==undefined ? {price_request_id:String(job.priceRequestId).toLowerCase()} : {})};
       });
       const initial=money(body.initialPaymentKobo ?? '0',true);
       const method=normalizePaymentMethod(body.paymentMethod);
       if(initial!=='0' && !method)throw invalid('Choose Cash, Transfer or POS.');
       if(body.cashAccountCode!==undefined && (typeof body.cashAccountCode!=='string' || !/^[0-9]{4,8}$/.test(body.cashAccountCode)))throw invalid('Invalid receiving account.');
-      const payload:Record<string,unknown>={actor_id:identity(actor),customer_id:body.customerId.toLowerCase(),business_date:body.businessDate,jobs,initial_payment_kobo:initial};
+      if(body.quoteId!==undefined && !validUUID(body.quoteId))throw invalid('Invalid quote.');
+      const payload:Record<string,unknown>={actor_id:identity(actor),customer_id:body.customerId.toLowerCase(),business_date:body.businessDate,jobs,initial_payment_kobo:initial,
+        ...(body.quoteId!==undefined ? {quote_id:String(body.quoteId).toLowerCase()} : {})};
       if(initial!=='0') {payload.payment_method=method;if(body.cashAccountCode!==undefined)payload.cash_account_code=body.cashAccountCode;}
       return execute<{order_id:string;job_ids:string[];total_kobo:string;journal_entry_ids:string[];initial_payment:unknown}>(call,'api_sale',text(body.requestId,200,'Request ID'),payload);
     },
