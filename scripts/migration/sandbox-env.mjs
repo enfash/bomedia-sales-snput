@@ -21,6 +21,10 @@ export async function loadSandboxEnv() {
   if (liveRefs.includes(ref)) throw new Error('This is the LIVE project. The sandbox must use a different Supabase project.');
   const url = sandbox.SUPABASE_MIGRATION_DATABASE_URL || '';
   if (!url.includes(ref)) throw new Error('SUPABASE_MIGRATION_DATABASE_URL must be the sandbox project\'s connection string.');
+  let host = '';
+  try { host = new URL(url).hostname; } catch { throw new Error('SUPABASE_MIGRATION_DATABASE_URL is not a valid connection string. Paste it between the quotes.'); }
+  // Direct db.<ref>.supabase.co hosts are IPv6-only on new projects and fail on most home/office networks.
+  if (!host.endsWith('.pooler.supabase.com')) throw new Error('Use the Session pooler connection string (host ends in pooler.supabase.com, port 5432), not the Direct connection.');
   for (const key of ['SUPABASE_AUTH_DATABASE_URL', 'SUPABASE_FINANCIAL_DATABASE_URL']) {
     if (sandbox[key] && !sandbox[key].includes(ref)) throw new Error(`${key} does not belong to the sandbox project.`);
   }
