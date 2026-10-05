@@ -38,3 +38,12 @@ it('confirms expense and expense-payment entries by their expense ID',async()=>{
     expect(readPendingAccounting(storage,entry.staffId)).toBeNull();
   }
 });
+it('confirms quotes by estimate ID and price decisions by request ID',async()=>{
+  for (const [operation,field] of [['quotes','estimate_id'],['price-requests','price_request_id']] as const) {
+    const saved={...entry,operation,requestId:`id-${operation}`};
+    await sendAccountingEntry(storage,saved,async()=>Response.json({success:true,[field]:'id-one'}));
+    expect(readPendingAccounting(storage,entry.staffId)).toBeNull();
+    await expect(sendAccountingEntry(storage,saved,async()=>Response.json({success:true,stock_entry_id:'wrong'}))).rejects.toThrow('Confirmation was incomplete');
+    storage.removeItem(`bomedia-accounting-pending-v1:${entry.staffId}`);
+  }
+});
