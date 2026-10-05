@@ -55,3 +55,13 @@ Migration `202610040008_expense_writes.sql` adds two inactive capabilities and l
 - `POST /api/accounting/expense-payments`: `{requestId, expenseId, businessDate, paymentMethod}`. Verified owner only (matches today's Expenses screen). Dr 2010 / Cr method account; the payment date cannot precede the expense. An expense is paid once.
 
 Imported legacy unpaid expenses have no accrual journal and are refused by the payment capability; they must be settled through evidence-backed opening balances. Restock and waste expenses (written today by the inventory screens) are not covered yet: they belong to the stock workflow so inventory and the ledger move together. Receipt uploads are not linked yet.
+
+## Stock (migration 0009, local only)
+
+Migration `202610040009_stock_writes.sql` adds ledger account `5100 Material waste` and three inactive capabilities. Local PGlite tests only; **not applied to hosted**. Screen: `/cashier/stock` (staff: waste only) and `/bom03/stock` (owner: restock, waste, count).
+
+- `POST /api/accounting/restocks` (owner): `{requestId, materialId, rollCount '1'-'99', rawLengthFt, totalCostKobo, paymentMethod, businessDate, supplier?, reference?}`. Creates whole rolls of an existing material, each keeping the 10 ft setup reserve; cost is split per roll to the kobo (first rolls take the remainder) and spread over usable length. Rolls are labelled `<name> <width>ft - Roll NNN`, continuing the Sheets numbering. Dr 1200 / Cr payment method account. Paid at once only; supplier credit is not supported yet. No `expenses` row is written (Sheets did): a restock is stock, not a running cost.
+- `POST /api/accounting/waste` (any staff): `{requestId, rollId, lengthFt, reason, responsible?, note?, businessDate}`. Only in-stock rolls; no more than what is left. Dr 5100 / Cr 1200 at the roll's purchase cost per usable foot.
+- `POST /api/accounting/stock-counts` (owner): `{requestId, rollId, countedLengthFt, reason, businessDate}`. Sets a roll to its measured length (up to its usable length; must differ). Loss: Dr 5100 / Cr 1200; gain: Dr 1200 / Cr 5100.
+
+Waste and count costs use the same rounded-remaining-value method as tracked sales, so all journals for a roll sum to its purchase cost exactly. Write-offs are refused while 1200 holds less value than the write-off, so imported rolls cannot be wasted or corrected until opening balances are posted. Responses carry `stock_entry_id`.

@@ -3,7 +3,8 @@ import { serializeJsonParameter } from './postgres-json.mjs';
 import { readFile } from 'node:fs/promises';
 
 export type FinancialMethod = 'api_collect' | 'api_read' | 'api_report' | 'api_sale' | 'api_customer' | 'api_payment_methods'
-  | 'api_expense' | 'api_expense_payment' | 'api_expense_categories' | 'api_expenses_awaiting';
+  | 'api_expense' | 'api_expense_payment' | 'api_expense_categories' | 'api_expenses_awaiting'
+  | 'api_restock' | 'api_waste' | 'api_stock_count';
 export type FinancialCall = <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>) => Promise<T>;
 let database: Promise<ReturnType<typeof postgres>> | undefined;
 export function financialApiEnabled(): boolean {
@@ -40,7 +41,7 @@ async function connect() {
   } catch { await sql.end({timeout:2}); throw new Error('Financial database is unavailable'); }
 }
 export const callFinancial: FinancialCall = async <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>): Promise<T> => {
-  if (!['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting'].includes(method)) throw new Error('Unknown financial operation');
+  if (!['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_restock','api_waste','api_stock_count'].includes(method)) throw new Error('Unknown financial operation');
   database ??= connect().catch(error => {database=undefined;throw error;});
   const sql = await database;
   if (method==='api_payment_methods') return (await sql`select bomedia.api_payment_methods() as result`)[0].result as T;

@@ -13,7 +13,7 @@ type Job={id:string;description:string;balance_kobo:string;business_date:string}
 type Method={method:PaymentMethod;label:string};
 type Category={name:string;capital:boolean};
 type AwaitingExpense={id:string;amount_kobo:string;business_date:string|null;category:string;description:string|null;paid_to:string|null;logged_by:string|null;payable:boolean};
-async function records<T>(resource:string,customerId?:string):Promise<T[]> {
+export async function records<T>(resource:string,customerId?:string):Promise<T[]> {
   const result:T[]=[];let cursor:string|null=null;
   const seen=new Set<string>();
   do {
