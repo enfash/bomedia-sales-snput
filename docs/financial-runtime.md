@@ -75,3 +75,11 @@ Migration `202610040010_quotes.sql`. Local PGlite tests only; **not applied to h
 - `GET /api/accounting/price-requests` and `POST /api/accounting/price-requests` `{requestId, priceRequestId, decision: approve|decline, note?}`: owner only.
 - `POST /api/accounting/sales` now also takes `quoteId` and per-job `priceRequestId`. The `api_sale` wrapper verifies the approval (same quote, customer, material, width, height and pieces; status approved), injects the approved unit price into the private tracked-sale core, and marks the quote and approvals used. A quote can be used once. Staff can never send a price: `approvedUnitPriceKobo` is refused at the service, and only the wrapper can set it inside the database.
 - The private core `post_tracked_sale` was re-created with that single change; everything else is identical to migration 0005.
+
+## Services (migration 0011, local only)
+
+Migration `202610040011_services.sql`. Local PGlite tests only; **not applied to hosted**.
+
+- `GET /api/accounting/services`: signed-in staff get visible services; the owner gets all. `POST` (owner only): `{requestId, serviceId?, name, pricing: fixed|per_job, unitPriceKobo (fixed only), visible}`. Names are unique ignoring case and spaces.
+- Sales and quotes accept service items `{serviceId, description, quantity}` (no size). Fixed services bill their list price (`expectedUnitPriceKobo` must match); per-job services bill only an owner-approved price through price requests (quotes refuse a per-job service without one). Hidden services cannot be sold or quoted. Service jobs use no stock, store `jobs.service_id`, and post Dr 1100 / Cr 4000 with no material cost.
+- Migration 0011 re-creates `post_tracked_sale`, `api_quote`, `api_quote_lookup`, `api_sale` and `api_price_requests` with service support; price requests may now point to a service (`service_id`) instead of a material.

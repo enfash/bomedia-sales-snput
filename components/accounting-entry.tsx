@@ -7,14 +7,15 @@ import { lagosBusinessDate,nairaToKobo } from '@/lib/accounting-entry';
 import { normalizePaymentMethod,type PaymentMethod } from '@/lib/payment-methods';
 import { readPendingAccounting,sendAccountingEntry,type AccountingOperation,type PendingAccountingEntry } from '@/lib/accounting-pending';
 import { JobEntry } from '@/components/job-entry';
+import type { JobService } from '@/lib/job-items';
 
 type Customer={id:string;display_name:string;contact:string|null};
 type Material={id:string;name:string;width_ft:string;selling_price_per_sqft_kobo:string;remaining_length_ft:string};
 type Job={id:string;description:string;balance_kobo:string;business_date:string};
 type Method={method:PaymentMethod;label:string};
 type Category={name:string;capital:boolean};
-type PriceRequest={id:string;status:string;pending:boolean;quote_number:string;client_name:string;description:string;material_name:string;width_ft:string;height_ft:string;quantity:string;
-  list_total_kobo:string;requested_total_kobo:string;reason:string;requested_by:string;decision_note:string|null;decided_at:string|null;created_at:string};
+type PriceRequest={id:string;status:string;pending:boolean;quote_number:string;client_name:string;description:string;material_name:string;is_service:boolean;width_ft:string|null;height_ft:string|null;quantity:string;
+  list_total_kobo:string|null;requested_total_kobo:string;reason:string;requested_by:string;decision_note:string|null;decided_at:string|null;created_at:string};
 type AwaitingExpense={id:string;amount_kobo:string;business_date:string|null;category:string;description:string|null;paid_to:string|null;logged_by:string|null;payable:boolean};
 export async function records<T>(resource:string,customerId?:string):Promise<T[]> {
   const result:T[]=[];let cursor:string|null=null;
@@ -40,6 +41,7 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
   const [jobs,setJobs]=useState<Job[]>([]),[jobIds,setJobIds]=useState<string[]>([]);
   const [name,setName]=useState(''),[contact,setContact]=useState('');
   const [priceRequests,setPriceRequests]=useState<PriceRequest[]>([]),[decisionNotes,setDecisionNotes]=useState<Record<string,string>>({});
+  const [services,setServices]=useState<JobService[]>([]),[serviceForm,setServiceForm]=useState<{id?:string;name:string;pricing:'fixed'|'per_job';price:string;visible:boolean}|null>(null);
   const [businessDate,setBusinessDate]=useState(()=>lagosBusinessDate()),[amount,setAmount]=useState('0'),[method,setMethod]=useState<PaymentMethod|''>('');
   const [pending,setPending]=useState<PendingAccountingEntry|null>(null),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[jobsReady,setJobsReady]=useState(false);
   const [error,setError]=useState(''),[success,setSuccess]=useState('');
@@ -52,7 +54,10 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
       records<Method>('payment_methods'),records<Category>('expense_categories'),isOwner ? records<AwaitingExpense>('expenses_awaiting') : Promise.resolve([]),
       isOwner ? fetch('/api/accounting/price-requests',{cache:'no-store'}).then(async response=>{const page=await response.json();
         if(!response.ok || !Array.isArray(page.data))throw new Error(page.error || 'Price requests could not be loaded.');return page.data as PriceRequest[];}) : Promise.resolve([])]);
-    setCustomers(nextCustomers);setMaterials(nextMaterials);setMethods(nextMethods);setCategories(nextCategories);setAwaiting(nextAwaiting);setPriceRequests(nextRequests);setReady(true);
+    const serviceResponse=await fetch('/api/accounting/services',{cache:'no-store'}),servicePage=await serviceResponse.json();
+    if(!serviceResponse.ok || !Array.isArray(servicePage.data))throw new Error(servicePage.error || 'Services could not be loaded.');
+    setCustomers(nextCustomers);setMaterials(nextMaterials);setMethods(nextMethods);setCategories(nextCategories);setAwaiting(nextAwaiting);setPriceRequests(nextRequests);
+    setServices(servicePage.data as JobService[]);setReady(true);
   },[isOwner]);
   useEffect(()=>{
     // Hydrate private device storage after SSR; submissions stay disabled until records load.
@@ -78,8 +83,9 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
         // Another tab may have saved an entry after this page loaded.
         const result=await sendAccountingEntry(localStorage,entry);
         setPending(null);requestId.current=null;
-        const confirmedId=String(result.quote_number||result.customer_id||result.order_id||result.payment_id||result.expense_id||result.price_request_id);
-        setSuccess(entry.operation==='quotes' ? `Quote ${confirmedId} saved.` : entry.operation==='price-requests' ? `Price ${String(result.status)}.`
+        const confirmedId=String(result.quote_number||result.customer_id||result.order_id||result.payment_id||result.expense_id||result.price_request_id||result.service_id);
+        if(entry.operation==='services')setServiceForm(null);
+        setSuccess(entry.operation==='quotes' ? `Quote ${confirmedId} saved.` : entry.operation==='price-requests' ? `Price ${String(result.status)}.` : entry.operation==='services' ? 'Service saved.'
           : `${entry.operation==='customers' ? 'Customer created' : entry.operation==='expense-payments' ? 'Expense marked paid' : 'Recorded'} successfully. Reference: ${confirmedId}`);
         setPayee('');setExpenseNote('');setPayingId('');setPayMethod('');
         setAmount('0');setMethod('');setJobIds([]);setName('');setContact('');
@@ -98,6 +104,15 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
     const note=(decisionNotes[request.id] ?? '').trim();
     void dispatch({version:1,staffId,operation:'price-requests',requestId:crypto.randomUUID(),payload:{priceRequestId:request.id,decision,...(note ? {note} : {})},
       summary:`${decision==='approve' ? 'Approve' : 'Decline'} ${formatKobo(request.requested_total_kobo)} for ${request.description} (${request.quote_number})`});
+  }
+  function saveServiceForm() {
+    if(!serviceForm || !ready || locked)return;
+    const price=nairaToKobo(serviceForm.price);
+    if(!serviceForm.name.trim()){setError('Name the service.');return;}
+    if(serviceForm.pricing==='fixed'&&(!price||price==='0')){setError('Enter the price each.');return;}
+    void dispatch({version:1,staffId,operation:'services',requestId:crypto.randomUUID(),
+      payload:{...(serviceForm.id ? {serviceId:serviceForm.id} : {}),name:serviceForm.name.trim(),pricing:serviceForm.pricing,visible:serviceForm.visible,
+        ...(serviceForm.pricing==='fixed' ? {unitPriceKobo:price} : {})},summary:`Save service: ${serviceForm.name.trim()}`});
   }
   function expenseSummary(kobo:string) {
     const how=expenseStatus==='paid' ? `paid by ${methods.find(m=>m.method===method)?.label ?? '…'}` : 'not yet paid';
@@ -155,7 +170,7 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
           <ToggleButton value="sales">Job</ToggleButton><ToggleButton value="payments">Payment</ToggleButton>
           <ToggleButton value="expenses">Expense</ToggleButton><ToggleButton value="customers">Customer</ToggleButton>
         </ToggleButtonGroup>
-        {operation==='sales' ? <JobEntry staffId={staffId} customers={customers} materials={materials} methods={methods} ready={ready} locked={locked}
+        {operation==='sales' ? <JobEntry staffId={staffId} customers={customers} materials={materials} services={services.filter(x=>x.visible)} methods={methods} ready={ready} locked={locked}
           businessDate={businessDate} setBusinessDate={setBusinessDate} dispatch={dispatch} onError={setError}/> :
         <Box component="form" onSubmit={submit}>
           <Stack spacing={2.5}>
@@ -209,6 +224,34 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
         </Box>}
       </Paper>
       {isOwner&&<Paper variant="outlined" sx={{p:{xs:2,md:3}}}>
+        <Typography variant="h6" component="h2" sx={{fontWeight:800}}>Services</Typography>
+        <Typography color="text.secondary" sx={{mb:2}}>What staff can sell besides printing. A price change applies to new quotes and jobs only. Services use no roll stock.</Typography>
+        <Stack spacing={1.25}>
+          {services.map(x=><Paper key={x.id} variant="outlined" sx={{p:2,display:'flex',justifyContent:'space-between',alignItems:'center',gap:2,...(x.visible ? {} : {borderStyle:'dashed',bgcolor:'action.hover'})}}>
+            <Box><Typography sx={{fontWeight:700}} color={x.visible ? undefined : 'text.secondary'}>{x.name}</Typography>
+              <Typography variant="body2" color="text.secondary">{!x.visible ? 'Hidden from staff' : x.pricing==='fixed' ? `Fixed · ${formatKobo(x.unit_price_kobo!)} each` : 'Priced per job · needs your approval'}</Typography></Box>
+            <Button variant="outlined" disabled={locked} onClick={()=>setServiceForm({id:x.id,name:x.name,pricing:x.pricing,price:x.unit_price_kobo ? (Number(x.unit_price_kobo)/100).toString() : '',visible:x.visible})}>Edit</Button>
+          </Paper>)}
+          {!services.length&&<Typography color="text.secondary">{ready ? 'No services yet.' : 'Loading…'}</Typography>}
+          {serviceForm ? <Paper variant="outlined" sx={{p:2,borderColor:'primary.main',borderWidth:2}}><Stack spacing={1.5}>
+            <Typography sx={{fontWeight:800}}>{serviceForm.id ? 'Edit service' : 'Add a service'}</Typography>
+            <TextField label="Name" value={serviceForm.name} disabled={locked} onChange={event=>setServiceForm({...serviceForm,name:event.target.value})} slotProps={{htmlInput:{maxLength:100}}}/>
+            <Box component="fieldset" sx={{border:0,m:0,p:0}}>
+              <Typography component="legend" sx={{fontWeight:600,mb:1}}>How is it priced?</Typography>
+              <ToggleButtonGroup exclusive fullWidth color="primary" value={serviceForm.pricing} disabled={locked} onChange={(_,value:'fixed'|'per_job'|null)=>{if(value)setServiceForm({...serviceForm,pricing:value});}}>
+                <ToggleButton value="fixed">Fixed price</ToggleButton><ToggleButton value="per_job">Per job, I approve</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            {serviceForm.pricing==='fixed'&&<TextField label="Price each (₦)" value={serviceForm.price} disabled={locked} onChange={event=>setServiceForm({...serviceForm,price:event.target.value})} slotProps={{htmlInput:{inputMode:'decimal'}}}/>}
+            <FormControlLabel control={<Checkbox checked={serviceForm.visible} disabled={locked} onChange={(_,checked)=>setServiceForm({...serviceForm,visible:checked})}/>} label="Staff can use it"/>
+            <Stack direction="row" spacing={1}>
+              <Button fullWidth variant="outlined" disabled={locked} onClick={()=>setServiceForm(null)}>Cancel</Button>
+              <Button fullWidth variant="contained" disabled={!ready||locked} onClick={saveServiceForm}>Save service</Button>
+            </Stack>
+          </Stack></Paper> : <Button variant="outlined" disabled={!ready||locked} onClick={()=>setServiceForm({name:'',pricing:'fixed',price:'',visible:true})}>+ Add a service</Button>}
+        </Stack>
+      </Paper>}
+      {isOwner&&<Paper variant="outlined" sx={{p:{xs:2,md:3}}}>
         <Typography variant="h6" component="h2" sx={{fontWeight:800}}>Price requests</Typography>
         <Typography color="text.secondary" sx={{mb:2}}>{priceRequests.filter(r=>r.pending).length} waiting</Typography>
         <Stack spacing={1.5}>
@@ -219,11 +262,11 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
               <Typography variant="body2" color="text.secondary">{new Date(r.created_at).toLocaleString('en-NG',{timeZone:'Africa/Lagos',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'})} · {r.requested_by}</Typography>
             </Stack>
             <Typography sx={{fontWeight:700,mt:1}}>{r.description}</Typography>
-            <Typography variant="body2" color="text.secondary">{r.material_name} · {r.width_ft} × {r.height_ft} ft · {r.quantity} piece{r.quantity==='1' ? '' : 's'}</Typography>
+            <Typography variant="body2" color="text.secondary">{r.is_service ? `${r.material_name} · ${r.quantity}` : `${r.material_name} · ${r.width_ft} × ${r.height_ft} ft · ${r.quantity} piece${r.quantity==='1' ? '' : 's'}`}</Typography>
             <Box sx={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:1,my:1.5}}>
-              <Paper variant="outlined" sx={{p:1.25,bgcolor:'action.hover'}}><Typography variant="caption" color="text.secondary">List price</Typography><Typography sx={{fontWeight:800}}>{formatKobo(r.list_total_kobo)}</Typography></Paper>
+              <Paper variant="outlined" sx={{p:1.25,bgcolor:'action.hover'}}><Typography variant="caption" color="text.secondary">List price</Typography><Typography sx={{fontWeight:800}}>{r.list_total_kobo ? formatKobo(r.list_total_kobo) : 'Priced per job'}</Typography></Paper>
               <Paper variant="outlined" sx={{p:1.25,borderColor:'warning.main'}}><Typography variant="caption">Asked</Typography><Typography sx={{fontWeight:800}}>{formatKobo(r.requested_total_kobo)}</Typography>
-                <Typography variant="caption">{Math.abs(Math.round((1-Number(r.requested_total_kobo)/Number(r.list_total_kobo))*100))}% {Number(r.requested_total_kobo)<Number(r.list_total_kobo) ? 'less' : 'more'}</Typography></Paper>
+                {r.list_total_kobo&&<Typography variant="caption">{Math.abs(Math.round((1-Number(r.requested_total_kobo)/Number(r.list_total_kobo))*100))}% {Number(r.requested_total_kobo)<Number(r.list_total_kobo) ? 'less' : 'more'}</Typography>}</Paper>
             </Box>
             <Typography sx={{mb:1.5}}>“{r.reason}”</Typography>
             <TextField label="Note to staff (optional)" size="small" fullWidth value={decisionNotes[r.id] ?? ''} disabled={locked} onChange={event=>setDecisionNotes(notes=>({...notes,[r.id]:event.target.value}))} slotProps={{htmlInput:{maxLength:500}}}/>
