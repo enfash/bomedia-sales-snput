@@ -53,3 +53,10 @@ it('restricts period reports to the verified owner',async()=>{
   expect(mocks.report).not.toHaveBeenCalled();mocks.admin.mockResolvedValue('owner@example.test');mocks.report.mockResolvedValue({period_profit_kobo:'0'});
   expect((await readAccountingReport(request)).status).toBe(200);expect(mocks.report).toHaveBeenCalledWith('2026-10-05','2026-10-05');
 });
+
+it('keeps the expenses-awaiting list owner-only',async()=>{
+  const request=new Request('https://app.example.test/api/accounting/records?resource=expenses_awaiting');
+  mocks.session.mockResolvedValue({staff_id:id});expect((await readFinancialRecords(request)).status).toBe(403);
+  expect(mocks.read).not.toHaveBeenCalled();mocks.admin.mockResolvedValue('owner@example.test');mocks.read.mockResolvedValue({data:[],next_after_id:null});
+  expect((await readFinancialRecords(request)).status).toBe(200);
+});

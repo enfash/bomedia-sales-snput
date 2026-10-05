@@ -1,6 +1,6 @@
 # BOMedia migration handoff
 
-Updated 4 October 2026, 22:45 (Africa/Lagos), by Claude after Codex stopped. Branch: `codex/supabase-migration`. Work is uncommitted; preserve the current working tree. The live app still uses Google Sheets. No production switch is complete.
+Updated 5 October 2026, 07:30 (Africa/Lagos), by Claude. Branch: `codex/supabase-migration`. Work is uncommitted; preserve the current working tree. The live app still uses Google Sheets. No production switch is complete.
 
 ## Completed and verified
 
@@ -10,6 +10,7 @@ Updated 4 October 2026, 22:45 (Africa/Lagos), by Claude after Codex stopped. Bra
 - Fifteen starter accounting accounts; balanced immutable journals, standalone reversals and atomic receipt/allocation/journal posting. No opening books or journals posted.
 - Underpayments remain exact debt, including one kobo. No automatic discount or write-off. Excess collections are rejected until a deposit/credit policy is implemented.
 - Local PostgreSQL authentication adapters, throttling, revocable sessions, staff management and offline authorization-pause behavior. Authentication still defaults to Sheets.
+- 5 Oct 07:30: Expense screen built (inactive). The accounting entry screen now has Job / Payment / Expense / Customer tabs; Expense records paid or unpaid expenses with server categories and a Restock link for rolls; the owner sees "Expenses awaiting payment" on the same screen with Mark paid (method + date), and legacy Sheets unpaid expenses listed separately as opening-balance items. New owner-only read `records?resource=expenses_awaiting` (`bomedia.api_expenses_awaiting`, in `0008`). Offline queue handles `expenses` and `expense-payments`. 229 tests, TypeScript and lint pass in the Linux copy; **run `npm run build` on the Mac**. Screen not yet seen running: it needs the flags on against a non-production database.
 - 23:15: category mapping added after the Mac checks; 227 tests, TypeScript and lint pass in the Linux copy (build not re-run).
 - Latest full-suite checks (23:02, owner's Mac): `npm test` 226 tests in 24 files passed; `npm run build` passed (Next.js 16.3.8, TypeScript included) with the new expense routes listed; `tsconfig.json` stayed clean. The lock now resolves Next.js 16.3.8 (HEAD had 16.2.9; same `^16.2.9` range). Provisioning script syntax/lint passed.
 
@@ -49,7 +50,7 @@ Login/reset/disable/logout/revocation; database outage without fallback; exact s
 ## Next concrete implementation step
 
 1. Mac checks are done (23:02). Review `npm audit` (5 high) separately; do not run `npm audit fix --force`. Commit the working tree once the owner agrees, without `migration-data` or secrets.
-2. Add Expense to the accounting entry screen (`components/accounting-entry.tsx`, operation `expenses`, extend `lib/accounting-pending.ts` operations and success-ID check for `expense_id`) and an owner "Expenses awaiting payment" screen. Design mock is the Claude canvas "BOMedia Expense Entry" (cashier paid, cashier unpaid + saved-entry retry, owner mark-paid); build once the owner approves it.
+2. Expense screen done (owner approved the canvas "BOMedia Expense Entry" and Equipment-as-asset on 5 Oct). Still to do for it: see it running against a test database, and point the old Expenses screens at it at cutover.
 3. Build the stock (restock/waste) and estimate write adapters in the same pattern, then non-stock/manual-priced sales.
 4. Connect the existing screens to the new accounting endpoints. Keep the old Sheets routes authoritative until this is complete. Replace the two-request legacy payment flow with the single accounting endpoint; preserve queued entries and require mapping for old row references. Add explicit customer selection/creation, cash/bank-account selection, exact balance display and stale-quote review. Non-stock/manual-priced services and accounting corrections need explicit supported workflows before cutover.
 
@@ -57,7 +58,7 @@ Local flags were checked (unchanged this session): `AUTH_BACKEND` resolves to `s
 
 ## Owner inputs pending
 
-Closing time and earliest customer arrival; Monday opening confirmed as 9:00 a.m. with possible earlier customers; phones with unsynced entries; real cash/bank account names and closing balances; evidence for customer debts/credits, supplier balances and stock/other opening balances. Confirm the expense design (and whether Equipment should be capitalised or expensed): unpaid expenses held in `2010 Expenses awaiting payment` and only the owner marks them paid. Never request banking credentials. Unknown/disputed amounts remain explicit.
+Closing time and earliest customer arrival; Monday opening confirmed as 9:00 a.m. with possible earlier customers; phones with unsynced entries; real cash/bank account names and closing balances; evidence for customer debts/credits, supplier balances and stock/other opening balances. Expense design and Equipment-as-asset confirmed 5 Oct. unpaid expenses held in `2010 Expenses awaiting payment` and only the owner marks them paid. Never request banking credentials. Unknown/disputed amounts remain explicit.
 
 The target is Monday, 5 October 2026 accounting. If deployment is not ready, preserve Monday transactions in the working system and migrate each exactly once. The October 3 snapshot is rehearsal evidence, not final opening books. Full historical reconstruction (845 unresolved payment rows / 334 review cases) is not required where opening balances can be independently established.
 

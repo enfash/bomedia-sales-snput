@@ -127,6 +127,18 @@ begin
   insert into bomedia.audit_events(actor_id,action,entity_type,entity_id) values(actor,'expense_paid','expense',target.id);
   return result;
 end $$;
-revoke all on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb),bomedia.api_expense_categories() from public;
-grant execute on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb),bomedia.api_expense_categories() to bomedia_financial_runtime;
+-- Owner list of unpaid expenses. payable=false marks legacy rows without an
+-- accrual journal; they are shown but must be settled via opening balances.
+create function bomedia.api_expenses_awaiting() returns jsonb
+language sql security definer set search_path=pg_catalog,bomedia as $$
+  select jsonb_build_object('data',coalesce(jsonb_agg(to_jsonb(r) order by r.business_date nulls first,r.id),'[]'),'next_after_id',null) from
+    (select e.id,e.amount_kobo::text as amount_kobo,e.business_date,e.category,e.description,e.paid_to,
+      coalesce(s.display_name,e.logged_by_snapshot) as logged_by,
+      exists(select 1 from bomedia.journal_entries j join bomedia.journal_lines l on l.entry_id=j.id
+        where j.source_type='expense' and j.source_id=e.id and j.status='posted' and l.account_code='2010') as payable
+     from bomedia.expenses e left join bomedia.staff s on s.id=e.logged_by
+     where e.status='Unpaid' order by e.business_date nulls first,e.id limit 500) r
+$$;
+revoke all on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb),bomedia.api_expense_categories(),bomedia.api_expenses_awaiting() from public;
+grant execute on function bomedia.api_expense(text,jsonb),bomedia.api_expense_payment(text,jsonb),bomedia.api_expense_categories(),bomedia.api_expenses_awaiting() to bomedia_financial_runtime;
 commit;

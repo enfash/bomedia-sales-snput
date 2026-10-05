@@ -42,6 +42,9 @@ export function readFinancialRecords(request: Request) {
   return financialHandler(async()=>{
     await financialIdentity(false);
     const params=new URL(request.url).searchParams;
+    if (params.get('resource')==='expenses_awaiting' && !await verifiedAdminIdentity()) {
+      throw new FinancialError('Owner access is required for expenses awaiting payment.',403,'OWNER_REQUIRED');
+    }
     const allowed=new Set(['resource','limit','after_id','customer_id']);
     if (Array.from(params.keys()).some(k=>!allowed.has(k) || params.getAll(k).length!==1)) {
       throw new FinancialError('Invalid accounting filters.',400,'INVALID_INPUT');

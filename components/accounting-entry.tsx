@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback,useEffect,useRef,useState } from 'react';
-import { Alert,Box,Button,Checkbox,FormControlLabel,MenuItem,Paper,Stack,TextField,Typography } from '@mui/material';
+import { Alert,Box,Button,Checkbox,FormControlLabel,Link,MenuItem,Paper,Stack,TextField,ToggleButton,ToggleButtonGroup,Typography } from '@mui/material';
 import { formatKobo,hasOutstandingKobo } from '@/lib/accounting-money';
 import { lagosBusinessDate,nairaToKobo,quotedUnitPrice } from '@/lib/accounting-entry';
 import { normalizePaymentMethod,type PaymentMethod } from '@/lib/payment-methods';
@@ -11,6 +11,8 @@ type Customer={id:string;display_name:string;contact:string|null};
 type Material={id:string;name:string;width_ft:string;selling_price_per_sqft_kobo:string};
 type Job={id:string;description:string;balance_kobo:string;business_date:string};
 type Method={method:PaymentMethod;label:string};
+type Category={name:string;capital:boolean};
+type AwaitingExpense={id:string;amount_kobo:string;business_date:string|null;category:string;description:string|null;paid_to:string|null;logged_by:string|null;payable:boolean};
 async function records<T>(resource:string,customerId?:string):Promise<T[]> {
   const result:T[]=[];let cursor:string|null=null;
   const seen=new Set<string>();
@@ -28,7 +30,7 @@ async function records<T>(resource:string,customerId?:string):Promise<T[]> {
 }
 const message=(error:unknown)=>error instanceof Error ? error.message : 'The entry is saved on this device. Retry when connected.';
 
-export function AccountingEntry({staffId}:{staffId:string}) {
+export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?:boolean}) {
   const [operation,setOperation]=useState<AccountingOperation>('sales');
   const [customers,setCustomers]=useState<Customer[]>([]),[materials,setMaterials]=useState<Material[]>([]),[methods,setMethods]=useState<Method[]>([]);
   const [customerId,setCustomerId]=useState(''),[materialId,setMaterialId]=useState('');
@@ -38,11 +40,15 @@ export function AccountingEntry({staffId}:{staffId:string}) {
   const [businessDate,setBusinessDate]=useState(()=>lagosBusinessDate()),[amount,setAmount]=useState('0'),[method,setMethod]=useState<PaymentMethod|''>('');
   const [pending,setPending]=useState<PendingAccountingEntry|null>(null),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[jobsReady,setJobsReady]=useState(false);
   const [error,setError]=useState(''),[success,setSuccess]=useState('');
+  const [categories,setCategories]=useState<Category[]>([]),[category,setCategory]=useState(''),[expenseStatus,setExpenseStatus]=useState<'paid'|'unpaid'>('paid');
+  const [payee,setPayee]=useState(''),[expenseNote,setExpenseNote]=useState('');
+  const [awaiting,setAwaiting]=useState<AwaitingExpense[]>([]),[payingId,setPayingId]=useState(''),[payMethod,setPayMethod]=useState<PaymentMethod|''>(''),[payDate,setPayDate]=useState(()=>lagosBusinessDate());
   const requestId=useRef<string|null>(null);
   const reload=useCallback(async()=>{
-    const [nextCustomers,nextMaterials,nextMethods]=await Promise.all([records<Customer>('customers'),records<Material>('materials'),records<Method>('payment_methods')]);
-    setCustomers(nextCustomers);setMaterials(nextMaterials);setMethods(nextMethods);setReady(true);
-  },[]);
+    const [nextCustomers,nextMaterials,nextMethods,nextCategories,nextAwaiting]=await Promise.all([records<Customer>('customers'),records<Material>('materials'),
+      records<Method>('payment_methods'),records<Category>('expense_categories'),isOwner ? records<AwaitingExpense>('expenses_awaiting') : Promise.resolve([])]);
+    setCustomers(nextCustomers);setMaterials(nextMaterials);setMethods(nextMethods);setCategories(nextCategories);setAwaiting(nextAwaiting);setReady(true);
+  },[isOwner]);
   useEffect(()=>{
     // Hydrate private device storage after SSR; submissions stay disabled until records load.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -70,8 +76,9 @@ export function AccountingEntry({staffId}:{staffId:string}) {
         // Another tab may have saved an entry after this page loaded.
         const result=await sendAccountingEntry(localStorage,entry);
         setPending(null);requestId.current=null;
-        const confirmedId=String(result.customer_id||result.order_id||result.payment_id);
-        setSuccess(`${entry.operation==='customers' ? 'Customer created' : 'Recorded'} successfully. Reference: ${confirmedId}`);
+        const confirmedId=String(result.customer_id||result.order_id||result.payment_id||result.expense_id);
+        setSuccess(`${entry.operation==='customers' ? 'Customer created' : entry.operation==='expense-payments' ? 'Expense marked paid' : 'Recorded'} successfully. Reference: ${confirmedId}`);
+        setPayee('');setExpenseNote('');setPayingId('');setPayMethod('');
         setAmount('0');setMethod('');setDescription('');setWidth('');setHeight('');setQuantity('1');setJobIds([]);setName('');setContact('');
         if(entry.operation==='customers') {setCustomerId(String(result.customer_id));setOperation('sales');setJobsReady(false);setJobs([]);}
         try {await reload();}catch {setError('The entry was recorded, but the list could not refresh. Refresh before entering another transaction.');setReady(false);}
@@ -81,11 +88,33 @@ export function AccountingEntry({staffId}:{staffId:string}) {
       try {setPending(readPendingAccounting(localStorage,staffId));}catch {setReady(false);}
     } finally {setBusy(false);}
   }
+  function expenseSummary(kobo:string) {
+    const how=expenseStatus==='paid' ? `paid by ${methods.find(m=>m.method===method)?.label ?? '…'}` : 'not yet paid';
+    return `${formatKobo(kobo)} ${category || '…'}, ${how} on ${businessDate}`;
+  }
+  function payExpense(expense:AwaitingExpense) {
+    setError('');
+    if(!ready || locked || !expense.payable)return;
+    if(!normalizePaymentMethod(payMethod)||!methods.some(m=>m.method===payMethod)){setError('Choose how the expense was paid.');return;}
+    if(expense.business_date && payDate<expense.business_date){setError('The payment date cannot be before the expense date.');return;}
+    requestId.current??=crypto.randomUUID();
+    void dispatch({version:1,staffId,operation:'expense-payments',requestId:requestId.current,
+      payload:{expenseId:expense.id,businessDate:payDate,paymentMethod:payMethod},
+      summary:`Paid ${formatKobo(expense.amount_kobo)} ${expense.category} by ${methods.find(m=>m.method===payMethod)?.label} on ${payDate}`});
+  }
   function submit(event:React.FormEvent) {
     event.preventDefault();setError('');
     if(!ready || locked)return;
     let payload:Record<string,unknown>,summary:string;
-    if(operation==='customers') {
+    if(operation==='expenses') {
+      const kobo=nairaToKobo(amount);
+      if(kobo===null || kobo==='0'){setError('Enter the amount spent, with up to two decimal places.');return;}
+      if(!categories.some(c=>c.name===category)){setError('Choose a category. Roll and material purchases go through Restock.');return;}
+      if(expenseStatus==='paid' && (!normalizePaymentMethod(method)||!methods.some(m=>m.method===method))){setError('Choose Cash, Transfer or POS.');return;}
+      payload={businessDate,amountKobo:kobo,category,status:expenseStatus,...(payee.trim() ? {paidTo:payee.trim()} : {}),
+        ...(expenseNote.trim() ? {description:expenseNote.trim()} : {}),...(expenseStatus==='paid' ? {paymentMethod:method} : {})};
+      summary=expenseSummary(kobo);
+    } else if(operation==='customers') {
       if(!name.trim()){setError('Enter the customer name.');return;}
       payload={name:name.trim(),...(contact.trim() ? {contact:contact.trim()} : {})};summary=`New customer: ${name.trim()}`;
     } else {
@@ -107,7 +136,7 @@ export function AccountingEntry({staffId}:{staffId:string}) {
   }
   return <Box sx={{p:{xs:2,md:4},pb:12,maxWidth:780,mx:'auto'}}>
     <Typography variant="h4" component="h1" sx={{mb:1,fontWeight:800}}>Accounting entry</Typography>
-    <Typography color="text.secondary" sx={{mb:3}}>Record a print job or collect payment against existing jobs.</Typography>
+    <Typography color="text.secondary" sx={{mb:3}}>Record a print job, a customer payment or an expense.</Typography>
     <Stack spacing={2}>
       {error&&<Alert severity="error">{error}</Alert>}
       {success&&<Alert severity="success">{success}</Alert>}
@@ -116,10 +145,37 @@ export function AccountingEntry({staffId}:{staffId:string}) {
       <Paper variant="outlined" sx={{p:{xs:2,md:3}}}>
         <Box component="form" onSubmit={submit}>
           <Stack spacing={2.5}>
-            <TextField select label="What are you recording?" value={operation} disabled={locked} onChange={event=>{setOperation(event.target.value as AccountingOperation);setAmount('0');setMethod('');setSuccess('');}}>
-              <MenuItem value="sales">New print job</MenuItem><MenuItem value="payments">Customer payment</MenuItem><MenuItem value="customers">New customer</MenuItem>
-            </TextField>
-            {operation==='customers' ? <>
+            <ToggleButtonGroup exclusive fullWidth color="primary" aria-label="What are you recording?" value={operation} disabled={locked}
+              onChange={(_,value:AccountingOperation|null)=>{if(!value)return;setOperation(value);setAmount('0');setMethod('');setSuccess('');}}>
+              <ToggleButton value="sales">Job</ToggleButton><ToggleButton value="payments">Payment</ToggleButton>
+              <ToggleButton value="expenses">Expense</ToggleButton><ToggleButton value="customers">Customer</ToggleButton>
+            </ToggleButtonGroup>
+            {operation==='expenses' ? <>
+              <TextField label="Amount spent (₦)" value={amount} required disabled={locked} onChange={event=>setAmount(event.target.value)} slotProps={{htmlInput:{inputMode:'decimal'}}}/>
+              <TextField select label="Category" value={category} required disabled={!ready||locked} onChange={event=>setCategory(event.target.value)}
+                helperText={<>Buying SAV, flex or other rolls? Record it in <Link href={isOwner ? '/bom03/inventory' : '/cashier/inventory'}>Inventory → Restock</Link> so the stock count stays right.</>}>
+                {categories.map(c=><MenuItem key={c.name} value={c.name}>{c.name}{c.capital ? ' (asset)' : ''}</MenuItem>)}
+              </TextField>
+              <Box component="fieldset" sx={{border:0,m:0,p:0}}>
+                <Typography component="legend" sx={{fontWeight:600,mb:1}}>Has it been paid?</Typography>
+                <ToggleButtonGroup exclusive fullWidth color="primary" value={expenseStatus} disabled={locked} onChange={(_,value:'paid'|'unpaid'|null)=>{if(value){setExpenseStatus(value);setMethod('');}}}>
+                  <ToggleButton value="paid">Paid now</ToggleButton><ToggleButton value="unpaid">Not yet paid</ToggleButton>
+                </ToggleButtonGroup>
+                {expenseStatus==='unpaid'&&<Typography variant="body2" color="text.secondary" sx={{mt:1}}>The owner marks it paid later and chooses Cash, Transfer or POS then.</Typography>}
+              </Box>
+              {expenseStatus==='paid'&&<Box component="fieldset" sx={{border:0,m:0,p:0}}>
+                <Typography component="legend" sx={{fontWeight:600,mb:1}}>Paid from</Typography>
+                <ToggleButtonGroup exclusive fullWidth color="primary" value={method} disabled={!ready||locked} onChange={(_,value:PaymentMethod|null)=>setMethod(value||'')}>
+                  {methods.map(m=><ToggleButton key={m.method} value={m.method}>{m.label}</ToggleButton>)}
+                </ToggleButtonGroup>
+              </Box>}
+              <Stack direction={{xs:'column',sm:'row'}} spacing={2}>
+                <TextField type="date" label="Date" value={businessDate} required disabled={locked} onChange={event=>setBusinessDate(event.target.value)} slotProps={{inputLabel:{shrink:true}}} fullWidth/>
+                <TextField label={expenseStatus==='paid' ? 'Paid to (optional)' : 'Owed to (optional)'} value={payee} disabled={locked} onChange={event=>setPayee(event.target.value)} slotProps={{htmlInput:{maxLength:200}}} fullWidth/>
+              </Stack>
+              <TextField label="What was it for? (optional)" value={expenseNote} disabled={locked} onChange={event=>setExpenseNote(event.target.value)} slotProps={{htmlInput:{maxLength:1000}}}/>
+              {nairaToKobo(amount)!==null&&nairaToKobo(amount)!=='0'&&<Alert severity="info" icon={false}>You are recording {expenseSummary(nairaToKobo(amount)!)}</Alert>}
+            </> : operation==='customers' ? <>
               <TextField label="Customer name" value={name} required disabled={locked} onChange={event=>setName(event.target.value)} slotProps={{htmlInput:{maxLength:200}}}/>
               <TextField label="Phone or contact (optional)" value={contact} disabled={locked} onChange={event=>setContact(event.target.value)} slotProps={{htmlInput:{maxLength:200}}}/>
               <Typography variant="body2" color="text.secondary">Use the existing customer when possible. Creating a new customer keeps their jobs and payments separate, even when names match.</Typography>
@@ -150,10 +206,41 @@ export function AccountingEntry({staffId}:{staffId:string}) {
                 <MenuItem value="" disabled>Choose a method</MenuItem>{methods.map(m=><MenuItem key={m.method} value={m.method}>{m.label}</MenuItem>)}
               </TextField>}
             </>}
-            <Button type="submit" variant="contained" disabled={!ready||locked}>{busy ? 'Saving…' : operation==='customers' ? 'Create customer' : operation==='sales' ? 'Record job' : 'Record payment'}</Button>
+            <Button type="submit" variant="contained" disabled={!ready||locked}>{busy ? 'Saving…' : pending ? 'Finish the saved entry first' : operation==='customers' ? 'Create customer' : operation==='sales' ? 'Record job' : operation==='expenses' ? 'Record expense' : 'Record payment'}</Button>
           </Stack>
         </Box>
       </Paper>
+      {isOwner&&<Paper variant="outlined" sx={{p:{xs:2,md:3}}}>
+        <Typography variant="h6" component="h2" sx={{fontWeight:800}}>Expenses awaiting payment</Typography>
+        <Typography color="text.secondary" sx={{mb:2}}>Still to pay: {formatKobo(awaiting.filter(e=>e.payable).reduce((sum,e)=>sum+BigInt(e.amount_kobo),BigInt(0)).toString())}</Typography>
+        <Stack spacing={1.5}>
+          {!awaiting.some(e=>e.payable)&&<Typography color="text.secondary">{ready ? 'Nothing waiting to be paid.' : 'Loading…'}</Typography>}
+          {awaiting.filter(e=>e.payable).map(e=><Paper key={e.id} variant="outlined" sx={{p:2}}>
+            <Stack direction="row" spacing={2} sx={{justifyContent:"space-between"}}>
+              <Box><Typography sx={{fontWeight:700}}>{e.category}</Typography>
+                <Typography variant="body2" color="text.secondary">{[e.paid_to,e.description,e.business_date,e.logged_by ? `logged by ${e.logged_by}` : null].filter(Boolean).join(' · ')}</Typography></Box>
+              <Typography sx={{fontWeight:800,whiteSpace:'nowrap'}}>{formatKobo(e.amount_kobo)}</Typography>
+            </Stack>
+            {payingId===e.id ? <Stack spacing={1.5} sx={{mt:2}}>
+              <ToggleButtonGroup exclusive fullWidth color="primary" aria-label="Paid from" value={payMethod} disabled={locked} onChange={(_,value:PaymentMethod|null)=>setPayMethod(value||'')}>
+                {methods.map(m=><ToggleButton key={m.method} value={m.method}>{m.label}</ToggleButton>)}
+              </ToggleButtonGroup>
+              <TextField type="date" label="Payment date" value={payDate} disabled={locked} onChange={event=>setPayDate(event.target.value)} slotProps={{inputLabel:{shrink:true}}}/>
+              <Stack direction="row" spacing={1}>
+                <Button fullWidth variant="outlined" disabled={locked} onClick={()=>{setPayingId('');setPayMethod('');}}>Cancel</Button>
+                <Button fullWidth variant="contained" disabled={!ready||locked} onClick={()=>payExpense(e)}>Confirm paid</Button>
+              </Stack>
+            </Stack> : <Button sx={{mt:1.5}} variant="outlined" disabled={locked} onClick={()=>{requestId.current=null;setPayingId(e.id);setPayMethod('');setError('');}}>Mark paid</Button>}
+          </Paper>)}
+          {awaiting.some(e=>!e.payable)&&<>
+            <Typography variant="subtitle2" color="text.secondary" sx={{mt:1}}>From before the new books</Typography>
+            {awaiting.filter(e=>!e.payable).map(e=><Paper key={e.id} variant="outlined" sx={{p:2,borderStyle:'dashed',bgcolor:'action.hover'}}>
+              <Stack direction="row" spacing={2} sx={{justifyContent:"space-between"}}><Typography sx={{fontWeight:700}}>{e.category}</Typography><Typography sx={{fontWeight:800}}>{formatKobo(e.amount_kobo)}</Typography></Stack>
+              <Typography variant="body2" color="text.secondary">Logged in Sheets{e.business_date ? ` on ${e.business_date}` : ''}. Settle it through the opening balances, not here, so it is not counted twice.</Typography>
+            </Paper>)}
+          </>}
+        </Stack>
+      </Paper>}
     </Stack>
   </Box>;
 }

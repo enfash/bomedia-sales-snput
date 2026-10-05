@@ -6,8 +6,8 @@ import { createFinancialService } from '../../lib/server/financial-service';
 import type { FinancialCall } from '../../lib/server/financial-db';
 let db: PGlite, actor: string;
 const call: FinancialCall = async <T>(method: string,key: string,payload: Record<string,unknown>): Promise<T> =>
-  (await db.query<{result:T}>(method==='api_expense_categories' ? 'select bomedia.api_expense_categories() as result' : `select bomedia.${method}($1,$2::jsonb) as result`,
-    method==='api_expense_categories' ? [] : [key,JSON.stringify(payload)])).rows[0].result;
+  (await db.query<{result:T}>(['api_expense_categories','api_expenses_awaiting'].includes(method) ? `select bomedia.${method}() as result` : `select bomedia.${method}($1,$2::jsonb) as result`,
+    ['api_expense_categories','api_expenses_awaiting'].includes(method) ? [] : [key,JSON.stringify(payload)])).rows[0].result;
 const service=createExpenseService(call),financial=createFinancialService(call);
 beforeAll(async()=>{db=await testDatabase();},30_000);
 afterAll(async()=>{await db?.close();});
@@ -53,7 +53,12 @@ it('refuses to pay legacy unpaid expenses that have no accrual in the books',asy
   await db.exec('reset role');
   const legacy=await insertId(db,"insert into bomedia.expenses(amount_kobo,business_date,category,status) values (1000,'2026-09-30','Legacy','Unpaid') returning id");
   await db.exec('set local role bomedia_financial_runtime');
+  const logged=await service.log({staffId:actor},expense({status:'unpaid',paymentMethod:undefined}));
+  const awaiting=(await financial.read('expenses_awaiting',{})).data;
+  expect(awaiting.map(e=>[e.id,e.payable,e.logged_by])).toEqual([[legacy,false,null],[logged.expense_id,true,'Logger']]);
   await savepointFailure(()=>service.pay({staffId:actor},{requestId:'legacy',expenseId:legacy,businessDate:'2026-10-05',paymentMethod:'cash'}),{status:409});
+  await service.pay({staffId:actor},{requestId:'paid',expenseId:logged.expense_id,businessDate:'2026-10-05',paymentMethod:'cash'});
+  expect((await financial.read('expenses_awaiting',{})).data.map(e=>e.id)).toEqual([legacy]);
 });
 it('rejects closed periods, dates before the books and disabled staff',async()=>{
   await savepointFailure(()=>service.log({staffId:actor},expense({requestId:'early',businessDate:'2026-10-04'})),{status:409});

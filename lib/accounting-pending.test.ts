@@ -29,3 +29,12 @@ it('refuses dispatch when local persistence fails and preserves entries after ma
   await expect(sendAccountingEntry(storage,entry,async()=>Response.json({success:true}))).rejects.toThrow('Confirmation was incomplete');
   expect(readPendingAccounting(storage,entry.staffId)).toEqual(entry);
 });
+it('confirms expense and expense-payment entries by their expense ID',async()=>{
+  for (const operation of ['expenses','expense-payments'] as const) {
+    const expense={...entry,operation,requestId:`expense-${operation}`};
+    const send=vi.fn(async()=>Response.json({success:true,expense_id:'expense-one',status:'Paid'}));
+    await sendAccountingEntry(storage,expense,send);
+    expect((send.mock.calls as unknown as [string][])[0][0]).toBe(`/api/accounting/${operation}`);
+    expect(readPendingAccounting(storage,entry.staffId)).toBeNull();
+  }
+});
