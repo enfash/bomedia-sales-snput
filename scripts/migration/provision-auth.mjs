@@ -16,7 +16,7 @@ const groupName = financial ? 'bomedia_financial_runtime' : 'bomedia_auth_runtim
 const variableName = financial ? 'SUPABASE_FINANCIAL_DATABASE_URL' : 'SUPABASE_AUTH_DATABASE_URL';
 const pendingPath = join(root, `migration-data/${pendingPrefix}${financial ? 'financial' : 'auth'}-runtime-credential.pending.json`);
 const configuredPattern = new RegExp(`^${variableName}=`, 'gm');
-const allowedFunctions = financial ? ['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_restock','api_waste','api_stock_count','api_quote','api_quote_lookup','api_price_requests','api_price_decision','api_services','api_service_save'] : ['auth_reserve_login','auth_claim_session','auth_read_session','auth_revoke_session','auth_presence','auth_list_staff','auth_manage_staff'];
+const allowedFunctions = financial ? ['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_restock','api_waste','api_stock_count','api_quote','api_quote_lookup','api_price_requests','api_price_decision','api_services','api_service_save','api_legacy_feed'] : ['auth_reserve_login','auth_claim_session','auth_read_session','auth_revoke_session','auth_presence','auth_list_staff','auth_manage_staff'];
 let sql;
 try {
   const [flag, confirmedRef, ...extra] = process.argv.slice(2, financial ? -1 : undefined);

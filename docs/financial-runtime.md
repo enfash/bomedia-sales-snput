@@ -83,3 +83,13 @@ Migration `202610040011_services.sql`. Local PGlite tests only; **not applied to
 - `GET /api/accounting/services`: signed-in staff get visible services; the owner gets all. `POST` (owner only): `{requestId, serviceId?, name, pricing: fixed|per_job, unitPriceKobo (fixed only), visible}`. Names are unique ignoring case and spaces.
 - Sales and quotes accept service items `{serviceId, description, quantity}` (no size). Fixed services bill their list price (`expectedUnitPriceKobo` must match); per-job services bill only an owner-approved price through price requests (quotes refuse a per-job service without one). Hidden services cannot be sold or quoted. Service jobs use no stock, store `jobs.service_id`, and post Dr 1100 / Cr 4000 with no material cost.
 - Migration 0011 re-creates `post_tracked_sale`, `api_quote`, `api_quote_lookup`, `api_sale` and `api_price_requests` with service support; price requests may now point to a service (`service_id`) instead of a material.
+
+## Old screens read Postgres (migration 0012, local only)
+
+When `POSTGRES_FINANCIAL_API_ENABLED=true`, the old GET routes (`/api/sales`, `/api/payments`, `/api/expenses`, `/api/inventory`, `/api/materials`, and `/api/digest`) serve the same row shapes the Google Sheet returned, from `bomedia.api_legacy_feed(resource)`. The dashboard, Records, job board, Customers/debts, notifications and shift report therefore work unchanged. All values are text, as Sheets returned them.
+
+- Sales rows: one per job. `AMOUNT (₦)` includes adjustments. Money collected on the job's own business date is `INITIAL PAYMENT (₦)`. Later money is `ADDITIONAL PAYMENT 1` and appears as a Payments row, matching the old sheet, where initial payments were not logged in Payments. So the amount minus the payment columns is always the real balance, and the digest never counts a payment twice. `PAYMENT STATUS` is derived from the balance: Paid, Part-payment or Unpaid.
+- Inventory and material status and valuation are computed live, not stored.
+- Old write routes (`POST`/`PATCH` on sales, payments, payments/batch, expenses, inventory and estimates) answer 409 `MOVED_TO_ACCOUNTING`, so nothing reaches Sheets after cutover. Old estimator quotes are not served; quotes load in Accounting entry.
+- A misconfigured switch (flag on, auth not Postgres) fails closed and never falls back to Sheets.
+- Known difference: the old dashboard's "profit" is sales minus the expenses list. Restocks are no longer expenses, and Equipment is an asset, so that figure is not accounting profit. Use the accounting report for profit.

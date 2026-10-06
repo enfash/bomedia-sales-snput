@@ -41,7 +41,7 @@ it('validates foreign keys after trigger-free loading instead of accepting orpha
   await expect(restoreAndVerifyLocally(bad,files)).rejects.toThrow(/foreign key/);
 },30_000);
 it('restores an older backup after new migrations are added without applying the later schema to it',async()=>{
-  const newer=[...files,{name:'202610050001_future.sql',sql:'begin; create table bomedia.future_feature(id uuid primary key); commit;'}];
+  const newer=[...files,{name:'202612310001_future.sql',sql:'begin; create table bomedia.future_feature(id uuid primary key); commit;'}];
   expect(await restoreAndVerifyLocally(backup,newer)).toMatchObject({verified:true,tables:36});
 },30_000);
 

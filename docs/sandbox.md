@@ -20,3 +20,7 @@ The scripts refuse to run if the sandbox Project ID matches the live one in `.en
 - Stop the normal `npm run dev` first (both use the same `.next` folder).
 - `npm run sandbox:dev`, then sign in as admin at `http://localhost:3001/bom03/login` and open `/bom03/accounting` and `/bom03/stock`. Staff view: `http://localhost:3001/cashier/login` as `ada`.
 - Google Sheets is blocked in sandbox mode, so old screens (dashboard, Records, New Entry, old Expenses/Inventory) show errors instead of writing live data. Only the new pages are meaningful here.
+
+## Old screens in the sandbox
+
+From migration 0012, the old dashboard, Records, job board, Customers and notifications read the sandbox database, so a job recorded in Accounting entry shows up there. Their old save buttons refuse with "This screen no longer saves". Use Accounting entry and Stock instead. Before 0012 is applied (run `npm run sandbox:setup` again), they show "Fetch failed". The admin login in the sandbox goes straight to `/bom03/accounting`.

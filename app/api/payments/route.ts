@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { legacyFeedResponse, legacyWriteBlocked } from '@/lib/server/legacy-feed';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
@@ -11,6 +12,8 @@ const PAYMENTS_HEADERS = [
 ];
 
 export async function GET() {
+  const fromPostgres = await legacyFeedResponse('payments');
+  if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE];
@@ -34,6 +37,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const moved = legacyWriteBlocked();
+  if (moved) return moved;
   try {
     const body = await request.json();
     const doc = await getDoc();

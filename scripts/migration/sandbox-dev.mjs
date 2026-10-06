@@ -10,7 +10,7 @@ try {
     if (!sandbox[key]) throw new Error(`${key} is missing. Run npm run sandbox:setup first.`);
   }
   const env = { ...process.env, ...sandbox, AUTH_BACKEND: 'postgres', POSTGRES_FINANCIAL_API_ENABLED: 'true',
-    GOOGLE_SHEET_ID: 'sandbox-sheets-blocked', SUPABASE_DATABASE_URL: '' };
+    GOOGLE_SHEET_ID: 'sandbox-sheets-blocked', SUPABASE_DATABASE_URL: '', NEXT_PUBLIC_BOMEDIA_SANDBOX: 'true' };
   console.log('Sandbox: http://localhost:3001/bom03/accounting  ·  Google Sheets blocked  ·  live data untouched');
   const child = spawn(process.execPath, [join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', '3001'], { cwd: root, env, stdio: 'inherit' });
   child.on('exit', code => process.exit(code ?? 0));
