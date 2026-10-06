@@ -1,3 +1,4 @@
+import { movedPage } from './lib/moved-pages';
 import { postgresAuthEnabled } from './lib/server/auth-backend';
 import { postgresAuth } from './lib/server/postgres-auth';
 import { NextResponse } from 'next/server';
@@ -56,6 +57,11 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/cashier', request.url));
     }
   }
+
+  // Once Postgres is in charge, the old entry pages would only refuse to save,
+  // so every link to them (menus, dashboard tiles, bookmarks) opens the new page.
+  const moved = movedPage(pathname);
+  if (moved && (isAdmin || isCashier)) return NextResponse.redirect(new URL(moved, request.url));
 
   // 3. BACKEND API PROTECTION (/api)
   if (pathname.startsWith('/api')) {

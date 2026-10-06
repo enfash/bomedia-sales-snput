@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { Fab, Box } from "@mui/material";
 import Link from "next/link";
+import { accountingLive } from "@/lib/moved-pages";
 import { usePathname } from "next/navigation";
 
 const BOTTOM_NAV_HANDLES_NEW_ENTRY = [
@@ -23,6 +24,8 @@ export function FloatingSaleActionButton() {
   );
 
   if (isHandledByBottomNav && !isAdmin) return null;
+  // Already on the entry page: a button to the same page is noise.
+  if (pathname?.endsWith("/accounting")) return null;
 
   return (
     <Box
@@ -34,7 +37,7 @@ export function FloatingSaleActionButton() {
         display: { xs: "block", md: "none" },
       }}
     >
-      <Link href={isAdmin ? "/bom03/new-entry" : "/cashier/new-entry"}>
+      <Link href={`/${isAdmin ? "bom03" : "cashier"}/${accountingLive ? "accounting" : "new-entry"}`}>
         <Fab
           sx={{
             width: 56,

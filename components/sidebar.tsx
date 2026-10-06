@@ -6,10 +6,12 @@ import { useEffect, useState } from "react";
 import {
   LayoutDashboard, PlusCircle, Receipt, BarChart3,
   Cloud, CloudOff, LogOut, Users, KanbanSquare,
-  Ruler, Package, Calculator, ArrowLeftRight, Menu, ChevronLeft
+  Ruler, Package, Calculator, ArrowLeftRight, Menu, ChevronLeft,
+  Boxes,
 } from "lucide-react";
 import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
+import { accountingLive } from "@/lib/moved-pages";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "./logo";
 import { ActivityFeed } from "./activity-feed";
@@ -80,20 +82,22 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
   const currentNavItems = isInCashierView
     ? [
         { href: "/cashier",           label: "Dashboard",   icon: LayoutDashboard },
-        { href: "/cashier/new-entry", label: "New Sale",    icon: PlusCircle },
+        { href: accountingLive ? "/cashier/accounting" : "/cashier/new-entry", label: "New Sale",    icon: PlusCircle },
         { href: "/cashier/board",     label: "Job Board",   icon: KanbanSquare },
         { href: "/cashier/customers", label: "Customers",   icon: Users },
         { href: "/cashier/inventory", label: "Stock",       icon: Package },
-        { href: "/cashier/estimator", label: "Estimator",   icon: Calculator },
+        ...(accountingLive ? [{ href: "/cashier/stock", label: "Stock entry", icon: Boxes }] : []),
+        ...(accountingLive ? [] : [{ href: "/cashier/estimator", label: "Estimator",   icon: Calculator },]),
         { href: "/cashier/quick-check", label: "Quick-Check", icon: Ruler },
         { href: "/cashier/records",   label: "Records",     icon: BarChart3 },
         { href: "/cashier/expenses",  label: "Expenses",    icon: Receipt },
       ]
     : [
         { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
-        { href: "/bom03/new-entry", label: "New Sale",     icon: PlusCircle },
+        { href: accountingLive ? "/bom03/accounting" : "/bom03/new-entry", label: "New Sale",     icon: PlusCircle },
         { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
         { href: "/bom03/customers", label: "Customers",    icon: Users },
+        ...(accountingLive ? [{ href: "/bom03/stock", label: "Stock entry", icon: Boxes }] : []),
         { href: "/bom03/quick-check", label: "Quick-Check",  icon: Ruler },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
