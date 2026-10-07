@@ -72,3 +72,13 @@ The target is Monday, 5 October 2026 accounting. If deployment is not ready, pre
 - Staff, accounting, overall migration and Supabase documents have been refreshed. Use this handoff as the latest checkpoint; historical verification files describe the state at their capture time.
 
 Related plans: [cutover](monday-accounting-cutover.md), [accounting](accounting-foundation.md), [staff](staff-migration.md), [overall migration](database-migration-plan.md).
+
+## Owner decision, 7 Oct 16:04: keep the existing screens
+
+The owner found the redirect of New Sale to `/accounting` confusing and a risk to staff workflow. **Decision: keep the existing screens (New Sale, Estimator, payment boxes, Expenses, Inventory, Log Waste) and change only where they save.** No new way of working for staff.
+- Reverted (commit after `425a13e`): the page redirects and `NEXT_PUBLIC_ACCOUNTING_LIVE` menu changes (Stage B), the payment hand-off (part of C1), the moved notices (C2), and the sandbox login redirect. The old screen files are identical to before Stage A.
+- Kept: the legacy feed (old screens read Postgres), Job Board status saving to Postgres (0013), and `_jobId`/`_customerId` in the feed.
+- Owner answers: (1) **Staff may still type a price per sq ft on New Sale. A changed price is recorded and flagged for owner review.** This replaces the 5 Oct "staff never change prices" rule for the old form. (2) A small Cash/Transfer/POS dropdown appears next to any amount paid, on New Sale and the payment boxes. (3) The customer name is matched ignoring case and spaces, otherwise a new customer is created; the name box suggests existing customers.
+- `/accounting` and `/stock` become owner-only extras (price requests, services list), not staff entry points.
+- Next: the old write routes save to Postgres when the switch is on, starting with `POST /api/sales` (New Sale): customer match-or-create, material name to material, sizes, quantity, typed price flagged for review, initial payment and method. Then payments, expenses, rolls, restock, waste and mark-paid.
+

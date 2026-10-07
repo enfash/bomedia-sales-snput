@@ -12,10 +12,9 @@ export default async function AccountingPage({searchParams}:{searchParams:Params
   const params=await searchParams;
   const customer=typeof params.customer==='string' && uuid.test(params.customer) ? params.customer.toLowerCase() : undefined;
   const payments=params.tab==='payments';
-  const expenses=params.tab==='expenses';
   if(!financialApiEnabled())notFound();
   const actor=await financialIdentity(true);
   if(!actor)notFound();
   return <AccountingEntry staffId={actor.staffId} isOwner={!!await verifiedAdminIdentity()}
-    initialOperation={payments ? 'payments' : expenses ? 'expenses' : undefined} initialCustomerId={payments ? customer : undefined}/>;
+    initialOperation={payments ? 'payments' : undefined} initialCustomerId={payments ? customer : undefined}/>;
 }

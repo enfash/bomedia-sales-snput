@@ -1,7 +1,5 @@
 "use client";
 import { LoadingAnimation } from "@/components/loading-animation";
-import { accountingLive } from "@/lib/moved-pages";
-import { MovedButton, MovedDialog } from "@/components/moved-notice";
 
 import { useEffect, useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
@@ -77,10 +75,6 @@ function StatusPill({ status }: { status: string }) {
 // ─── Add Roll Dialog ──────────────────────────────────────────────────────────
 
 function AddRollDialog({ onAdded }: { onAdded: () => void }) {
-  return accountingLive ? <MovedButton target="stock">Add rolls</MovedButton> : <LegacyAddRollDialog onAdded={onAdded} />;
-}
-
-function LegacyAddRollDialog({ onAdded }: { onAdded: () => void }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const [open, setOpen] = useState(false);
@@ -571,12 +565,6 @@ function LegacyAddRollDialog({ onAdded }: { onAdded: () => void }) {
 // ─── Adjust Dialog ────────────────────────────────────────────────────────────
 
 function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: () => void; onDone: () => void }) {
-  return accountingLive
-    ? <MovedDialog open={!!roll} onClose={onClose} title="Correct stock" target="stock" />
-    : <LegacyAdjustDialog roll={roll} onClose={onClose} onDone={onDone} />;
-}
-
-function LegacyAdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: () => void; onDone: () => void }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -706,12 +694,6 @@ function LegacyAdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onCl
 // ─── Restock Dialog ───────────────────────────────────────────────────────────
 
 function RestockDialog({ material, onClose, onDone }: { material: Material | null; onClose: () => void; onDone: () => void }) {
-  return accountingLive
-    ? <MovedDialog open={!!material} onClose={onClose} title="Restock" target="stock" />
-    : <LegacyRestockDialog material={material} onClose={onClose} onDone={onDone} />;
-}
-
-function LegacyRestockDialog({ material, onClose, onDone }: { material: Material | null; onClose: () => void; onDone: () => void }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const [form, setForm] = useState({

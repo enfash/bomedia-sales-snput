@@ -32,8 +32,7 @@ export default function LoginPage() {
       if (res.ok) {
         localStorage.setItem("userName", "Admin");
         toast.success("Welcome back!");
-        // Sandbox only: the old dashboard reads Google Sheets, which the sandbox blocks.
-        router.push(process.env.NEXT_PUBLIC_BOMEDIA_SANDBOX === "true" ? "/bom03/accounting" : "/bom03");
+        router.push("/bom03");
         router.refresh();
       } else {
         const data = await res.json();

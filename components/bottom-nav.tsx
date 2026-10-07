@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { accountingLive } from "@/lib/moved-pages";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, BarChart3, PlusCircle,
@@ -30,16 +29,14 @@ export function BottomNav() {
     ? [
         { label: "Dash",  icon: LayoutDashboard, href: "/bom03" },
         { label: "Board", icon: KanbanSquare,    href: "/bom03/board" },
-        { label: "New",   icon: PlusCircle,      href: accountingLive ? "/bom03/accounting" : "/bom03/new-entry", primary: true },
+        { label: "New",   icon: PlusCircle,      href: "/bom03/new-entry", primary: true },
         { label: "Stock", icon: Package,         href: "/bom03/inventory" },
         { label: "Staff", icon: Users,           href: "/bom03/staff" },
       ]
     : [
         { label: "Home",    icon: LayoutDashboard, href: "/cashier" },
-        accountingLive
-          ? { label: "Stock",   icon: Package,         href: "/cashier/stock" }
-          : { label: "Quote",   icon: Calculator,      href: "/cashier/estimator" },
-        { label: "New",     icon: PlusCircle,      href: accountingLive ? "/cashier/accounting" : "/cashier/new-entry", primary: true },
+        { label: "Quote",   icon: Calculator,      href: "/cashier/estimator" },
+        { label: "New",     icon: PlusCircle,      href: "/cashier/new-entry", primary: true },
         { label: "Board",   icon: KanbanSquare,    href: "/cashier/board" },
         { label: "Records", icon: BarChart3,       href: "/cashier/records" },
       ];

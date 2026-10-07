@@ -17,8 +17,6 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
-import { PaymentHandoff, customerIdOf } from "@/components/payment-handoff";
-import { accountingLive } from "@/lib/moved-pages";
 
 interface DebtorPaymentModalProps {
   clientName: string | null;
@@ -58,24 +56,7 @@ const mapSale = (r: any): UnifiedRecord => {
   };
 };
 
-export function DebtorPaymentModal(props: DebtorPaymentModalProps) {
-  return accountingLive ? <PaymentHandoffDialog {...props} /> : <LegacyDebtorPaymentModal {...props} />;
-}
-
-function PaymentHandoffDialog({ clientName, isOpen, onClose }: DebtorPaymentModalProps) {
-  const { cachedSales } = useSyncStore();
-  const rows = cachedSales.filter((r: any) => (r["CLIENT NAME"] || "").trim() === (clientName || "").trim());
-  const owed = rows.reduce((sum: number, r: any) => sum + collectableAmount(mapSale(r).balance ?? 0), 0);
-  return (
-    <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>{clientName || "Customer"}</DialogTitle>
-      <DialogContent><PaymentHandoff customerId={customerIdOf(rows)} owed={owed} /></DialogContent>
-      <DialogActions><Button onClick={onClose}>Close</Button></DialogActions>
-    </Dialog>
-  );
-}
-
-function LegacyDebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, theme = "brand" }: DebtorPaymentModalProps) {
+export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, theme = "brand" }: DebtorPaymentModalProps) {
   const { cachedSales, pendingQueue } = useSyncStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentInput, setPaymentInput] = useState("");

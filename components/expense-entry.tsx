@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { accountingLive } from "@/lib/moved-pages";
-import { MovedNotice } from "@/components/moved-notice";
 import { parseAmount } from "@/lib/financial-utils";
 import { toast } from "sonner";
 import { useSyncStore } from "@/lib/store";
@@ -43,10 +41,6 @@ type RecentExpense = {
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, STORAGE_KEYS, SYSTEM_DEFAULTS } from "@/lib/constants";
 
 export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
-  return accountingLive ? <MovedNotice target="expenses" /> : <LegacyExpenseEntry onSaved={onSaved} />;
-}
-
-function LegacyExpenseEntry({ onSaved }: { onSaved?: () => void }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
