@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { accountingLive } from "@/lib/moved-pages";
+import { MovedDialog } from "@/components/moved-notice";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -235,7 +237,13 @@ function ModalBody({
   );
 }
 
-export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalProps) {
+export function WasteLogModal(props: WasteLogModalProps) {
+  return accountingLive
+    ? <MovedDialog open={props.isOpen} onClose={props.onClose} title="Log waste" target="stock" />
+    : <LegacyWasteLogModal {...props} />;
+}
+
+function LegacyWasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalProps) {
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const [wasteLength, setWasteLength] = useState("");

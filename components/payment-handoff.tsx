@@ -8,19 +8,8 @@ import { usePathname } from "next/navigation";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-
-export function paymentHref(pathname: string | null, customerId?: string | null): string {
-  const base = pathname?.startsWith("/bom03") ? "/bom03" : "/cashier";
-  const params = new URLSearchParams({ tab: "payments" });
-  if (customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId)) params.set("customer", customerId);
-  return `${base}/accounting?${params}`;
-}
-
-/** The one customer ID behind these rows, or null when none or several share the name. */
-export function customerIdOf(rows: Record<string, unknown>[]): string | null {
-  const ids = new Set(rows.map(r => r._customerId).filter((id): id is string => typeof id === "string" && id !== ""));
-  return ids.size === 1 ? [...ids][0] : null;
-}
+import { paymentHref } from "@/lib/moved-pages";
+export { customerIdOf } from "@/lib/moved-pages";
 
 export function PaymentHandoff({ customerId, owed }: { customerId?: string | null; owed?: number }) {
   const pathname = usePathname();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { accountingLive } from "@/lib/moved-pages";
 import { parseAmount } from "@/lib/financial-utils";
 import { useRouter } from "next/navigation";
 import { ExpenseEntry } from "@/components/expense-entry";
@@ -214,6 +215,9 @@ export default function ExpensesPage() {
   }, [cachedExpenses]);
 
   const handleStatusToggle = async (timestamp: string, newStatus: "Paid" | "Unpaid") => {
+    // Paying an expense now posts to the books with a method; the owner does it
+    // under "Expenses awaiting payment" in Accounting entry.
+    if (accountingLive) { router.push("/bom03/accounting"); return; }
     const userName = localStorage.getItem("userName") || "Unknown";
     try {
       const res = await fetch("/api/expenses", {
