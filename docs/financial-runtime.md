@@ -99,3 +99,14 @@ When `POSTGRES_FINANCIAL_API_ENABLED=true`, the old GET routes (`/api/sales`, `/
 `api_job_status(request_id, {actor_id, job_ref, status, any_age})` sets a job's workflow status (Quoted, Printing, Finishing, Ready or Delivered). It finds the job by UUID, by legacy Sales ID (which must match exactly one job) or by feed row number. Staff may change only jobs created in the last 24 hours. The server passes `any_age` only for the verified owner. Each change is audited. It has no ledger effect.
 
 The legacy feed now adds `_jobId` and `_customerId` to sales rows. The old payment boxes link to Accounting entry's Payment tab for that customer, because every payment needs a method (Cash, Transfer or POS) and is applied oldest-first by `api_collect`.
+
+## The existing New Sale screen saves to Postgres (migration 0014, local only)
+
+Owner decision, 7 Oct: staff keep the existing screens. With the switch on, `POST /api/sales` (`lib/server/legacy-sale.ts`) turns New Sale's queued batch into one sale, using `bomedia.api_legacy_sale`. The queue's `transactionId` is the request key, so a retry returns the first result and leaves the jobs as they are now.
+- **Customer:** matched by name ignoring case and repeated spaces (the oldest match wins), otherwise created. A contact fills in only where the customer has none.
+- **Price:** staff may type a price per sq ft. The job is billed as typed. A price different from the material's list price is recorded in `sale_reviews` (kind `price`) for the owner.
+- **Stock:** as on the old screen, a sale is recorded even when the app's stock is short. It uses what is left, records the tiled length actually taken, and adds a `sale_reviews` row (kind `stock`, `missing_ft`). The missing part has no material cost until the owner corrects stock. A material with no stock at all is refused: "restock or count it first".
+- **Payment:** New Sale now asks Paid by (Cash, Transfer or POS) when an initial payment is entered, and the payment posts to that method's account. It also asks in Sheets mode, where Sheets ignores the field, so staff learn it before go-live.
+- **Job status:** the form's status is kept.
+- `post_tracked_sale` was recreated with an `allow_short_stock` item flag, which only `api_legacy_sale` sets.
+- At cutover, the device queues must be empty: a Sheets-era queued sale with money paid and no method would be refused.
