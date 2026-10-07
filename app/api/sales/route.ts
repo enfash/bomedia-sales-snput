@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { legacyFeedResponse, legacyWriteBlocked } from '@/lib/server/legacy-feed';
+import { legacyFeedEnabled, legacyFeedResponse, legacyWriteBlocked } from '@/lib/server/legacy-feed';
+import { changeJobStatus } from '@/lib/server/job-status';
 import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { deductBatchFromInventory } from '@/lib/inventory-deduction';
@@ -57,8 +58,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const moved = legacyWriteBlocked();
-  if (moved) return moved;
+  if (legacyFeedEnabled()) return changeJobStatus(request);
   try {
     const body = await request.json();
     const { rowIndex, saleId, additionalPayment1, additionalPayment2, jobStatus } = body;

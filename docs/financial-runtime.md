@@ -93,3 +93,9 @@ When `POSTGRES_FINANCIAL_API_ENABLED=true`, the old GET routes (`/api/sales`, `/
 - Old write routes (`POST`/`PATCH` on sales, payments, payments/batch, expenses, inventory and estimates) answer 409 `MOVED_TO_ACCOUNTING`, so nothing reaches Sheets after cutover. Old estimator quotes are not served; quotes load in Accounting entry.
 - A misconfigured switch (flag on, auth not Postgres) fails closed and never falls back to Sheets.
 - Known difference: the old dashboard's "profit" is sales minus the expenses list. Restocks are no longer expenses, and Equipment is an asset, so that figure is not accounting profit. Use the accounting report for profit.
+
+## Job status and payment hand-off (migration 0013, local only)
+
+`api_job_status(request_id, {actor_id, job_ref, status, any_age})` sets a job's workflow status (Quoted, Printing, Finishing, Ready or Delivered). It finds the job by UUID, by legacy Sales ID (which must match exactly one job) or by feed row number. Staff may change only jobs created in the last 24 hours. The server passes `any_age` only for the verified owner. Each change is audited. It has no ledger effect.
+
+The legacy feed now adds `_jobId` and `_customerId` to sales rows. The old payment boxes link to Accounting entry's Payment tab for that customer, because every payment needs a method (Cash, Transfer or POS) and is applied oldest-first by `api_collect`.

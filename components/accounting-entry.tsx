@@ -34,10 +34,11 @@ export async function records<T>(resource:string,customerId?:string):Promise<T[]
 }
 const message=(error:unknown)=>error instanceof Error ? error.message : 'The entry is saved on this device. Retry when connected.';
 
-export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?:boolean}) {
-  const [operation,setOperation]=useState<AccountingOperation>('sales');
+export function AccountingEntry({staffId,isOwner=false,initialOperation,initialCustomerId}:{staffId:string;isOwner?:boolean;
+  initialOperation?:AccountingOperation;initialCustomerId?:string}) {
+  const [operation,setOperation]=useState<AccountingOperation>(initialOperation ?? 'sales');
   const [customers,setCustomers]=useState<Customer[]>([]),[materials,setMaterials]=useState<Material[]>([]),[methods,setMethods]=useState<Method[]>([]);
-  const [customerId,setCustomerId]=useState('');
+  const [customerId,setCustomerId]=useState(initialCustomerId ?? '');
   const [jobs,setJobs]=useState<Job[]>([]),[jobIds,setJobIds]=useState<string[]>([]);
   const [name,setName]=useState(''),[contact,setContact]=useState('');
   const [priceRequests,setPriceRequests]=useState<PriceRequest[]>([]),[decisionNotes,setDecisionNotes]=useState<Record<string,string>>({});
@@ -204,7 +205,7 @@ export function AccountingEntry({staffId,isOwner=false}:{staffId:string;isOwner?
               <TextField label="Phone or contact (optional)" value={contact} disabled={locked} onChange={event=>setContact(event.target.value)} slotProps={{htmlInput:{maxLength:200}}}/>
               <Typography variant="body2" color="text.secondary">Use the existing customer when possible. Creating a new customer keeps their jobs and payments separate, even when names match.</Typography>
             </> : <>
-              <TextField select label="Customer" value={customerId} required disabled={!ready||locked} onChange={event=>{setCustomerId(event.target.value);setJobs([]);setJobIds([]);setJobsReady(false);}}>
+              <TextField select label="Customer" value={customers.some(c=>c.id===customerId) ? customerId : ''} required disabled={!ready||locked} onChange={event=>{setCustomerId(event.target.value);setJobs([]);setJobIds([]);setJobsReady(false);}}>
                 {customers.map(c=><MenuItem key={c.id} value={c.id}>{c.display_name} · {c.contact||c.id.slice(0,8)}</MenuItem>)}
               </TextField>
               <TextField type="date" label="Business date" value={businessDate} required disabled={locked} onChange={event=>setBusinessDate(event.target.value)} slotProps={{inputLabel:{shrink:true}}}/>

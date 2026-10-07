@@ -23,6 +23,8 @@ import {
   IconButton,
 } from "@mui/material";
 import { RecordStatus } from "@/components/record-card";
+import { PaymentHandoff } from "@/components/payment-handoff";
+import { accountingLive } from "@/lib/moved-pages";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
 
 export interface UnifiedRecord {
@@ -442,6 +444,9 @@ function ContentBody({
             </Box>
           )}
 
+          {accountingLive ? (
+            !isFullyPaid && <PaymentHandoff customerId={record.raw?._customerId} owed={record.balance} />
+          ) : (<>
           {maxSlotsReached && !isFullyPaid && (
             <Box
               sx={{
@@ -509,6 +514,8 @@ function ContentBody({
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
             />
           </Box>
+
+          </>)}
 
           <FormControl fullWidth size="medium">
             <InputLabel

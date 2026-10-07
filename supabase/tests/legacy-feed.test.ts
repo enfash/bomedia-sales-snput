@@ -35,7 +35,7 @@ it('serves jobs as old Sales rows: same-day money is the initial payment, later 
   let [row]=await feed('sales');
   expect(row).toMatchObject({DATE:'2026-10-05','CLIENT NAME':'Grace Chapel',CONTACT:'0803','JOB DESCRIPTION':'Church banner',MATERIAL:'Flex',
     custom:'8x4',QTY:'2','UNIT COST (₦)':'4800','AMOUNT (₦)':'9600','INITIAL PAYMENT (₦)':'9600','ADDITIONAL PAYMENT 1':'',
-    'AMOUNT DIFFERENCES':'0','PAYMENT STATUS':'Paid','Logged By':'Ada','Sales ID':sale.job_ids[0],'TRANSACTION ID':sale.order_id});
+    'AMOUNT DIFFERENCES':'0','PAYMENT STATUS':'Paid','Logged By':'Ada','Sales ID':sale.job_ids[0],'TRANSACTION ID':sale.order_id,_jobId:sale.job_ids[0],_customerId:customer});
   expect(await feed('payments')).toEqual([]);
 
   const second=await sales.sale({staffId:staff},{requestId:'sale2',customerId:customer,businessDate:'2026-10-05',
