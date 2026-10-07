@@ -118,3 +118,15 @@ With the switch on:
 - **Records "Manage" box:** `PATCH /api/sales` with an additional payment records it the same way for that one job, then saves the status. The box now sends a `requestId` and `paymentMethod`. Its follow-up `POST /api/payments` log answers success with nothing to add.
 - Both boxes ask Paid by (`components/paid-by.tsx`, shared with New Sale) once an amount is entered.
 - Business date: today in Lagos.
+
+## Readable references (migration 0016, local only)
+
+Owner request, 7 Oct: never show long random codes. Every ID the old screens show is readable. Imported rows keep their sheet IDs; database IDs stay internal (the hidden `_jobId` and `_customerId` columns).
+- **Sale:** `orders.reference` is `BOM-YYYYMMDD-NNNN`, the same style New Sale used. All items of a sale share it, as on the sheet.
+- **Payment:** `payments.reference` is `PAY-YYYYMMDD-NNNN`.
+- **Expense:** `expenses.reference` is `EXP-YYYYMMDD-NNNN`.
+- **Roll:** shown by its name, e.g. "Flex 10ft - Roll 003".
+- **Material:** `bomedia.material_code` gives NAME-WIDTHFT, e.g. FLEX-10FT, the Inventory page's style.
+- Insert triggers fill the references; existing rows were backfilled by creation time. The date in a reference is the day it was entered (Lagos time).
+- The feed, `api_job_status`, `api_legacy_collect` and `api_legacy_sale` accept these references. Because a sale's items share one Sales ID, the server finds a single job by its row number first.
+- A test fails if any visible feed column contains a database code.

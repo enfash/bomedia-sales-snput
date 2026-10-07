@@ -42,8 +42,7 @@ export async function changeJobStatus(request: Request, call: FinancialCall = ca
   }
   if (body.jobStatus === undefined) return fail('Choose a job status.', 'INVALID_INPUT', 400);
   if (typeof body.jobStatus !== 'string' || !STATUSES.includes(body.jobStatus)) return fail('Choose a valid job status.', 'INVALID_INPUT', 400);
-  const ref = typeof body.saleId === 'string' && body.saleId.trim() ? body.saleId.trim()
-    : (typeof body.rowIndex === 'number' || typeof body.rowIndex === 'string') && /^[0-9]{1,18}$/.test(String(body.rowIndex)) ? String(body.rowIndex) : '';
+  const ref = jobRef(body.saleId, body.rowIndex);
   if (!ref || ref.length > 200) return fail('Choose a job.', 'INVALID_INPUT', 400);
   try {
     const identity = await financialIdentity(true);

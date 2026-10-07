@@ -27,7 +27,7 @@ afterEach(async()=>{await db.exec('rollback');});
 it('records the old form as a sale: same customer by name, typed status, payment by method, safe to retry',async()=>{
   const payload={client_name:' grace chapel ',contact:'0803',job_status:'Printing',initial_payment_kobo:'500000',payment_method:'transfer',items:[item()]};
   const first=await sale('s1',payload);
-  expect(first).toMatchObject({total_kobo:'960000'});
+  expect(first).toMatchObject({total_kobo:'960000',sales_id:expect.stringMatching(/^BOM-\d{8}-\d{4}$/)});
   expect(await owned('select display_name,contact from bomedia.customers')).toEqual([{display_name:'Grace  Chapel',contact:'0803'}]);
   expect(await owned('select job_status,price_per_sqft_kobo::text as p,tiled_length_ft::text as l from bomedia.jobs')).toEqual([{job_status:'Printing',p:'15000',l:'8.000000'}]);
   expect(await owned("select method,amount_kobo::text as a from bomedia.payments")).toEqual([{method:'Transfer',a:'500000'}]);

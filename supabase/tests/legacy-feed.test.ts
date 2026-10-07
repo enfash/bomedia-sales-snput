@@ -35,7 +35,9 @@ it('serves jobs as old Sales rows: same-day money is the initial payment, later 
   let [row]=await feed('sales');
   expect(row).toMatchObject({DATE:'2026-10-05','CLIENT NAME':'Grace Chapel',CONTACT:'0803','JOB DESCRIPTION':'Church banner',MATERIAL:'Flex',
     custom:'8x4',QTY:'2','UNIT COST (₦)':'4800','AMOUNT (₦)':'9600','INITIAL PAYMENT (₦)':'9600','ADDITIONAL PAYMENT 1':'',
-    'AMOUNT DIFFERENCES':'0','PAYMENT STATUS':'Paid','Logged By':'Ada','Sales ID':sale.job_ids[0],'TRANSACTION ID':sale.order_id,_jobId:sale.job_ids[0],_customerId:customer});
+    'AMOUNT DIFFERENCES':'0','PAYMENT STATUS':'Paid','Logged By':'Ada',_jobId:sale.job_ids[0],_customerId:customer});
+  // Readable IDs, never database codes.
+  expect(row['Sales ID']).toMatch(/^BOM-\d{8}-\d{4}$/);expect(row['TRANSACTION ID']).toBe(row['Sales ID']);
   expect(await feed('payments')).toEqual([]);
 
   const second=await sales.sale({staffId:staff},{requestId:'sale2',customerId:customer,businessDate:'2026-10-05',
@@ -47,25 +49,31 @@ it('serves jobs as old Sales rows: same-day money is the initial payment, later 
   expect(row).toMatchObject({'INITIAL PAYMENT (₦)':'0','ADDITIONAL PAYMENT 1':'250.5','AMOUNT DIFFERENCES':'349.5','PAYMENT STATUS':'Part-payment'});
   const payments=await feed('payments');
   expect(payments).toHaveLength(1);
-  expect(payments[0]).toMatchObject({'SALES ID':second.job_ids[0],'CLIENT NAME':'Grace Chapel',DATE:'2026-10-06',AMOUNT:'250.5',
+  expect(payments[0]['PAYMENT ID']).toMatch(/^PAY-\d{8}-\d{4}$/);
+  expect(payments[0]).toMatchObject({'SALES ID':(await feed('sales'))[1]['Sales ID'],'CLIENT NAME':'Grace Chapel',DATE:'2026-10-06',AMOUNT:'250.5',
     'PAYMENT TYPE':'Settlement','COLLECTED BY':'Ada','PAYMENT METHOD':'Transfer'});
   // Every value is text, as Sheets returned it.
   for (const r of [...await feed('sales'),...payments]) for (const v of Object.values(r)) expect(typeof v).toBe('string');
+  // No database code in any column staff can see (hidden _ columns excepted).
+  const code=/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  for (const resource of ['sales','payments','expenses','inventory','materials'])
+    for (const r of await feed(resource)) for (const [k,v] of Object.entries(r)) if (!k.startsWith('_')) expect(v,`${resource} ${k}`).not.toMatch(code);
 });
 
 it('serves rolls, materials and expenses in the old shapes',async()=>{
   await sales.sale({staffId:staff},{requestId:'sale',customerId:customer,businessDate:'2026-10-05',
     jobs:[{materialId:material,description:'Banner',quantity:'1',widthFt:'10',heightFt:'60',expectedUnitPriceKobo:'9000000'}]});
   const [roll]=await feed('inventory');
-  expect(roll).toMatchObject({'Item Name':'Flex 10ft - Roll 001','Width (ft)':'10','Total Length (ft)':'100','Remaining Length (ft)':'40',
+  expect(roll).toMatchObject({'Roll ID':'Flex 10ft - Roll 001','Material ID':'FLEX-10FT','Item Name':'Flex 10ft - Roll 001','Width (ft)':'10','Total Length (ft)':'100','Remaining Length (ft)':'40',
     Price:'150',Cost:'40000','Low Stock Threshold (ft)':'20',Status:'Active'});
   const [mat]=await feed('materials');
-  expect(mat).toMatchObject({'Material Name':'Flex','Selling Price':'150','Total Remaining (ft)':'40','Total Capacity (ft)':'100',
+  expect(mat).toMatchObject({'Material ID':'FLEX-10FT','Active Roll ID':'Flex 10ft - Roll 001','Material Name':'Flex','Selling Price':'150','Total Remaining (ft)':'40','Total Capacity (ft)':'100',
     'Roll Count':'1',Status:'Low Stock','Total Spent':'40000','Total Remaining Asset Value':'16000',
     'Total Remaining Revenue':'60000','Total Realised Revenue':'90000'});
   await expenses.log({staffId:staff},{requestId:'fuel',businessDate:'2026-10-05',amountKobo:'250000',category:'Transport',status:'paid',
     description:'Delivery',paidTo:'Bolt',paymentMethod:'Cash'});
   const [expense]=await feed('expenses');
+  expect(expense['EXPENSE ID']).toMatch(/^EXP-\d{8}-\d{4}$/);
   expect(expense).toMatchObject({DATE:'2026-10-05',AMOUNT:'2500',CATEGORY:'Transport',DESCRIPTION:'Delivery','PAID TO':'Bolt','Logged By':'Ada'});
   await expect(feed('staff')).rejects.toMatchObject({code:'22023'});
 });

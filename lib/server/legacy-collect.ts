@@ -13,10 +13,11 @@ const noStore = { 'Cache-Control': 'no-store' };
 export const fail = (error: string, code: string, status: number) => NextResponse.json({ error, code }, { status, headers: noStore });
 const bad = (message: string) => new FinancialError(message, 400, 'INVALID_INPUT');
 
-/** A job reference from an old screen: Sales ID first, else the row number. */
+/** A job reference from an old screen: its own row number first, since every
+ * item of one sale shares the sale's Sales ID; else the Sales ID. */
 export function jobRef(saleId: unknown, rowIndex: unknown): string {
-  if (typeof saleId === 'string' && saleId.trim() && saleId.trim().length <= 200) return saleId.trim();
   if ((typeof rowIndex === 'number' || typeof rowIndex === 'string') && /^[0-9]{1,18}$/.test(String(rowIndex))) return String(rowIndex);
+  if (typeof saleId === 'string' && saleId.trim() && saleId.trim().length <= 200) return saleId.trim();
   return '';
 }
 
@@ -65,7 +66,7 @@ export async function recordLegacyBatch(request: Request, call: FinancialCall = 
     body = parsed;
   } catch { return fail('Invalid payment.', 'INVALID_INPUT', 400); }
   try {
-    const result = await collectLegacy(legacyBatchPayment(body), call);
-    return NextResponse.json({ success: true, paymentId: result.payment_id }, { headers: noStore });
+    await collectLegacy(legacyBatchPayment(body), call);
+    return NextResponse.json({ success: true }, { headers: noStore });
   } catch (error) { return paymentFailure(error); }
 }

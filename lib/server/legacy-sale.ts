@@ -69,9 +69,9 @@ export async function recordLegacySale(request: Request, call: FinancialCall = c
     const identity = await financialIdentity(true);
     if (!identity) throw new FinancialError('Your account needs an accounting identity.', 403, 'ACTOR_REQUIRED');
     const { requestId, payload } = legacySalePayload(body, identity.staffId.toLowerCase());
-    const result = await call<{ order_id: string; stock_shortfalls?: unknown[] }>('api_legacy_sale', `legacy-sale:${requestId}`, payload);
+    const result = await call<{ sales_id: string; stock_shortfalls?: unknown[] }>('api_legacy_sale', `legacy-sale:${requestId}`, payload);
     const short = Array.isArray(result.stock_shortfalls) ? result.stock_shortfalls.length : 0;
-    return NextResponse.json({ success: true, salesId: result.order_id,
+    return NextResponse.json({ success: true, salesId: result.sales_id,
       // The old screen shows these as "adjust stock manually", as it did with Sheets.
       ...(short ? { inventoryWarnings: Array(short).fill('Not enough stock recorded for this roll'),
         message: `Sale recorded, but stock ran short for ${short} item(s). The owner will review the stock.` } : {}) },

@@ -12,7 +12,7 @@ it('saves a pure status change for staff, limited to recent jobs',async()=>{
   const call=vi.fn().mockResolvedValue({job_id:'j',job_status:'Ready'});
   const response=await changeJobStatus(patch({saleId:'S-1001',rowIndex:7,jobStatus:'Ready'}),call);
   expect(response.status).toBe(200);
-  expect(call).toHaveBeenCalledWith('api_job_status',expect.stringMatching(/^job-status:/),{actor_id:id,job_ref:'S-1001',status:'Ready',any_age:false});
+  expect(call).toHaveBeenCalledWith('api_job_status',expect.stringMatching(/^job-status:/),{actor_id:id,job_ref:'7',status:'Ready',any_age:false});
   await changeJobStatus(patch({rowIndex:7,jobStatus:'Printing'}),call);
   expect(call.mock.calls[1][2]).toMatchObject({job_ref:'7'});
 });
