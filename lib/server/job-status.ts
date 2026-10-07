@@ -7,6 +7,9 @@ import { financialIdentity } from './financial-routes';
 import { FinancialError } from './financial-service';
 import { verifiedAdminIdentity } from './postgres-auth-routes';
 import { MOVED_MESSAGE } from './legacy-feed';
+import { collectLegacy, jobRef, paymentFailure } from './legacy-collect';
+import { nairaToKoboText } from './legacy-sale';
+import { normalizePaymentMethod } from '../payment-methods';
 
 const STATUSES = ['Quoted', 'Printing', 'Finishing', 'Ready', 'Delivered'];
 const noStore = { 'Cache-Control': 'no-store' };
@@ -20,9 +23,24 @@ export async function changeJobStatus(request: Request, call: FinancialCall = ca
     body = parsed;
   } catch { return fail('Invalid request.', 'INVALID_INPUT', 400); }
   const keys = Object.keys(body).filter(k => body[k] !== undefined && body[k] !== null && body[k] !== '');
-  if (body.jobStatus === undefined || keys.some(k => !['rowIndex', 'saleId', 'jobStatus'].includes(k))) {
+  if (keys.some(k => !['rowIndex', 'saleId', 'jobStatus', 'additionalPayment1', 'additionalPayment2', 'requestId', 'paymentMethod'].includes(k))) {
     return fail(MOVED_MESSAGE, 'MOVED_TO_ACCOUNTING', 409);
   }
+  // The Records "Manage" box: an additional payment on one job, with its status.
+  const amount = body.additionalPayment1 ?? body.additionalPayment2;
+  if (amount !== undefined && amount !== null && amount !== '') {
+    const amountKobo = nairaToKoboText(amount);
+    const method = normalizePaymentMethod(body.paymentMethod);
+    const requestId = typeof body.requestId === 'string' ? body.requestId.trim() : '';
+    const ref = jobRef(body.saleId, body.rowIndex);
+    if (!amountKobo || amountKobo === '0') return fail('Enter the amount received.', 'INVALID_INPUT', 400);
+    if (!method) return fail('Choose how the customer paid: Cash, Transfer or POS.', 'INVALID_INPUT', 400);
+    if (!requestId || requestId.length > 200 || !ref) return fail('This payment could not be read. Enter it again.', 'INVALID_INPUT', 400);
+    try { await collectLegacy({ requestId, refs: [ref], amountKobo, method }, call); }
+    catch (error) { return paymentFailure(error); }
+    if (body.jobStatus === undefined) return NextResponse.json({ success: true }, { headers: noStore });
+  }
+  if (body.jobStatus === undefined) return fail('Choose a job status.', 'INVALID_INPUT', 400);
   if (typeof body.jobStatus !== 'string' || !STATUSES.includes(body.jobStatus)) return fail('Choose a valid job status.', 'INVALID_INPUT', 400);
   const ref = typeof body.saleId === 'string' && body.saleId.trim() ? body.saleId.trim()
     : (typeof body.rowIndex === 'number' || typeof body.rowIndex === 'string') && /^[0-9]{1,18}$/.test(String(body.rowIndex)) ? String(body.rowIndex) : '';

@@ -34,9 +34,8 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Divider from "@mui/material/Divider";
 import Alert from "@mui/material/Alert";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import { normalizePaymentMethod, type PaymentMethod } from "@/lib/payment-methods";
+import { PaidBy } from "@/components/paid-by";
+import type { PaymentMethod } from "@/lib/payment-methods";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1122,15 +1121,7 @@ export function SalesEntry() {
                     />
                   </Box>
                   {initialPaymentNum > 0 && (
-                    <Box component="fieldset" sx={{ gridColumn: "1 / -1", m: 0, p: 1.5, border: "2px solid", borderColor: "primary.main", borderRadius: 3 }}>
-                      <Box component="legend" sx={{ px: 0.75 }}><FieldLabel>Paid by *</FieldLabel></Box>
-                      <ToggleButtonGroup exclusive fullWidth color="primary" value={paidBy} aria-label="How the customer paid"
-                        onChange={(_, value) => setPaidBy(normalizePaymentMethod(value) ?? "")}>
-                        <ToggleButton value="cash">Cash</ToggleButton>
-                        <ToggleButton value="transfer">Transfer</ToggleButton>
-                        <ToggleButton value="pos">POS</ToggleButton>
-                      </ToggleButtonGroup>
-                    </Box>
+                    <PaidBy value={paidBy} onChange={setPaidBy} />
                   )}
                   <Box>
                     <FieldLabel>Job Status</FieldLabel>

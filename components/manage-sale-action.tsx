@@ -24,6 +24,8 @@ import {
 } from "@mui/material";
 import { RecordStatus } from "@/components/record-card";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
+import { PaidBy } from "@/components/paid-by";
+import type { PaymentMethod } from "@/lib/payment-methods";
 
 export interface UnifiedRecord {
   id: string;
@@ -63,6 +65,7 @@ export function ManageSaleAction({
   const [addl1, setAddl1] = useState(record?.additionalPayment1 ? String(record.additionalPayment1) : "");
   const [addl2, setAddl2] = useState(record?.additionalPayment2 ? String(record.additionalPayment2) : "");
   const [status, setStatus] = useState(record?.jobStatus ?? JOB_STATUSES[0]);
+  const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
   const isMobile = useMediaQuery("(max-width: 768px)");
   const pathname = usePathname();
 
@@ -109,6 +112,13 @@ export function ManageSaleAction({
         payload.additionalPayment2 = parseFloat(addl2) || 0;
         newPaymentAmount = payload.additionalPayment2;
         newPaymentType = "Additional Payment 2";
+      }
+
+      if (newPaymentAmount > 0) {
+        // The books keep cash, transfer and POS apart; the ID stops a retry paying twice.
+        if (!paidBy) { toast.error("Choose how the customer paid: Cash, Transfer or POS"); return; }
+        payload.paymentMethod = paidBy;
+        payload.requestId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pay-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       }
 
       const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
@@ -206,6 +216,8 @@ export function ManageSaleAction({
     setAddl2,
     status,
     setStatus,
+    paidBy,
+    setPaidBy,
     isSubmitting,
     handleUpdate,
     setIsOpen,
@@ -358,6 +370,8 @@ function ContentBody({
   setAddl2,
   status,
   setStatus,
+  paidBy,
+  setPaidBy,
 }: any) {
   const hasAddl1 = (record.additionalPayment1 ?? 0) > 0;
   const hasAddl2 = (record.additionalPayment2 ?? 0) > 0;
@@ -509,6 +523,10 @@ function ContentBody({
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
             />
           </Box>
+
+          {((!hasAddl1 && addl1 !== "") || (hasAddl1 && !hasAddl2 && addl2 !== "")) && (
+            <PaidBy value={paidBy} onChange={setPaidBy} />
+          )}
 
           <FormControl fullWidth size="medium">
             <InputLabel

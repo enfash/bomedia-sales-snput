@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { legacyFeedResponse, legacyWriteBlocked } from '@/lib/server/legacy-feed';
+import { legacyFeedEnabled, legacyFeedResponse } from '@/lib/server/legacy-feed';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
@@ -37,8 +37,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const moved = legacyWriteBlocked();
-  if (moved) return moved;
+  // With Postgres in charge, the Manage box's payment is recorded with its
+  // PATCH /api/sales (one request, one ID); this follow-up log has nothing to add.
+  if (legacyFeedEnabled()) return NextResponse.json({ success: true, alreadyRecorded: true });
   try {
     const body = await request.json();
     const doc = await getDoc();

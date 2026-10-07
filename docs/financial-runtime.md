@@ -110,3 +110,11 @@ Owner decision, 7 Oct: staff keep the existing screens. With the switch on, `POS
 - **Job status:** the form's status is kept.
 - `post_tracked_sale` was recreated with an `allow_short_stock` item flag, which only `api_legacy_sale` sets.
 - At cutover, the device queues must be empty: a Sheets-era queued sale with money paid and no method would be refused.
+
+## The existing payment boxes save to Postgres (migration 0015, local only)
+
+With the switch on:
+- **Debtor box:** `POST /api/payments/batch` (`lib/server/legacy-collect.ts`) records the lump sum as one payment through `bomedia.api_legacy_collect`. It resolves each step's Sales ID or row number to a job, requires all jobs to belong to one customer, and calls `api_collect`, which applies the money oldest first with any rounding on the last job. The batch `transactionId` is the request key.
+- **Records "Manage" box:** `PATCH /api/sales` with an additional payment records it the same way for that one job, then saves the status. The box now sends a `requestId` and `paymentMethod`. Its follow-up `POST /api/payments` log answers success with nothing to add.
+- Both boxes ask Paid by (`components/paid-by.tsx`, shared with New Sale) once an amount is entered.
+- Business date: today in Lagos.

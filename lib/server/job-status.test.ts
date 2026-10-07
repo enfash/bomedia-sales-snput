@@ -22,10 +22,18 @@ it('lets the owner change any job under the owner identity',async()=>{
   expect((await changeJobStatus(patch({saleId:'x',jobStatus:'Delivered'}),call)).status).toBe(200);
   expect(call.mock.calls[0][2]).toMatchObject({actor_id:owner,any_age:true});
 });
-it('still refuses payment edits and bad input',async()=>{
+it('records a Manage-box payment once, by method, then the status',async()=>{
+  const call=vi.fn().mockResolvedValue({payment_id:'p'});
+  const response=await changeJobStatus(patch({rowIndex:7,jobStatus:'Ready',additionalPayment1:500,paymentMethod:'POS',requestId:'r-1'}),call);
+  expect(response.status).toBe(200);
+  expect(call.mock.calls[0]).toEqual(['api_legacy_collect','legacy-payment:r-1',expect.objectContaining({actor_id:id,job_refs:['7'],amount_kobo:'50000',method:'pos'})]);
+  expect(call.mock.calls[1][0]).toBe('api_job_status');
+});
+it('refuses unreadable payments and other old edits',async()=>{
   const call=vi.fn();
-  expect((await changeJobStatus(patch({saleId:'x',jobStatus:'Ready',additionalPayment1:500}),call)).status).toBe(409);
-  expect((await changeJobStatus(patch({saleId:'x',additionalPayment1:500}),call)).status).toBe(409);
+  expect((await changeJobStatus(patch({saleId:'x',jobStatus:'Ready',additionalPayment1:500,requestId:'r'}),call)).status).toBe(400);
+  expect((await changeJobStatus(patch({saleId:'x',additionalPayment1:500,paymentMethod:'cash'}),call)).status).toBe(400);
+  expect((await changeJobStatus(patch({saleId:'x',jobStatus:'Ready',clientName:'Changed'}),call)).status).toBe(409);
   expect((await changeJobStatus(patch({saleId:'x',jobStatus:'Lost'}),call)).status).toBe(400);
   expect((await changeJobStatus(patch({jobStatus:'Ready'}),call)).status).toBe(400);
   expect(call).not.toHaveBeenCalled();
