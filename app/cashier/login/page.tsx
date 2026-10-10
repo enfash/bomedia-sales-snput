@@ -20,6 +20,7 @@ type Cashier = {
   Name: string;
   Status: string;
   HasPasscode: boolean;
+  RequiresPinReset?: boolean;
 };
 
 export default function CashierLoginPage() {
@@ -198,7 +199,7 @@ export default function CashierLoginPage() {
               <Box sx={{ display: "flex", gap: 1, p: 1.5, borderRadius: "10px", bgcolor: "rgba(247,104,8,0.08)", border: "1px solid rgba(247,104,8,0.2)" }}>
                 <AlertCircle size={18} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
                 <Typography variant="caption" sx={{ color: "primary.dark", lineHeight: 1.5 }}>
-                  No PIN is configured for your name. You can sign in instantly. Please ask your administrator to set up a 4-digit PIN.
+                  {selectedCashier.RequiresPinReset ? "Ask your administrator to set a 4-digit PIN before signing in." : "No PIN is configured for your name. You can sign in instantly. Please ask your administrator to set up a 4-digit PIN."}
                 </Typography>
               </Box>
             )}
@@ -209,7 +210,7 @@ export default function CashierLoginPage() {
               color="primary"
               fullWidth
               size="large"
-              disabled={!selectedCashier || submitting}
+              disabled={!selectedCashier || submitting || selectedCashier.RequiresPinReset === true}
               endIcon={selectedCashier?.HasPasscode ? <ArrowRight size={18} /> : <LogIn size={18} />}
               sx={{ height: 56, fontWeight: 800, fontSize: "1rem", borderRadius: "10px"}}
             >

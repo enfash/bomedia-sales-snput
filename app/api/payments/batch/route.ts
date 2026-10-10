@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { legacyFeedEnabled } from '@/lib/server/legacy-feed';
+import { recordLegacyBatch } from '@/lib/server/legacy-collect';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { invalidateSheet } from '@/lib/sheet-cache';
 import { buildPaymentAuditRows, validateLumpSum, assertRowsSumToBatchTotal, round2 } from '@/lib/financial-utils';
@@ -61,6 +63,7 @@ interface BatchStep {
  * rather than replacing it — a blind retry would double-count.
  */
 export async function POST(request: Request) {
+  if (legacyFeedEnabled()) return recordLegacyBatch(request);
   try {
     const body = await request.json();
     const { transactionId, clientName, collectedBy, steps, notes, lumpSum } = body as {

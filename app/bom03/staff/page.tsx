@@ -839,8 +839,8 @@ function ManageUsers({
                         fontSize: "0.625rem",
                         fontWeight: 700,
                         borderRadius: 1,
-                        px: cashier.Passcode ? 0 : 0.75,
-                        ...(cashier.Passcode
+                        px: (cashier.HasPasscode || cashier.Passcode) ? 0 : 0.75,
+                        ...((cashier.HasPasscode || cashier.Passcode)
                           ? { color: "warning.dark" }
                           : {
                               color: "warning.main",
@@ -848,7 +848,7 @@ function ManageUsers({
                             }),
                       }}
                     >
-                      PIN: {cashier.Passcode ? cashier.Passcode : "None set"}
+                      PIN: {(cashier.HasPasscode || cashier.Passcode) ? "Configured" : "None set"}
                     </Typography>
                   </Stack>
                 </Box>
@@ -858,7 +858,7 @@ function ManageUsers({
                   size="small"
                   onClick={() => {
                     setPinEditTarget(cashier);
-                    setEditPinValue(cashier.Passcode || "");
+                    setEditPinValue("");
                   }}
                   title="Change PIN"
                   sx={{

@@ -1,3 +1,5 @@
+import { postgresAuthEnabled } from './lib/server/auth-backend';
+import { postgresAuth } from './lib/server/postgres-auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken } from './lib/auth-utils';
@@ -14,7 +16,15 @@ export async function proxy(request: NextRequest) {
   const cashierPayload = cashierCookie ? await verifyToken(cashierCookie) : null;
 
   const isAdmin = adminPayload && adminPayload.role === 'admin';
-  const isCashier = cashierPayload && cashierPayload.role === 'cashier';
+  let isCashier = !!(cashierPayload && cashierPayload.role === 'cashier');
+  try {
+    if (postgresAuthEnabled() && isCashier && !isAdmin) {
+      isCashier = !!await postgresAuth.session(cashierCookie);
+    }
+  } catch {
+    return NextResponse.json({ error: 'Authentication service is unavailable. Pending entries remain on this device.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
 
   // 1. ADMIN PATHS ROUTING GUARD (/bom03)
   if (pathname.startsWith('/bom03')) {

@@ -1,3 +1,5 @@
+import { postgresAuthEnabled } from '@/lib/server/auth-backend';
+import { postgresStaffList, postgresStaffCreate, postgresStaffUpdate, postgresStaffDisable } from '@/lib/server/postgres-auth-routes';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
@@ -21,6 +23,7 @@ async function isAdminUser(): Promise<boolean> {
 }
 
 export async function GET() {
+  if (postgresAuthEnabled()) return postgresStaffList();
   try {
     const doc = await getDoc();
     let sheet = doc.sheetsByTitle[SHEET_TITLE];
@@ -69,6 +72,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (postgresAuthEnabled()) return postgresStaffCreate(request);
   try {
     const isAdmin = await isAdminUser();
     if (!isAdmin) {
@@ -115,6 +119,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (postgresAuthEnabled()) return postgresStaffUpdate(request);
   try {
     const { name, status, heartbeat, passcode } = await request.json();
     if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -170,6 +175,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (postgresAuthEnabled()) return postgresStaffDisable(request);
   try {
     const isAdmin = await isAdminUser();
     if (!isAdmin) {

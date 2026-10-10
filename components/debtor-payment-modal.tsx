@@ -17,6 +17,8 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
+import { PaidBy } from "@/components/paid-by";
+import type { PaymentMethod } from "@/lib/payment-methods";
 
 interface DebtorPaymentModalProps {
   clientName: string | null;
@@ -60,6 +62,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
   const { cachedSales, pendingQueue } = useSyncStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentInput, setPaymentInput] = useState("");
+  const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const primaryColor = theme === "brand" ? "#3b56c8" : "#C0392B";
@@ -101,6 +104,10 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
       toast.error("Please enter a valid payment amount.");
       return;
     }
+    if (!paidBy) {
+      toast.error("Choose how the customer paid: Cash, Transfer or POS");
+      return;
+    }
     const steps = computeWaterfall(clientRecords, lumpSum);
     if (steps.length === 0) {
       toast.error("No eligible unpaid items found for this client.");
@@ -132,6 +139,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
       collectedBy: localStorage.getItem("userName") || "System",
       notes: "Auto-distributed lump sum",
       lumpSum,
+      paymentMethod: paidBy,
       steps: steps.map((step) => ({
         rowIndex: step.record.rowIndex,
         salesId: step.record.salesId || "",
@@ -145,6 +153,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
 
     const finish = () => {
       setPaymentInput("");
+      setPaidBy("");
       onUpdate();
       onClose();
     };
@@ -280,6 +289,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
               />
             </Box>
+            {lumpSum > 0 && <PaidBy value={paidBy} onChange={setPaidBy} />}
 
             {preview.length > 0 && (
               <Box>

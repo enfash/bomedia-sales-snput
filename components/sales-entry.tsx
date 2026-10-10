@@ -33,6 +33,9 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Divider from "@mui/material/Divider";
+import Alert from "@mui/material/Alert";
+import { PaidBy } from "@/components/paid-by";
+import type { PaymentMethod } from "@/lib/payment-methods";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -326,6 +329,9 @@ export function SalesEntry() {
   });
   const setMetaField = (k: keyof BatchMeta, v: string) =>
     setMeta((prev) => ({ ...prev, [k]: v }));
+  // How the customer paid the initial payment. The books keep cash, bank
+  // transfer and POS apart, so it is asked whenever money is entered.
+  const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
 
   // ── Client suggestions ───────────────────────────────────────────────────
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -419,6 +425,7 @@ export function SalesEntry() {
     : 0;
 
   const costPerSqft = parseFloat(costOverride) || 0;
+  const listPricePerSqft = selectedMaterial ? parseNum(selectedMaterial["Selling Price"]) : 0;
   const unitSqft = jobWFt * jobHFt;
   const unitCost = unitSqft * costPerSqft;
   const totalAmount = unitCost * qtyNum;
@@ -597,6 +604,7 @@ export function SalesEntry() {
     const canonicalClient = canonicalClientName(meta.clientName, allClientNames);
     if (canonicalClient !== meta.clientName) setMetaField("clientName", canonicalClient);
     if (cart.length === 0) { toast.error("Add at least one job to the order"); return; }
+    if (initialPaymentNum > 0 && !paidBy) { toast.error("Choose how the customer paid: Cash, Transfer or POS"); return; }
     setShowConfirm(true);
   };
 
@@ -647,6 +655,7 @@ export function SalesEntry() {
     try {
       useSyncStore.getState().addPendingEntry("sale", {
         batch: true,
+        ...(initialPaymentNum > 0 && paidBy ? { paymentMethod: paidBy } : {}),
         items: rowArrays.map((row, i) => {
           const item = cart[i];
           return {
@@ -668,6 +677,7 @@ export function SalesEntry() {
       toast.success("Order saved locally — syncing to Google Sheets…");
       setShowConfirm(false);
       setMeta({ date: new Date().toISOString().split("T")[0], clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
+      setPaidBy("");
       setCart([]); setSelectedMaterialId(""); setJobDesc(""); setJobWidth("");
       setJobHeight(""); setQty("1"); setCostOverride(""); setNlText(""); setFormTouched(false);
     } catch {
@@ -997,6 +1007,13 @@ export function SalesEntry() {
                   onChange={(e) => setCostOverride(e.target.value)}
                   slotProps={{ htmlInput: { style: { fontWeight: 700, color: "#C8472E" } } }}
                 />
+                {listPricePerSqft > 0 && costPerSqft > 0 && costPerSqft !== listPricePerSqft && (
+                  <Alert severity="warning" sx={{ mt: 1, borderRadius: 3 }}
+                    action={<Button color="inherit" size="small" onClick={() => setCostOverride(String(listPricePerSqft))}>Use list price</Button>}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>List price is {fmtCurrency(listPricePerSqft)}/sqft</Typography>
+                    <Typography variant="body2">You can save at your price. The owner will see this job in “Price changes to review”.</Typography>
+                  </Alert>
+                )}
               </Box>
 
               {/* Live calculation preview */}
@@ -1103,6 +1120,9 @@ export function SalesEntry() {
                       slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
                     />
                   </Box>
+                  {initialPaymentNum > 0 && (
+                    <PaidBy value={paidBy} onChange={setPaidBy} />
+                  )}
                   <Box>
                     <FieldLabel>Job Status</FieldLabel>
                     <FormControl fullWidth>
@@ -1276,6 +1296,7 @@ export function SalesEntry() {
               {[
                 { label: "Grand Total", val: fmtCurrency(grandTotal) },
                 { label: "Initial Payment", val: fmtCurrency(initialPaymentNum), green: true },
+                ...(initialPaymentNum > 0 ? [{ label: "Paid by", val: paidBy === "pos" ? "POS" : paidBy ? paidBy[0].toUpperCase() + paidBy.slice(1) : "—" }] : []),
                 { label: "Balance Due", val: fmtCurrency(Math.max(0, balance)), red: balance > 0 },
               ].map(({ label, val, green, red }) => (
                 <Box key={label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

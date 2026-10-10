@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { legacyFeedResponse } from '@/lib/server/legacy-feed';
 import { getDoc } from "@/lib/google-sheets";
 import { getCachedRows } from "@/lib/sheet-cache";
 
@@ -10,6 +11,8 @@ const INVENTORY_SHEET = "Inventory";
 const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
 
 export async function GET() {
+  const fromPostgres = await legacyFeedResponse('materials');
+  if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();
     const mSheet = doc.sheetsByTitle[MATERIALS_SHEET];
