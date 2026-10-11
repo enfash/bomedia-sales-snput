@@ -11,6 +11,7 @@ import Stack from "@mui/material/Stack";
 import { ReceiptTemplate } from "@/components/receipt-template";
 import { Download, Loader2 } from "lucide-react";
 import type { UnifiedRecord } from "@/components/manage-sale-action";
+import { useBusinessDetails } from "@/lib/business-details";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -24,6 +25,8 @@ interface ReceiptModalProps {
 export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModalProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  // Hold the download until the business details have loaded, so the PDF never captures stale payment details.
+  const { ready: detailsReady } = useBusinessDetails(isOpen);
 
   const handleDownload = async () => {
     if (!receiptRef.current) return;
@@ -117,7 +120,7 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
           <Button
             variant="contained"
             onClick={handleDownload}
-            disabled={isGenerating || records.length === 0}
+            disabled={isGenerating || records.length === 0 || !detailsReady}
             startIcon={isGenerating ? (
               <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
                 <Loader2 size={16} />
@@ -152,7 +155,7 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
           variant="contained"
           fullWidth
           onClick={handleDownload}
-          disabled={isGenerating || records.length === 0}
+          disabled={isGenerating || records.length === 0 || !detailsReady}
           startIcon={isGenerating ? (
             <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
               <Loader2 size={20} />

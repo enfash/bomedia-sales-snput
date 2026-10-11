@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, BarChart3, PlusCircle,
-  KanbanSquare, Package, Users, Calculator,
+  KanbanSquare, Package, Calculator,
 } from "lucide-react";
 import { useTheme } from "@mui/material/styles";
 
@@ -13,6 +14,9 @@ import Paper from "@mui/material/Paper";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import Fab from "@mui/material/Fab";
+
+// 24px gap + 64px bar + 20px for the raised New button, plus breathing room and the phone's home-bar area.
+const BOTTOM_NAV_CLEARANCE = "calc(120px + env(safe-area-inset-bottom, 0px))";
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -25,13 +29,13 @@ export function BottomNav() {
   if (pathname === "/bom03/login" || pathname === "/cashier/login") return null;
   if (pathname?.endsWith("/new-entry")) return null;
 
-  const navItems = isAdmin
+  const navItems: { label: string; icon: LucideIcon; href: string; primary?: boolean }[] = isAdmin
     ? [
         { label: "Dash",  icon: LayoutDashboard, href: "/bom03" },
         { label: "Board", icon: KanbanSquare,    href: "/bom03/board" },
         { label: "New",   icon: PlusCircle,      href: "/bom03/new-entry", primary: true },
         { label: "Stock", icon: Package,         href: "/bom03/inventory" },
-        { label: "Staff", icon: Users,           href: "/bom03/staff" },
+        { label: "Records", icon: BarChart3, href: "/bom03/records" },
       ]
     : [
         { label: "Home",    icon: LayoutDashboard, href: "/cashier" },
@@ -51,11 +55,14 @@ export function BottomNav() {
   };
 
   return (
+    <>
+    {/* Reserves the space the floating bar covers, so no page has to remember its own bottom padding. */}
+    <Box aria-hidden sx={{ display: { md: "none" }, height: BOTTOM_NAV_CLEARANCE }} />
     <Box
       sx={{
         display: { md: "none" },
         position: "fixed",
-        bottom: 24,
+        bottom: "calc(24px + env(safe-area-inset-bottom, 0px))",
         left: 0,
         right: 0,
         zIndex: "appBar",
@@ -178,5 +185,6 @@ export function BottomNav() {
         </BottomNavigation>
       </Paper>
     </Box>
+    </>
   );
 }

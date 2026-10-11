@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ownerSettingsNav } from "@/components/settings-navigation";
+import { headerHomeLinkStyles } from "@/app/theme";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, LayoutDashboard, PlusCircle, Receipt, BarChart3,
@@ -105,7 +107,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
         { href: "/bom03/inventory", label: "Inventory",    icon: Package },
-        { href: "/bom03/staff",     label: "Staff Manager",icon: Users },
+        ownerSettingsNav,
       ];
 
   return (
@@ -128,7 +130,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
             <IconButton edge="start" onClick={() => setIsOpen(true)} sx={{ color: "text.secondary" }}>
               <Menu size={24} />
             </IconButton>
-            <Box>
+            <Box component={Link} href={isInCashierView ? "/cashier" : "/bom03"} aria-label="BOMedia home" sx={headerHomeLinkStyles}>
               <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1, display: "block", fontSize: "0.875rem" }}>
                 BOMedia
               </Typography>
@@ -184,7 +186,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
           <List sx={{ flex: 1, px: 1.5, overflowY: "auto" }}>
             {currentNavItems.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href;
+              const active = pathname === href || (href === ownerSettingsNav.href && pathname.startsWith(`${href}/`));
               return (
                 <ListItemButton
                   key={href}

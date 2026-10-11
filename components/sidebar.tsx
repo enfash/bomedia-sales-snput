@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ownerSettingsNav } from "@/components/settings-navigation";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -97,7 +98,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         { href: "/bom03/quick-check", label: "Quick-Check",  icon: Ruler },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
-        { href: "/bom03/staff",     label: "Staff Manager",icon: Users },
+        ownerSettingsNav,
       ];
 
   const DRAWER_WIDTH = isCollapsed ? 80 : 240;
@@ -157,7 +158,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       {/* Nav links */}
       <List sx={{ flex: 1, px: 1, py: 1.5, overflowY: "auto" }}>
         {currentNavItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active = pathname === href || (href === ownerSettingsNav.href && pathname.startsWith(`${href}/`));
           return (
             <Tooltip key={href} title={isCollapsed ? label : ""} placement="right" arrow disableHoverListener={!isCollapsed}>
               <ListItemButton
