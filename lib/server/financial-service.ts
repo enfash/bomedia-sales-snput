@@ -1,8 +1,12 @@
 import { normalizePaymentMethod } from '../payment-methods';
 import { callFinancial, type FinancialCall } from './financial-db';
 
+// Database wording that staff should never see as-is.
+const PLAIN_MESSAGES: Record<string, string> = {
+  'This accounting period is closed': 'That date is in a closed bookkeeping period. Ask the owner.',
+};
 export class FinancialError extends Error {
-  constructor(message: string, readonly status: number, readonly code: string) { super(message); }
+  constructor(message: string, readonly status: number, readonly code: string) { super(PLAIN_MESSAGES[message] ?? message); }
 }
 export type FinancialActor = { staffId: string };
 export type CollectionResult = { payment_id: string; journal_entry_id: string; amount_kobo: string;

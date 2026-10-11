@@ -54,3 +54,8 @@ it('describes hiding and showing staff in plain words', () => {
   expect(describeAudit(entry('staff_hidden', { admin_identity: 'o@x.test', name: 'Tunde' }, null)).text).toBe('hid Tunde from the staff lists');
   expect(describeAudit(entry('staff_unhidden', { admin_identity: 'o@x.test', name: 'Tunde' }, null)).text).toBe('showed Tunde in the staff lists again');
 });
+
+it('says which month the books were closed through', () => {
+  expect(describeAudit(entry('books_closed', { to: '2026-10-31' }, null)).text).toBe('closed the books through 31 October 2026');
+  expect(describeAudit(entry('books_closed', { to: 'garbage' }, null)).text).toBe('closed the books through a date');
+});

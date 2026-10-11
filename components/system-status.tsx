@@ -5,10 +5,8 @@ import NextLink from 'next/link';
 import { Alert, Box, Button, Paper, Skeleton, Typography } from '@mui/material';
 import { AlertTriangle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { settingsStyles, systemStatusStyles as styles } from '@/app/theme';
-import { summarizeDeviceQueue, type DeviceQueueSummary } from '@/lib/device-queue-status';
-import { readExpenses } from '@/lib/expense-outbox';
-import { readOrders } from '@/lib/order-outbox';
-import { readPaymentOutbox } from '@/lib/payment-outbox';
+import { readDeviceQueue } from '@/lib/device-queue-read';
+import type { DeviceQueueSummary } from '@/lib/device-queue-status';
 import { EXPECTED_MIGRATION_COUNT } from '@/lib/schema-version';
 import { formatClock, formatWhen } from '@/lib/status-format';
 import { useSyncStore } from '@/lib/store';
@@ -21,14 +19,6 @@ type Status = {
   lastSale: Seen; lastPayment: Seen; lastExpense: Seen; today: { sales: number; payments: number; expenses: number } | null;
 };
 const ENDPOINT = '/api/accounting/system-status';
-
-// Reads whatever is waiting on this phone. A queue that cannot be read counts as one entry kept for review, never as "nothing waiting".
-function readDeviceQueue(legacy: Parameters<typeof summarizeDeviceQueue>[0]['legacy']): DeviceQueueSummary {
-  let unreadable = 0;
-  const safe = <T,>(read: () => T[]): T[] => { try { return read(); } catch { unreadable += 1; return []; } };
-  return summarizeDeviceQueue({ legacy, expenses: safe(() => readExpenses(localStorage)), orders: safe(() => readOrders(localStorage)),
-    payments: safe(() => readPaymentOutbox(localStorage)), unreadable });
-}
 
 export function SystemStatus() {
   const legacy = useSyncStore((state) => state.pendingQueue);

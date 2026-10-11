@@ -9,6 +9,13 @@ export const CATEGORY_LABEL: Record<AuditCategory, string> = {
 const TIME_ZONE = 'Africa/Lagos';
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: kobo % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const sentence = (value: string) => { const spaced = value.replace(/_/g, ' ').trim(); return spaced.charAt(0).toUpperCase() + spaced.slice(1); };
+// A plain calendar date ("2026-10-31") as "31 October 2026"; anything else reads as "a date" rather than raw text.
+const dateLabel = (value: unknown) => {
+  const match = typeof value === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+  if (!match) return 'a date';
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return Number.isNaN(date.getTime()) ? 'a date' : new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
+};
 const asText = (value: unknown) => (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? String(value) : '');
 
 // Staff entries name the cashier they were about; older entries do not, so fall back to a plain phrase.
@@ -20,6 +27,7 @@ const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   staff_reset: (e) => `reset the PIN for ${target(e, 'a cashier')}`,
   staff_disable: (e) => `removed ${target(e, 'a cashier')}`,
   staff_restore: (e) => `restored ${target(e, 'a cashier')}`,
+  books_closed: (e) => `closed the books through ${dateLabel(e.details.to)}`,
   staff_hidden: (e) => `hid ${target(e, 'a cashier')} from the staff lists`,
   staff_unhidden: (e) => `showed ${target(e, 'a cashier')} in the staff lists again`,
   staff_sign_out: (e) => { const n = Number(e.details.sessions); return `signed ${target(e, 'a cashier')} out${Number.isFinite(n) ? ` of ${n} session${n === 1 ? '' : 's'}` : ''}`; },
