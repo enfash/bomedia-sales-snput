@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { callFinancial, financialApiEnabled, type FinancialCall } from './financial-db';
 import { financialIdentity } from './financial-routes';
 import { FinancialError } from './financial-service';
+import { OWNER_ONLY_MATERIAL_FEED, OWNER_ONLY_ROLL_FEED, withoutFields } from './owner-only-fields';
 
 export type LegacyResource = 'sales' | 'payments' | 'expenses' | 'inventory' | 'materials';
 export type LegacyRow = Record<string, string>;
@@ -32,17 +33,20 @@ export async function legacyRows(resource: LegacyResource, call: FinancialCall =
  * Selling screens never see a turned-off size; the Inventory pages ask for everything (`includeUnavailable`) and get an
  * `Available` flag so they can badge it. Matching is by the readable Material ID, which is what the feed already shows.
  */
-export async function materialsForViewer(rows: LegacyRow[], includeUnavailable: boolean, call: FinancialCall = callFinancial): Promise<LegacyRow[]> {
+export async function materialsForViewer(rows: LegacyRow[], includeUnavailable: boolean, call: FinancialCall = callFinancial, owner = true): Promise<LegacyRow[]> {
   const [off, sales] = await Promise.all([
     call<{ id: string; code: string }[]>('api_unavailable_materials', 'current', {}),
-    call<{ code: string; sold: string }[]>('api_material_sales', 'current', {}),
+    // A cashier never receives earnings, so there is nothing to look up for them.
+    owner ? call<{ code: string; sold: string }[]>('api_material_sales', 'current', {}) : Promise.resolve([]),
   ]);
   const offCodes = new Set((Array.isArray(off) ? off : []).map((item) => item.code));
   // Realised revenue is what the material's jobs actually sold for, so changing the price never rewrites past earnings.
   const sold = new Map((Array.isArray(sales) ? sales : []).map((item) => [item.code, item.sold]));
-  return rows
-    .filter((row) => includeUnavailable || !offCodes.has(row['Material ID']))
-    .map((row) => ({ ...row, 'Total Realised Revenue': sold.get(row['Material ID']) ?? '0', Available: offCodes.has(row['Material ID']) ? 'No' : 'Yes' }));
+  // Only the owner may ask for turned-off sizes; a cashier is shown just what can be sold.
+  const shown = rows
+    .filter((row) => (owner && includeUnavailable) || !offCodes.has(row['Material ID']))
+    .map((row) => ({ ...row, ...(owner ? { 'Total Realised Revenue': sold.get(row['Material ID']) ?? '0' } : {}), Available: offCodes.has(row['Material ID']) ? 'No' : 'Yes' }));
+  return owner ? shown : withoutFields(shown, OWNER_ONLY_MATERIAL_FEED);
 }
 
 /** GET handler body: null when Sheets is still authoritative. */
@@ -52,7 +56,8 @@ export async function legacyFeedResponse(resource: LegacyResource, call: Financi
     const identity = await financialIdentity(false);
     const rows = await legacyRows(resource, call);
     const data = resource === 'expenses' ? expensesForViewer(rows, identity ? identity.staffId : null)
-      : resource === 'materials' ? await materialsForViewer(rows, Boolean(options.includeUnavailable), call) : rows;
+      : resource === 'materials' ? await materialsForViewer(rows, Boolean(options.includeUnavailable), call, !identity)
+      : resource === 'inventory' && identity ? withoutFields(rows, OWNER_ONLY_ROLL_FEED) : rows;
     return NextResponse.json({ data }, { headers: noStore });
   } catch (error) {
     if (error instanceof FinancialError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status, headers: noStore });

@@ -81,3 +81,13 @@ it('marks turned-off sizes in the materials list so Stock entry can label them, 
   mocks.call.mockResolvedValue([]);
   expect((await(await readFinancialRecords(request)).json()).data[0]).not.toHaveProperty('available');
 });
+
+it('removes roll costs from the stock records a cashier reads, and keeps them for the owner',async()=>{
+  const request=new Request('https://app.example.test/api/accounting/records?resource=inventory');
+  const rows={data:[{id:'r1',remaining_length_ft:'150',purchase_cost_kobo:'6000000',cost_per_sqft_kobo_exact:'3896',selling_price_kobo:'25000'}],next_after_id:null};
+  mocks.read.mockResolvedValue(rows);
+  mocks.session.mockResolvedValue({staff_id:id});
+  expect((await(await readFinancialRecords(request)).json()).data[0]).toEqual({id:'r1',remaining_length_ft:'150',selling_price_kobo:'25000'});
+  mocks.session.mockResolvedValue(null);mocks.admin.mockResolvedValue('owner@example.test');
+  expect((await(await readFinancialRecords(request)).json()).data[0]).toMatchObject({purchase_cost_kobo:'6000000',cost_per_sqft_kobo_exact:'3896'});
+});

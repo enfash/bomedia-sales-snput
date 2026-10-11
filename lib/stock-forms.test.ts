@@ -77,3 +77,12 @@ it('names rolls and stock the way the screens always have', () => {
   expect(inStock(roll({ status: 'Out of Stock', remaining_length_ft: '0' }))).toBe(false);
   expect(inStock(roll({ remaining_length_ft: '0' }))).toBe(false);
 });
+
+it('shows no value, but still the feet, when the roll cost is not known, as for a cashier or an older roll', () => {
+  const noCost = { ...roll(), purchase_cost_kobo: undefined as unknown as null };
+  expect(wastePreview({ roll: noCost, length: '3' })).toBeNull();
+  expect(wasteDraft({ roll: noCost, length: '3', reason: 'Customer proof', businessDate: '2026-10-11', responsible: '', note: '' })).toMatchObject({ ok: true });
+  expect(countPreview({ roll: noCost, counted: '150' })).toEqual({ kind: 'change', difference: -2, value: null });
+  expect(countPreview({ roll: noCost, counted: '200' })).toEqual({ kind: 'too-long', limit: '154' });
+  expect(countDraft({ roll: noCost, counted: '150', reason: 'Measured again', businessDate: '2026-10-11' })).toMatchObject({ ok: true });
+});

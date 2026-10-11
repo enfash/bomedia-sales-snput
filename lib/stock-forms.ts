@@ -81,12 +81,15 @@ export function countDraft(input: CountInput): StockEntryDraft {
     payload: { rollId: input.roll.id, countedLengthFt: input.counted, reason: input.reason.trim(), businessDate: input.businessDate },
     summary: `Count ${rollName(input.roll)}: ${ft(input.roll.remaining_length_ft)} to ${ft(input.counted)} on ${input.businessDate}` };
 }
-/** What the count changes: feet and estimated value, or a warning when the measured length is longer than the roll can be. */
-export function countPreview(input: Pick<CountInput, 'roll' | 'counted'>): { kind: 'change'; difference: number; value: number } | { kind: 'too-long'; limit: string } | null {
+/**
+ * What the count changes: the feet difference, with an estimated value when the roll's cost is known, or a warning when the
+ * measured length is longer than the roll can be. A roll with no recorded cost still gets its feet difference, just no value.
+ */
+export function countPreview(input: Pick<CountInput, 'roll' | 'counted'>): { kind: 'change'; difference: number; value: number | null } | { kind: 'too-long'; limit: string } | null {
   const measured = feetPattern.test(input.counted) ? Number(input.counted) : null;
   if (!input.roll || measured === null) return null;
   const difference = measured - Number(input.roll.remaining_length_ft);
   if (difference === 0) return null;
-  const value = measured <= Number(input.roll.total_length_ft) ? valueChange(input.roll, measured) : null;
-  return value === null ? { kind: 'too-long', limit: input.roll.total_length_ft } : { kind: 'change', difference, value };
+  if (measured > Number(input.roll.total_length_ft)) return { kind: 'too-long', limit: input.roll.total_length_ft };
+  return { kind: 'change', difference, value: valueChange(input.roll, measured) };
 }

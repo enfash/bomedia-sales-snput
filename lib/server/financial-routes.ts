@@ -4,6 +4,7 @@ import { callFinancial,financialApiEnabled } from './financial-db';
 import { FinancialError, financialService, validUUID, type FinancialPage } from './financial-service';
 import { verifiedAdminIdentity } from './postgres-auth-routes';
 import { postgresAuth } from './postgres-auth';
+import { OWNER_ONLY_STOCK_RECORD,withoutFields } from './owner-only-fields';
 
 export async function financialHandler(work: () => Promise<unknown>) {
   try {
@@ -69,6 +70,8 @@ export function readFinancialRecords(request: Request) {
     if (params.get('resource')==='expense_categories') return categoriesForViewer(page,identity?identity.staffId:null);
     // Stock entry still lists turned-off sizes (leftover stock must be countable), but marks them.
     if (params.get('resource')==='materials') return markUnavailable(page);
+    // A cashier gets stock levels but never what a roll cost.
+    if (params.get('resource')==='inventory' && identity) return {...page,data:withoutFields(page.data,OWNER_ONLY_STOCK_RECORD)};
     return page;
   });
 }

@@ -76,8 +76,8 @@ it('reports realised revenue from what the jobs actually sold for, not from the 
   expect(result.map(row=>row['Total Realised Revenue'])).toEqual(['1800','0']);
   expect(call).toHaveBeenCalledWith('api_material_sales','current',{});
 });
-it('applies the filter to the materials feed response, and the all option includes everything',async()=>{
-  mocks.session.mockResolvedValue({staff_id:id});
+it('applies the filter to the materials feed response, and the all option includes everything for the owner',async()=>{
+  mocks.admin.mockResolvedValue('owner@example.test');
   const call=vi.fn().mockImplementation(async(method:string)=>method==='api_unavailable_materials'?[{id:'x',code:'BANNER-6FT'}]:method==='api_material_sales'?[]:materialRows);
   expect((await(await legacyFeedResponse('materials',call))!.json()).data.map((row:Record<string,string>)=>row['Material ID'])).toEqual(['FLEX-10FT']);
   expect((await(await legacyFeedResponse('materials',call,{includeUnavailable:true}))!.json()).data).toHaveLength(2);
@@ -85,3 +85,37 @@ it('applies the filter to the materials feed response, and the all option includ
   await legacyFeedResponse('sales',other);
   expect(other).not.toHaveBeenCalledWith('api_unavailable_materials','current',{});
 });
+
+const moneyRow={'Material ID':'FLEX-10FT','Material Name':'Flex','Selling Price':'250','Total Remaining (ft)':'150','Status':'Active',
+  'Total Spent':'120000','Total Remaining Asset Value':'59220','Total Remaining Revenue':'375000','Total Realised Revenue':'999'};
+describe_cashier();
+function describe_cashier() {
+  it('never sends a cashier costs or earnings, and keeps the selling price and stock levels',async()=>{
+    const call=vi.fn().mockImplementation(async(method:string)=>method==='api_unavailable_materials'?[]:method==='api_material_sales'?[{code:'FLEX-10FT',sold:'5'}]:[moneyRow]);
+    mocks.session.mockResolvedValue({staff_id:id});
+    const row=(await(await legacyFeedResponse('materials',call))!.json()).data[0];
+    expect(row).toMatchObject({'Selling Price':'250','Total Remaining (ft)':'150',Status:'Active',Available:'Yes'});
+    for(const field of ['Total Spent','Total Remaining Asset Value','Total Remaining Revenue','Total Realised Revenue'])expect(row).not.toHaveProperty(field);
+    expect(call).not.toHaveBeenCalledWith('api_material_sales','current',{});
+  });
+  it('keeps turned-off sizes from a cashier even when they ask for them',async()=>{
+    const call=vi.fn().mockImplementation(async(method:string)=>method==='api_unavailable_materials'?[{id:'x',code:'FLEX-10FT'}]:[moneyRow,{...moneyRow,'Material ID':'SAV-4FT'}]);
+    mocks.session.mockResolvedValue({staff_id:id});
+    const rows=(await(await legacyFeedResponse('materials',call,{includeUnavailable:true}))!.json()).data;
+    expect(rows.map((r:Record<string,string>)=>r['Material ID'])).toEqual(['SAV-4FT']);
+  });
+  it('shows the owner everything, including earnings from actual sales',async()=>{
+    const call=vi.fn().mockImplementation(async(method:string)=>method==='api_unavailable_materials'?[]:method==='api_material_sales'?[{code:'FLEX-10FT',sold:'1800'}]:[moneyRow]);
+    mocks.admin.mockResolvedValue('owner@example.test');
+    const row=(await(await legacyFeedResponse('materials',call))!.json()).data[0];
+    expect(row).toMatchObject({'Total Spent':'120000','Total Remaining Asset Value':'59220','Total Remaining Revenue':'375000','Total Realised Revenue':'1800'});
+  });
+  it('removes roll costs for a cashier and keeps them for the owner',async()=>{
+    const roll={'Roll ID':'Flex 10ft - Roll 002','Remaining Length (ft)':'150',Price:'250',Cost:'60000','Cost per Sqft':'38.96'};
+    mocks.session.mockResolvedValue({staff_id:id});
+    const cashier=(await(await legacyFeedResponse('inventory',vi.fn().mockResolvedValue([roll]))!)!.json()).data[0];
+    expect(cashier).toEqual({'Roll ID':'Flex 10ft - Roll 002','Remaining Length (ft)':'150',Price:'250'});
+    mocks.session.mockResolvedValue(null);mocks.admin.mockResolvedValue('owner@example.test');
+    expect((await(await legacyFeedResponse('inventory',vi.fn().mockResolvedValue([roll])))!.json()).data[0]).toEqual(roll);
+  });
+}
