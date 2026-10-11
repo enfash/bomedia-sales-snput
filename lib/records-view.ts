@@ -69,7 +69,8 @@ export const mapExpense = (r: Row, isPending: boolean, timestamp?: number): Unif
     client: r['PAID TO'] || 'N/A',
     description: r.DESCRIPTION || r.CATEGORY || '—',
     amount,
-    status: isPending ? 'Syncing' : 'Settled',
+    // An expense the books hold as Unpaid is still owed, so it reads In Progress. Rows with no status (older sheet rows) stay Settled.
+    status: isPending ? 'Syncing' : r.STATUS === 'Unpaid' ? 'In Progress' : 'Settled',
     loggedBy: r['Logged By'] || 'Unknown',
     isPending,
     rowIndex: r._rowIndex ? parseInt(r._rowIndex.toString()) : undefined,

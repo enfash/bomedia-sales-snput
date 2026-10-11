@@ -48,6 +48,12 @@ describe('mapExpense', () => {
   it('does not lose a currency-formatted amount', () => {
     expect(mapExpense(expense(), false).amount).toBe(184000);
   });
+  it('reads an unpaid expense as In Progress and a paid or status-less one as Settled', () => {
+    expect(mapExpense(expense({ STATUS: 'Unpaid' }), false).status).toBe('In Progress');
+    expect(mapExpense(expense({ STATUS: 'Paid' }), false).status).toBe('Settled');
+    expect(mapExpense(expense(), false).status).toBe('Settled');
+    expect(mapExpense(expense({ STATUS: 'Unpaid' }), true).status).toBe('Syncing');
+  });
   it('is settled unless it is waiting, names the payee, and falls back to the category', () => {
     const r = mapExpense(expense(), false);
     expect(r.status).toBe('Settled');
