@@ -2,6 +2,7 @@
 import { LoadingAnimation } from "@/components/loading-animation";
 
 import { useEffect, useState, useMemo, Fragment } from "react";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle2,
@@ -1089,7 +1090,8 @@ export default function InventoryPage() {
     try {
       const [invRes, matRes] = await Promise.all([
         fetch("/api/inventory"),
-        fetch("/api/materials")
+        // all=1 keeps leftover stock of a turned-off size visible here.
+        fetch("/api/materials?all=1")
       ]);
       const invJson = await invRes.json();
       const matJson = await matRes.json();
@@ -1602,6 +1604,10 @@ export default function InventoryPage() {
                             <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontFamily: "monospace" }}>
                               {matId}
                             </Typography>
+                            {mat.Available === "No" && <Chip label="Turned off" size="small" />}
+                            <Button size="small" component={NextLink} href="/bom03/settings/materials" onClick={(event) => event.stopPropagation()}>
+                              Edit material
+                            </Button>
                           </Box>
                         </Stack>
                       </TableCell>

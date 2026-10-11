@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { financialApiEnabled } from './financial-db';
+import { callFinancial,financialApiEnabled } from './financial-db';
 import { FinancialError, financialService, validUUID, type FinancialPage } from './financial-service';
 import { verifiedAdminIdentity } from './postgres-auth-routes';
 import { postgresAuth } from './postgres-auth';
@@ -28,6 +28,12 @@ export async function financialIdentity(write: boolean) {
   const session=await postgresAuth.session(token);
   if (!session) throw new FinancialError('Please sign in again. Pending entries remain on this device.',401,'SIGN_IN_REQUIRED');
   return {staffId:session.staff_id};
+}
+async function markUnavailable(page: FinancialPage): Promise<FinancialPage> {
+  const off=await callFinancial<{id:string}[]>('api_unavailable_materials','current',{});
+  const ids=new Set((Array.isArray(off)?off:[]).map(item=>String(item.id).toLowerCase()));
+  if(!ids.size)return page;
+  return {...page,data:page.data.map(row=>ids.has(String(row.id).toLowerCase())?{...row,available:false}:row)};
 }
 export function collectPayment(request: Request) {
   return financialHandler(async()=>{
@@ -60,7 +66,10 @@ export function readFinancialRecords(request: Request) {
     if (params.has('limit')) filter.limit=Number(params.get('limit'));
     for (const key of ['after_id','customer_id']) if (params.has(key)) filter[key]=params.get(key);
     const page=await financialService.read(params.get('resource') || '',filter);
-    return params.get('resource')==='expense_categories' ? categoriesForViewer(page,identity?identity.staffId:null) : page;
+    if (params.get('resource')==='expense_categories') return categoriesForViewer(page,identity?identity.staffId:null);
+    // Stock entry still lists turned-off sizes (leftover stock must be countable), but marks them.
+    if (params.get('resource')==='materials') return markUnavailable(page);
+    return page;
   });
 }
 

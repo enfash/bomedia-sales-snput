@@ -9,7 +9,7 @@ import { readPendingAccounting,sendAccountingEntry,type PendingAccountingEntry }
 import { normalizePaymentMethod,type PaymentMethod } from '@/lib/payment-methods';
 import { WASTE_REASONS } from '@/lib/constants';
 
-type Material={id:string;name:string;width_ft:string;remaining_length_ft:string;roll_count:number};
+type Material={id:string;name:string;width_ft:string;remaining_length_ft:string;roll_count:number;available?:boolean};
 type Roll={id:string;material_id:string;legacy_roll_id:string|null;item_name:string;width_ft:string;total_length_ft:string;
   remaining_length_ft:string;purchase_cost_kobo:string|null;status:string};
 type Method={method:PaymentMethod;label:string};
@@ -119,7 +119,7 @@ export function StockEntry({staffId,isOwner=false}:{staffId:string;isOwner?:bool
             {tab==='restocks' ? <>
               <TextField select label="Material" value={materialId} required disabled={!ready||locked} onChange={event=>setMaterialId(event.target.value)}
                 helperText={material ? `In stock now: ${ft(material.remaining_length_ft)} on ${material.roll_count} rolls. A new material or width must be added first.` : 'A new material or width must be added first.'}>
-                {materials.map(m=><MenuItem key={m.id} value={m.id}>{m.name} · {Number(m.width_ft)} ft wide</MenuItem>)}
+                {materials.map(m=><MenuItem key={m.id} value={m.id}>{m.name} · {Number(m.width_ft)} ft wide{m.available===false?' (turned off)':''}</MenuItem>)}
               </TextField>
               <Stack direction={{xs:'column',sm:'row'}} spacing={2}>
                 <TextField label="Rolls bought" value={rollCount} required disabled={locked} onChange={event=>setRollCount(event.target.value)} slotProps={{htmlInput:{inputMode:'numeric'}}} fullWidth/>

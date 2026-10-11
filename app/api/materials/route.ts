@@ -10,8 +10,10 @@ const INVENTORY_SHEET = "Inventory";
 
 const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
 
-export async function GET() {
-  const fromPostgres = await legacyFeedResponse('materials');
+export async function GET(request: Request) {
+  // The Inventory pages ask for turned-off sizes too (?all=1), so leftover stock stays visible.
+  const includeUnavailable = new URL(request.url).searchParams.get('all') === '1';
+  const fromPostgres = await legacyFeedResponse('materials', undefined, { includeUnavailable });
   if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();

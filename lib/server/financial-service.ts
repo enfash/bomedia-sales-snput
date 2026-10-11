@@ -4,6 +4,7 @@ import { callFinancial, type FinancialCall } from './financial-db';
 // Database wording that staff should never see as-is.
 const PLAIN_MESSAGES: Record<string, string> = {
   'This accounting period is closed': 'That date is in a closed bookkeeping period. Ask the owner.',
+  'This material is turned off': 'That material is turned off. Choose another.',
 };
 export class FinancialError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) { super(PLAIN_MESSAGES[message] ?? message); }

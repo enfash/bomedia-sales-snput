@@ -3,7 +3,7 @@ const mocks=vi.hoisted(()=>({admin:vi.fn(),session:vi.fn()}));
 vi.mock('next/headers',()=>({cookies:async()=>({get:()=>({value:'signed-session'})})}));
 vi.mock('./postgres-auth-routes',()=>({verifiedAdminIdentity:mocks.admin}));
 vi.mock('./postgres-auth',()=>({postgresAuth:{session:mocks.session}}));
-import { expensesForViewer,lagosToday,legacyFeedEnabled,legacyFeedResponse,legacyWriteBlocked } from './legacy-feed';
+import { expensesForViewer,lagosToday,legacyFeedEnabled,legacyFeedResponse,legacyWriteBlocked,materialsForViewer } from './legacy-feed';
 const id='00000000-0000-4000-8000-000000000001';
 beforeEach(()=>{vi.resetAllMocks();vi.stubEnv('POSTGRES_FINANCIAL_API_ENABLED','true');vi.stubEnv('AUTH_BACKEND','postgres');mocks.admin.mockResolvedValue(null);mocks.session.mockResolvedValue(null);});
 afterEach(()=>vi.unstubAllEnvs());
@@ -56,4 +56,32 @@ it('shows each cashier only the expenses they logged today, and the owner everyt
 it('counts a day by Lagos time, not UTC',()=>{
   expect(lagosToday(new Date('2026-10-10T23:30:00Z'))).toBe('2026-10-11');
   expect(expensesForViewer([{DATE:'2026-10-11',_loggedById:id},{DATE:'2026-10-10',_loggedById:id}],id,new Date('2026-10-10T23:30:00Z'))).toEqual([{DATE:'2026-10-11'}]);
+});
+
+const materialRows=[{'Material ID':'FLEX-10FT','Material Name':'Flex'},{'Material ID':'BANNER-6FT','Material Name':'Banner'}];
+it('hides turned-off sizes from selling screens and flags them for Inventory',async()=>{
+  const off=vi.fn().mockImplementation(async(method:string)=>method==='api_unavailable_materials'?[{id:'x',code:'BANNER-6FT'}]:[]);
+  expect(await materialsForViewer(materialRows,false,off)).toEqual([{...materialRows[0],'Total Realised Revenue':'0',Available:'Yes'}]);
+  expect(await materialsForViewer(materialRows,true,off)).toEqual([{...materialRows[0],'Total Realised Revenue':'0',Available:'Yes'},{...materialRows[1],'Total Realised Revenue':'0',Available:'No'}]);
+  expect(off).toHaveBeenCalledWith('api_unavailable_materials','current',{});
+});
+it('flags every size as available when nothing is turned off',async()=>{
+  expect((await materialsForViewer(materialRows,false,vi.fn().mockResolvedValue([]))).every(row=>row.Available==='Yes')).toBe(true);
+  expect((await materialsForViewer(materialRows,true,vi.fn().mockResolvedValue([]))).every(row=>row.Available==='Yes')).toBe(true);
+});
+it('reports realised revenue from what the jobs actually sold for, not from the current price',async()=>{
+  const call=vi.fn().mockImplementation(async(method:string)=>method==='api_material_sales'?[{code:'FLEX-10FT',sold:'1800'}]:[]);
+  const rows=[{...materialRows[0],'Total Realised Revenue':'468000'},{...materialRows[1],'Total Realised Revenue':'99999'}];
+  const result=await materialsForViewer(rows,false,call);
+  expect(result.map(row=>row['Total Realised Revenue'])).toEqual(['1800','0']);
+  expect(call).toHaveBeenCalledWith('api_material_sales','current',{});
+});
+it('applies the filter to the materials feed response, and the all option includes everything',async()=>{
+  mocks.session.mockResolvedValue({staff_id:id});
+  const call=vi.fn().mockImplementation(async(method:string)=>method==='api_unavailable_materials'?[{id:'x',code:'BANNER-6FT'}]:method==='api_material_sales'?[]:materialRows);
+  expect((await(await legacyFeedResponse('materials',call))!.json()).data.map((row:Record<string,string>)=>row['Material ID'])).toEqual(['FLEX-10FT']);
+  expect((await(await legacyFeedResponse('materials',call,{includeUnavailable:true}))!.json()).data).toHaveLength(2);
+  const other=vi.fn().mockResolvedValue([{DATE:'2026-10-05'}]);
+  await legacyFeedResponse('sales',other);
+  expect(other).not.toHaveBeenCalledWith('api_unavailable_materials','current',{});
 });

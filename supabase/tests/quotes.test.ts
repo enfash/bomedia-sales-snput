@@ -45,7 +45,8 @@ it('prices a quote from the catalog with a unique number and no stock or debt',a
   expect((found.items as {current_unit_price_kobo:string}[])[0].current_unit_price_kobo).toBe('60000');
   await db.exec('reset role');
   expect((await db.query('select * from bomedia.jobs')).rows).toHaveLength(0);
-  await db.exec("update bomedia.materials set selling_price_per_sqft_kobo=12000");
+  // Prices now change only through the owner's Materials function; a raw table update is ignored by the price guard.
+  await db.query("select bomedia.api_material_save('quote-test-price',$1::jsonb)",[JSON.stringify({actor_id:staff,action:'set_price',name:'Banner',price_kobo:'12000'})]);
   await db.exec('set local role bomedia_financial_runtime');
   expect(((await quotes.lookup(first.quote_number)).items as {unit_price_kobo:string;current_unit_price_kobo:string}[])[0]).toMatchObject({unit_price_kobo:'60000',current_unit_price_kobo:'72000'});
   expect(await quotes.lookup('QT-99999')).toEqual({found:false});
@@ -84,4 +85,14 @@ it('validates quotes and decisions before SQL',async()=>{
   await expect(quotes.lookup('1234')).rejects.toMatchObject({status:400});
   await expect(quotes.decide({staffId:owner},{requestId:'x',priceRequestId:customer,decision:'maybe'})).rejects.toMatchObject({status:400});
   await failure(()=>quotes.save({staffId:staff},quote({priceRequests:[{itemIndex:0,requestedUnitPriceKobo:'60000',reason:'Same price'}]})),{status:409});
+});
+it('keeps the owner price after a sale even when the active roll carries a different price',async()=>{
+  const materialPrice=async()=>{await db.exec('reset role');const p=(await db.query<{p:string}>('select selling_price_per_sqft_kobo::text as p from bomedia.materials')).rows[0].p;await db.exec('set local role bomedia_financial_runtime');return p;};
+  await db.exec('reset role');await db.exec('update bomedia.inventory_rolls set selling_price_kobo=99999');await db.exec('set local role bomedia_financial_runtime');
+  await sales.sale({staffId:staff},{requestId:'copy-back-1',customerId:customer,businessDate:'2026-10-05',jobs:[job()]});
+  expect(await materialPrice()).toBe('10000');
+  // Proof the test is sensitive: without the guard, the old behaviour copies the roll price onto the material.
+  await db.exec('reset role');await db.exec('alter table bomedia.materials disable trigger guard_material_price');await db.exec('set local role bomedia_financial_runtime');
+  await sales.sale({staffId:staff},{requestId:'copy-back-2',customerId:customer,businessDate:'2026-10-05',jobs:[job()]});
+  expect(await materialPrice()).toBe('99999');
 });

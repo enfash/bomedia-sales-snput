@@ -28,13 +28,31 @@ export async function legacyRows(resource: LegacyResource, call: FinancialCall =
   return Array.isArray(rows) ? rows : [];
 }
 
+/**
+ * Selling screens never see a turned-off size; the Inventory pages ask for everything (`includeUnavailable`) and get an
+ * `Available` flag so they can badge it. Matching is by the readable Material ID, which is what the feed already shows.
+ */
+export async function materialsForViewer(rows: LegacyRow[], includeUnavailable: boolean, call: FinancialCall = callFinancial): Promise<LegacyRow[]> {
+  const [off, sales] = await Promise.all([
+    call<{ id: string; code: string }[]>('api_unavailable_materials', 'current', {}),
+    call<{ code: string; sold: string }[]>('api_material_sales', 'current', {}),
+  ]);
+  const offCodes = new Set((Array.isArray(off) ? off : []).map((item) => item.code));
+  // Realised revenue is what the material's jobs actually sold for, so changing the price never rewrites past earnings.
+  const sold = new Map((Array.isArray(sales) ? sales : []).map((item) => [item.code, item.sold]));
+  return rows
+    .filter((row) => includeUnavailable || !offCodes.has(row['Material ID']))
+    .map((row) => ({ ...row, 'Total Realised Revenue': sold.get(row['Material ID']) ?? '0', Available: offCodes.has(row['Material ID']) ? 'No' : 'Yes' }));
+}
+
 /** GET handler body: null when Sheets is still authoritative. */
-export async function legacyFeedResponse(resource: LegacyResource, call: FinancialCall = callFinancial): Promise<Response | null> {
+export async function legacyFeedResponse(resource: LegacyResource, call: FinancialCall = callFinancial, options: { includeUnavailable?: boolean } = {}): Promise<Response | null> {
   if (!legacyFeedEnabled()) return null;
   try {
     const identity = await financialIdentity(false);
     const rows = await legacyRows(resource, call);
-    const data = resource === 'expenses' ? expensesForViewer(rows, identity ? identity.staffId : null) : rows;
+    const data = resource === 'expenses' ? expensesForViewer(rows, identity ? identity.staffId : null)
+      : resource === 'materials' ? await materialsForViewer(rows, Boolean(options.includeUnavailable), call) : rows;
     return NextResponse.json({ data }, { headers: noStore });
   } catch (error) {
     if (error instanceof FinancialError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status, headers: noStore });

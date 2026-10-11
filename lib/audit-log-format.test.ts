@@ -59,3 +59,16 @@ it('says which month the books were closed through', () => {
   expect(describeAudit(entry('books_closed', { to: '2026-10-31' }, null)).text).toBe('closed the books through 31 October 2026');
   expect(describeAudit(entry('books_closed', { to: 'garbage' }, null)).text).toBe('closed the books through a date');
 });
+
+it('describes material changes in plain words', () => {
+  const text = (action: string, details: Record<string, unknown>) => describeAudit(entry(action, details, null)).text;
+  expect(text('material_price_changed', { name: 'Flex', from: '25000', to: '30000' })).toBe('changed the price of Flex from ₦250 to ₦300 per sq ft');
+  expect(text('material_price_changed', { name: 'Flex', to: '30050' })).toBe('changed the price of Flex to ₦300.50 per sq ft');
+  expect(text('material_price_changed', { name: 'Flex', from: 'bad', to: 'bad' })).toBe('changed the price of Flex to a new price per sq ft');
+  expect(text('material_renamed', { from: 'Flex', to: 'Flex Pro' })).toBe('renamed the material Flex to Flex Pro');
+  expect(text('material_added', { name: 'Banner', to: '28000' })).toBe('added the material Banner at ₦280 per sq ft');
+  expect(text('material_size_added', { name: 'Flex 6 ft' })).toBe('added the size Flex 6 ft');
+  expect(text('material_size_saved', { name: 'Flex 10 ft', enabled: false })).toBe('turned off Flex 10 ft');
+  expect(text('material_size_saved', { name: 'Flex 10 ft', enabled: true })).toBe('turned on Flex 10 ft');
+  expect(text('material_size_saved', { name: 'Flex 10 ft', changed: ['notes'] })).toBe('changed the settings of Flex 10 ft');
+});

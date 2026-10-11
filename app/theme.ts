@@ -838,6 +838,20 @@ export const systemStatusStyles = {
   big: { fontWeight: 700 },
 } as const;
 
+// Settings > Materials. Cards, chips and lines come from systemStatusStyles; these are the extras.
+export const materialsStyles = {
+  sizeRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" },
+  sizeOff: { opacity: 0.7 },
+  sizeActions: { display: "flex", alignItems: "center", gap: 1 },
+  chipOn: { bgcolor: tint("success", 0.14), color: (theme: Theme) => (theme.palette.mode === "dark" ? theme.palette.success.light : theme.palette.success.dark) },
+  chipOff: { bgcolor: "action.selected", color: "text.secondary" },
+  pricePanel: { p: 1.5, borderRadius: 3, bgcolor: "action.hover", display: "flex", flexDirection: "column", gap: 0.25 },
+  sectionLabel: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary", display: "block" },
+  cardOff: { borderStyle: "dashed" },
+  sizeList: { display: "flex", flexDirection: "column", gap: 1 },
+  sheetNote: { p: 1.5, borderRadius: 3, bgcolor: "action.hover", display: "flex", flexDirection: "column", gap: 0.75 },
+} as const;
+
 export const auditLogStyles = {
   filters: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(2, 200px)" }, gap: 1.5, mb: 1.5 },
   chips: { display: "flex", gap: 1, flexWrap: { xs: "nowrap", sm: "wrap" }, overflowX: { xs: "auto", sm: "visible" }, mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 }, pb: 0.5, mb: 2 },

@@ -92,7 +92,7 @@ export default function CashierInventoryPage() {
   const fetchData = async () => {
     if (materials.length > 0) setRefreshing(true);
     try {
-      const res = await fetch("/api/materials");
+      const res = await fetch("/api/materials?all=1");
       const json = await res.json();
       if (res.ok) setMaterials(json.data || []);
       else toast.error(json.error || "Failed to load materials");
@@ -365,6 +365,7 @@ export default function CashierInventoryPage() {
                       <Typography sx={{ fontWeight: 900, fontSize: "0.875rem" }}>
                         {mat["Material Name"]}
                       </Typography>
+                      {mat.Available === "No" && <Chip label="Turned off" size="small" />}
                       <Typography
                         sx={{
                           fontSize: "0.625rem",

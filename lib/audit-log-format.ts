@@ -1,4 +1,5 @@
 // Turns raw audit entries into plain sentences for the owner. Pure helpers, no styling or data access.
+import { nairaLabel } from './materials-format';
 export type AuditCategory = 'signins' | 'staff' | 'sales' | 'expenses' | 'stock' | 'settings' | 'other';
 export type AuditEntryView = { id: string; at: string; action: string; category: AuditCategory; actor_name: string | null;
   details: Record<string, unknown> };
@@ -16,6 +17,8 @@ const dateLabel = (value: unknown) => {
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
   return Number.isNaN(date.getTime()) ? 'a date' : new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
 };
+// Kobo kept as text in the audit details becomes "₦250"; anything unreadable becomes empty so the sentence stays plain.
+const koboLabel = (value: unknown) => (typeof value === 'string' && /^[0-9]{1,12}$/.test(value) ? nairaLabel(value) : '');
 const asText = (value: unknown) => (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? String(value) : '');
 
 // Staff entries name the cashier they were about; older entries do not, so fall back to a plain phrase.
@@ -27,6 +30,11 @@ const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   staff_reset: (e) => `reset the PIN for ${target(e, 'a cashier')}`,
   staff_disable: (e) => `removed ${target(e, 'a cashier')}`,
   staff_restore: (e) => `restored ${target(e, 'a cashier')}`,
+  material_price_changed: (e) => `changed the price of ${asText(e.details.name) || 'a material'} ${koboLabel(e.details.from) ? `from ${koboLabel(e.details.from)} ` : ''}to ${koboLabel(e.details.to) || 'a new price'} per sq ft`,
+  material_renamed: (e) => `renamed the material ${asText(e.details.from) || 'a material'} to ${asText(e.details.to) || 'a new name'}`,
+  material_added: (e) => `added the material ${asText(e.details.name) || ''}${koboLabel(e.details.to) ? ` at ${koboLabel(e.details.to)} per sq ft` : ''}`.trim(),
+  material_size_added: (e) => `added the size ${asText(e.details.name) || 'a size'}`,
+  material_size_saved: (e) => e.details.enabled === true ? `turned on ${asText(e.details.name) || 'a size'}` : e.details.enabled === false ? `turned off ${asText(e.details.name) || 'a size'}` : `changed the settings of ${asText(e.details.name) || 'a size'}`,
   books_closed: (e) => `closed the books through ${dateLabel(e.details.to)}`,
   staff_hidden: (e) => `hid ${target(e, 'a cashier')} from the staff lists`,
   staff_unhidden: (e) => `showed ${target(e, 'a cashier')} in the staff lists again`,

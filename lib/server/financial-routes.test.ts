@@ -1,9 +1,10 @@
 import { afterEach,beforeEach,expect,it,vi } from 'vitest';
-const mocks=vi.hoisted(()=>({admin:vi.fn(),session:vi.fn(),collect:vi.fn(),read:vi.fn(),report:vi.fn()}));
+const mocks=vi.hoisted(()=>({admin:vi.fn(),session:vi.fn(),collect:vi.fn(),read:vi.fn(),report:vi.fn(),call:vi.fn()}));
 vi.mock('next/headers',()=>({cookies:async()=>({get:()=>({value:'signed-session'})})}));
 vi.mock('./postgres-auth-routes',()=>({verifiedAdminIdentity:mocks.admin}));
 vi.mock('./postgres-auth',()=>({postgresAuth:{session:mocks.session}}));
 vi.mock('./financial-service',async original=>({...await original<typeof import('./financial-service')>(),financialService:{collect:mocks.collect,read:mocks.read,report:mocks.report}}));
+vi.mock('./financial-db',async original=>({...await original<typeof import('./financial-db')>(),callFinancial:mocks.call}));
 import { collectPayment,readFinancialRecords,readAccountingReport } from './financial-routes';
 import { validateFinancialConnection } from './financial-db';
 const id='00000000-0000-4000-8000-000000000001';
@@ -67,4 +68,16 @@ it('hides owner-only expense categories from staff unless the owner chose them, 
   expect(categoriesForViewer(page,me)).toEqual({data:[{name:'Ink',capital:false},{name:'Generator',capital:true}],next_after_id:null});
   expect(categoriesForViewer(page,'00000000-0000-4000-8000-000000000002').data.map(c=>c.name)).toEqual(['Ink']);
   expect(categoriesForViewer(page,null)).toBe(page);
+});
+
+it('marks turned-off sizes in the materials list so Stock entry can label them, without hiding them',async()=>{
+  const request=new Request('https://app.example.test/api/accounting/records?resource=materials');
+  mocks.session.mockResolvedValue({staff_id:id});
+  mocks.read.mockResolvedValue({data:[{id:'AAAAAAAA-0000-4000-8000-000000000001',name:'Flex'},{id:'00000000-0000-4000-8000-000000000002',name:'Banner'}],next_after_id:null});
+  mocks.call.mockResolvedValue([{id:'aaaaaaaa-0000-4000-8000-000000000001'}]);
+  const body=await(await readFinancialRecords(request)).json();
+  expect(mocks.call).toHaveBeenCalledWith('api_unavailable_materials','current',{});
+  expect(body.data).toEqual([{id:'AAAAAAAA-0000-4000-8000-000000000001',name:'Flex',available:false},{id:'00000000-0000-4000-8000-000000000002',name:'Banner'}]);
+  mocks.call.mockResolvedValue([]);
+  expect((await(await readFinancialRecords(request)).json()).data[0]).not.toHaveProperty('available');
 });
