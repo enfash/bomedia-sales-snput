@@ -5,10 +5,10 @@ import {
   Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText,
   DialogTitle, IconButton, Paper, Switch, TextField, Typography,
 } from "@mui/material";
-import { Clock, KeyRound, Plus, RotateCcw, ShieldCheck, Trash2, UserX, Users, X } from "lucide-react";
+import { Clock, Eye, EyeOff, KeyRound, Plus, RotateCcw, ShieldCheck, Trash2, UserX, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { staffManagerStyles as styles } from "@/app/theme";
-import { avatarBg, initials, isReallyOnline, lastSeenLabel, type Cashier } from "./staff-utils";
+import { avatarBg, initials, isReallyOnline, lastSeenLabel, staffInView, type Cashier, type StaffView } from "./staff-utils";
 
 const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 const PIN_PATTERN = /^\d{4}$/;
@@ -16,7 +16,7 @@ const pinInputProps = { maxLength: 4, inputMode: "numeric" as const, pattern: "[
 
 type Access = {
   single_session: boolean;
-  staff: { Name: string; Devices: number }[];
+  staff: { Name: string; Devices: number; Hidden?: boolean }[];
   removed: { Name: string; StaffId: string; RemovedAt: string }[];
 };
 
@@ -36,7 +36,7 @@ async function changeAccess(body: Record<string, unknown>) {
   return json;
 }
 
-export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRefresh: () => void }) {
+export function ManageUsers({ cashiers, view, onRefresh }: { cashiers: Cashier[]; view: StaffView; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPasscode, setNewPasscode] = useState("");
@@ -98,6 +98,17 @@ export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRe
       toast.error(err.message);
     } finally {
       setSigningOut(null);
+    }
+  };
+
+  const handleHide = async (name: string, hidden: boolean) => {
+    try {
+      await changeAccess({ action: "hide", name, hidden });
+      toast.success(hidden ? `${name} is hidden from the staff lists. Find them under "Hidden staff".` : `${name} is back in the staff lists`);
+      await loadAccess();
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
@@ -200,11 +211,21 @@ export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRe
     }
   };
 
+  const isHidden = (name: string) => Boolean(access?.staff.find((person) => person.Name === name)?.Hidden);
+  const shownCashiers = cashiers.filter((cashier) => staffInView(view, { removed: false, hidden: isHidden(cashier.Name), online: isReallyOnline(cashier) }));
+  const showRemoved = view === "removed" || view === "all";
+
   return (
     <Box sx={styles.manage}>
       <Box sx={styles.manageHeader}>
         <Typography variant="overline" color="text.secondary">
-          {cashiers.length} registered user{cashiers.length !== 1 ? "s" : ""}
+          {view === "removed"
+            ? `${access?.removed.length ?? 0} removed`
+            : view === "online"
+              ? `${shownCashiers.length} signed in now`
+              : view === "hidden"
+                ? `${shownCashiers.length} hidden`
+              : `${shownCashiers.length} registered user${shownCashiers.length !== 1 ? "s" : ""}`}
         </Typography>
         <Button
           size="small"
@@ -255,7 +276,7 @@ export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRe
         </Paper>
       )}
 
-      {access && (
+      {access && view !== "removed" && (
         <Paper variant="outlined" sx={styles.rulesCard}>
           <Box sx={styles.grow}>
             <Typography variant="caption" sx={styles.rulesLabel}>Sign-in rules</Typography>
@@ -272,15 +293,17 @@ export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRe
         </Paper>
       )}
 
-      {cashiers.length === 0 ? (
+      {view === "removed" ? null : shownCashiers.length === 0 ? (
         <Paper variant="outlined" sx={styles.empty}>
           <Box sx={styles.emptyIcon}><Users size={36} /></Box>
-          <Typography variant="h6" color="text.secondary">No users registered yet</Typography>
-          <Typography variant="caption" color="text.disabled">Tap "New User" above to add your first cashier.</Typography>
+          <Typography variant="h6" color="text.secondary">{cashiers.length === 0 ? "No users registered yet" : view === "hidden" ? "Nobody is hidden" : view === "online" ? "Nobody is signed in right now" : "Nobody to show here"}</Typography>
+          <Typography variant="caption" color="text.disabled">
+            {cashiers.length === 0 ? 'Tap "New User" above to add your first cashier.' : 'Choose "Active staff" or "All staff" to see more.'}
+          </Typography>
         </Paper>
       ) : (
         <Paper variant="outlined" sx={styles.card}>
-          {cashiers.map((cashier) => {
+          {shownCashiers.map((cashier) => {
             const isOnline = isReallyOnline(cashier);
             const hasPin = Boolean(cashier.HasPasscode || cashier.Passcode);
             const devices = access?.staff.find((person) => person.Name === cashier.Name)?.Devices ?? 0;
@@ -291,6 +314,7 @@ export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRe
                 <Box sx={styles.grow}>
                   <Box sx={styles.nameRow}>
                     <Typography variant="h6" component="span" sx={styles.ellipsis}>{cashier.Name}</Typography>
+                    {isHidden(cashier.Name) && <Box component="span" sx={styles.hiddenTag}>Hidden</Box>}
                     <Box component="span" sx={[styles.pill, isOnline ? styles.pillOnline : styles.pillOffline]}>
                       {isOnline ? (
                         <>
@@ -347,6 +371,18 @@ export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRe
                   <KeyRound size={16} />
                 </IconButton>
 
+                {access && (
+                  <IconButton
+                    size="small"
+                    onClick={() => void handleHide(cashier.Name, !isHidden(cashier.Name))}
+                    aria-label={isHidden(cashier.Name) ? `Show ${cashier.Name} in the staff lists` : `Hide ${cashier.Name} from the staff lists`}
+                    title={isHidden(cashier.Name) ? "Show in staff lists" : "Hide from staff lists"}
+                    sx={styles.hideAction}
+                  >
+                    {isHidden(cashier.Name) ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </IconButton>
+                )}
+
                 <IconButton
                   size="small"
                   onClick={() => setDeleteTarget(cashier)}
@@ -361,7 +397,14 @@ export function ManageUsers({ cashiers, onRefresh }: { cashiers: Cashier[]; onRe
         </Paper>
       )}
 
-      {access && access.removed.length > 0 && (
+      {access && view === "removed" && access.removed.length === 0 && (
+        <Paper variant="outlined" sx={styles.empty}>
+          <Box sx={styles.emptyIcon}><Users size={36} /></Box>
+          <Typography variant="h6" color="text.secondary">No removed staff</Typography>
+        </Paper>
+      )}
+
+      {access && showRemoved && access.removed.length > 0 && (
         <>
           <Typography variant="overline" sx={styles.sectionHeading}>
             Removed staff ({access.removed.length})

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { signToken } from '../auth-utils';
 
 const state = vi.hoisted(() => ({ values: new Map<string, string>(), service: {
-  overview: vi.fn(), signOut: vi.fn(), manage: vi.fn(), setSingleSession: vi.fn() } }));
+  overview: vi.fn(), signOut: vi.fn(), manage: vi.fn(), setSingleSession: vi.fn(), setHidden: vi.fn() } }));
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: (name: string) => {
   const value = state.values.get(name); return value ? { value } : undefined; } }) }));
 vi.mock('./postgres-auth', async importOriginal => {
@@ -22,7 +22,7 @@ const asAdmin = async () => state.values.set('admin_session', await signToken({ 
 
 it('keeps the overview and every change behind a verified admin', async () => {
   expect((await postgresStaffAccessOverview()).status).toBe(403);
-  for (const action of ['sign_out', 'restore', 'single_session'])
+  for (const action of ['sign_out', 'restore', 'single_session', 'hide'])
     expect((await postgresStaffAccessChange(post({ action, name: 'A', passcode: '1234', enabled: true }))).status).toBe(403);
   state.values.set('cashier_session', await signToken({ role: 'cashier', staffId: 'x', name: 'A', authBackend: 'postgres', sessionToken: 'x' }));
   expect((await postgresStaffAccessOverview()).status).toBe(403);
@@ -86,4 +86,23 @@ it('never lists the owner accounting identity as staff', async () => {
   expect(overview.staff.map((p) => p.Name)).toEqual(['Ada']);
   expect(overview.removed).toEqual([]);
   vi.unstubAllEnvs();
+});
+
+it('hides and shows a person with the admin identity attached', async () => {
+  await asAdmin();
+  state.service.setHidden.mockResolvedValue(true);
+  expect(await (await postgresStaffAccessChange(post({ action: 'hide', name: 'Tunde', hidden: true }))).json()).toEqual({ success: true, hidden: true });
+  expect(state.service.setHidden).toHaveBeenCalledWith('Tunde', true, 'owner@example.test');
+});
+
+it('validates hide input in the service before touching the database', async () => {
+  const call = vi.fn().mockResolvedValue(true);
+  const { setHidden } = (await vi.importActual<typeof import('./postgres-auth')>('./postgres-auth')).createPostgresAuth(call);
+  await expect(setHidden('', true, 'a')).rejects.toMatchObject({ status: 400 });
+  await expect(setHidden('Tunde', 'yes', 'a')).rejects.toMatchObject({ status: 400 });
+  expect(call).not.toHaveBeenCalled();
+  await setHidden(' Tunde ', false, 'a');
+  expect(call).toHaveBeenCalledWith('auth_set_staff_hidden', ['Tunde', false, 'a']);
+  call.mockRejectedValueOnce(Object.assign(new Error('x'), { code: '22023' }));
+  await expect(setHidden('Ghost', true, 'a')).rejects.toMatchObject({ status: 404 });
 });

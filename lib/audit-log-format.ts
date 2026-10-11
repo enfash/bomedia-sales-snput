@@ -20,6 +20,8 @@ const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   staff_reset: (e) => `reset the PIN for ${target(e, 'a cashier')}`,
   staff_disable: (e) => `removed ${target(e, 'a cashier')}`,
   staff_restore: (e) => `restored ${target(e, 'a cashier')}`,
+  staff_hidden: (e) => `hid ${target(e, 'a cashier')} from the staff lists`,
+  staff_unhidden: (e) => `showed ${target(e, 'a cashier')} in the staff lists again`,
   staff_sign_out: (e) => { const n = Number(e.details.sessions); return `signed ${target(e, 'a cashier')} out${Number.isFinite(n) ? ` of ${n} session${n === 1 ? '' : 's'}` : ''}`; },
   staff_single_session: (e) => `turned one device per cashier ${e.details.enabled === true ? 'on' : e.details.enabled === false ? 'off' : 'on or off'}`,
   sale_recorded: 'recorded a sale',

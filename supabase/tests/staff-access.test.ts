@@ -14,9 +14,14 @@ const call: AuthCall = async <T>(method: AuthMethod, parameters: (string | boole
   (await db.query<{ result: T }>(`select bomedia.${method}(${parameters.map((_, i) => `$${i + 1}`).join(',')}) as result`, parameters)).rows[0].result;
 type Overview = { single_session: boolean; staff: Record<string, unknown>[]; removed: Record<string, unknown>[] };
 const overview = () => call<Overview>('auth_staff_overview', []);
+// PGlite's clock_timestamp() only has millisecond precision, so quick logins can share one created_at and "newest session"
+// would fall to a random id. Real Postgres has microsecond precision; spacing the logins keeps the tests deterministic.
+const nextMillisecond = () => new Promise(resolve => setTimeout(resolve, 5));
 async function login(token: string, name = 'Staff One', hashValue = pinHash) {
   const reserved = await call<{ ticket: string }>('auth_reserve_login', [name]);
-  return call<{ status: string }>('auth_claim_session', [reserved.ticket, hashValue, hash(token)]);
+  const claimed = await call<{ status: string }>('auth_claim_session', [reserved.ticket, hashValue, hash(token)]);
+  await nextMillisecond();
+  return claimed;
 }
 async function denied(work: () => Promise<unknown>, code: string) {
   await db.exec('savepoint refused');
@@ -134,6 +139,30 @@ it('runs the new functions through the sign-in role without table access', async
 it.each(['anon', 'authenticated', 'service_role'])('does not grant the new capabilities to %s', async role => {
   const result = await db.query<{ ok: boolean }>(`select has_function_privilege($1,'bomedia.auth_staff_overview()','EXECUTE')
     or has_function_privilege($1,'bomedia.auth_sign_out_staff(text,text)','EXECUTE')
-    or has_function_privilege($1,'bomedia.auth_set_single_session(boolean,text)','EXECUTE') as ok`, [role]);
+    or has_function_privilege($1,'bomedia.auth_set_single_session(boolean,text)','EXECUTE')
+    or has_function_privilege($1,'bomedia.auth_set_staff_hidden(text,boolean,text)','EXECUTE') as ok`, [role]);
   expect(result.rows[0].ok).toBe(false);
+});
+
+it('hides and shows a person in the overview without touching their PIN, sessions or access, and audits real changes only', async () => {
+  await login('a');
+  expect((await overview()).staff[0].Hidden).toBe(false);
+  expect(await call('auth_set_staff_hidden', ['Staff One', true, admin])).toBe(true);
+  await call('auth_set_staff_hidden', ['  staff   one ', true, admin]);
+  const hidden = (await overview()).staff[0];
+  expect(hidden).toMatchObject({ Hidden: true, Devices: 1, HasPasscode: true });
+  expect((await login('b')).status).toBe('ok');
+  await call('auth_set_staff_hidden', ['Staff One', false, admin]);
+  expect((await overview()).staff[0].Hidden).toBe(false);
+  const audit = await db.query<{ action: string; details: Record<string, unknown> }>(
+    "select action, details from bomedia.audit_events where action in ('staff_hidden','staff_unhidden')");
+  expect(audit.rows.map(row => row.action).sort()).toEqual(['staff_hidden', 'staff_unhidden']);
+  for (const row of audit.rows) expect(row.details).toEqual({ admin_identity: admin, name: 'Staff One' });
+});
+
+it('refuses to hide unknown or removed staff and bad input', async () => {
+  await call('auth_manage_staff', ['create', 'Bisi', pinHash, admin]);
+  await call('auth_manage_staff', ['disable', 'Bisi', null, admin]);
+  for (const args of [['Ghost', true, admin], ['Bisi', true, admin], ['', true, admin], ['Staff One', null, admin], ['Staff One', true, ' ']])
+    await denied(() => call('auth_set_staff_hidden', args), '22023');
 });

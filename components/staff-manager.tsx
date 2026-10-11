@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import NextLink from "next/link";
-import { Box, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { Box, Button, MenuItem, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { AlertTriangle, ArrowLeft, BarChart3, RefreshCw, TrendingUp, UserCheck, Users, Wallet } from "lucide-react";
 import { subDays, isWithinInterval, isSameDay } from "date-fns";
 import { toast } from "sonner";
@@ -10,7 +10,9 @@ import { settingsStyles, staffManagerStyles as styles } from "@/app/theme";
 import { LoadingAnimation } from "@/components/loading-animation";
 import { ManageUsers } from "./staff/manage-users";
 import { StaffCard } from "./staff/staff-card";
-import { compactMoney, fmtMoney, isReallyOnline, parseAmt, type Cashier, type StaffStats } from "./staff/staff-utils";
+import { compactMoney, fmtMoney, isReallyOnline, isStaffView, parseAmt, STAFF_VIEWS, staffInView, type Cashier, type StaffStats, type StaffView } from "./staff/staff-utils";
+
+const VIEW_KEY = "bomedia-staff-view";
 
 export function StaffManager() {
   const [sales, setSales] = useState<any[]>([]);
@@ -19,15 +21,27 @@ export function StaffManager() {
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<"all" | "7d" | "30d">("30d");
   const [tab, setTab] = useState<"performance" | "manage">("performance");
+  const [view, setView] = useState<StaffView>("active");
+  const [removedPeople, setRemovedPeople] = useState<string[]>([]);
+  const [hiddenPeople, setHiddenPeople] = useState<string[]>([]);
+
+  const chooseView = (next: StaffView) => {
+    setView(next);
+    try { localStorage.setItem(VIEW_KEY, next); } catch { /* the choice is only a convenience */ }
+  };
 
   const fetchData = async () => {
     setRefreshing(true);
     try {
-      const [sRes, cRes] = await Promise.all([fetch("/api/sales"), fetch("/api/cashiers")]);
+      const [sRes, cRes, aRes] = await Promise.all([fetch("/api/sales"), fetch("/api/cashiers"), fetch("/api/cashiers/access", { cache: "no-store" }).catch(() => null)]);
       const sJson = await sRes.json();
       const cJson = await cRes.json();
       setSales(sJson.data || []);
       setCashiers(cJson.data || []);
+      // Removed staff only exist on the Postgres sign-in backend; elsewhere nobody counts as removed.
+      const aJson = aRes?.ok ? await aRes.json().catch(() => null) : null;
+      setRemovedPeople(((aJson?.data?.removed ?? []) as { Name: string }[]).map((p) => p.Name.trim()));
+      setHiddenPeople(((aJson?.data?.staff ?? []) as { Name: string; Hidden?: boolean }[]).filter((p) => p.Hidden).map((p) => p.Name.trim().toLowerCase()));
     } catch {
       toast.error("Could not load staff data.");
     } finally {
@@ -39,7 +53,9 @@ export function StaffManager() {
   useEffect(() => {
     let active = true;
     void Promise.resolve().then(() => {
-      if (active) void fetchData();
+      if (!active) return;
+      try { const saved = localStorage.getItem(VIEW_KEY); if (isStaffView(saved)) setView(saved); } catch { /* ignore */ }
+      void fetchData();
     });
     return () => {
       active = false;
@@ -48,7 +64,7 @@ export function StaffManager() {
 
   const now = new Date();
 
-  const staffStats: StaffStats[] = useMemo(() => {
+  const allStats: StaffStats[] = useMemo(() => {
     const startDate =
       dateRange === "7d" ? subDays(now, 7) : dateRange === "30d" ? subDays(now, 30) : new Date("2020-01-01");
 
@@ -58,6 +74,7 @@ export function StaffManager() {
     cashiers.forEach((c) => {
       if (c.Name) namesFromSales.add(c.Name.trim());
     });
+    removedPeople.forEach((name) => namesFromSales.add(name));
 
     return Array.from(namesFromSales)
       .filter((n) => n && n !== "Unknown")
@@ -108,7 +125,24 @@ export function StaffManager() {
         };
       })
       .sort((a, b) => b.totalRevenue - a.totalRevenue);
-  }, [sales, cashiers, dateRange]);
+  }, [sales, cashiers, removedPeople, dateRange]);
+
+  const removedNames = useMemo(() => removedPeople.map((name) => name.toLowerCase()), [removedPeople]);
+
+  const viewState = useCallback(
+    (s: StaffStats) => {
+      const key = s.name.trim().toLowerCase();
+      return { removed: removedNames.includes(key), hidden: hiddenPeople.includes(key), online: s.isOnline };
+    },
+    [removedNames, hiddenPeople]
+  );
+
+  const viewCounts = useMemo(() => {
+    const inView = (view: StaffView) => allStats.filter((s) => staffInView(view, viewState(s))).length;
+    return Object.fromEntries(STAFF_VIEWS.map((v) => [v.value, inView(v.value)])) as Record<StaffView, number>;
+  }, [allStats, viewState]);
+
+  const staffStats = useMemo(() => allStats.filter((s) => staffInView(view, viewState(s))), [allStats, viewState, view]);
 
   const totals = useMemo(() => {
     const rev = staffStats.reduce((s, c) => s + c.totalRevenue, 0);
@@ -126,7 +160,7 @@ export function StaffManager() {
   }
 
   const summaryCards = [
-    { label: "Active Staff", val: String(staffStats.length), sub: `${cashiers.filter((c) => isReallyOnline(c)).length} online now`, icon: Users, tone: styles.tone.primary },
+    { label: "Staff Shown", val: String(staffStats.length), sub: `${cashiers.filter((c) => isReallyOnline(c)).length} online now`, icon: Users, tone: styles.tone.primary },
     { label: "Team Revenue", val: compactMoney(totals.rev), sub: fmtMoney(totals.rev), icon: TrendingUp, tone: styles.tone.success },
     { label: "Cash Collected", val: compactMoney(totals.col), sub: `${totals.avgCollection.toFixed(0)}% collection rate`, icon: Wallet, tone: styles.tone.info },
     { label: "Team Debt", val: compactMoney(totals.dbt), sub: "outstanding across all", icon: AlertTriangle, tone: totals.dbt > 0 ? styles.tone.error : styles.tone.neutral },
@@ -168,6 +202,21 @@ export function StaffManager() {
         </Button>
       </Box>
 
+      <TextField
+        select
+        size="small"
+        label="Show"
+        value={view}
+        onChange={(event) => chooseView(event.target.value as StaffView)}
+        sx={styles.viewFilter}
+      >
+        {STAFF_VIEWS.map(({ value, label }) => (
+          <MenuItem key={value} value={value}>
+            {tab === "performance" ? `${label} (${viewCounts[value]})` : label}
+          </MenuItem>
+        ))}
+      </TextField>
+
       {tab === "performance" && (
         <>
           <Box sx={styles.tabs}>
@@ -194,7 +243,7 @@ export function StaffManager() {
           {staffStats.length === 0 ? (
             <Paper variant="outlined" sx={styles.empty}>
               <Box sx={styles.emptyIcon}><Users size={40} /></Box>
-              <Typography variant="h6" color="text.secondary">No staff activity found for this period</Typography>
+              <Typography variant="h6" color="text.secondary">No staff to show for this period and filter</Typography>
             </Paper>
           ) : (
             <Box sx={styles.list}>
@@ -206,7 +255,7 @@ export function StaffManager() {
         </>
       )}
 
-      {tab === "manage" && <ManageUsers cashiers={cashiers} onRefresh={fetchData} />}
+      {tab === "manage" && <ManageUsers cashiers={cashiers} view={view} onRefresh={fetchData} />}
     </Box>
   );
 }

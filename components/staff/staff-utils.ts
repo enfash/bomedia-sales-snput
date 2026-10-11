@@ -34,6 +34,25 @@ export function isReallyOnline(cashier: Cashier): boolean {
   return Date.now() - new Date(lastActive).getTime() < ONLINE_THRESHOLD_MS;
 }
 
+/** Which staff the Staff Manager lists: everyone not removed or hidden, only those signed in now, only hidden staff, only removed staff, or all of them. */
+export type StaffView = "active" | "online" | "hidden" | "removed" | "all";
+export const STAFF_VIEWS: { value: StaffView; label: string }[] = [
+  { value: "active", label: "Active staff" },
+  { value: "online", label: "Signed in now" },
+  { value: "hidden", label: "Hidden staff" },
+  { value: "removed", label: "Removed staff" },
+  { value: "all", label: "All staff" },
+];
+export function staffInView(view: StaffView, person: { removed: boolean; online: boolean; hidden?: boolean }): boolean {
+  const hidden = Boolean(person.hidden);
+  if (view === "all") return true;
+  if (view === "removed") return person.removed;
+  if (view === "hidden") return !person.removed && hidden;
+  if (view === "online") return !person.removed && !hidden && person.online;
+  return !person.removed && !hidden;
+}
+export const isStaffView = (value: unknown): value is StaffView => STAFF_VIEWS.some((v) => v.value === value);
+
 /** ISO timestamps from the database become Lagos time ("11 Oct, 4:06 am"); older free-text values are kept as they are. */
 export function readableLogin(value: string | null | undefined): string {
   if (!value) return "Never";

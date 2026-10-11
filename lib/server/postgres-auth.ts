@@ -8,7 +8,7 @@ export class AuthError extends Error {
 }
 export type StaffSession = { staff_id: string; name: string; session_id: string };
 export type StaffOverview = { single_session: boolean;
-  staff: (StaffSummary & { Devices: number })[]; removed: { Name: string; StaffId: string; RemovedAt: string }[] };
+  staff: (StaffSummary & { Devices: number; Hidden: boolean })[]; removed: { Name: string; StaffId: string; RemovedAt: string }[] };
 export type StaffSummary = { Name: string; HasPasscode: boolean; RequiresPinReset: boolean; StaffId: string;
   Status: string; 'Last Login': string | null; 'Last Active': string | null };
 // The owner's staff row only attributes owner-side writes (SUPABASE_ADMIN_STAFF_ID); it is not a cashier, so staff lists never show it.
@@ -86,11 +86,20 @@ export function createPostgresAuth(call: AuthCall = callAuth) {
       throw error;
     }
   }
+  async function setHidden(name: unknown, hidden: unknown, adminIdentity: string) {
+    if (typeof name !== 'string' || !name.trim() || name.length > 200) throw new AuthError('A staff name is required.', 400);
+    if (typeof hidden !== 'boolean') throw new AuthError('Choose hide or show.', 400);
+    try { return await call<boolean>('auth_set_staff_hidden', [name.trim(), hidden, adminIdentity]); }
+    catch (error) {
+      if ((error as { code?: string }).code === '22023') throw new AuthError('Staff account not found.', 404);
+      throw error;
+    }
+  }
   async function setSingleSession(enabled: unknown, adminIdentity: string) {
     if (typeof enabled !== 'boolean') throw new AuthError('Choose on or off.', 400);
     return call<boolean>('auth_set_single_session', [enabled, adminIdentity]);
   }
-  return { login, session, logout, presence, manage, signOut, setSingleSession,
+  return { login, session, logout, presence, manage, signOut, setSingleSession, setHidden,
     overview: async () => {
       const result = await call<StaffOverview>('auth_staff_overview', []);
       return { ...result, staff: result.staff.filter(notOwner), removed: result.removed.filter(notOwner) };

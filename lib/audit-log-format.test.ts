@@ -49,3 +49,8 @@ it('describes expense category changes by name', () => {
   expect(describeAudit(entry('expense_category_saved', { name: 'Equipment', changed: ['access_chosen'], enabled: true })).text).toBe('chose which staff can log the expense category Equipment');
   expect(describeAudit(entry('expense_category_saved')).text).toBe('changed an expense category');
 });
+
+it('describes hiding and showing staff in plain words', () => {
+  expect(describeAudit(entry('staff_hidden', { admin_identity: 'o@x.test', name: 'Tunde' }, null)).text).toBe('hid Tunde from the staff lists');
+  expect(describeAudit(entry('staff_unhidden', { admin_identity: 'o@x.test', name: 'Tunde' }, null)).text).toBe('showed Tunde in the staff lists again');
+});

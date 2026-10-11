@@ -90,7 +90,8 @@ export function postgresStaffAccessChange(request: Request) {
     const input = await body(request);
     if (input.action === 'sign_out') return json({ success: true, signedOut: await postgresAuth.signOut(input.name, admin) });
     if (input.action === 'restore') { await postgresAuth.manage('restore', input.name, input.passcode, admin); return json({ success: true }); }
+    if (input.action === 'hide') return json({ success: true, hidden: await postgresAuth.setHidden(input.name, input.hidden, admin) });
     if (input.action === 'single_session') return json({ success: true, singleSession: await postgresAuth.setSingleSession(input.enabled, admin) });
-    throw new AuthError('Choose sign out, restore or one device.', 400);
+    throw new AuthError('Choose sign out, restore, hide or one device.', 400);
   });
 }
