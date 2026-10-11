@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import NextLink from 'next/link';
 import { Alert, Box, Button, IconButton, Paper, Skeleton, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { ArrowDown, ArrowLeft, ArrowUp, ArchiveRestore, Plus, RefreshCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArchiveRestore, Plus, RefreshCw } from 'lucide-react';
 import { settingsStyles as styles } from '@/app/theme';
 import { formatKobo } from '@/lib/accounting-money';
 import { nairaToKobo } from '@/lib/accounting-entry';
 import { readPendingAccounting, sendAccountingEntry, type PendingAccountingEntry } from '@/lib/accounting-pending';
 import type { JobService } from '@/lib/job-items';
 import { ResponsiveSheet } from './responsive-sheet';
+import { BackLink } from '@/components/back-link';
 
 type ServiceForm={id?:string;name:string;pricing:'fixed'|'per_job';price:string;visible:boolean;free:boolean};
 const blank:ServiceForm={name:'',pricing:'fixed',price:'',visible:true,free:false};
@@ -96,7 +97,7 @@ export function ServicesManager({staffId}:{staffId:string|null}) {
       summary:`Save service: ${form.name.trim()}`});
   }
   return <Box sx={styles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18}/>}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Stack spacing={1} sx={styles.heading}>
       <Typography variant="h3" component="h1">Services</Typography>
       <Typography color="text.secondary">What staff can sell besides printing. Services use no roll stock.</Typography>

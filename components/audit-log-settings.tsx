@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
-import NextLink from 'next/link';
 import { Alert, Box, Button, IconButton, MenuItem, Paper, Skeleton, Stack, TextField, Typography } from '@mui/material';
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { auditLogStyles as styles, settingsStyles } from '@/app/theme';
 import { CATEGORY_LABEL, describeAudit, detailLines, groupByDay, timeLabel, type AuditCategory, type AuditEntryView } from '@/lib/audit-log-format';
+import { BackLink } from '@/components/back-link';
 
 type Cursor = { at: string; id: string };
 type Page = { data: AuditEntryView[]; next_before: Cursor | null; people: { id: string; name: string }[] };
@@ -60,7 +60,7 @@ export function AuditLogSettings() {
 
   const groups = groupByDay(entries ?? []);
   return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Stack spacing={1} sx={settingsStyles.heading}>
       <Typography variant="h3" component="h1">Audit log</Typography>
       <Typography color="text.secondary">A record of who did what in the app. Entries cannot be edited or deleted.</Typography>

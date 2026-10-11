@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import NextLink from 'next/link';
 import { Alert, Box, Button, Paper, Skeleton, Stack, TextField, Typography } from '@mui/material';
-import { ArrowLeft } from 'lucide-react';
+
 import { businessDetailsStyles as styles, settingsStyles } from '@/app/theme';
 import { clearBusinessDetailsCache, parseBusinessDetails, type BusinessDetails } from '@/lib/business-details';
+import { BackLink } from '@/components/back-link';
 
 type Form = Pick<BusinessDetails, 'accountName' | 'accountNumber' | 'bank' | 'phone' | 'email' | 'address'>;
 type Meta = { updatedAt: string | null; updatedBy: string | null };
@@ -50,7 +50,7 @@ export function BusinessDetailsSettings() {
   }, []);
 
   if (!form || !saved) return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Stack spacing={1} sx={settingsStyles.heading}><Typography variant="h3" component="h1">Business details</Typography></Stack>
     {error ? <Alert severity="error">{error}</Alert> : <Skeleton variant="rounded" height={360} />}
   </Box>;
@@ -87,7 +87,7 @@ export function BusinessDetailsSettings() {
 
   const shown = { ...form, accountName: form.accountName.trim() || '—', accountNumber: form.accountNumber || '—', bank: form.bank.trim() || '—' };
   return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Stack spacing={1} sx={settingsStyles.heading}>
       <Typography variant="h3" component="h1">Business details</Typography>
       <Typography color="text.secondary">Printed on every invoice and receipt. Invoices already sent are not affected.</Typography>

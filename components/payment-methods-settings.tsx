@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import NextLink from 'next/link';
 import { Alert, Box, Button, FormControlLabel, Paper, Skeleton, Stack, Switch, TextField, Typography } from '@mui/material';
-import { ArrowLeft } from 'lucide-react';
+
 import { paymentMethodStyles as styles, settingsStyles } from '@/app/theme';
 import { ResponsiveSheet } from './responsive-sheet';
+import { BackLink } from '@/components/back-link';
 
 type Method = { method: 'cash' | 'transfer' | 'pos'; label: string; enabled: boolean; account_code: string; account_name: string };
 const ENDPOINT = '/api/accounting/payment-method-settings';
@@ -51,7 +51,7 @@ export function PaymentMethodsSettings() {
   }
 
   return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Stack spacing={1} sx={settingsStyles.heading}>
       <Typography variant="h3" component="h1">Payment methods</Typography>
       <Typography color="text.secondary">The ways customers can pay. Staff pick one when they record a payment, and the money is recorded in the account shown.</Typography>

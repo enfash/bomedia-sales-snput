@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ownerSettingsNav } from "@/components/settings-navigation";
-import { headerHomeLinkStyles } from "@/app/theme";
+import { accent, headerHomeLinkStyles, syncIconStyles, whiteTint } from "@/app/theme";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, LayoutDashboard, PlusCircle, Receipt, BarChart3,
@@ -131,7 +131,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
               <Menu size={24} />
             </IconButton>
             <Box component={Link} href={isInCashierView ? "/cashier" : "/bom03"} aria-label="BOMedia home" sx={headerHomeLinkStyles}>
-              <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1, display: "block", fontSize: "0.875rem" }}>
+              <Typography variant="caption" sx={{ fontWeight: 900, color: accent, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1, display: "block", fontSize: "0.875rem" }}>
                 BOMedia
               </Typography>
               <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1, fontSize: "0.6rem" }}>
@@ -142,7 +142,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Tooltip title="Refresh data">
-              <IconButton onClick={handleRefresh} size="small" aria-label="Refresh data" sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}>
+              <IconButton onClick={handleRefresh} size="small" aria-label="Refresh data" sx={{ color: "text.secondary", "&:hover": { color: accent } }}>
                 <RefreshCw size={16} />
               </IconButton>
             </Tooltip>
@@ -154,7 +154,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                 sx={{
                   color: hasHydrated && isMuted ? "error.main" : "text.secondary",
                   bgcolor: hasHydrated && isMuted ? "error.light" : "transparent",
-                  "&:hover": { color: "primary.main" },
+                  "&:hover": { color: accent },
                 }}
               >
                 {hasHydrated && isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -179,7 +179,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
         <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <Box sx={{ px: 3, pt: 3, pb: 2 }}>
             <Logo />
-            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", mt: 0.5, ml: 6, display: "block" }}>
+            <Typography variant="caption" sx={{ color: whiteTint(0.5), mt: 0.5, ml: 6, display: "block" }}>
               Sales &amp; Expenses
             </Typography>
           </Box>
@@ -198,13 +198,13 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                     borderRadius: 2.5,
                     mb: 0.5,
                     gap: 1,
-                    color: active ? "primary.contrastText" : "rgba(255,255,255,0.65)",
+                    color: active ? "primary.contrastText" : whiteTint(0.65),
                     "&.Mui-selected": {
                       bgcolor: "primary.main",
                       color: "primary.contrastText",
                       "&:hover": { bgcolor: "primary.dark" },
                     },
-                    "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" },
+                    "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" },
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
@@ -218,47 +218,49 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
           <Box sx={{ mt: "auto", px: 2, pb: 3 }}>
             {/* Sync status */}
-            <Box sx={{ p: 1.5, bgcolor: "rgba(255,255,255,0.05)", borderRadius: 2, border: "1px solid rgba(255,255,255,0.08)", mb: 2 }}>
+            <Box sx={{ p: 1.5, bgcolor: whiteTint(0.05), borderRadius: 2, border: "1px solid", borderColor: whiteTint(0.08), mb: 2 }}>
               <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.6rem" }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: whiteTint(0.4), textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.6rem" }}>
                   Sync Queue
                 </Typography>
                 {syncStatus === "syncing" ? (
                   <CircularProgress size={12} />
                 ) : pendingQueue.length > 0 ? (
-                  <CloudOff size={12} style={{ color: "#f59e0b" }} />
+                  <Box component="span" sx={syncIconStyles.waiting}><CloudOff size={12} /></Box>
                 ) : (
-                  <Cloud size={12} style={{ color: "#4ade80" }} />
+                  <Box component="span" sx={syncIconStyles.synced}><Cloud size={12} /></Box>
                 )}
               </Box>
-              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)" }}>
+              <Typography variant="caption" sx={{ color: whiteTint(0.6) }}>
                 {pendingQueue.length} items waiting for network
               </Typography>
             </Box>
 
-            <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", mb: 2 }} />
+            <Divider sx={{ borderColor: whiteTint(0.1), mb: 2 }} />
 
             {isAdmin && (
               <Button
+                color="inherit"
                 fullWidth
                 startIcon={<ArrowLeftRight size={18} />}
                 onClick={() => { router.push(isInCashierView ? "/bom03" : "/cashier"); setIsOpen(false); }}
-                sx={{ justifyContent: "flex-start", color: "rgba(255,255,255,0.5)", "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" }, mb: 1, textTransform: "none" }}
+                sx={{ justifyContent: "flex-start", color: whiteTint(0.5), "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" }, mb: 1, textTransform: "none" }}
               >
                 {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
               </Button>
             )}
 
             <Button
+              color="inherit"
               fullWidth
               startIcon={<LogOut size={18} />}
               onClick={handleLogout}
-              sx={{ justifyContent: "flex-start", color: "rgba(255,255,255,0.4)", "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" }, textTransform: "none" }}
+              sx={{ justifyContent: "flex-start", color: whiteTint(0.4), "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" }, textTransform: "none" }}
             >
               Log Out
             </Button>
 
-            <Typography variant="caption" sx={{ display: "block", textAlign: "center", color: "rgba(255,255,255,0.2)", mt: 2 }}>
+            <Typography variant="caption" sx={{ display: "block", textAlign: "center", color: whiteTint(0.2), mt: 2 }}>
               BOMedia Management System
             </Typography>
           </Box>

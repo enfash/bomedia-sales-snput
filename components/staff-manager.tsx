@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import NextLink from "next/link";
 import { Box, Button, MenuItem, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
-import { AlertTriangle, ArrowLeft, BarChart3, RefreshCw, TrendingUp, UserCheck, Users, Wallet } from "lucide-react";
+import { AlertTriangle, BarChart3, RefreshCw, TrendingUp, UserCheck, Users, Wallet } from 'lucide-react';
 import { subDays, isWithinInterval, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { settingsStyles, staffManagerStyles as styles } from "@/app/theme";
@@ -11,6 +10,7 @@ import { LoadingAnimation } from "@/components/loading-animation";
 import { ManageUsers } from "./staff/manage-users";
 import { StaffCard } from "./staff/staff-card";
 import { compactMoney, fmtMoney, isReallyOnline, isStaffView, parseAmt, STAFF_VIEWS, staffInView, type Cashier, type StaffStats, type StaffView } from "./staff/staff-utils";
+import { BackLink } from '@/components/back-link';
 
 const VIEW_KEY = "bomedia-staff-view";
 
@@ -168,9 +168,7 @@ export function StaffManager() {
 
   return (
     <Box sx={settingsStyles.page}>
-      <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>
-        Settings
-      </Button>
+      <BackLink href="/bom03/settings" label="Settings" />
 
       <Stack spacing={1} sx={settingsStyles.heading}>
         <Typography variant="h3" component="h1">Staff Manager</Typography>

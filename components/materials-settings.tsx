@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import NextLink from 'next/link';
 import { Alert, Box, Button, FormControlLabel, Paper, Skeleton, Stack, Switch, TextField, Typography } from '@mui/material';
-import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { materialsStyles as styles, settingsStyles, systemStatusStyles as status } from '@/app/theme';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { koboToInput, nairaLabel } from '@/lib/materials-format';
+import { BackLink } from '@/components/back-link';
 
 type Size = { id: string; code: string; width_ft: string; remaining_ft: string; roll_count: number; low_stock_ft: string; notes: string | null;
   available: boolean; price_kobo: string };
@@ -86,7 +86,7 @@ export function MaterialsSettings() {
 
   const needPrice = (groups ?? []).filter((group) => group.prices_differ).length;
   return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Box sx={[settingsStyles.heading, status.stack]}>
       <Typography variant="h3" component="h1">Materials</Typography>
       <Typography color="text.secondary">Each material has one price per square foot that applies to every size. This is the only place a price can be changed.</Typography>

@@ -22,6 +22,19 @@ export const dateRangeStyles = {
   dialog: { '& .MuiDialog-paper': { m: 2, maxWidth: 'calc(100% - 32px)', maxHeight: 'calc(100dvh - 32px)' } },
 } as const;
 
+// White at a given strength, for controls that sit on the brand gradient or the always-dark side panel.
+export const whiteTint = (opacity: number) => (theme: Theme) => alpha(theme.palette.common.white, opacity);
+
+// Sync-status icons in the side panel (cloud icons take their colour from the text colour).
+export const syncIconStyles = {
+  waiting: { display: "flex", color: "warning.main" },
+  synced: { display: "flex", color: "success.light" },
+  dot: { width: 8, height: 8, borderRadius: "50%", bgcolor: "warning.main" },
+} as const;
+
+// The side panel (desktop sidebar and mobile drawer) is dark in both modes.
+const SIDE_PANEL = "#111827";
+
 export const quickActionStyles = {
   container: { containerType: 'inline-size', width: '100%', minWidth: 0, flex: 1 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1,
@@ -29,10 +42,12 @@ export const quickActionStyles = {
   },
   button: {
     minWidth: 0, minHeight: 44, px: 1, fontSize: '0.75rem', fontWeight: 700,
-    borderColor: 'rgba(255,255,255,0.35)', color: 'common.white', bgcolor: 'rgba(255,255,255,0.1)',
+    bgcolor: whiteTint(0.1),
+    // Doubled selector: beats the dark-mode brand colour that outlined primary buttons get from the theme.
+    '&&': { color: 'common.white', borderColor: whiteTint(0.35) },
     borderRadius: 100, whiteSpace: 'normal', lineHeight: 1.4,
     '& .MuiButton-startIcon': { flexShrink: 0 },
-    '&:hover': { bgcolor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.5)' },
+    '&&:hover': { bgcolor: whiteTint(0.2), borderColor: whiteTint(0.5) },
   },
 } as const;
 
@@ -198,7 +213,8 @@ export const staffManagerStyles = {
   pinInput: { "& input": { textAlign: "center", fontSize: "1.125rem", fontWeight: 700, letterSpacing: "0.25em" } },
 } as const;
 
-const accent = (theme: Theme) => (theme.palette.mode === "dark" ? theme.palette.primary.light : theme.palette.primary.main);
+/** Brand text colour that stays readable in both modes: the bright indigo on dark surfaces, the normal one on light. */
+export const accent = (theme: Theme) => (theme.palette.mode === "dark" ? theme.palette.primary.light : theme.palette.primary.main);
 const onBrand = (opacity: number) => (theme: Theme) => alpha(theme.palette.common.white, opacity);
 
 // Admin dashboard (/bom03). Brand colours come from the palette, so a theme change reaches every card.
@@ -662,6 +678,7 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
       // The admin indigo is too dark to read as "ticked" on the dark surface, so use the brighter accent there.
       MuiCheckbox: { styleOverrides: { root: { "&.Mui-checked": { color: mode === "dark" ? primaryLight : primaryColor } } } },
       MuiRadio:    { styleOverrides: { root: { "&.Mui-checked": { color: mode === "dark" ? primaryLight : primaryColor } } } },
+      MuiBottomNavigationAction: { styleOverrides: { root: { "&.Mui-selected": { color: mode === "dark" ? primaryLight : primaryColor } } } },
       MuiButton: {
         defaultProps: { disableElevation: true },
         styleOverrides: {
@@ -673,6 +690,11 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
             "&:active": {
               transform: "scale(0.97) translateY(1px)",
             },
+            // Outlined and text buttons draw the brand colour as text and border; the admin indigo is too dark for that on the dark surface.
+            ...(mode === "dark" && {
+              "&:where(.MuiButton-outlined.MuiButton-colorPrimary)": { color: primaryLight, borderColor: alpha(primaryLight, 0.5) },
+              "&:where(.MuiButton-text.MuiButton-colorPrimary)": { color: primaryLight },
+            }),
             "&.MuiButton-sizeSmall":  { borderRadius: "12px", padding: "5px 14px" },
             "&.MuiButton-sizeMedium": { borderRadius: "12px" },
             "&.MuiButton-sizeLarge":  { borderRadius: "12px" },
@@ -782,7 +804,8 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: "#111827",
+            backgroundColor: SIDE_PANEL,
+            backgroundImage: "none", // no dark-mode elevation overlay: the panel is the same navy in both modes
             color: "#ffffff",
             border: "none",
           },
@@ -897,6 +920,8 @@ export const inventoryStyles = {
   grow: { flex: 1, minWidth: 140 },
   cards: { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 1.5, alignItems: "start" },
   cardOff: { borderStyle: "dashed", opacity: 0.85 },
+  cardOut: { opacity: 0.85 },
+  stockNote: { color: "text.secondary" },
   cardOpen: { borderColor: "primary.main" },
   titleLine: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1.5 },
   chips: { display: "flex", gap: 0.75, flexWrap: "wrap", justifyContent: "flex-end" },
@@ -916,6 +941,12 @@ export const inventoryStyles = {
   label: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
   strong: { fontWeight: 600 },
   sheetBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
+} as const;
+
+// The "back to the previous screen" link at the top of a page. alignSelf keeps it at the left edge even inside a flex column,
+// where an unstyled button would stretch across the page and centre its text.
+export const backLinkStyles = {
+  link: { alignSelf: "flex-start", justifyContent: "flex-start", minHeight: 44, px: 0, minWidth: 44, "& .MuiButton-startIcon": { ml: 0 } },
 } as const;
 
 export const auditLogStyles = {

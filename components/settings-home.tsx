@@ -1,14 +1,15 @@
 "use client";
 
 import NextLink from 'next/link';
-import { Box, Button, Paper, Stack, Typography } from '@mui/material';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { Box, Paper, Stack, Typography } from '@mui/material';
+import { ChevronRight } from 'lucide-react';
 import { settingsStyles as styles } from '@/app/theme';
 import { settingsSections } from './settings-navigation';
+import { BackLink } from '@/components/back-link';
 
 export function SettingsHome() {
   return <Box sx={styles.page}>
-    <Button component={NextLink} href="/bom03" startIcon={<ArrowLeft size={18}/>}>Dashboard</Button>
+    <BackLink href="/bom03" label="Dashboard" />
     <Stack spacing={1} sx={styles.heading}>
       <Typography variant="h3" component="h1">Settings</Typography>
       <Typography color="text.secondary">Manage your services and team.</Typography>

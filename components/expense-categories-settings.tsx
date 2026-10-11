@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import NextLink from 'next/link';
 import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Radio, RadioGroup, Skeleton, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { ArrowLeft } from 'lucide-react';
+
 import { expenseCategoryStyles as styles, settingsStyles } from '@/app/theme';
 import { ResponsiveSheet } from './responsive-sheet';
+import { BackLink } from '@/components/back-link';
 
 type Kind = 'everyday' | 'capital';
 type Access = 'everyone' | 'chosen' | 'owner';
@@ -118,7 +118,7 @@ export function ExpenseCategoriesSettings() {
   }
 
   return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Box sx={[settingsStyles.heading, styles.head]}>
       <Stack spacing={1}>
         <Typography variant="h3" component="h1">Expense categories</Typography>

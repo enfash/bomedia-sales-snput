@@ -17,6 +17,7 @@ import { ActivityFeed } from "./activity-feed";
 
 import Drawer from "@mui/material/Drawer";
 import Box from "@mui/material/Box";
+import { syncIconStyles, whiteTint } from "@/app/theme";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -129,12 +130,12 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         px: isCollapsed ? 1 : 2.5, 
         py: isCollapsed ? 2 : 3, 
         gap: isCollapsed ? 2 : 0,
-        borderBottom: "1px solid rgba(255,255,255,0.08)" 
+        borderBottom: "1px solid", borderBottomColor: whiteTint(0.08) 
       }}>
         {isCollapsed ? (
           <>
             <Tooltip title="Expand sidebar" placement="right" arrow>
-              <IconButton onClick={toggleSidebar} sx={{ color: "rgba(255,255,255,0.7)" }}>
+              <IconButton onClick={toggleSidebar} sx={{ color: whiteTint(0.7) }}>
                 <Menu size={20} />
               </IconButton>
             </Tooltip>
@@ -146,7 +147,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <ActivityFeed />
               <Tooltip title="Collapse sidebar" placement="right" arrow>
-                <IconButton onClick={toggleSidebar} sx={{ color: "rgba(255,255,255,0.7)", mr: -1 }}>
+                <IconButton onClick={toggleSidebar} sx={{ color: whiteTint(0.7), mr: -1 }}>
                   <ChevronLeft size={20} />
                 </IconButton>
               </Tooltip>
@@ -170,13 +171,13 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
                   gap: 1,
                   justifyContent: isCollapsed ? "center" : "flex-start",
                   px: isCollapsed ? 1 : 2,
-                  color: active ? "primary.contrastText" : "rgba(255,255,255,0.65)",
+                  color: active ? "primary.contrastText" : whiteTint(0.65),
                   "&.Mui-selected": {
                     bgcolor: "primary.main",
                     color: "primary.contrastText",
                     "&:hover": { bgcolor: "primary.dark" },
                   },
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" },
+                  "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" },
                 }}
               >
                 <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 32, mr: isCollapsed ? 0 : 1, justifyContent: "center", color: "inherit" }}>
@@ -190,37 +191,37 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       </List>
 
       {/* Sync status */}
-      <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, borderTop: "1px solid rgba(255,255,255,0.08)", bgcolor: "rgba(255,255,255,0.03)" }}>
+      <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, borderTop: "1px solid", borderTopColor: whiteTint(0.08), bgcolor: whiteTint(0.03) }}>
         {isCollapsed ? (
           <Tooltip title={`${pendingQueue.length} pending items. Status: ${syncStatus}`} placement="right" arrow>
             <Box sx={{ display: "flex", justifyContent: "center" }}>
-              {syncStatus === "syncing" ? <CircularProgress size={16} /> : pendingQueue.length > 0 ? <CloudOff size={16} style={{ color: "#f59e0b" }} /> : <Cloud size={16} style={{ color: "#4ade80" }} />}
+              {syncStatus === "syncing" ? <CircularProgress size={16} /> : pendingQueue.length > 0 ? <Box component="span" sx={syncIconStyles.waiting}><CloudOff size={16} /></Box> : <Box component="span" sx={syncIconStyles.synced}><Cloud size={16} /></Box>}
             </Box>
           </Tooltip>
         ) : (
           <>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.1em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", fontSize: "0.6rem" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.1em", color: whiteTint(0.4), textTransform: "uppercase", fontSize: "0.6rem" }}>
                 Sync Status
               </Typography>
               {syncStatus === "syncing" ? (
                 <CircularProgress size={12} />
               ) : pendingQueue.length > 0 ? (
-                <CloudOff size={12} style={{ color: "#f59e0b" }} />
+                <Box component="span" sx={syncIconStyles.waiting}><CloudOff size={12} /></Box>
               ) : (
-                <Cloud size={12} style={{ color: "#4ade80" }} />
+                <Box component="span" sx={syncIconStyles.synced}><Cloud size={12} /></Box>
               )}
             </Box>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem" }}>
+              <Typography variant="caption" sx={{ color: whiteTint(0.6), fontSize: "0.75rem" }}>
                 {pendingQueue.length} pending items
               </Typography>
               {pendingQueue.length > 0 && (
-                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#f59e0b" }} />
+                <Box sx={syncIconStyles.dot} />
               )}
             </Box>
             {lastSyncTime && (
-              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.3)", fontSize: "0.625rem", display: "block", mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: whiteTint(0.3), fontSize: "0.625rem", display: "block", mt: 0.5 }}>
                 Last sync: {new Date(lastSyncTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </Typography>
             )}
@@ -234,7 +235,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
           <Tooltip title={isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"} placement="right" arrow disableHoverListener={!isCollapsed}>
             <ListItemButton
               onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
-              sx={{ color: "rgba(255,255,255,0.5)", "&:hover": { bgcolor: "rgba(255,255,255,0.05)", color: "#fff" }, justifyContent: isCollapsed ? "center" : "flex-start" }}
+              sx={{ color: whiteTint(0.5), "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" }, justifyContent: isCollapsed ? "center" : "flex-start" }}
             >
               <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 28, justifyContent: "center", color: "inherit" }}>
                 <ArrowLeftRight size={isCollapsed ? 18 : 14} />
@@ -248,7 +249,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       {/* User badge */}
       {userName && (
         <>
-          <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
+          <Divider sx={{ borderColor: whiteTint(0.08) }} />
           <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, display: "flex", flexDirection: isCollapsed ? "column" : "row", alignItems: "center", justifyContent: isCollapsed ? "center" : "space-between", gap: isCollapsed ? 2 : 0 }}>
             {isCollapsed ? (
               <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.875rem", fontWeight: 700 }}>
@@ -260,10 +261,10 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
                   {userName[0]?.toUpperCase()}
                 </Avatar>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ color: "#fff", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <Typography variant="body2" sx={{ color: "common.white", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {userName}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.4)", fontSize: "0.625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  <Typography variant="caption" sx={{ color: whiteTint(0.4), fontSize: "0.625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {isAdmin ? "Admin" : "Cashier"}
                   </Typography>
                 </Box>
@@ -272,7 +273,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
             <Box sx={{ display: "flex", flexDirection: isCollapsed ? "column" : "row", gap: 0.5, alignItems: "center" }}>
               <ThemeToggle />
               <Tooltip title="Log out" placement={isCollapsed ? "right" : "top"}>
-                <IconButton onClick={handleLogout} size="small" aria-label="Log out" sx={{ color: "rgba(255,255,255,0.4)", "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.08)" } }}>
+                <IconButton onClick={handleLogout} size="small" aria-label="Log out" sx={{ color: whiteTint(0.4), "&:hover": { color: "common.white", bgcolor: whiteTint(0.08) } }}>
                   <LogOut size={isCollapsed ? 20 : 16} />
                 </IconButton>
               </Tooltip>

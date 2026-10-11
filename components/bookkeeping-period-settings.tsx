@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import NextLink from 'next/link';
 import { Alert, Box, Button, Checkbox, FormControlLabel, MenuItem, Paper, Skeleton, TextField, Typography } from '@mui/material';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { settingsStyles, systemStatusStyles as styles } from '@/app/theme';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { longDate, monthYear, nextCloseWindow } from '@/lib/bookkeeping-format';
 import { readDeviceQueue } from '@/lib/device-queue-read';
 import type { DeviceQueueSummary } from '@/lib/device-queue-status';
 import { useSyncStore } from '@/lib/store';
+import { BackLink } from '@/components/back-link';
 
 type Period = { configured: false; today: string }
   | { configured: true; starts_on: string; state: 'setup' | 'active'; closed_through: string | null; today: string; closable: string[] };
@@ -62,7 +62,7 @@ export function BookkeepingPeriodSettings() {
   const ready = period?.configured ? period : null;
   const next = ready ? nextCloseWindow(ready.starts_on, ready.closed_through, ready.today) : null;
   return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Box sx={[settingsStyles.heading, styles.stack]}>
       <Typography variant="h3" component="h1">Bookkeeping period</Typography>
       <Typography color="text.secondary">Close finished months so their figures can never change. Only you can do this.</Typography>

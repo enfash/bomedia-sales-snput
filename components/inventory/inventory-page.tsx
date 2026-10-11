@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import NextLink from 'next/link';
 import { Alert, Box, Button, LinearProgress, Paper, Skeleton, TextField, Typography } from '@mui/material';
-import { ArrowLeft } from 'lucide-react';
+
 import { materialsStyles, inventoryStyles as styles, settingsStyles, statTileStyles, systemStatusStyles as status } from '@/app/theme';
+import { MaterialSizeSummary, barColor, statusTone } from '@/components/inventory/material-size-summary';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { StatTile } from '@/components/stat-tile';
 import { CountForm, RestockForm, StockNotices, WasteForm } from '@/components/stock/stock-forms';
@@ -12,12 +13,11 @@ import { useStockEntry } from '@/components/stock/use-stock-entry';
 import { longDate } from '@/lib/bookkeeping-format';
 import { feetText, matchStockMaterial, matchStockRoll, nairaExact, nairaWhole, rollRemainingPercent, rollsOfMaterial, searchMaterials, summarizeInventory, toNumber, type FeedRow } from '@/lib/inventory-summary';
 import { inStock } from '@/lib/stock-forms';
+import { BackLink } from '@/components/back-link';
 
 type Sheet = { kind: 'restock'; materialId: string } | { kind: 'waste'; rollId: string } | { kind: 'count'; rollId: string };
 const TITLE = { restock: 'Add roll', waste: 'Log waste', count: 'Count a roll' } as const;
 const message = (error: unknown) => (error instanceof Error ? error.message : 'The inventory could not be loaded. Try again.');
-const statusTone = (value: string) => (value === 'Active' ? materialsStyles.chipOn : value === 'Low Stock' || value === 'Out of Stock' ? status.chipWarn : materialsStyles.chipOff);
-const barColor = (value: string) => (value === 'Active' ? 'success' : value === 'Low Stock' ? 'warning' : 'inherit');
 
 /** The owner's Inventory: what is in stock, what it cost and what it should earn. Roll entry happens in popups that share Stock entry's forms. */
 export function InventoryPage() {
@@ -60,7 +60,7 @@ export function InventoryPage() {
 
   return <Box sx={settingsStyles.page}>
     <Box sx={styles.page}>
-      <Button color="inherit" component={NextLink} href="/bom03" startIcon={<ArrowLeft size={18} />} sx={status.note}>Dashboard</Button>
+      <BackLink href="/bom03" label="Dashboard" />
       <Box sx={styles.head}>
         <Typography variant="h3" component="h1">Inventory</Typography>
         <Typography color="text.secondary">Rolls in stock, what they cost and what they should earn.</Typography>
@@ -94,23 +94,10 @@ export function InventoryPage() {
         <Box sx={styles.cards}>
           {shown.map((row) => {
             const code = row['Material ID'], isOpen = open === code, off = row.Available === 'No', name = `${row['Material Name']} ${Number(row['Width (ft)'])} ft`;
-            const sizeRolls = rollsOfMaterial(rolls, code), rollCount = toNumber(row['Roll Count']);
+            const sizeRolls = rollsOfMaterial(rolls, code);
             const stockMaterial = matchStockMaterial(stock.materials, row);
             return <Paper key={code} variant="outlined" sx={[status.card, off && styles.cardOff, isOpen && styles.cardOpen]}>
-              <Box sx={styles.titleLine}>
-                <Box>
-                  <Typography variant="h6" component="h2" sx={styles.name}>{row['Material Name']} <Typography component="span" sx={styles.width}>· {Number(row['Width (ft)'])} ft wide</Typography></Typography>
-                  <Typography variant="caption" sx={styles.code}>{code}</Typography>
-                </Box>
-                <Box sx={styles.chips}>
-                  {off && <Box component="span" sx={[status.chip, materialsStyles.chipOff]}>Turned off</Box>}
-                  <Box component="span" sx={[status.chip, statusTone(row.Status)]}>{row.Status}</Box>
-                </Box>
-              </Box>
-              <Box sx={status.line}>
-                <Typography variant="body2" color="text.secondary">{rollCount === 0 ? 'No rolls yet' : `${rollCount} roll${rollCount === 1 ? '' : 's'}`}</Typography>
-                <Typography sx={styles.strong}>{feetText(toNumber(row['Total Remaining (ft)']))} left</Typography>
-              </Box>
+              <MaterialSizeSummary row={row} />
               <Button color="inherit" variant="outlined" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : code)}>{isOpen ? 'Hide rolls' : 'Show rolls'}</Button>
               {isOpen && <>
                 <Box sx={styles.twoUp}>

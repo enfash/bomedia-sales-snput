@@ -14,6 +14,8 @@ import Paper from "@mui/material/Paper";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import Fab from "@mui/material/Fab";
+import { alpha } from "@mui/material/styles";
+import { accent, whiteTint } from "@/app/theme";
 
 // 24px gap + 64px bar + 20px for the raised New button, plus breathing room and the phone's home-bar area.
 const BOTTOM_NAV_CLEARANCE = "calc(120px + env(safe-area-inset-bottom, 0px))";
@@ -78,13 +80,11 @@ export function BottomNav() {
           borderRadius: "2rem",
           border: "1px solid",
           borderColor: isAdmin
-            ? theme.palette.mode === "dark"
-              ? "rgba(46,56,141,0.3)"
-              : "rgba(46,56,141,0.15)"
-            : "rgba(255,255,255,0.4)",
-          boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
+            ? alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.3 : 0.15)
+            : whiteTint(0.4)(theme),
+          boxShadow: `0 12px 40px ${alpha(theme.palette.common.black, 0.15)}`,
           backdropFilter: "blur(20px)",
-          bgcolor: theme.palette.mode === "dark" ? "rgba(15,23,42,0.9)" : "rgba(255,255,255,0.9)",
+          bgcolor: alpha(theme.palette.background.paper, 0.9),
           pointerEvents: "auto",
           overflow: "visible",
         }}
@@ -129,9 +129,7 @@ export function BottomNav() {
                       height: 56,
                       border: "4px solid",
                       borderColor: "background.default",
-                      boxShadow: isAdmin
-                        ? "0 8px 20px rgba(46,56,141,0.4)"
-                        : "0 8px 20px rgba(247,104,8,0.45)",
+                      boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, isAdmin ? 0.4 : 0.45)}`,
                     }}
                   >
                     <PlusCircle size={28} />
@@ -143,7 +141,7 @@ export function BottomNav() {
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
-                      color: "primary.main",
+                      color: accent,
                       mt: -0.5,
                     }}
                   >
@@ -167,7 +165,7 @@ export function BottomNav() {
                 sx={{
                   minWidth: 0,
                   color: isActive
-                    ? "primary.main"
+                    ? accent
                     : "text.secondary",
                   "& .MuiBottomNavigationAction-label": {
                     fontSize: "0.5625rem",

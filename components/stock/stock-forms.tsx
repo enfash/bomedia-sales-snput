@@ -131,7 +131,7 @@ export function CountForm({ stock, rollId = '', onSaved, onCancel }: FormProps &
       <TextField label="Measured on the roll (ft)" value={counted} required disabled={stock.locked} onChange={(event) => setCounted(event.target.value)} slotProps={{ htmlInput: { inputMode: 'decimal' } }} sx={styles.grow} />
     </Box>
     {preview?.kind === 'change' && <Alert severity={preview.difference < 0 ? 'error' : 'success'} icon={false}>
-      <Typography sx={styles.strong}>{ft(String(Math.abs(preview.difference)))} {preview.difference < 0 ? 'missing' : 'more than recorded'} · {preview.value < 0 ? '−' : '+'}{formatKobo(String(Math.abs(preview.value)))}</Typography>
+      <Typography sx={styles.strong}>{ft(String(Math.abs(preview.difference)))} {preview.difference < 0 ? 'missing' : 'more than recorded'}{preview.value === null ? '' : ` · ${preview.value < 0 ? '−' : '+'}${formatKobo(String(Math.abs(preview.value)))}`}</Typography>
     </Alert>}
     {preview?.kind === 'too-long' && <Alert severity="warning">The measured length cannot be more than this roll&apos;s usable length ({ft(preview.limit)}).</Alert>}
     <TextField label="Why is it different?" value={reason} required multiline minRows={3} disabled={stock.locked} onChange={(event) => setReason(event.target.value)}

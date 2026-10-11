@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import NextLink from 'next/link';
 import { Alert, Box, Button, Paper, Skeleton, Typography } from '@mui/material';
-import { AlertTriangle, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { settingsStyles, systemStatusStyles as styles } from '@/app/theme';
 import { readDeviceQueue } from '@/lib/device-queue-read';
 import type { DeviceQueueSummary } from '@/lib/device-queue-status';
 import { EXPECTED_MIGRATION_COUNT } from '@/lib/schema-version';
 import { formatClock, formatWhen } from '@/lib/status-format';
 import { useSyncStore } from '@/lib/store';
+import { BackLink } from '@/components/back-link';
 
 type Seen = { reference: string | null; at: string } | null;
 type Status = {
@@ -52,7 +52,7 @@ export function SystemStatus() {
 
   const postgres = status?.backend === 'postgres';
   return <Box sx={settingsStyles.page}>
-    <Button color="inherit" component={NextLink} href="/bom03/settings" startIcon={<ArrowLeft size={18} />}>Settings</Button>
+    <BackLink href="/bom03/settings" label="Settings" />
     <Box sx={[settingsStyles.heading, styles.stack]}>
       <Typography variant="h3" component="h1">System status</Typography>
       <Typography color="text.secondary">A quick check that the app is saving where it should. Only you can see this page.</Typography>
