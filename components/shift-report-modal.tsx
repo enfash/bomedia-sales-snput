@@ -19,13 +19,16 @@ import {
 } from "lucide-react";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { format, isSameDay } from "date-fns";
 import { toast } from "sonner";
+import { dashboardStyles, shiftReportStyles as styles } from "@/app/theme";
 
 interface ShiftReportProps {
   isOpen: boolean;
@@ -38,25 +41,15 @@ const parseAmt = (v: any) =>
 const fmtMoney = (n: number) =>
   `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
+const PILL_STYLES: Record<string, typeof styles.pillPaid> = {
+  Paid: styles.pillPaid,
+  "Part-payment": styles.pillPart,
+  Unpaid: styles.pillUnpaid,
+};
+
 function StatusPill({ status }: { status: string }) {
-  const colorMap: Record<string, { bgcolor: string; color: string }> = {
-    Paid: { bgcolor: "#d1fae5", color: "#065f46" },
-    "Part-payment": { bgcolor: "#fef3c7", color: "#92400e" },
-    Unpaid: { bgcolor: "#fee2e2", color: "#991b1b" },
-  };
-  const colors = colorMap[status] || { bgcolor: "#f3f4f6", color: "#6b7280" };
   return (
-    <Box component="span" sx={{
-      fontSize: "0.5625rem",
-      fontWeight: 900,
-      px: 0.75,
-      py: 0.25,
-      borderRadius: 1,
-      textTransform: "uppercase",
-      bgcolor: colors.bgcolor,
-      color: colors.color,
-      display: "inline-block",
-    }}>
+    <Box component="span" sx={[styles.pill, PILL_STYLES[status] ?? styles.pillNeutral]}>
       {status}
     </Box>
   );
@@ -64,36 +57,15 @@ function StatusPill({ status }: { status: string }) {
 
 function SectionHeader({ icon: Icon, label, count }: { icon: any; label: string; count?: number }) {
   return (
-    <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5 }}>
-      <Box sx={{
-        width: 24,
-        height: 24,
-        borderRadius: 1.5,
-        bgcolor: "#eff6ff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <Icon size={14} color="#1d4ed8" />
+    <Box sx={styles.section}>
+      <Box sx={styles.sectionIcon}>
+        <Icon size={14} />
       </Box>
-      <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.primary" }}>
+      <Typography variant="overline" component="h3" color="text.primary">
         {label}
       </Typography>
-      {count !== undefined && (
-        <Chip
-          label={count}
-          size="small"
-          sx={{
-            ml: "auto",
-            bgcolor: "#eff6ff",
-            color: "#1d4ed8",
-            fontSize: "0.5625rem",
-            fontWeight: 900,
-            height: 20,
-          }}
-        />
-      )}
-    </Stack>
+      {count !== undefined && <Chip label={count} size="small" sx={styles.countChip} />}
+    </Box>
   );
 }
 
@@ -132,7 +104,8 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   };
 
   useEffect(() => {
-    if (isOpen) fetchData();
+    // Deferred one tick so the loading flag is not set synchronously inside the effect.
+    if (isOpen) void Promise.resolve().then(fetchData);
   }, [isOpen]);
 
   const selectedDate = new Date(reportDate + "T12:00:00");
@@ -143,7 +116,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         const d = new Date(s.DATE || s.Date || "");
         return !isNaN(d.getTime()) && isSameDay(d, selectedDate);
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [sales, reportDate]
   );
 
@@ -153,7 +126,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         const d = new Date(e.DATE || e.Date || "");
         return !isNaN(d.getTime()) && isSameDay(d, selectedDate);
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [expenses, reportDate]
   );
 
@@ -163,7 +136,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         const d = new Date(p.DATE || "");
         return !isNaN(d.getTime()) && isSameDay(d, selectedDate);
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [payments, reportDate]
   );
 
@@ -272,243 +245,120 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
 
   if (!isOpen) return null;
 
-  return (
-    <Box sx={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 200,
-      display: "flex",
-      alignItems: { xs: "flex-end", md: "center" },
-      justifyContent: "center",
-    }}>
-      <Box
-        sx={{ position: "absolute", inset: 0, bgcolor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-        onClick={onClose}
-      />
+  const spinning = (on: boolean) => [dashboardStyles.iconSpan, on && dashboardStyles.refreshing];
 
-      <Box sx={{
-        position: "relative",
-        width: "100%",
-        maxWidth: { md: "42rem" },
-        bgcolor: "background.paper",
-        borderRadius: { xs: "2.5rem 2.5rem 0 0", md: 4 },
-        boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
-        border: { xs: "1px solid", md: "1px solid" },
-        borderColor: "grey.100",
-        display: "flex",
-        flexDirection: "column",
-        maxHeight: { xs: "92vh", md: "85vh" },
-        zIndex: 201,
-      }}>
-        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", p: 2.5, borderBottom: "1px solid", borderColor: "grey.100", flexShrink: 0 }}>
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <FileText size={16} color="#fff" />
+  const stats = [
+    { label: "Jobs Logged", val: String(filteredSales.length), icon: Package, tone: styles.tone.info, highlight: false },
+    { label: "Total Revenue", val: fmtMoney(totalRevenue), icon: TrendingUp, tone: styles.tone.primary, highlight: false },
+    { label: "Cash Collected", val: fmtMoney(totalCollected + totalPaymentsIn), icon: CheckCircle2, tone: styles.tone.success, highlight: false },
+    { label: "Outstanding", val: fmtMoney(totalDebt), icon: AlertTriangle, tone: totalDebt > 0 ? styles.tone.error : styles.tone.neutral, highlight: false },
+    { label: "Expenses", val: fmtMoney(totalExpenses), icon: Receipt, tone: styles.tone.warning, highlight: false },
+    { label: "Net Cash", val: fmtMoney(netCash), icon: TrendingUp, tone: netCash >= 0 ? styles.tone.success : styles.tone.error, highlight: true },
+  ];
+
+  return (
+    <Box sx={styles.root}>
+      <Box sx={styles.backdrop} onClick={onClose} />
+
+      <Box sx={styles.sheet}>
+        <Box sx={styles.header}>
+          <Box sx={styles.headerLead}>
+            <Box sx={styles.headerIcon}>
+              <FileText size={16} />
             </Box>
             <Box>
-              <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: "text.primary" }}>
-                Shift Report
-              </Typography>
-              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
-                Daily summary
-              </Typography>
+              <Typography variant="h5" component="h2">Shift Report</Typography>
+              <Typography variant="caption" color="text.secondary">Daily summary</Typography>
             </Box>
-          </Stack>
-          <Box
-            component="button"
-            onClick={onClose}
-            sx={{
-              width: 32,
-              height: 32,
-              borderRadius: 2,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "text.disabled",
-              border: "none",
-              bgcolor: "transparent",
-              cursor: "pointer",
-              "&:hover": { bgcolor: "grey.100", color: "text.primary" },
-              transition: "background-color 0.15s, color 0.15s",
-            }}
-          >
-            <X size={16} />
           </Box>
-        </Stack>
+          <IconButton size="small" onClick={onClose} aria-label="Close shift report" sx={styles.closeButton}>
+            <X size={16} />
+          </IconButton>
+        </Box>
 
-        <Stack direction="row" sx={{ p: 2, borderBottom: "1px solid", borderColor: "grey.50", flexShrink: 0, flexWrap: "wrap", gap: 1.5, alignItems: "center" }}>
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1, flex: 1, minWidth: 180 }}>
-            <Calendar size={16} color="#9ca3af" />
+        <Box sx={styles.controls}>
+          <Box sx={styles.dateRow}>
+            <Box sx={styles.muted}><Calendar size={16} /></Box>
             <DatePicker
               value={reportDate ? dayjs(reportDate) : null}
               onChange={(newVal) => setReportDate(newVal ? newVal.format("YYYY-MM-DD") : "")}
-              slotProps={{
-                textField: {
-                  size: "small",
-                  sx: {
-                    flex: 1,
-                    "& .MuiInputBase-root": {
-                      height: 36,
-                      borderRadius: 2,
-                      bgcolor: "grey.50",
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                    }
-                  }
-                }
-              }}
+              slotProps={{ textField: { size: "small", sx: styles.datePicker } }}
             />
-          </Stack>
+          </Box>
 
           {cashiers.length > 2 && (
-            <Box sx={{ position: "relative" }}>
+            <Box sx={styles.selectWrap}>
               <Box
                 component="select"
+                aria-label="Filter by cashier"
                 value={cashierFilter}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCashierFilter(e.target.value)}
-                sx={{
-                  height: 36,
-                  pl: 1.5,
-                  pr: 4,
-                  borderRadius: 2,
-                  border: "1px solid",
-                  borderColor: "grey.200",
-                  bgcolor: "grey.50",
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  appearance: "none",
-                  outline: "none",
-                  fontFamily: "inherit",
-                  cursor: "pointer",
-                }}
+                sx={styles.select}
               >
                 {cashiers.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </Box>
-              <Box sx={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-                <ChevronDown size={14} color="#9ca3af" />
+              <Box sx={styles.selectChevron}>
+                <ChevronDown size={14} />
               </Box>
             </Box>
           )}
 
-          <Button
-            variant="text"
-            size="small"
-            onClick={fetchData}
-            disabled={loading}
-            sx={{ height: 36, px: 1.5, fontSize: "0.75rem", fontWeight: 900, color: "text.secondary", minWidth: 0 }}
-          >
-            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          </Button>
-        </Stack>
+          <IconButton size="small" onClick={fetchData} disabled={loading} aria-label="Refresh report" color="inherit">
+            <Box component="span" sx={spinning(loading)}>
+              <RefreshCw size={14} />
+            </Box>
+          </IconButton>
+        </Box>
 
-        <Box sx={{ overflowY: "auto", flex: 1, p: 2.5 }} ref={reportRef}>
+        <Box sx={styles.body} ref={reportRef}>
           {loading ? (
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: 128 }}>
-              <RefreshCw size={24} color="#93c5fd" style={{ animation: "spin 1s linear infinite" }} />
+            <Box sx={styles.loading}>
+              <Box component="span" sx={spinning(true)}>
+                <RefreshCw size={24} />
+              </Box>
             </Box>
           ) : (
             <Stack sx={{ gap: 2.5 }}>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 1.5 }}>
-                {[
-                  {
-                    label: "Jobs Logged",
-                    val: String(filteredSales.length),
-                    icon: Package,
-                    iconBg: "#dbeafe",
-                    iconColor: "#2563eb",
-                    highlight: false,
-                  },
-                  {
-                    label: "Total Revenue",
-                    val: fmtMoney(totalRevenue),
-                    icon: TrendingUp,
-                    iconBg: "#fee2e2",
-                    iconColor: "#c8472e",
-                    highlight: false,
-                  },
-                  {
-                    label: "Cash Collected",
-                    val: fmtMoney(totalCollected + totalPaymentsIn),
-                    icon: CheckCircle2,
-                    iconBg: "#d1fae5",
-                    iconColor: "#16a34a",
-                    highlight: false,
-                  },
-                  {
-                    label: "Outstanding",
-                    val: fmtMoney(totalDebt),
-                    icon: AlertTriangle,
-                    iconBg: totalDebt > 0 ? "#fee2e2" : "#f3f4f6",
-                    iconColor: totalDebt > 0 ? "#dc2626" : "#9ca3af",
-                    highlight: false,
-                  },
-                  {
-                    label: "Expenses",
-                    val: fmtMoney(totalExpenses),
-                    icon: Receipt,
-                    iconBg: "#fef3c7",
-                    iconColor: "#d97706",
-                    highlight: false,
-                  },
-                  {
-                    label: "Net Cash",
-                    val: fmtMoney(netCash),
-                    icon: TrendingUp,
-                    iconBg: netCash >= 0 ? "#d1fae5" : "#fee2e2",
-                    iconColor: netCash >= 0 ? "#16a34a" : "#dc2626",
-                    highlight: true,
-                  },
-                ].map(({ label, val, icon: Icon, iconBg, iconColor, highlight }) => (
-                  <Box key={label} sx={{
-                    p: 1.5,
-                    borderRadius: 3,
-                    border: "1px solid",
-                    borderColor: highlight ? "#fecaca" : "grey.100",
-                    bgcolor: highlight ? "#fff1f2" : "background.paper",
-                  }}>
-                    <Box sx={{ width: 24, height: 24, borderRadius: 1.5, bgcolor: iconBg, display: "flex", alignItems: "center", justifyContent: "center", mb: 1 }}>
-                      <Icon size={14} color={iconColor} />
+              <Box sx={styles.statGrid}>
+                {stats.map(({ label, val, icon: Icon, tone, highlight }) => (
+                  <Paper key={label} variant="outlined" sx={[styles.statCard, highlight && styles.statCardHighlight]}>
+                    <Box sx={[styles.statIcon, tone]}>
+                      <Icon size={14} />
                     </Box>
-                    <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled", mb: 0.25 }}>
-                      {label}
-                    </Typography>
-                    <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: highlight ? "primary.main" : "text.primary" }}>
+                    <Typography variant="overline" sx={styles.statLabel}>{label}</Typography>
+                    <Typography variant="h5" component="p" color={highlight ? "primary.main" : "text.primary"}>
                       {val}
                     </Typography>
-                  </Box>
+                  </Paper>
                 ))}
               </Box>
 
               {materialBreakdown.length > 0 && (
                 <Box>
                   <SectionHeader icon={Package} label="Material Breakdown" />
-                  <Stack sx={{ gap: 1 }}>
+                  <Box sx={styles.list}>
                     {materialBreakdown.map(([mat, { count, revenue }]) => (
-                      <Stack key={mat} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", p: 1.5, bgcolor: "grey.50", borderRadius: 2 }}>
-                        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                          <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "primary.main" }} />
-                          <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary" }}>
-                            {mat}
-                          </Typography>
-                          <Typography sx={{ fontSize: "0.625rem", color: "text.secondary" }}>
+                      <Box key={mat} sx={styles.materialRow}>
+                        <Box sx={styles.materialName}>
+                          <Box sx={styles.dot} />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{mat}</Typography>
+                          <Typography variant="caption" color="text.secondary">
                             {count} job{count !== 1 ? "s" : ""}
                           </Typography>
-                        </Stack>
-                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
-                          {fmtMoney(revenue)}
-                        </Typography>
-                      </Stack>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{fmtMoney(revenue)}</Typography>
+                      </Box>
                     ))}
-                  </Stack>
+                  </Box>
                 </Box>
               )}
 
               {filteredSales.length > 0 && (
                 <Box>
                   <SectionHeader icon={FileText} label="Jobs" count={filteredSales.length} />
-                  <Stack sx={{ gap: 0.75 }}>
+                  <Box sx={styles.list}>
                     {filteredSales.map((s, i) => {
                       const client = s["CLIENT NAME"] || s["Client Name"] || "—";
                       const desc = s["JOB DESCRIPTION"] || s["Job Description"] || "—";
@@ -522,112 +372,79 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
                       const loggedBy = s["LOGGED BY"] || s["Logged By"] || "—";
 
                       return (
-                        <Stack key={i} direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", p: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "grey.100", borderRadius: 2, gap: 1.5 }}>
-                          <Stack direction="row" sx={{ alignItems: "flex-start", gap: 1.5, minWidth: 0 }}>
-                            <Box sx={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: "50%",
-                              bgcolor: "#dbeafe",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                              mt: 0.25,
-                            }}>
-                              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "#1d4ed8" }}>
-                                {i + 1}
-                              </Typography>
-                            </Box>
+                        <Paper key={i} variant="outlined" sx={styles.jobRow}>
+                          <Box sx={styles.jobLead}>
+                            <Box sx={styles.jobNumber}>{i + 1}</Box>
                             <Box sx={{ minWidth: 0 }}>
-                              <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {client}
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {desc}
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.5625rem", color: "text.disabled", mt: 0.25 }}>
-                                via {loggedBy}
-                              </Typography>
+                              <Typography variant="h6" component="p" sx={styles.ellipsis}>{client}</Typography>
+                              <Typography variant="caption" color="text.secondary" sx={[styles.ellipsis, { display: "block" }]}>{desc}</Typography>
+                              <Typography variant="caption" color="text.secondary">via {loggedBy}</Typography>
                             </Box>
-                          </Stack>
-                          <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-                            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
-                              {fmtMoney(amt)}
-                            </Typography>
-                            <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "success.main" }}>
+                          </Box>
+                          <Box sx={styles.right}>
+                            <Typography variant="h6" component="p">{fmtMoney(amt)}</Typography>
+                            <Typography variant="caption" color="success.main" sx={{ display: "block", fontWeight: 700 }}>
                               +{fmtMoney(paid)}
                             </Typography>
                             <StatusPill status={status} />
                           </Box>
-                        </Stack>
+                        </Paper>
                       );
                     })}
-                  </Stack>
+                  </Box>
                 </Box>
               )}
 
               {dayExpenses.length > 0 && (
                 <Box>
                   <SectionHeader icon={Receipt} label="Expenses" count={dayExpenses.length} />
-                  <Stack sx={{ gap: 0.75 }}>
+                  <Box sx={styles.list}>
                     {dayExpenses.map((e, i) => (
-                      <Stack key={i} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", p: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "grey.100", borderRadius: 2 }}>
+                      <Paper key={i} variant="outlined" sx={styles.expenseRow}>
                         <Box>
-                          <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary" }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
                             {e.CATEGORY || e.Category || "General"}
                           </Typography>
-                          <Typography sx={{ fontSize: "0.625rem", color: "text.secondary" }}>
+                          <Typography variant="caption" color="text.secondary">
                             {e.DESCRIPTION || e.Description || "—"}
                           </Typography>
                         </Box>
-                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
+                        <Typography variant="h6" component="p" color="error.main">
                           −{fmtMoney(parseAmt(e.AMOUNT || e.Amount))}
                         </Typography>
-                      </Stack>
+                      </Paper>
                     ))}
-                  </Stack>
+                  </Box>
                 </Box>
               )}
 
               {filteredSales.length === 0 && dayExpenses.length === 0 && (
-                <Stack sx={{ alignItems: "center", justifyContent: "center", py: 8, color: "text.disabled", gap: 1 }}>
+                <Stack sx={styles.empty}>
                   <FileText size={40} />
-                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 700 }}>No activity on this date</Typography>
-                  <Typography sx={{ fontSize: "0.75rem" }}>Try selecting a different date</Typography>
+                  <Typography variant="h6" component="p">No activity on this date</Typography>
+                  <Typography variant="body2">Try selecting a different date</Typography>
                 </Stack>
               )}
             </Stack>
           )}
         </Box>
 
-        <Stack direction="row" sx={{ p: 2, borderTop: "1px solid", borderColor: "grey.100", gap: 1.5, flexShrink: 0, bgcolor: "background.paper" }}>
+        <Box sx={styles.footer}>
           <Button
             variant="contained"
+            color="success"
+            size="large"
             onClick={handleWhatsAppShare}
             disabled={filteredSales.length === 0 && dayExpenses.length === 0}
-            sx={{
-              flex: 1,
-              height: 48,
-              borderRadius: 3,
-              bgcolor: "#22c55e",
-              fontWeight: 900,
-              boxShadow: "0 4px 14px rgba(34,197,94,0.2)",
-              "&:hover": { bgcolor: "#16a34a" },
-              gap: 1,
-            }}
+            startIcon={<Share2 size={16} />}
+            sx={styles.share}
           >
-            <Share2 size={16} />
             Share via WhatsApp
           </Button>
-          <Button
-            variant="outlined"
-            onClick={() => window.print()}
-            sx={{ height: 48, px: 2, borderRadius: 3, fontWeight: 900 }}
-          >
+          <Button variant="outlined" color="inherit" size="large" onClick={() => window.print()} aria-label="Print report">
             <Printer size={16} />
           </Button>
-        </Stack>
+        </Box>
       </Box>
     </Box>
   );

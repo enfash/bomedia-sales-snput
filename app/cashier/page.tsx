@@ -1065,7 +1065,7 @@ export default function CashierDashboardPage() {
   }
 
   return (
-    <Box sx={{ minHeight: "100vh", pb: 5, bgcolor: alpha(theme.palette.primary.main, 0.02), transition: "colors 0.5s ease" }}>
+    <Box sx={{ minHeight: "100vh", pb: 3, bgcolor: alpha(theme.palette.primary.main, 0.02), transition: "colors 0.5s ease" }}>
 
       {/* ── Mobile Layout ───────────────────────────────────────────────── */}
       <Box sx={{ display: { xs: "block", md: "none" }, p: 2 }}>

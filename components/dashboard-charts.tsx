@@ -20,12 +20,14 @@ import {
   Card,
   CardContent,
   Box,
+  Chip,
   Typography,
   Stack,
   useTheme,
 } from "@mui/material";
 import { Inbox, BarChart3, PieChart as PieIcon, TrendingUp, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { chartCountBadgeStyles, chartStyles as styles, getChartKit } from "@/app/theme";
 
 /**
  * Holds a fixed-size box for a chart and only mounts its children once the box
@@ -102,103 +104,50 @@ interface DebtData {
   balance: number;
 }
 
-const CHART_COLORS = [
-  "var(--primary)",
-  "#21c55d", // Green
-  "#f59e0b", // Amber
-  "#f43f5e", // Rose
-  "#8b5cf6", // Violet
-  "#0ea5e9", // Sky
-  "#049669", // Emerald
-  "#facc15", // Yellow
-];
-
 function EmptyState({ icon: Icon, title, description }: { icon: any, title: string, description: string }) {
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100%",
-        width: "100%",
-        py: 6,
-        textAlign: "center",
-      }}
-    >
-      <Box sx={{ position: "relative", mb: 2 }}>
-        <Box
-          sx={{
-            bgcolor: "grey.100",
-            width: 64,
-            height: 64,
-            borderRadius: 3,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Icon style={{ width: 32, height: 32, color: "var(--mui-palette-text-secondary, #6B7480)" }} />
-        </Box>
+    <Box sx={styles.emptyWrap}>
+      <Box sx={styles.emptyIcon}>
+        <Icon size={32} />
       </Box>
-      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", mb: 0.5 }}>
+      <Typography variant="h6" component="p" sx={{ mb: 0.5 }}>
         {title}
       </Typography>
-      <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", fontWeight: 500, maxWidth: 180, lineHeight: 1.5 }}>
+      <Typography variant="caption" color="text.secondary" sx={styles.emptyText}>
         {description}
       </Typography>
     </Box>
   );
 }
 
+function ChartHeading({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <Box>
+      <Typography variant="h5" component="h3">{title}</Typography>
+      <Typography variant="overline" sx={styles.subtitle}>{subtitle}</Typography>
+    </Box>
+  );
+}
 
 export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
+  const kit = getChartKit(useTheme());
   const hasData = data.some(d => d.sales > 0 || d.expenses > 0);
   const activeDays = data.filter(d => d.sales > 0).length;
   const totalSalesSum = data.reduce((s, d) => s + d.sales, 0);
   const avgDailySales = activeDays > 0 ? Math.round(totalSalesSum / activeDays) : 0;
+  const axisTick = { fontSize: 11, fill: kit.tick, fontWeight: 600 };
 
   return (
-    <Card sx={{ overflow: "hidden", transition: "box-shadow 300ms", minWidth: 0 }}>
-      <Box sx={{ px: 2.5, pt: 2.5, pb: 1 }}>
-        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 1 }}>
-          <Box>
-            <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: "text.primary" }}>
-              Sales vs Expenses
-            </Typography>
-            <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900 }}>
-              Daily Performance Trend
-            </Typography>
-          </Box>
+    <Card sx={styles.card}>
+      <Box sx={styles.header}>
+        <Box sx={styles.titleRow}>
+          <ChartHeading title="Sales vs Expenses" subtitle="Daily Performance Trend" />
           {hasData && avgDailySales > 0 && (
-            <Box
-              sx={{
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                fontSize: "0.625rem",
-                fontWeight: 900,
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 100,
-                border: "1px solid",
-                borderColor: "primary.dark",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <TrendingUp size={14} />
-              Daily Avg: ₦{avgDailySales.toLocaleString()}
-            </Box>
+            <Chip color="primary" size="small" icon={<TrendingUp size={14} />} label={`Daily Avg: ₦${avgDailySales.toLocaleString()}`} />
           )}
-        </Stack>
+        </Box>
       </Box>
-      <CardContent sx={{ px: 1, pb: 2 }}>
+      <CardContent sx={styles.content}>
         <ChartFrame height={280}>
           {!hasData ? (
             <EmptyState
@@ -211,54 +160,40 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
               <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                    <stop offset="5%" stopColor={kit.sales} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={kit.sales} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--destructive)" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="var(--destructive)" stopOpacity={0} />
+                    <stop offset="5%" stopColor={kit.expenses} stopOpacity={0.15} />
+                    <stop offset="95%" stopColor={kit.expenses} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
-                <XAxis
-                  dataKey="date"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 700 }}
-                  interval="preserveStartEnd"
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={kit.grid} />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={axisTick} interval="preserveStartEnd" />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 700 }}
+                  tick={axisTick}
                   tickFormatter={(val) => `₦${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
                   width={50}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    borderRadius: "14px",
-                    border: "1px solid var(--border)",
-                    boxShadow: "0 10px 30px -10px rgba(0,0,0,0.15)",
-                    fontSize: "12px",
-                    padding: "12px",
-                    color: "var(--foreground)",
-                  }}
-                  itemStyle={{ fontWeight: "900", color: "var(--foreground)" }}
-                  cursor={{ stroke: 'var(--primary)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  contentStyle={kit.tooltip.contentStyle}
+                  itemStyle={kit.tooltip.itemStyle}
+                  labelStyle={kit.tooltip.labelStyle}
+                  cursor={{ stroke: kit.sales, strokeWidth: 1, strokeDasharray: '4 4' }}
                   formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
-                  labelStyle={{ fontWeight: "900", marginBottom: "6px", color: "var(--foreground)" }}
                 />
-                <Area type="monotone" dataKey="sales" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" name="Sales" />
-                <Area type="monotone" dataKey="expenses" stroke="var(--destructive)" strokeWidth={3} fillOpacity={1} fill="url(#colorExpenses)" name="Expenses" />
+                <Area type="monotone" dataKey="sales" stroke={kit.sales} strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" name="Sales" />
+                <Area type="monotone" dataKey="expenses" stroke={kit.expenses} strokeWidth={3} fillOpacity={1} fill="url(#colorExpenses)" name="Expenses" />
                 {avgDailySales > 0 && (
                   <ReferenceLine
                     y={avgDailySales}
-                    stroke="var(--primary)"
+                    stroke={kit.sales}
                     strokeDasharray="5 4"
                     strokeOpacity={0.5}
                     strokeWidth={1.5}
-                    label={{ value: `Avg ₦${avgDailySales >= 1000 ? (avgDailySales / 1000).toFixed(0) + "k" : avgDailySales}`, position: "insideTopRight", fontSize: 9, fontWeight: 700, fill: "var(--primary)", opacity: 0.7 }}
+                    label={{ value: `Avg ₦${avgDailySales >= 1000 ? (avgDailySales / 1000).toFixed(0) + "k" : avgDailySales}`, position: "insideTopRight", fontSize: 10, fontWeight: 700, fill: kit.sales, opacity: 0.8 }}
                   />
                 )}
               </AreaChart>
@@ -267,34 +202,22 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
         </ChartFrame>
 
         {hasData && (
-          <Stack
-            direction="row"
-            sx={{
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 3,
-              mt: 2,
-              pt: 2,
-              borderTop: "1px solid",
-              borderColor: "divider",
-              flexWrap: "wrap",
-            }}
-          >
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-              <Box sx={{ width: 16, height: 4, borderRadius: 100, bgcolor: "primary.main", display: "inline-block" }} />
-              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase" }}>Sales</Typography>
-            </Stack>
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-              <Box sx={{ width: 16, height: 4, borderRadius: 100, bgcolor: "error.main", display: "inline-block" }} />
-              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase" }}>Expenses</Typography>
-            </Stack>
+          <Box sx={styles.legendRow}>
+            <Box sx={styles.legendItem}>
+              <Box sx={[styles.legendLine, styles.legendSales]} />
+              <Typography variant="overline" color="text.secondary">Sales</Typography>
+            </Box>
+            <Box sx={styles.legendItem}>
+              <Box sx={[styles.legendLine, styles.legendExpenses]} />
+              <Typography variant="overline" color="text.secondary">Expenses</Typography>
+            </Box>
             {avgDailySales > 0 && (
-              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                <Box sx={{ width: 16, borderTop: "2px dashed", borderColor: "primary.main", opacity: 0.6, display: "inline-block" }} />
-                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase" }}>Daily Avg</Typography>
-              </Stack>
+              <Box sx={styles.legendItem}>
+                <Box sx={styles.legendAvg} />
+                <Typography variant="overline" color="text.secondary">Daily Avg</Typography>
+              </Box>
             )}
-          </Stack>
+          </Box>
         )}
       </CardContent>
     </Card>
@@ -302,19 +225,15 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
 }
 
 export function ExpenseCategorizationChart({ data, total }: { data: CategoryData[]; total: number }) {
+  const kit = getChartKit(useTheme());
   const hasData = total > 0;
 
   return (
-    <Card sx={{ overflow: "hidden", transition: "box-shadow 300ms", minWidth: 0 }}>
-      <Box sx={{ px: 2.5, pt: 2.5, pb: 1 }}>
-        <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: "text.primary" }}>
-          Expense Breakdown
-        </Typography>
-        <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900 }}>
-          Category Split
-        </Typography>
+    <Card sx={styles.card}>
+      <Box sx={styles.header}>
+        <ChartHeading title="Expense Breakdown" subtitle="Category Split" />
       </Box>
-      <CardContent sx={{ px: 1, pb: 2 }}>
+      <CardContent sx={styles.content}>
         <ChartFrame height={280} sx={{ position: "relative" }}>
           {!hasData ? (
             <EmptyState
@@ -337,38 +256,20 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
                     strokeWidth={0}
                   >
                     {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={entry.color || kit.series[index % kit.series.length]} />
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--card)",
-                      borderRadius: "14px",
-                      border: "1px solid var(--border)",
-                      fontSize: "12px",
-                    }}
-                    itemStyle={{ color: "var(--foreground)" }}
+                    contentStyle={kit.tooltip.contentStyle}
+                    itemStyle={kit.tooltip.itemStyle}
                     formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
                   />
-                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "10px", fontWeight: "900", textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: 600 }} />
                 </PieChart>
               </ResponsiveContainer>
-              <Box
-                sx={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: "35%",
-                  pointerEvents: "none",
-                  textAlign: "center",
-                }}
-              >
-                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Total Exp.
-                </Typography>
-                <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary", lineHeight: 1.2 }}>
-                  ₦{total.toLocaleString()}
-                </Typography>
+              <Box sx={styles.donutCenter}>
+                <Typography variant="overline" color="text.secondary">Total Exp.</Typography>
+                <Typography variant="h4" component="p" sx={styles.donutValue}>₦{total.toLocaleString()}</Typography>
               </Box>
             </>
           )}
@@ -379,19 +280,15 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
 }
 
 export function MaterialSalesChart({ data, total }: { data: CategoryData[]; total: number }) {
+  const kit = getChartKit(useTheme());
   const hasData = total > 0;
 
   return (
-    <Card sx={{ overflow: "hidden", transition: "box-shadow 300ms", minWidth: 0 }}>
-      <Box sx={{ px: 2.5, pt: 2.5, pb: 1 }}>
-        <Typography sx={{ fontSize: "1rem", fontWeight: 700, color: "text.primary" }}>
-          Material Distribution
-        </Typography>
-        <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>
-          Workload Breakdown
-        </Typography>
+    <Card sx={styles.card}>
+      <Box sx={styles.header}>
+        <ChartHeading title="Material Distribution" subtitle="Workload Breakdown" />
       </Box>
-      <CardContent sx={{ px: 1, pb: 2 }}>
+      <CardContent sx={styles.content}>
         <ChartFrame height={280} sx={{ position: "relative" }}>
           {!hasData ? (
             <EmptyState
@@ -413,38 +310,20 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
                     dataKey="value"
                   >
                     {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={0} />
+                      <Cell key={`cell-${index}`} fill={entry.color || kit.series[index % kit.series.length]} strokeWidth={0} />
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--card)",
-                      borderRadius: "14px",
-                      border: "1px solid var(--border)",
-                      fontSize: "12px",
-                    }}
-                    itemStyle={{ color: "var(--foreground)" }}
+                    contentStyle={kit.tooltip.contentStyle}
+                    itemStyle={kit.tooltip.itemStyle}
                     formatter={(value: any) => [Number(value).toLocaleString(), "Jobs"]}
                   />
-                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "10px", fontWeight: "900", textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: 600 }} />
                 </PieChart>
               </ResponsiveContainer>
-              <Box
-                sx={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: "35%",
-                  pointerEvents: "none",
-                  textAlign: "center",
-                }}
-              >
-                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Total Jobs
-                </Typography>
-                <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary", lineHeight: 1.2 }}>
-                  {total.toLocaleString()}
-                </Typography>
+              <Box sx={styles.donutCenter}>
+                <Typography variant="overline" color="text.secondary">Total Jobs</Typography>
+                <Typography variant="h4" component="p" sx={styles.donutValue}>{total.toLocaleString()}</Typography>
               </Box>
             </>
           )}
@@ -460,65 +339,45 @@ interface OutstandingDebtChartProps {
   ageMap?: Record<string, number>;
 }
 
+const AGING_LEGEND = [
+  { key: "critical", label: ">14 days overdue" },
+  { key: "warning", label: "7–14 days" },
+  { key: "normal", label: "<7 days" },
+] as const;
+
 export function OutstandingDebtChart({ data, onClientClick, ageMap }: OutstandingDebtChartProps) {
+  const kit = getChartKit(useTheme());
   const getBarColor = (name: string) => {
-    if (!ageMap) return "var(--destructive)";
+    if (!ageMap) return kit.aging.normal;
     const days = ageMap[name] ?? 0;
-    if (days > 14) return "#f43f5e"; // Rose
-    if (days > 7) return "#f59e0b"; // Amber
-    return "var(--destructive)";
+    if (days > 14) return kit.aging.critical;
+    if (days > 7) return kit.aging.warning;
+    return kit.aging.normal;
   };
   const hasData = data && data.length > 0;
 
   return (
-    <Card sx={{ overflow: "hidden", transition: "box-shadow 300ms", minWidth: 0 }}>
-      <Box sx={{ px: 2.5, pt: 2.5, pb: 1 }}>
-        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 1 }}>
-          <Box>
-            <Typography sx={{ fontSize: "1rem", fontWeight: 700, color: "text.primary" }}>
-              Outstanding Debt
-            </Typography>
-            <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>
-              Top Clients with Unpaid Balances
-            </Typography>
-          </Box>
+    <Card sx={styles.card}>
+      <Box sx={styles.header}>
+        <Box sx={styles.titleRow}>
+          <ChartHeading title="Outstanding Debt" subtitle="Top Clients with Unpaid Balances" />
           {hasData && (
-            <Box
-              sx={{
-                bgcolor: "error.light",
-                color: "error.dark",
-                fontSize: "0.625rem",
-                fontWeight: 900,
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 100,
-                border: "1px solid",
-                borderColor: "error.main",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
+            <Box sx={[chartCountBadgeStyles.base, chartCountBadgeStyles.debt]}>
               {data.length} client{data.length !== 1 ? "s" : ""}
             </Box>
           )}
-        </Stack>
+        </Box>
       </Box>
-      <CardContent sx={{ px: 1, pb: 2 }}>
+      <CardContent sx={styles.content}>
         {hasData && ageMap && (
-          <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 2, mb: 1.5, px: 1 }}>
-            {[
-              { color: "#f43f5e", label: ">14 days overdue" },
-              { color: "#f59e0b", label: "7–14 days" },
-              { color: "error.main", label: "<7 days" },
-            ].map(({ color, label }) => (
-              <Stack key={label} direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
-                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  {label}
-                </Typography>
-              </Stack>
+          <Box sx={styles.agingLegend}>
+            {AGING_LEGEND.map(({ key, label }) => (
+              <Box key={key} sx={styles.agingItem}>
+                <Box sx={[styles.dot, { bgcolor: kit.aging[key] }]} />
+                <Typography variant="caption" color="text.secondary">{label}</Typography>
+              </Box>
             ))}
-          </Stack>
+          </Box>
         )}
         <ChartFrame height={240}>
           {!hasData ? (
@@ -535,12 +394,12 @@ export function OutstandingDebtChart({ data, onClientClick, ageMap }: Outstandin
                 margin={{ top: 0, right: 24, left: 8, bottom: 0 }}
                 barCategoryGap="30%"
               >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" opacity={0.5} />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={kit.grid} />
                 <XAxis
                   type="number"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 700 }}
+                  tick={{ fontSize: 11, fill: kit.tick, fontWeight: 600 }}
                   tickFormatter={(val) => `₦${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
                 />
                 <YAxis
@@ -548,22 +407,15 @@ export function OutstandingDebtChart({ data, onClientClick, ageMap }: Outstandin
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "var(--foreground)", fontWeight: 700 }}
+                  tick={{ fontSize: 12, fill: kit.tickStrong, fontWeight: 600 }}
                   width={90}
                   tickFormatter={(name) => (name.length > 14 ? name.slice(0, 13) + "…" : name)}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    borderRadius: "14px",
-                    border: "1px solid var(--border)",
-                    fontSize: "12px",
-                    color: "var(--foreground)",
-                    boxShadow: "0 10px 30px -10px rgba(0,0,0,0.15)",
-                  }}
-                  itemStyle={{ color: "var(--foreground)" }}
+                  contentStyle={kit.tooltip.contentStyle}
+                  itemStyle={kit.tooltip.itemStyle}
+                  labelStyle={kit.tooltip.labelStyle}
                   formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Balance"]}
-                  labelStyle={{ fontWeight: "900", marginBottom: "6px", color: "var(--foreground)" }}
                 />
                 <Bar
                   dataKey="balance"
@@ -605,49 +457,39 @@ export function PaymentStatusWidget({ paid, partPaid, unpaid, paidAmt, partPaidA
   const partPct   = total > 0 ? (partPaid / total) * 100 : 0;
   const unpaidPct = total > 0 ? (unpaid  / total) * 100 : 0;
 
+  // Palette tokens only: segment fill, and a darker text tone that stays readable on white.
+  const statuses = [
+    { label: "Paid", count: paid, amt: paidAmt, pct: paidPct, fill: "success.main", text: "success.main" },
+    { label: "Part-paid", count: partPaid, amt: partPaidAmt, pct: partPct, fill: "warning.main", text: "warning.dark" },
+    { label: "Unpaid", count: unpaid, amt: unpaidAmt, pct: unpaidPct, fill: "error.main", text: "error.main" },
+  ];
+
   return (
-    <Card sx={{ overflow: "hidden", transition: "box-shadow 300ms", minWidth: 0 }}>
-      <Box sx={{ px: 2.5, pt: 2.5, pb: 1.5 }}>
-        <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: "text.primary" }}>
-          Payment Status Split
-        </Typography>
-        <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900 }}>
-          Jobs by Payment Status
-        </Typography>
+    <Card sx={styles.card}>
+      <Box sx={styles.headerLoose}>
+        <ChartHeading title="Payment Status Split" subtitle="Jobs by Payment Status" />
       </Box>
-      <CardContent sx={{ px: 2.5, pb: 2.5 }}>
+      <CardContent sx={styles.contentPadded}>
         {!hasData ? (
           <EmptyState icon={BarChart3} title="No Jobs Yet" description="Payment status breakdown will appear once jobs are recorded." />
         ) : (
           <>
-            <Box sx={{ width: "100%", height: 12, borderRadius: 100, overflow: "hidden", display: "flex", mb: 2.5 }}>
-              {paidPct > 0   && <Box sx={{ bgcolor: "#10b981", height: "100%", transition: "width 500ms ease-out", width: `${paidPct}%` }} />}
-              {partPct > 0   && <Box sx={{ bgcolor: "#fbbf24", height: "100%", transition: "width 500ms ease-out", width: `${partPct}%` }} />}
-              {unpaidPct > 0 && <Box sx={{ bgcolor: "#f43f5e", height: "100%", transition: "width 500ms ease-out", width: `${unpaidPct}%` }} />}
+            <Box sx={styles.statusBar}>
+              {statuses.filter(({ pct }) => pct > 0).map(({ label, pct, fill }) => (
+                <Box key={label} sx={[styles.statusSegment, { bgcolor: fill, width: `${pct}%` }]} />
+              ))}
             </Box>
 
-            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5 }}>
-              {[
-                { label: "Paid", count: paid, amt: paidAmt, pct: paidPct, dot: "#10b981", color: "#059669" },
-                { label: "Part-paid", count: partPaid, amt: partPaidAmt, pct: partPct, dot: "#fbbf24", color: "#d97706" },
-                { label: "Unpaid", count: unpaid, amt: unpaidAmt, pct: unpaidPct, dot: "#f43f5e", color: "#e11d48" },
-              ].map(({ label, count, amt, pct, dot, color }) => (
-                <Box key={label} sx={{ textAlign: "center" }}>
-                  <Stack direction="row" sx={{ alignItems: "center", justifyContent: "center", gap: 0.75, mb: 0.5 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: dot }} />
-                    <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary" }}>
-                      {label}
-                    </Typography>
-                  </Stack>
-                  <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, lineHeight: 1, color }}>
-                    {count}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.secondary", mt: 0.25 }}>
-                    {pct.toFixed(0)}% of jobs
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.primary", mt: 0.25 }}>
-                    ₦{amt.toLocaleString()}
-                  </Typography>
+            <Box sx={styles.statusGrid}>
+              {statuses.map(({ label, count, amt, pct, fill, text }) => (
+                <Box key={label} sx={styles.statusCell}>
+                  <Box sx={styles.statusHead}>
+                    <Box sx={[styles.dot, { bgcolor: fill }]} />
+                    <Typography variant="overline" color="text.secondary">{label}</Typography>
+                  </Box>
+                  <Typography variant="h4" component="p" color={text} sx={styles.statusCount}>{count}</Typography>
+                  <Typography variant="caption" color="text.secondary" component="p">{pct.toFixed(0)}% of jobs</Typography>
+                  <Typography variant="caption" component="p" sx={{ fontWeight: 700 }}>₦{amt.toLocaleString()}</Typography>
                 </Box>
               ))}
             </Box>
@@ -667,85 +509,52 @@ export function TopClientsWidget({ clients }: TopClientsWidgetProps) {
   const maxRevenue = hasData ? Math.max(...clients.map(c => c.revenue), 1) : 1;
 
   return (
-    <Card sx={{ overflow: "hidden", transition: "box-shadow 300ms", minWidth: 0 }}>
-      <Box sx={{ px: 2.5, pt: 2.5, pb: 1.5 }}>
-        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-          <Box>
-            <Typography sx={{ fontSize: "1rem", fontWeight: 900, color: "text.primary" }}>
-              Top Clients
-            </Typography>
-            <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900 }}>
-              Revenue by Client
-            </Typography>
-          </Box>
+    <Card sx={styles.card}>
+      <Box sx={styles.headerLoose}>
+        <Box sx={styles.titleRow}>
+          <ChartHeading title="Top Clients" subtitle="Revenue by Client" />
           {hasData && (
-            <Box
-              sx={{
-                bgcolor: "primary.light",
-                color: "primary.dark",
-                fontSize: "0.625rem",
-                fontWeight: 900,
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 100,
-                border: "1px solid",
-                borderColor: "primary.main",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
+            <Box sx={[chartCountBadgeStyles.base, chartCountBadgeStyles.clients]}>
               <Users size={12} />
               {clients.length}
             </Box>
           )}
-        </Stack>
+        </Box>
       </Box>
-      <CardContent sx={{ px: 2.5, pb: 2.5 }}>
+      <CardContent sx={styles.contentPadded}>
         {!hasData ? (
           <EmptyState icon={Users} title="No Clients Yet" description="Client revenue rankings will appear once sales are recorded." />
         ) : (
-          <Stack sx={{ gap: 1.5 }}>
+          <Box sx={styles.list}>
             {clients.map((client, index) => {
               const barWidth = (client.revenue / maxRevenue) * 100;
               const medals = ["🥇", "🥈", "🥉"];
               return (
                 <Box key={client.name}>
-                  <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, mb: 0.5 }}>
-                    <Stack direction="row" sx={{ alignItems: "center", gap: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: "0.625rem", flexShrink: 0 }}>
+                  <Box sx={styles.clientRow}>
+                    <Box sx={styles.clientName}>
+                      <Typography variant="caption" component="span" sx={styles.medal}>
                         {medals[index] ?? `#${index + 1}`}
                       </Typography>
-                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <Typography variant="h6" component="span" sx={styles.ellipsis}>
                         {client.name}
                       </Typography>
-                    </Stack>
-                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary", flexShrink: 0 }}>
+                    </Box>
+                    <Typography variant="h6" component="span" sx={{ flexShrink: 0 }}>
                       ₦{client.revenue >= 1_000_000
                         ? `${(client.revenue / 1_000_000).toFixed(1)}M`
                         : client.revenue >= 1_000
                         ? `${(client.revenue / 1_000).toFixed(0)}k`
                         : client.revenue.toLocaleString()}
                     </Typography>
-                  </Stack>
-                  <Box sx={{ height: 6, borderRadius: 100, bgcolor: "grey.200", overflow: "hidden" }}>
-                    <Box
-                      sx={{
-                        height: "100%",
-                        borderRadius: 100,
-                        bgcolor: "primary.main",
-                        opacity: 0.7,
-                        transition: "width 500ms ease-out",
-                        width: `${barWidth}%`,
-                      }}
-                    />
+                  </Box>
+                  <Box sx={styles.clientTrack}>
+                    <Box sx={[styles.clientFill, { width: `${barWidth}%` }]} />
                   </Box>
                 </Box>
               );
             })}
-          </Stack>
+          </Box>
         )}
       </CardContent>
     </Card>
