@@ -852,6 +852,72 @@ export const materialsStyles = {
   sheetNote: { p: 1.5, borderRadius: 3, bgcolor: "action.hover", display: "flex", flexDirection: "column", gap: 0.75 },
 } as const;
 
+// Radio choices drawn as bordered cards (roll unit and length). Used wherever one option must be picked from a few.
+export const choiceStyles = {
+  wrap: { display: "flex", flexDirection: "column", gap: 2 },
+  fieldset: { border: 0, m: 0, p: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 },
+  legend: { p: 0, mb: 0.5, fontSize: "0.8125rem", color: "text.secondary" },
+  group: { display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 1 },
+  choice: { flex: "1 1 0", minWidth: 96, m: 0, px: 1.5, minHeight: 48, border: 1, borderColor: "divider", borderRadius: 3, "&:hover": { bgcolor: "action.hover" } },
+  choiceOn: { borderWidth: 2, borderColor: "primary.main", bgcolor: tint("primary", 0.08) },
+  label: { fontWeight: 600 },
+  hint: { color: "text.secondary" },
+} as const;
+
+// The restock, waste and count forms (Stock entry and the Inventory popups).
+export const stockFormStyles = {
+  form: { display: "flex", flexDirection: "column", gap: 2.5 },
+  row: { display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 },
+  grow: { flex: 1, minWidth: 0 },
+  actions: { display: "flex", gap: 1, justifyContent: "flex-end", flexWrap: "wrap" },
+  appSays: { p: 1.5, flex: 1, bgcolor: "action.hover" },
+  appSaysValue: { fontWeight: 800, fontSize: 20 },
+  strong: { fontWeight: 700 },
+  panel: { p: { xs: 2, md: 3 } },
+} as const;
+
+// A small labelled number (stock health, money totals). Colours come from the palette so dark mode and both role themes agree.
+export const statTileStyles = {
+  tile: { p: 1.75, borderRadius: 4, border: 1, borderColor: "divider", display: "flex", flexDirection: "column", gap: 0.25, minWidth: 0 },
+  success: { bgcolor: tint("success", 0.12), borderColor: tint("success", 0.4) },
+  warning: { bgcolor: tint("warning", 0.14), borderColor: tint("warning", 0.5) },
+  primary: { borderColor: "primary.main", bgcolor: tint("primary", 0.08) },
+  label: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
+  value: { fontWeight: 700 },
+  wide: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 },
+  grid3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  grid4: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.25 },
+} as const;
+
+// Settings-style owner Inventory page.
+export const inventoryStyles = {
+  page: { display: "flex", flexDirection: "column", gap: 2 },
+  head: { display: "flex", flexDirection: "column", gap: 1 },
+  actions: { display: "flex", gap: 1.25, flexWrap: "wrap" },
+  grow: { flex: 1, minWidth: 140 },
+  cards: { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 1.5, alignItems: "start" },
+  cardOff: { borderStyle: "dashed", opacity: 0.85 },
+  cardOpen: { borderColor: "primary.main" },
+  titleLine: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1.5 },
+  chips: { display: "flex", gap: 0.75, flexWrap: "wrap", justifyContent: "flex-end" },
+  code: { color: "text.secondary" },
+  name: { fontWeight: 700 },
+  width: { fontWeight: 500, color: "text.secondary" },
+  twoUp: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
+  priceLine: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" },
+  roll: { p: 1.5, borderRadius: 3, border: 1, borderColor: "divider", display: "flex", flexDirection: "column", gap: 1 },
+  rollOut: { opacity: 0.75 },
+  rollHead: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 },
+  progressRow: { display: "flex", alignItems: "center", gap: 1.5 },
+  progress: { flex: 1, height: 8, borderRadius: 100 },
+  nowrap: { whiteSpace: "nowrap" },
+  rollActions: { display: "flex", gap: 1, flexWrap: "wrap" },
+  rollButton: { flex: 1, minWidth: 100 },
+  label: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
+  strong: { fontWeight: 600 },
+  sheetBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
+} as const;
+
 export const auditLogStyles = {
   filters: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(2, 200px)" }, gap: 1.5, mb: 1.5 },
   chips: { display: "flex", gap: 1, flexWrap: { xs: "nowrap", sm: "wrap" }, overflowX: { xs: "auto", sm: "visible" }, mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 }, pb: 0.5, mb: 2 },
