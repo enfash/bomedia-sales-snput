@@ -63,11 +63,11 @@ export async function proxy(request: NextRequest) {
     // - /api/auth/:path* (handles authentication POST login, logout)
     // - /api/cashiers for GET and PATCH only (to let login screen load names and cashier update heartbeats)
     const isAuthApi = pathname.startsWith('/api/auth');
-    const isPublicCashierApi = pathname.startsWith('/api/cashiers') && (method === 'GET' || method === 'PATCH');
+    const isPublicCashierApi = (pathname === '/api/cashiers' || pathname === '/api/cashiers/') && (method === 'GET' || method === 'PATCH');
 
     if (!isAuthApi && !isPublicCashierApi) {
       // Admin-only protection for adding or deleting users
-      if (pathname.startsWith('/api/cashiers') && (method === 'POST' || method === 'DELETE')) {
+      if (pathname.startsWith('/api/cashiers') && (pathname.startsWith('/api/cashiers/access') || method === 'POST' || method === 'DELETE')) {
         if (!isAdmin) {
           return new NextResponse(
             JSON.stringify({ error: 'Unauthorized. Admin session required.' }),

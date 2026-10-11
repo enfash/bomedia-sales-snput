@@ -34,7 +34,7 @@ try {
     and has_table_privilege('bomedia_auth_server',c.oid,'SELECT,INSERT,UPDATE,DELETE')) as tables,
     exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('bomedia','migration','migration_control')
       and has_function_privilege('bomedia_auth_server',p.oid,'EXECUTE') and p.proname not in
-      ('auth_reserve_login','auth_claim_session','auth_read_session','auth_revoke_session','auth_presence','auth_list_staff','auth_manage_staff')) as functions`;
+      ('auth_reserve_login','auth_claim_session','auth_read_session','auth_revoke_session','auth_presence','auth_list_staff','auth_manage_staff','auth_staff_overview','auth_sign_out_staff','auth_set_single_session')) as functions`;
   assert.equal(excess.tables, false); assert.equal(excess.functions, false);
   for (const apiRole of ['anon','authenticated','service_role']) {
     const [access] = await owner`select exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace

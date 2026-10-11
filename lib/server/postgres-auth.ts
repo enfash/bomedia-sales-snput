@@ -7,8 +7,12 @@ export class AuthError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
 }
 export type StaffSession = { staff_id: string; name: string; session_id: string };
+export type StaffOverview = { single_session: boolean;
+  staff: (StaffSummary & { Devices: number })[]; removed: { Name: string; StaffId: string; RemovedAt: string }[] };
 export type StaffSummary = { Name: string; HasPasscode: boolean; RequiresPinReset: boolean; StaffId: string;
   Status: string; 'Last Login': string | null; 'Last Active': string | null };
+// The owner's staff row only attributes owner-side writes (SUPABASE_ADMIN_STAFF_ID); it is not a cashier, so staff lists never show it.
+const notOwner = (person: { StaffId: string }) => person.StaffId.toLowerCase() !== process.env.SUPABASE_ADMIN_STAFF_ID?.trim().toLowerCase();
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 // Fixed non-user credential hash allows comparable work for absent/disabled accounts.
@@ -59,7 +63,7 @@ export function createPostgresAuth(call: AuthCall = callAuth) {
     const secret = await tokenSecret(token);
     if (!secret || !await call<boolean>('auth_presence', [digest(secret), online])) throw new AuthError('Please sign in again.', 401);
   }
-  async function manage(operation: 'create' | 'reset' | 'disable', name: unknown, pin: unknown, adminIdentity: string) {
+  async function manage(operation: 'create' | 'reset' | 'disable' | 'restore', name: unknown, pin: unknown, adminIdentity: string) {
     if (typeof name !== 'string' || !name.trim() || name.length > 200) throw new AuthError('A staff name is required.', 400);
     let encoded: string | null = null;
     if (operation !== 'disable') {
@@ -69,12 +73,28 @@ export function createPostgresAuth(call: AuthCall = callAuth) {
     try { return await call<string>('auth_manage_staff', [operation, name.trim(), encoded, adminIdentity]); }
     catch (error) {
       const code = (error as { code?: string }).code;
-      if (code === '23505') throw new AuthError('That staff name already exists, including disabled accounts.', 409);
+      if (code === '23505') throw new AuthError('That staff name already exists. If they were removed, restore them instead.', 409);
       if (code === '22023') throw new AuthError('Staff account could not be updated. Check the name.', 400);
       throw error;
     }
   }
-  return { login, session, logout, presence, manage,
-    list: () => call<StaffSummary[]>('auth_list_staff', []) };
+  async function signOut(name: unknown, adminIdentity: string) {
+    if (typeof name !== 'string' || !name.trim() || name.length > 200) throw new AuthError('A staff name is required.', 400);
+    try { return await call<number>('auth_sign_out_staff', [name.trim(), adminIdentity]); }
+    catch (error) {
+      if ((error as { code?: string }).code === '22023') throw new AuthError('Staff account not found.', 404);
+      throw error;
+    }
+  }
+  async function setSingleSession(enabled: unknown, adminIdentity: string) {
+    if (typeof enabled !== 'boolean') throw new AuthError('Choose on or off.', 400);
+    return call<boolean>('auth_set_single_session', [enabled, adminIdentity]);
+  }
+  return { login, session, logout, presence, manage, signOut, setSingleSession,
+    overview: async () => {
+      const result = await call<StaffOverview>('auth_staff_overview', []);
+      return { ...result, staff: result.staff.filter(notOwner), removed: result.removed.filter(notOwner) };
+    },
+    list: async () => (await call<StaffSummary[]>('auth_list_staff', [])).filter(notOwner) };
 }
 export const postgresAuth = createPostgresAuth();

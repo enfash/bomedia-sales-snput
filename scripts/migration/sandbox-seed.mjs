@@ -16,12 +16,14 @@ try {
   const owner = await sql.begin(async tx => {
     const staff = async (name, login, pin) => {
       const [row] = await tx`insert into bomedia.staff(display_name,login_name,pin_hash) values (${name},${login},${pin ? await hashPin(pin) : null})
-        on conflict (login_name) do update set display_name=excluded.display_name returning id`;
+        on conflict (login_name) do update set display_name=excluded.display_name,
+          pin_hash=coalesce(excluded.pin_hash, bomedia.staff.pin_hash) returning id`;
       return row.id;
     };
     const ownerId = await staff('Owner (sandbox)', 'sandbox-owner', null);
-    await staff('Ada (test cashier)', 'ada', '1234');
-    await staff('Tunde (test cashier)', 'tunde', '5678');
+    // Sign-in and PIN reset look staff up by their display name, so a cashier's display name must equal the login name.
+    await staff('Ada', 'ada', '1234');
+    await staff('Tunde', 'tunde', '5678');
     const [books] = await tx`select count(*)::int as n from bomedia.bookkeeping_settings`;
     if (!books.n) await tx`insert into bomedia.bookkeeping_settings(starts_on,state) values ('2026-10-01','active')`;
     for (const [name, contact] of [['Grace Chapel', '0803 000 0001'], ['Adeola Stores', '0805 000 0002']]) {
