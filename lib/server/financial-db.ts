@@ -6,7 +6,7 @@ export type FinancialMethod = 'api_collect' | 'api_read' | 'api_report' | 'api_s
   | 'api_expense' | 'api_expense_payment' | 'api_expense_categories' | 'api_expenses_awaiting'
   | 'api_restock' | 'api_waste' | 'api_stock_count'
   | 'api_quote' | 'api_quote_lookup' | 'api_price_requests' | 'api_price_decision'
-  | 'api_services' | 'api_service_save' | 'api_legacy_feed' | 'api_job_status' | 'api_legacy_sale' | 'api_durable_collect' | 'api_legacy_collect' | 'api_screen_order' | 'api_order_catalog' | 'api_screen_expense' | 'api_receipt' | 'api_business_details' | 'api_business_details_save' | 'api_services_reorder' | 'api_payment_methods_admin' | 'api_payment_method_save' | 'api_audit_log' | 'api_expense_categories_admin' | 'api_expense_category_save';
+  | 'api_services' | 'api_service_save' | 'api_legacy_feed' | 'api_job_status' | 'api_legacy_sale' | 'api_durable_collect' | 'api_legacy_collect' | 'api_screen_order' | 'api_order_catalog' | 'api_screen_expense' | 'api_receipt' | 'api_business_details' | 'api_business_details_save' | 'api_services_reorder' | 'api_payment_methods_admin' | 'api_payment_method_save' | 'api_audit_log' | 'api_system_status' | 'api_expense_categories_admin' | 'api_expense_category_save';
 export type FinancialCall = <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>) => Promise<T>;
 let database: Promise<ReturnType<typeof postgres>> | undefined;
 export function financialApiEnabled(): boolean {
@@ -43,7 +43,7 @@ async function connect() {
   } catch { await sql.end({timeout:2}); throw new Error('Financial database is unavailable'); }
 }
 export const callFinancial: FinancialCall = async <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>): Promise<T> => {
-  if (!['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_restock','api_waste','api_stock_count','api_quote','api_quote_lookup','api_price_requests','api_price_decision','api_services','api_service_save','api_legacy_feed','api_job_status','api_legacy_sale','api_legacy_collect','api_durable_collect','api_screen_order','api_order_catalog','api_screen_expense','api_receipt','api_business_details','api_business_details_save','api_services_reorder','api_payment_methods_admin','api_payment_method_save','api_audit_log','api_expense_categories_admin','api_expense_category_save'].includes(method)) throw new Error('Unknown financial operation');
+  if (!['api_collect','api_read','api_report','api_sale','api_customer','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_restock','api_waste','api_stock_count','api_quote','api_quote_lookup','api_price_requests','api_price_decision','api_services','api_service_save','api_legacy_feed','api_job_status','api_legacy_sale','api_legacy_collect','api_durable_collect','api_screen_order','api_order_catalog','api_screen_expense','api_receipt','api_business_details','api_business_details_save','api_services_reorder','api_payment_methods_admin','api_payment_method_save','api_audit_log','api_system_status','api_expense_categories_admin','api_expense_category_save'].includes(method)) throw new Error('Unknown financial operation');
   database ??= connect().catch(error => {database=undefined;throw error;});
   const sql = await database;
   if (method==='api_payment_methods') return (await sql`select bomedia.api_payment_methods() as result`)[0].result as T;
@@ -51,6 +51,7 @@ export const callFinancial: FinancialCall = async <T>(method: FinancialMethod, k
   if (method==='api_expense_categories_admin') return (await sql`select bomedia.api_expense_categories_admin() as result`)[0].result as T;
   if (method==='api_expense_categories') return (await sql`select bomedia.api_expense_categories() as result`)[0].result as T;
   if (method==='api_expenses_awaiting') return (await sql`select bomedia.api_expenses_awaiting() as result`)[0].result as T;
+  if (method==='api_system_status') return (await sql`select bomedia.api_system_status() as result`)[0].result as T;
   if (method==='api_business_details') return (await sql`select bomedia.api_business_details() as result`)[0].result as T;
   if (method==='api_price_requests') return (await sql`select bomedia.api_price_requests() as result`)[0].result as T;
   if (method==='api_services') return (await sql`select bomedia.api_services(${key==='all'}) as result`)[0].result as T;
