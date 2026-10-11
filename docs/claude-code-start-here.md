@@ -15,10 +15,10 @@ Owner: Elijah (BOMedia, Lagos large-format printing). Project: Next.js 16 App Ro
 - Writes are idempotent (`prior_result` + `idempotency_requests`, one `crypto.randomUUID()` request id per unsaved edit) and write `audit_events`. PG error codes map to `FinancialError` (42501 to 403; 22023, 23514, 23505, 22P02 to 409).
 - Tests: service tests inject `call`; route tests mock `next/headers`, `./postgres-auth-routes`, `./postgres-auth`; DB tests use PGlite `testDatabase()` inside `begin` with `set local role bomedia_financial_runtime`, a `failure()` savepoint helper, and `reset role` before inserting into restricted tables.
 - Lagos has no daylight saving; "today" means the Lagos date.
-- Migrations are append-only; never edit one that has been applied. Next number is `202610110034`. Adding a migration also means updating `lib/schema-version.ts` (a test fails until it matches the folder).
+- Migrations are append-only; never edit one that has been applied. Next number is `202610110037`. Adding a migration also means updating `lib/schema-version.ts` (a test fails until it matches the folder).
 
 ## What exists (Settings area, owner only)
-Applied to the sandbox through migration 033 and passing `npm test` (508 tests):
+Applied to the sandbox through migration 036 and passing `npm test` (see the handoff for the latest count):
 1. Business details, Services order/remove, Payment methods (rename/on-off).
 2. Staff Manager: restore removed cashiers, active sessions with sign out, "one device per cashier" rule.
 3. Audit log (filters, readable sentences, cashier names).
@@ -27,13 +27,14 @@ Applied to the sandbox through migration 033 and passing `npm test` (508 tests):
 6. Staff Manager "Show" selector (Active staff / Signed in now / Hidden staff / Removed staff / All staff, remembered per browser) and **per-person hide** (migration 031). Hiding is not removing: the person can still sign in. The owner's own staff row (`SUPABASE_ADMIN_STAFF_ID`) is never listed as staff.
 7. **System status** (`/bom03/settings/system-status`, migration 032): where saving goes, database reachable and version, latest sale/payment/expense, and entries waiting on this device. Owner only, read only.
 8. **Bookkeeping period** (`/bom03/settings/bookkeeping-period`, migration 033): the owner closes finished months. Month-ends only, and permanent (no reopen anywhere; the ledger already refuses to move `closed_through` back).
+9. **Materials** (`/bom03/settings/materials`, migration 034): one price per material (name) for every size, changed only here. Sizes (widths) are added once and never edited; turn a size on/off; low-stock level and notes per size; rename a material; add a material. A trigger makes `materials.selling_price_per_sqft_kobo` writable only through `api_material_save` (the old post-sale copy of a roll's price onto the material is now a no-op). Turned-off sizes are refused on new jobs, quotes and price requests. Inventory's **Realised revenue** is now what the material's jobs actually sold for (035), and a material's code is frozen when it is renamed (036).
 
 ## Still to do, in this order of preference
-- Item 4: Approved devices (blocked: phones cannot be identified yet; needs a decision between pairing-code devices and admin-screens-only). Item 8b: Materials management (prices and widths feed quotes; its own careful stage). Opening balances: guided flow, owner decisions needed.
+- Item 4: Approved devices (blocked: phones cannot be identified yet; needs a decision between pairing-code devices and admin-screens-only). Opening balances: guided flow, owner decisions needed.
 - Expense-category access was verified end to end in the sandbox on 11 October (see the handoff). Nothing outstanding there.
 - Not pushed: the branch is ahead of `origin/codex/supabase-migration`. Ask the owner before pushing.
 - Known, not mine to fix silently: two older lint errors (setState in effects) in sidebar/mobile-nav and Expenses page code. The Performance tab still shows the owner's own sales as an "Owner (sandbox)" card.
 - System status could later show the last backup date, but only if backups become readable from the app (they are managed in Supabase today).
 
 ## Design canvases already approved (for reference)
-Staff Manager, Audit log, Expense categories, "Expense categories — who can log" "BOMedia System Status" and "BOMedia Bookkeeping Period" (claude.ai artifacts; ask the owner for the links if you need to view them).
+Staff Manager, Audit log, Expense categories, "Expense categories — who can log" "BOMedia System Status", "BOMedia Bookkeeping Period" and "BOMedia Materials" (claude.ai artifacts; ask the owner for the links if you need to view them).
