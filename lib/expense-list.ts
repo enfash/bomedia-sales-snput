@@ -16,15 +16,18 @@ export type ExpenseSummary = { monthSpent: number; monthCount: number; monthStar
 export const expenseAmount = (expense: Expense) => parseAmount(expense.AMOUNT);
 export const isPaidExpense = (expense: Expense) => expense.STATUS === 'Paid';
 
-/** The calendar day an expense belongs to, as YYYY-MM-DD, or '' when its date cannot be read. */
-export function expenseDay(expense: Expense): string {
-  const raw = (expense.DATE || '').trim();
+/** The calendar day a date text belongs to, as YYYY-MM-DD, or '' when it cannot be read. */
+export function dayFromText(text: string): string {
+  const raw = (text || '').trim();
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return '';
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
+
+/** The calendar day an expense belongs to, as YYYY-MM-DD, or '' when its date cannot be read. */
+export const expenseDay = (expense: Expense): string => dayFromText(expense.DATE);
 
 /** Whole naira without decimals, otherwise exactly two (₦700, ₦2,000.01). */
 export function naira(value: number): string {
