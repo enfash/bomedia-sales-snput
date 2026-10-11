@@ -6,7 +6,7 @@ import { PaidBy } from './paid-by';
 import { lagosBusinessDate } from '@/lib/accounting-entry';
 import { saveExpenseRequest } from '@/lib/expense-outbox';
 import type { PaymentMethod } from '@/lib/payment-methods';
-import type { Expense } from '@/app/bom03/expenses/page';
+import type { Expense } from '@/lib/expense-list';
 import { settingsStyles } from '@/app/theme';
 import { toast } from 'sonner';
 export function ExpensePaymentSheet({expense,onClose}:{expense:Expense|null;onClose:()=>void}) {

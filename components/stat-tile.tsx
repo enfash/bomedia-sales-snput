@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { statTileStyles as styles } from '@/app/theme';
 
-type Tone = 'neutral' | 'success' | 'warning' | 'primary';
+type Tone = 'neutral' | 'success' | 'warning' | 'primary' | 'error';
 
 /** A labelled number. `wide` lays the label and value side by side (for a headline total). */
 export function StatTile({ label, value, tone = 'neutral', wide = false, caption }: { label: string; value: string | number; tone?: Tone; wide?: boolean; caption?: string }) {

@@ -804,6 +804,8 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
           arrow: true,
         },
       },
+      // Dialogs and sheets keep the paper colour in dark mode instead of MUI's grey elevation overlay.
+      MuiDialog: { styleOverrides: { paper: { backgroundImage: "none" } } },
       MuiDrawer: {
         styleOverrides: {
           paper: {
@@ -904,10 +906,11 @@ export const stockFormStyles = {
 
 // A small labelled number (stock health, money totals). Colours come from the palette so dark mode and both role themes agree.
 export const statTileStyles = {
-  tile: { p: 1.75, borderRadius: 4, border: 1, borderColor: "divider", display: "flex", flexDirection: "column", gap: 0.25, minWidth: 0 },
+  tile: { p: 1.75, borderRadius: "14px", border: 1, borderColor: "divider", display: "flex", flexDirection: "column", gap: 0.25, minWidth: 0 },
   success: { bgcolor: tint("success", 0.12), borderColor: tint("success", 0.4) },
   warning: { bgcolor: tint("warning", 0.14), borderColor: tint("warning", 0.5) },
   primary: { borderColor: "primary.main", bgcolor: tint("primary", 0.08) },
+  error: { bgcolor: tint("error", 0.12), borderColor: tint("error", 0.4) },
   label: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
   value: { fontWeight: 700 },
   wide: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 },
@@ -1021,63 +1024,70 @@ export const statusBadgeStyles = {
   tone: { success: tonePill("success"), error: tonePill("error"), warning: tonePill("warning"), info: tonePill("info") },
 } as const;
 
-// Expenses pages (owner and cashier). Icons take their colour from a wrapper, because they cannot read palette tokens.
-const expenseLabel = { fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 } as const;
+// Expenses (owner list and sheets, cashier entry page). Icons take their colour from a wrapper, because they cannot read palette tokens.
 const expenseClip = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
 const expenseIconButton = { bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2 } as const;
 const expenseHeaderStart = { display: "flex", alignItems: "center", gap: 1.5 } as const;
+const expenseAmountBox = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, p: 2, borderRadius: "16px", border: "1px solid" } as const;
 export const expenseStyles = {
+  // Cashier entry page.
   page: { p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, maxWidth: 768, minHeight: "100vh" },
   header: { mb: 2.5 },
-  headerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, mb: 0.5 },
   headerStart: expenseHeaderStart,
   headerSolo: { ...expenseHeaderStart, mb: 0.5 },
   backButton: { display: { md: "none" }, ...expenseIconButton },
   titleBox: { display: "flex", alignItems: "center", gap: 1 },
   headerIcon: { display: "flex", color: accent },
   title: { fontWeight: 800 },
-  actions: { display: "flex", alignItems: "center", gap: 1 },
-  iconButton: expenseIconButton,
-  newButton: { height: 36, px: 2, borderRadius: 2, fontWeight: 800, fontSize: "0.75rem" },
   subtitle: { color: "text.secondary" },
-  alert: { display: "flex", alignItems: "center", gap: 1, px: 2, py: 1.25, borderRadius: 2.5, mb: 2, border: "1px solid", borderColor: tint("error", 0.3), bgcolor: tint("error", 0.1) },
-  alertIcon: { display: "flex", flexShrink: 0, color: "error.main" },
-  alertAmount: { fontWeight: 800, color: toneText("error") },
-  alertNote: { color: "text.secondary" },
-  form: { mb: 3 },
-  filters: { display: "flex", gap: 1, mb: 2 },
-  filterButton: { borderRadius: 2, fontWeight: 800, fontSize: "0.75rem", height: 32, px: 2 },
-  list: { borderRadius: "16px", overflow: "hidden", mb: 3 },
-  loading: { display: "flex", alignItems: "center", justifyContent: "center", gap: 1, py: 6, color: "text.secondary" },
-  empty: { py: 6, textAlign: "center" },
-  emptyIcon: { display: "flex", justifyContent: "center", mb: 1, color: "text.disabled" },
-  emptyText: { fontWeight: 800, color: "text.disabled" },
-  row: { borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: "none" } },
+  // Owner list.
+  screen: { p: { xs: 2, md: 4 }, pb: { xs: 3, md: 12 }, maxWidth: 900, mx: "auto", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 },
+  heading: { display: "flex", flexDirection: "column", gap: 0.75 },
+  summary: { display: "flex", flexDirection: "column", gap: 1 },
+  pair: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
+  chips: { display: "flex", gap: 1, flexWrap: "wrap" },
+  chip: { borderRadius: 100, minHeight: 40, px: 2, fontWeight: 700 },
+  day: { display: "flex", flexDirection: "column", gap: 1 },
+  dayHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", px: 0.5 },
+  dayLabel: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
+  dayTotal: { color: "text.secondary" },
+  group: { borderRadius: "16px", overflow: "hidden" },
+  row: { display: "flex", flexDirection: "column", gap: 1.5, p: 1.75, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   rowButton: {
-    width: "100%", display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.75, textAlign: "left", bgcolor: "transparent", border: "none", cursor: "pointer",
-    color: "text.primary", "&:hover": { bgcolor: "action.hover" }, transition: "background-color 0.15s",
+    display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 1.5, width: "100%", textAlign: "left", borderRadius: "12px",
+    "&.Mui-focusVisible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 },
   },
+  iconTile: { width: 40, height: 40, borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, bgcolor: tint("primary", 0.14), color: accent },
+  iconTileOwed: { bgcolor: tint("error", 0.14), color: toneText("error") },
   rowMain: { flex: 1, minWidth: 0 },
-  titleLine: { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" },
-  category: { fontWeight: 800, ...expenseClip },
-  payee: { color: "text.secondary", ...expenseClip },
-  meta: { color: "text.secondary", display: "block", mt: 0.25, ...expenseClip },
-  rowEnd: { display: "flex", alignItems: "center", gap: 1, flexShrink: 0 },
-  amount: { fontWeight: 800, color: "error.main" },
-  chevron: { display: "flex", color: "text.disabled" },
-  details: { px: 2, pb: 2, pt: 0.5, bgcolor: (theme: Theme) => (theme.palette.mode === "dark" ? theme.palette.grey[100] : theme.palette.grey[50]) },
-  detailGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 },
-  span2: { gridColumn: "span 2" },
-  label: expenseLabel,
-  labelReceipt: { ...expenseLabel, mb: 0.5 },
-  labelStatus: { ...expenseLabel, mb: 1 },
-  value: { fontWeight: 700 },
-  receiptLink: { display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", fontWeight: 800, color: accent, textDecoration: "none", "&:hover": { textDecoration: "underline" } },
-  statusBlock: { borderTop: "1px solid", borderColor: "divider", pt: 1.5 },
-  paidBy: { color: "success.main", display: "block", mb: 1 },
-  toggle: { height: 32, px: 2, borderRadius: 2, fontSize: "0.6875rem", fontWeight: 800 },
-  markUnpaid: toneAction("error"),
-  markPaid: toneAction("success"),
+  category: { display: "block", fontWeight: 700, ...expenseClip },
+  meta: { color: "text.secondary", display: "block", ...expenseClip },
+  rowEnd: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5, flexShrink: 0 },
+  amount: { fontWeight: 700 },
+  payButton: { minHeight: 44 },
+  emptyBox: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1.25, py: 3.5, px: 2, borderRadius: "16px", border: "1px dashed", borderColor: "divider", textAlign: "center" },
+  emptyIcon: { width: 48, height: 48, borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: tint("primary", 0.14), color: accent },
+  emptyTitle: { fontWeight: 700 },
+  emptyText: { color: "text.secondary" },
+  // Sheets.
+  sheetBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
+  amountOwed: { ...expenseAmountBox, bgcolor: tint("error", 0.12), borderColor: tint("error", 0.35) },
+  amountPaid: { ...expenseAmountBox, bgcolor: tint("success", 0.1), borderColor: tint("success", 0.3) },
+  amountLabel: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
+  amountLabelOwed: { fontWeight: 700, letterSpacing: "0.08em", color: toneText("error") },
+  amountValue: { fontWeight: 700 },
+  facts: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 },
+  factLabel: { display: "block", fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
+  factValue: { fontWeight: 600, overflowWrap: "anywhere" },
+  factMuted: { fontWeight: 600, color: "text.secondary" },
+  receiptRow: { display: "flex", alignItems: "center", gap: 1.5, minHeight: 56, px: 1.75, borderRadius: "12px", border: "1px solid", borderColor: "divider", textDecoration: "none", color: "text.primary", "&:hover": { bgcolor: "action.hover" } },
+  receiptLabel: { flex: 1, fontWeight: 600 },
+  receiptView: { fontWeight: 700, color: accent },
+  hint: { color: "text.secondary", textAlign: "center" },
+  // Expense entry form (components/expense-entry.tsx), shown on the cashier page and inside the New expense sheet.
+  entryWrap: { width: "100%", maxWidth: 672, mx: "auto", p: { xs: 1, md: 2 } },
+  entryWrapSheet: { width: "100%", p: 0 },
+  entryCardSheet: { border: 0, boxShadow: "none", bgcolor: "transparent", backgroundImage: "none" },
   sessionIcon: { display: "flex", color: "text.secondary" },
   receiptPreview: { maxHeight: 160, mx: "auto", display: "block", borderRadius: "8px", border: "1px solid", borderColor: "divider" },
 } as const;

@@ -1,6 +1,6 @@
 "use client";
 
-import { expenseStyles } from "@/app/theme";
+import { accent, expenseStyles } from "@/app/theme";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { compressReceipt } from '@/lib/receipt-image';
 import { PaidBy } from './paid-by';
@@ -49,7 +49,7 @@ type RecentExpense = {
 
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, STORAGE_KEYS, SYSTEM_DEFAULTS } from "@/lib/constants";
 
-export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
+export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => void; embedded?: boolean } = {}) {
   const [context,setContext]=useState<PaymentContext|null>(null);
   const [categories,setCategories]=useState<string[]>([]);
   const [loadError,setLoadError]=useState('');
@@ -355,9 +355,9 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
 
   return (
     <>
-      <Box sx={{ width: "100%", maxWidth: 672, mx: "auto", p: { xs: 1, md: 2 } }}>
-        <Card>
-          <Box
+      <Box sx={embedded ? expenseStyles.entryWrapSheet : expenseStyles.entryWrap}>
+        <Card sx={embedded ? expenseStyles.entryCardSheet : undefined}>
+          {!embedded && <Box
             sx={{
               px: 2,
               py: 1.5,
@@ -366,13 +366,13 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
               bgcolor: "grey.50",
             }}
           >
-            <Typography variant="h6" sx={{ fontWeight: 900, color: "primary.main" }}>
+            <Typography variant="h6" sx={{ fontWeight: 900, color: accent }}>
               Expense Entry
             </Typography>
             <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
               Record business expenses and attach receipts.
             </Typography>
-          </Box>
+          </Box>}
 
           <CardContent>
             {loadError&&<Alert severity="warning">{loadError}</Alert>}
@@ -693,7 +693,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
         <DialogTitle
           sx={{
             fontWeight: 900,
-            color: "primary.main",
+            color: accent,
             borderBottom: "1px solid",
             borderColor: "divider",
             bgcolor: "grey.50",
