@@ -130,3 +130,16 @@ Owner request, 7 Oct: never show long random codes. Every ID the old screens sho
 - Insert triggers fill the references; existing rows were backfilled by creation time. The date in a reference is the day it was entered (Lagos time).
 - The feed, `api_job_status`, `api_legacy_collect` and `api_legacy_sale` accept these references. Because a sale's items share one Sales ID, the server finds a single job by its row number first.
 - A test fails if any visible feed column contains a database code.
+
+
+## Durable payments (migration 0017, local implementation, 8 October 2026)
+
+This supersedes the existing-payment-box behaviour documented for 0015 above. In PostgreSQL mode, `/api/payments/batch` and payment-bearing `PATCH /api/sales` now require the version-2 contract: `backend: postgres`, UUID `requestId`, `expectedStaffId`, original `businessDate`, stable `jobIds`, exact string `amountKobo`, `paymentMethod`, and optional single-job `jobStatus`/`notes`. Missing legacy identity/date information returns a review response; it is never reconstructed from today's date or a row position.
+
+`GET /api/accounting/context` returns the active backend and, for PostgreSQL, the verified accounting staff identity. The client caches context for offline capture and clears it on successful login; the payment endpoint independently verifies the expected staff against the current signed session. PostgreSQL requests carry a backend header so a server switched back to Sheets refuses them.
+
+`api_durable_collect` owns one replay key for the entire collection and optional status change. It locks the replay key before posting, checks enabled staff, resolves one customer from stable jobs, posts through `api_collect`, and applies the status in the same transaction. Failure rolls back money and status together. Browser/API roles retain no access; only the restricted financial runtime may call it. Client `any_age` is not accepted; the server derives owner permission.
+
+The browser outbox is stored per request under `bomedia-payment-v2:` and guarded by a Web Lock. Network failures and incomplete confirmation preserve the identical payload. Review/auth refusals pause; explicit retry resends the original payload without editing or deleting it. A matching request/staff/date/amount plus payment and journal IDs is required before deletion. There is no automatic conversion of old queued payments.
+
+Verification and remaining hosted/device limits: [Stage 1 checklist](migration-stages.md).
