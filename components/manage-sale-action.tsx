@@ -3,7 +3,7 @@
 import { accent } from "@/app/theme";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { MoreHorizontal, MessageCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ import {
   Stack,
   IconButton,
 } from "@mui/material";
-import { RecordStatus } from "@/components/record-card";
+import type { RecordStatus } from "@/lib/records-view";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
 import { paymentContext, savePostgresPayment } from '@/lib/payment-outbox';
 import { paymentKobo } from '@/lib/payment-contract';
@@ -55,12 +55,15 @@ interface ManageSaleActionProps {
   record: UnifiedRecord;
   onUpdate: () => void;
   variant?: "icon" | "button";
+  /** Draws the button that opens the dialog, in place of the default icon or "Manage" button. */
+  trigger?: (open: () => void) => ReactNode;
 }
 
 export function ManageSaleAction({
   record,
   onUpdate,
   variant = "icon",
+  trigger,
 }: ManageSaleActionProps) {
   const submitting = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -209,7 +212,7 @@ export function ManageSaleAction({
     }
   };
 
-  const triggerButton =
+  const triggerButton = trigger ? trigger(() => setIsOpen(true)) :
     variant === "icon" ? (
       <IconButton
         size="small"

@@ -3,7 +3,7 @@
 import { accent } from "@/app/theme";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, type ReactNode } from "react";
 import { Wallet, CheckCircle2 } from "lucide-react";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
@@ -25,9 +25,11 @@ interface ManageBatchActionProps {
   salesId: string;
   onUpdate: () => void;
   variant?: "icon" | "button";
+  /** Draws the button that opens the dialog, in place of the default icon or "Pay Batch" button. */
+  trigger?: (open: () => void) => ReactNode;
 }
 
-export function ManageBatchAction({ records, salesId, onUpdate, variant = "button" }: ManageBatchActionProps) {
+export function ManageBatchAction({ records, salesId, onUpdate, variant = "button", trigger: customTrigger }: ManageBatchActionProps) {
   const submitting = useRef(false);
   const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
   const [isOpen, setIsOpen] = useState(false);
@@ -158,7 +160,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
     finally { submitting.current = false; setIsSubmitting(false); }
   };
 
-  const trigger = variant === "icon" ? (
+  const trigger = customTrigger ? customTrigger(() => setIsOpen(true)) : variant === "icon" ? (
     <IconButton
       size="small"
       onClick={() => setIsOpen(true)}

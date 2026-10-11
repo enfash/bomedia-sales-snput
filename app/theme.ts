@@ -1092,38 +1092,6 @@ export const expenseStyles = {
   receiptPreview: { maxHeight: 160, mx: "auto", display: "block", borderRadius: "8px", border: "1px solid", borderColor: "divider" },
 } as const;
 
-// Records page cards (components/record-card.tsx, batch-card.tsx).
-const cardChip = { fontSize: "0.625rem", fontWeight: 600, height: 20, borderRadius: 10 } as const;
-export const recordCardStyles = {
-  chip: cardChip,
-  batchChip: { ...cardChip, fontWeight: 900, fontSize: "0.6rem" },
-  status: {
-    Settled: tonePill("success"),
-    "Part-payment": tonePill("warning"),
-    "In Progress": tonePill("info"),
-    Syncing: { bgcolor: "primary.main", color: "primary.contrastText" },
-  },
-  syncingPulse: { animation: "pulse 1.5s infinite" },
-  // Job stage: neutral until work starts, then the same tones as payment status.
-  job: {
-    waiting: toneNeutralPill,
-    printing: tonePill("warning"),
-    working: tonePill("info"),
-    ready: tonePill("success"),
-    done: { bgcolor: tint("primary", 0.12), color: accent },
-  },
-  // Left edge of a record card: the brand colour at a strength that tells pending, expense and sale apart.
-  card: { p: 2.5, borderRadius: 3, mb: 1.25, borderColor: "grey.100", bgcolor: "background.paper", transition: "background 0.3s" },
-  cardPending: { borderColor: tint("primary", 0.4), bgcolor: tint("primary", 0.08) },
-  edge: { borderLeft: "3px solid" },
-  edgePending: { borderLeftColor: tint("primary", 0.6) },
-  edgeExpense: { borderLeftColor: tint("primary", 0.4) },
-  edgeSale: { borderLeftColor: tint("primary", 0.5) },
-  batchOpen: { boxShadow: (theme: Theme) => `0 0 0 1px ${alpha(theme.palette.primary.main, 0.2)}` },
-  batch: { borderRadius: 3, mb: 1.25, overflow: "hidden", transition: "box-shadow 0.3s, border-color 0.3s", borderColor: "grey.100" },
-  batchActive: { borderColor: "primary.light" },
-} as const;
-
 // Material badge (components/material-badge.tsx): one hue per material family, readable on both surfaces.
 const hueBadge = (base: string) => ({
   bgcolor: alpha(base, 0.14),
@@ -1140,4 +1108,28 @@ export const materialBadgeStyles = {
   sticker: hueBadge(CHART_EXTRA.violet),
   reflective: toneBadge("warning"),
   neutral: { ...toneNeutralPill, borderColor: "divider" },
+} as const;
+
+// Records (owner and cashier share one page). The list, tiles, pills and sheets reuse expenseStyles; these are the extras.
+export const recordsStyles = {
+  ...expenseStyles,
+  iconTileExpense: { bgcolor: "action.hover", color: "text.secondary" },
+  owes: { color: toneText("error"), fontWeight: 600 },
+  expenseAmount: { fontWeight: 700, color: "text.secondary" },
+  sortRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
+  sortNote: { color: "text.secondary" },
+  dateFields: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 },
+  choices3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  choices2: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
+  choice: { minHeight: 44, borderRadius: "12px", fontWeight: 700 },
+  pager: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5 },
+  pagerButton: { width: 44, height: 44, borderRadius: "12px", border: "1px solid", borderColor: "divider" },
+  pagerText: { color: "text.secondary", textAlign: "center" },
+  miniTiles: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
+  itemRow: { display: "flex", alignItems: "center", gap: 1.5, p: 1.5, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
+  actions: { display: "flex", flexDirection: "column", gap: 1 },
+  actionPair: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
+  fullWidth: { minHeight: 48, width: "100%" },
+  // The WhatsApp reminder is an existing compact button; stretch it to match the buttons beside it.
+  whatsapp: { display: "flex", "& > a": { display: "block", width: "100%" }, "& button": { width: "100%", height: 48, fontSize: "0.875rem" } },
 } as const;
