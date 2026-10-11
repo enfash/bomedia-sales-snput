@@ -58,7 +58,7 @@ export function createSalesService(call:FinancialCall=callFinancial) {
         if(job.serviceId!==undefined) {
           if(!validUUID(job.serviceId) || job.materialId!==undefined || job.widthFt!==undefined || job.heightFt!==undefined)throw invalid('Select one service, without a size.');
           return {service_id:job.serviceId.toLowerCase(),description:text(job.description,1000,'Description'),quantity:job.quantity,
-            expected_unit_price_kobo:money(job.expectedUnitPriceKobo),...approval};
+            expected_unit_price_kobo:money(job.expectedUnitPriceKobo,true),...approval};
         }
         if(!validUUID(job.materialId))throw invalid('Select a material identity.');
         return {material_id:job.materialId.toLowerCase(),description:text(job.description,1000,'Description'),quantity:job.quantity,

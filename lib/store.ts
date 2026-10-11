@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { cachedPaymentContext } from './payment-outbox';
+import { canonicalJobStatus } from './job-status';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type QueueItem = {
   id: string;
+  version?: 2;
+  backend?: 'sheets' | 'postgres' | 'unknown';
   type: 'sale' | 'expense' | 'payment' | 'payment_batch' | 'sale_status';
   data: any; // The payload as an array (for sales) or object (for expenses/payments/sale_status)
   timestamp: number;
@@ -207,6 +211,8 @@ export const useSyncStore = create<SyncState>()(
             ...state.pendingQueue,
             {
               id: crypto.randomUUID(),
+              version: 2,
+              backend: cachedPaymentContext(localStorage)?.backend || 'unknown',
               type,
               data,
               timestamp: Date.now(),
@@ -219,12 +225,14 @@ export const useSyncStore = create<SyncState>()(
       }),
 
       updateSaleStatus: (saleId, rowIndex, newStatus) => set((state) => {
+        const backend = cachedPaymentContext(localStorage)?.backend || 'unknown';
+        const jobStatus = backend === 'postgres' ? canonicalJobStatus(newStatus) ?? newStatus : newStatus;
         const updatedSales = state.cachedSales.map(sale => {
           if (
             (saleId && (sale["Sales ID"] === saleId || sale["SALES ID"] === saleId)) || 
             (rowIndex && (sale._rowIndex === rowIndex || sale.rowNumber === rowIndex))
           ) {
-            return { ...sale, "JOB STATUS": newStatus, "Job Status": newStatus };
+            return { ...sale, "JOB STATUS": jobStatus, "Job Status": jobStatus };
           }
           return sale;
         });
@@ -235,8 +243,10 @@ export const useSyncStore = create<SyncState>()(
             ...state.pendingQueue,
             {
               id: crypto.randomUUID(),
+              version: 2,
+              backend,
               type: 'sale_status',
-              data: { saleId, rowIndex, jobStatus: newStatus },
+              data: { saleId, rowIndex, jobStatus },
               timestamp: Date.now(),
             }
           ]

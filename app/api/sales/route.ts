@@ -59,6 +59,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  if (request.headers.get('X-Bomedia-Backend') === 'postgres' && !legacyFeedEnabled()) {
+    return NextResponse.json({ error: 'This payment belongs to PostgreSQL and is held for review.', code: 'BACKEND_CHANGED' }, { status: 409 });
+  }
   if (legacyFeedEnabled()) return changeJobStatus(request);
   try {
     const body = await request.json();

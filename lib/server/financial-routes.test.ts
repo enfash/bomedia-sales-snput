@@ -60,3 +60,11 @@ it('keeps the expenses-awaiting list owner-only',async()=>{
   expect(mocks.read).not.toHaveBeenCalled();mocks.admin.mockResolvedValue('owner@example.test');mocks.read.mockResolvedValue({data:[],next_after_id:null});
   expect((await readFinancialRecords(request)).status).toBe(200);
 });
+it('hides owner-only expense categories from staff unless the owner chose them, and strips the access fields',async()=>{
+  const {categoriesForViewer}=await import('./financial-routes');
+  const me='00000000-0000-4000-8000-000000000001';
+  const page={data:[{name:'Ink',capital:false,owner_only:false,staff_ids:[]},{name:'Equipment',capital:true,owner_only:true,staff_ids:[]},{name:'Generator',capital:true,owner_only:true,staff_ids:[me.toUpperCase()]}],next_after_id:null};
+  expect(categoriesForViewer(page,me)).toEqual({data:[{name:'Ink',capital:false},{name:'Generator',capital:true}],next_after_id:null});
+  expect(categoriesForViewer(page,'00000000-0000-4000-8000-000000000002').data.map(c=>c.name)).toEqual(['Ink']);
+  expect(categoriesForViewer(page,null)).toBe(page);
+});

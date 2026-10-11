@@ -10,6 +10,14 @@ export type LegacyResource = 'sales' | 'payments' | 'expenses' | 'inventory' | '
 export type LegacyRow = Record<string, string>;
 const noStore = { 'Cache-Control': 'no-store' };
 
+/** Today's date in Lagos as YYYY-MM-DD (Lagos has no daylight saving). */
+export const lagosToday = (now: Date = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(now);
+/** Staff see only the expenses they logged today; the owner (viewerId null) sees the whole log. The id key never leaves the server. */
+export const expensesForViewer = (rows: LegacyRow[], viewerId: string | null, now: Date = new Date()) =>
+  viewerId === null ? rows.map(({ _loggedById: _id, ...row }) => row)
+    : rows.filter((row) => row.DATE === lagosToday(now) && (row._loggedById ?? '').toLowerCase() === viewerId.toLowerCase())
+      .map(({ _loggedById: _id, ...row }) => row);
+
 export function legacyFeedEnabled(): boolean {
   try { return financialApiEnabled(); } catch { return true; } // misconfigured: fail closed, never fall back to Sheets
 }
@@ -24,8 +32,10 @@ export async function legacyRows(resource: LegacyResource, call: FinancialCall =
 export async function legacyFeedResponse(resource: LegacyResource, call: FinancialCall = callFinancial): Promise<Response | null> {
   if (!legacyFeedEnabled()) return null;
   try {
-    await financialIdentity(false);
-    return NextResponse.json({ data: await legacyRows(resource, call) }, { headers: noStore });
+    const identity = await financialIdentity(false);
+    const rows = await legacyRows(resource, call);
+    const data = resource === 'expenses' ? expensesForViewer(rows, identity ? identity.staffId : null) : rows;
+    return NextResponse.json({ data }, { headers: noStore });
   } catch (error) {
     if (error instanceof FinancialError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status, headers: noStore });
     return NextResponse.json({ error: 'Records are unavailable right now. Try again shortly.', code: 'ACCOUNTING_UNAVAILABLE' },

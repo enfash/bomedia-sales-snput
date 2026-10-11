@@ -31,11 +31,13 @@ const EPSILON = 0.5;
  */
 export function describeBalance(
   balance: number | null | undefined,
-  subtle = false
+  subtle = false,
+  exact = false
 ): BalanceDisplay {
   const value = balance ?? 0;
+  const tolerance = exact ? 0.005 : EPSILON;
 
-  if (value > EPSILON) {
+  if (value > tolerance) {
     return {
       tone: "debt",
       label: formatNaira(value),
@@ -43,7 +45,7 @@ export function describeBalance(
     };
   }
 
-  if (value < -EPSILON) {
+  if (value < -tolerance) {
     // Overpayment. Deliberately NOT labelled as credit: invoices are rounded so
     // customers settle on a figure they will not shave, and the difference is
     // margin rather than money owed back. "CR" would read as a liability and
@@ -63,8 +65,8 @@ export function describeBalance(
  * (a credit) both return false, so the debt view lists debtors and nothing
  * else.
  */
-export function hasOutstandingDebt(balance: number | null | undefined): boolean {
-  return (balance ?? 0) > EPSILON;
+export function hasOutstandingDebt(balance: number | null | undefined, exact = false): boolean {
+  return (balance ?? 0) > (exact ? 0.005 : EPSILON);
 }
 
 /**
@@ -75,7 +77,7 @@ export function hasOutstandingDebt(balance: number | null | undefined): boolean 
  * later debt would quietly refund it — and it would also net a permanent
  * shortfall against an unrelated gain, hiding both.
  */
-export function collectableAmount(balance: number | null | undefined): number {
+export function collectableAmount(balance: number | null | undefined, exact = false): number {
   const value = balance ?? 0;
-  return value > EPSILON ? value : 0;
+  return value > (exact ? 0.005 : EPSILON) ? value : 0;
 }

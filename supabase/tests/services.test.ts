@@ -88,3 +88,33 @@ it('refuses hidden services and mixed or sized service items',async()=>{
     await db.exec('savepoint bad');await expect(db.query(sql)).rejects.toThrow();await db.exec('rollback to savepoint bad');
   }
 });
+it('lets the owner put visible services in order, keeps removed ones aside and refuses a stale list',async()=>{
+  const {design,fixing}=await services();
+  const removed=(await catalog.save({staffId:owner},{requestId:'r0',name:'Lamination',pricing:'fixed',unitPriceKobo:'100000',visible:false})).service_id;
+  const delivery=(await catalog.save({staffId:owner},{requestId:'r1',name:'Delivery',pricing:'fixed',unitPriceKobo:'0',visible:true})).service_id;
+  const names=async(all:boolean)=>((await catalog.list(all)).data as {name:string}[]).map(s=>s.name);
+  expect(await names(false)).toEqual(['Graphic design','Installation / fixing','Delivery']);
+  await catalog.reorder({staffId:owner},{requestId:'o1',serviceIds:[delivery,fixing,design]});
+  expect(await names(false)).toEqual(['Delivery','Installation / fixing','Graphic design']);
+  expect(await names(true)).toEqual(['Delivery','Installation / fixing','Graphic design','Lamination']);
+  // Replaying the same request changes nothing; the same id with a different order is refused.
+  await catalog.reorder({staffId:owner},{requestId:'o1',serviceIds:[delivery,fixing,design]});
+  await failure(()=>catalog.reorder({staffId:owner},{requestId:'o1',serviceIds:[design,fixing,delivery]}),{});
+  // Missing, extra, repeated, removed or unknown ids are a stale or wrong list.
+  await failure(()=>catalog.reorder({staffId:owner},{requestId:'o2',serviceIds:[design,fixing]}),{status:409});
+  await failure(()=>catalog.reorder({staffId:owner},{requestId:'o3',serviceIds:[design,fixing,delivery,removed]}),{status:409});
+  await failure(()=>catalog.reorder({staffId:owner},{requestId:'o4',serviceIds:[design,fixing,delivery,'00000000-0000-4000-8000-0000000000aa']}),{status:409});
+  await expect(catalog.reorder({staffId:owner},{requestId:'o5',serviceIds:[design,design,fixing]})).rejects.toMatchObject({status:400});
+  await expect(catalog.reorder({staffId:owner},{requestId:'o6',serviceIds:'nope'})).rejects.toMatchObject({status:400});
+  // A new service joins the end; putting a removed one back returns it to its old place.
+  await catalog.save({staffId:owner},{requestId:'r2',name:'Consultation',pricing:'per_job',visible:true});
+  expect(await names(false)).toEqual(['Delivery','Installation / fixing','Graphic design','Consultation']);
+  await catalog.save({staffId:owner},{requestId:'r3',serviceId:removed,name:'Lamination',pricing:'fixed',unitPriceKobo:'100000',visible:true});
+  expect(await names(false)).toEqual(['Delivery','Installation / fixing','Graphic design','Lamination','Consultation']);
+  expect((await owned<{n:string}>("select count(*)::text as n from bomedia.audit_events where action='services_reordered'"))[0].n).toBe('1');
+});
+it('refuses a disabled account when reordering',async()=>{
+  const {design}=await services();
+  const gone=(await owned<{id:string}>("insert into bomedia.staff(display_name,login_name,disabled_at) values ('Gone','gone',now()) returning id"))[0].id;
+  await failure(()=>catalog.reorder({staffId:gone},{requestId:'g',serviceIds:[design]}),{status:403});
+});

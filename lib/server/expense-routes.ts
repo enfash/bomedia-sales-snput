@@ -10,7 +10,7 @@ export function logExpense(request:Request) {
   return financialHandler(async()=>{
     const actor=await financialIdentity(true);
     if(!actor)throw new FinancialError('Staff identity required.',403,'ACTOR_REQUIRED');
-    return {success:true,...await expenseService.log(actor,await body(request))};
+    return {success:true,...await expenseService.log(actor,await body(request),Boolean(await verifiedAdminIdentity()))};
   });
 }
 // Marking an expense paid stays owner-only, as on the current Expenses screen.

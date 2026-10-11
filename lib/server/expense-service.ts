@@ -43,7 +43,7 @@ async function execute(call:FinancialCall,method:'api_expense'|'api_expense_paym
 }
 export function createExpenseService(call:FinancialCall=callFinancial) {
   return {
-    async log(actor:FinancialActor,input:unknown) {
+    async log(actor:FinancialActor,input:unknown,byOwner=false) {
       const body=object(input,['requestId','expectedStaffId','businessDate','amountKobo','category','description','paidTo','status','paymentMethod']);
       const actorId=identity(actor,body);
       if(typeof body.amountKobo!=='string' || !/^[1-9][0-9]{0,18}$/.test(body.amountKobo) || BigInt(body.amountKobo)>BigInt('9223372036854775807'))
@@ -59,6 +59,7 @@ export function createExpenseService(call:FinancialCall=callFinancial) {
         if(!method)throw invalid('Choose Cash, Transfer or POS.');
         payload.payment_method=method;
       } else if(body.paymentMethod!==undefined)throw invalid('Choose a payment method only when the expense is paid.');
+      if(byOwner)payload.by_owner='true';
       return execute(call,'api_expense',text(body.requestId,200,'Request ID'),payload);
     },
     async pay(actor:FinancialActor,input:unknown) {

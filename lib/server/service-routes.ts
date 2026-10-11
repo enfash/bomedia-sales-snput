@@ -20,3 +20,13 @@ export function saveService(request:Request) {
     return {success:true,...await serviceCatalog.save(actor,body)};
   });
 }
+export function reorderServices(request:Request) {
+  return financialHandler(async()=>{
+    if(!await verifiedAdminIdentity())throw new FinancialError('Owner access is required to change services.',403,'OWNER_REQUIRED');
+    const actor=await financialIdentity(true);
+    if(!actor)throw new FinancialError('Owner accounting identity required.',403,'ACTOR_REQUIRED');
+    let body:unknown;
+    try {body=await request.json();}catch{throw new FinancialError('Invalid service order request.',400,'INVALID_INPUT');}
+    return {success:true,...await serviceCatalog.reorder(actor,body)};
+  });
+}

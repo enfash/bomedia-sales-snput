@@ -83,7 +83,7 @@ it('keeps the runtime role away from tables, journals and spoofed accrual',async
 });
 it('maps categories to accounts, capitalises equipment and sends stock purchases to restock',async()=>{
   const categories=(await financial.read('expense_categories',{})).data;
-  expect(categories).toContainEqual({name:'Equipment',capital:true});
+  expect(categories).toContainEqual(expect.objectContaining({name:'Equipment',capital:true}));
   expect(categories.map(c=>c.name)).not.toContain('SAV 3ft');
   const equipment=await service.log({staffId:actor},expense({requestId:'equipment',category:'Equipment',paymentMethod:'cash'}));
   expect(await balances(equipment.expense_id)).toEqual({'1000':'-250050','1500':'250050'});

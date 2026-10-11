@@ -63,6 +63,9 @@ interface BatchStep {
  * rather than replacing it — a blind retry would double-count.
  */
 export async function POST(request: Request) {
+  if (request.headers.get('X-Bomedia-Backend') === 'postgres' && !legacyFeedEnabled()) {
+    return NextResponse.json({ error: 'This payment belongs to PostgreSQL and is held for review.', code: 'BACKEND_CHANGED' }, { status: 409 });
+  }
   if (legacyFeedEnabled()) return recordLegacyBatch(request);
   try {
     const body = await request.json();

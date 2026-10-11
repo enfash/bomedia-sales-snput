@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 const methods = {
   auth_reserve_login: 1, auth_claim_session: 3, auth_read_session: 1,
   auth_revoke_session: 1, auth_presence: 2, auth_list_staff: 0, auth_manage_staff: 4,
+  auth_staff_overview: 0, auth_sign_out_staff: 2, auth_set_single_session: 2,
 } as const;
 export type AuthMethod = keyof typeof methods;
 export type AuthCall = <T>(method: AuthMethod, parameters: (string | boolean | null)[]) => Promise<T>;

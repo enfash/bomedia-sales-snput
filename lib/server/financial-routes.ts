@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { financialApiEnabled } from './financial-db';
-import { FinancialError, financialService, validUUID } from './financial-service';
+import { FinancialError, financialService, validUUID, type FinancialPage } from './financial-service';
 import { verifiedAdminIdentity } from './postgres-auth-routes';
 import { postgresAuth } from './postgres-auth';
 
@@ -38,9 +38,16 @@ export function collectPayment(request: Request) {
     return {success:true,...await financialService.collect(identity,body)};
   });
 }
+/** Owner-only categories are hidden from staff unless the owner chose them, and the access fields never reach staff. */
+export function categoriesForViewer(page: FinancialPage, viewerId: string | null): FinancialPage {
+  if (viewerId === null) return page; // the owner sees every category with its access settings
+  const me = viewerId.toLowerCase();
+  const allowed = (c: Record<string,unknown>) => c.owner_only !== true || (Array.isArray(c.staff_ids) && c.staff_ids.some(id => String(id).toLowerCase() === me));
+  return {...page,data:page.data.filter(allowed).map(({owner_only:_a,staff_ids:_b,...rest})=>rest)};
+}
 export function readFinancialRecords(request: Request) {
   return financialHandler(async()=>{
-    await financialIdentity(false);
+    const identity=await financialIdentity(false);
     const params=new URL(request.url).searchParams;
     if (params.get('resource')==='expenses_awaiting' && !await verifiedAdminIdentity()) {
       throw new FinancialError('Owner access is required for expenses awaiting payment.',403,'OWNER_REQUIRED');
@@ -52,7 +59,8 @@ export function readFinancialRecords(request: Request) {
     const filter: Record<string,unknown>={};
     if (params.has('limit')) filter.limit=Number(params.get('limit'));
     for (const key of ['after_id','customer_id']) if (params.has(key)) filter[key]=params.get(key);
-    return financialService.read(params.get('resource') || '',filter);
+    const page=await financialService.read(params.get('resource') || '',filter);
+    return params.get('resource')==='expense_categories' ? categoriesForViewer(page,identity?identity.staffId:null) : page;
   });
 }
 

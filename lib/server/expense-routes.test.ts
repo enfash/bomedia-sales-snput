@@ -17,7 +17,7 @@ it('stays off by default and needs a live session to log',async()=>{
 it('logs with the session identity, never a client-sent actor',async()=>{
   mocks.session.mockResolvedValue({staff_id:id});mocks.log.mockResolvedValue({expense_id:'e',status:'Paid'});
   const input={requestId:'r',actor_id:'spoof'};const response=await logExpense(request(input));
-  expect(response.status).toBe(200);expect(mocks.log).toHaveBeenCalledWith({staffId:id},input);
+  expect(response.status).toBe(200);expect(mocks.log).toHaveBeenCalledWith({staffId:id},input,false);
 });
 it('lets only the verified owner mark expenses paid',async()=>{
   mocks.session.mockResolvedValue({staff_id:id});

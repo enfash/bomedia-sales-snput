@@ -60,11 +60,13 @@ export const RECORD_STATUSES = {
 /**
  * Business details printed on the customer invoice.
  *
- * Kept in code rather than environment variables on purpose: a missing env var
- * would render an invoice with blank payment details, and a customer would
- * receive a bill they cannot pay from. These are meant to be on the document —
- * the reason to centralise them is so there is one obvious place to edit when
- * the account changes, not secrecy.
+ * The owner now edits these under Settings → Business details (stored in the
+ * database and read by lib/business-details.ts). This object stays as the
+ * last-resort fallback and as the seed for the database row: if the database is
+ * unreachable and nothing was saved on the device, an invoice must still print
+ * with real payment details rather than blanks. Keep it in step with the account
+ * the business actually uses. These values are meant to be on the document;
+ * there is no secrecy concern.
  */
 export const BUSINESS_DETAILS = {
   accountName: "Broad Options Media / Fasugba Elijah Niyi",
