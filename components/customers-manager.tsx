@@ -1,13 +1,13 @@
 "use client";
 
+import { HomeBackLink } from "@/components/back-link";
 import { accent } from "@/app/theme";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   RefreshCw, Search, Users, Wallet, ArrowUpDown,
   ShoppingBag, ChevronLeft, ChevronRight,
   TrendingUp, AlertCircle, CheckCircle2, Calendar,
-  Activity, Download, Filter, PhoneCall, ArrowLeft,
+  Activity, Download, Filter, PhoneCall,
 } from "lucide-react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -291,7 +291,6 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean }) {
-  const router = useRouter();
   const {
     loading, refreshing, fetchData,
     search, setSearch,
@@ -311,6 +310,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
   return (
     <Box sx={{ p: { xs: 1.5, md: 4 }, bgcolor: "background.default", minHeight: "100vh", pb: { xs: 3, md: 16 } }}>
 
+      <HomeBackLink />
       {/* ── Header ── */}
       <Box sx={{
         display: "flex", flexDirection: { xs: "column", md: "row" },
@@ -319,19 +319,6 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
       }}>
         <Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <IconButton
-              size="small"
-              onClick={() => router.back()}
-              sx={{
-                display: { md: "none" },
-                bgcolor: "background.paper",
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 2,
-              }}
-            >
-              <ArrowLeft size={16} />
-            </IconButton>
             <Typography variant="h3" sx={{ fontWeight: 900, color: accent, display: "flex", alignItems: "center", gap: 1 }}>
               <Users size={28} /> Customer Manager
             </Typography>

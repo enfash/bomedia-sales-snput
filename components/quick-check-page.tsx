@@ -1,8 +1,8 @@
 "use client";
 
+import { HomeBackLink } from "@/components/back-link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, Package, Sparkles } from "lucide-react";
+import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, Package, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import Box from "@mui/material/Box";
@@ -27,7 +27,6 @@ type InventoryItem = {
 };
 
 export default function QuickCheckPage() {
-  const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,12 +117,10 @@ export default function QuickCheckPage() {
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "rgba(232,161,58,0.02)", minHeight: "100vh", pb: { xs: 3, md: 16 } }}>
       <Box sx={{ maxWidth: 672, mx: "auto" }}>
 
+        <HomeBackLink />
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 4 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <IconButton size="small" onClick={() => router.back()} sx={{ bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 99 }}>
-              <ArrowLeft size={16} />
-            </IconButton>
             <Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Typography variant="h4" sx={{ fontWeight: 800 }}>Quick-Check</Typography>
