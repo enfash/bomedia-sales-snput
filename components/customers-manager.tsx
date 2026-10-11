@@ -1,5 +1,6 @@
 "use client";
 
+import { accent } from "@/app/theme";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -249,7 +250,7 @@ function ContactChip({ contact }: { contact: string }) {
         display: "inline-flex", alignItems: "center", gap: 0.5,
         fontSize: "0.7rem", fontWeight: 600, color: "text.secondary",
         textDecoration: "none",
-        "&:hover": { color: "primary.main" },
+        "&:hover": { color: accent },
         transition: "color .15s ease",
       }}
     >
@@ -331,7 +332,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
             >
               <ArrowLeft size={16} />
             </IconButton>
-            <Typography variant="h3" sx={{ fontWeight: 900, color: "primary.main", display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="h3" sx={{ fontWeight: 900, color: accent, display: "flex", alignItems: "center", gap: 1 }}>
               <Users size={28} /> Customer Manager
             </Typography>
             {refreshing && (
@@ -392,12 +393,12 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
               <Typography sx={{ fontSize: "0.6rem", fontWeight: 900, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.12em" }}>
                 Total Clients
               </Typography>
-              <Box sx={{ p: 0.75, borderRadius: 2, bgcolor: "rgba(200,71,46,.1)", color: "primary.main", display: "flex" }}>
+              <Box sx={{ p: 0.75, borderRadius: 2, bgcolor: "rgba(200,71,46,.1)", color: accent, display: "flex" }}>
                 <Users size={16} />
               </Box>
             </Box>
             <Typography sx={{ fontSize: "1.875rem", fontWeight: 900, color: "text.primary" }}>{stats.totalClients}</Typography>
-            <Typography sx={{ fontSize: "0.6rem", color: "primary.main", fontWeight: 700, mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Typography sx={{ fontSize: "0.6rem", color: accent, fontWeight: 700, mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
               <TrendingUp size={12} /> All-time unique clients
             </Typography>
           </CardContent>
@@ -510,8 +511,8 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                   border: "none", cursor: "pointer", transition: "background-color .15s, color .15s",
                   textTransform: "capitalize",
                   bgcolor: sortBy === key ? "rgba(200,71,46,.1)" : "transparent",
-                  color: sortBy === key ? "primary.main" : "text.secondary",
-                  "&:hover": { color: sortBy === key ? "primary.main" : "text.primary" },
+                  color: sortBy === key ? accent : "text.secondary",
+                  "&:hover": { color: sortBy === key ? accent : "text.primary" },
                 }}
               >
                 {key === "spent" ? "Value" : key === "name" ? "Name" : key === "orders" ? "Orders" : "Debt"}
@@ -573,7 +574,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                     <Box sx={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                       width: 28, height: 28, borderRadius: "50%",
-                      bgcolor: "rgba(200,71,46,.1)", color: "primary.main",
+                      bgcolor: "rgba(200,71,46,.1)", color: accent,
                       fontSize: "0.75rem", fontWeight: 900,
                     }}>
                       {client.totalOrders}
@@ -626,7 +627,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                         size="small"
                         onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
                         title="View Timeline"
-                        sx={{ border: "1px solid rgba(200,71,46,.2)", color: "primary.main", borderRadius: 2, "&:hover": { bgcolor: "rgba(200,71,46,.05)" } }}
+                        sx={{ border: "1px solid rgba(200,71,46,.2)", color: accent, borderRadius: 2, "&:hover": { bgcolor: "rgba(200,71,46,.05)" } }}
                       >
                         <Activity size={16} />
                       </IconButton>
@@ -673,7 +674,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                           component="a"
                           href={`tel:${client.contact}`}
                           onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                          sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", color: "primary.main", textDecoration: "none", mt: 0.25 }}
+                          sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", color: accent, textDecoration: "none", mt: 0.25 }}
                         >
                           <PhoneCall size={12} /> {client.contact}
                         </Box>
@@ -687,7 +688,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                       size="small"
                       onClick={() => setSelectedClient({ name: client.name, contact: client.contact })}
                       title="View Timeline"
-                      sx={{ border: "1px solid rgba(200,71,46,.2)", color: "primary.main", borderRadius: 2, "&:hover": { bgcolor: "rgba(200,71,46,.05)" } }}
+                      sx={{ border: "1px solid rgba(200,71,46,.2)", color: accent, borderRadius: 2, "&:hover": { bgcolor: "rgba(200,71,46,.05)" } }}
                     >
                       <Activity size={16} />
                     </IconButton>
@@ -705,7 +706,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
                 <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", bgcolor: "rgba(0,0,0,.03)", borderRadius: 2, overflow: "hidden" }}>
                   <Box sx={{ textAlign: "center", p: 1.5 }}>
                     <Typography sx={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900, color: "text.secondary" }}>Orders</Typography>
-                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "primary.main", mt: 0.25 }}>{client.totalOrders}</Typography>
+                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: accent, mt: 0.25 }}>{client.totalOrders}</Typography>
                   </Box>
                   <Box sx={{ textAlign: "center", p: 1.5, borderLeft: "1px solid", borderRight: "1px solid", borderColor: "divider" }}>
                     <Typography sx={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 900, color: "text.secondary" }}>
@@ -762,7 +763,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
         }}>
           <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary", order: { xs: 2, sm: 1 } }}>
             Showing{" "}
-            <Box component="span" sx={{ color: "primary.main" }}>
+            <Box component="span" sx={{ color: accent }}>
               {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(sorted.length, currentPage * ITEMS_PER_PAGE)}
             </Box>
             {" "}of {sorted.length} customers

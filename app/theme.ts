@@ -1,6 +1,6 @@
 "use client";
 
-import { alpha, createTheme, keyframes, type Theme } from "@mui/material/styles";
+import { alpha, createTheme, darken, keyframes, lighten, type Theme } from "@mui/material/styles";
 
 export const dateRangeStyles = {
   periods: {
@@ -53,7 +53,7 @@ export const quickActionStyles = {
 
 export const chartCountBadgeStyles = {
   base: {color:'common.white',fontSize:'0.75rem',fontWeight:700,px:1.5,py:0.5,borderRadius:100,border:'1px solid'},
-  clients: {bgcolor:'primary.light',borderColor:'primary.main',display:'flex',alignItems:'center',gap:0.5},
+  clients: {bgcolor:'primary.main',borderColor:'primary.light',display:'flex',alignItems:'center',gap:0.5},
   debt: {bgcolor:'error.main',borderColor:'error.main'},
 } as const;
 
@@ -639,7 +639,7 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
       text: {
         primary:   mode === "light" ? "#0F172A" : "#F8FAFC",
         secondary: mode === "light" ? "#64748B" : "#94A3B8",
-        disabled:  mode === "light" ? "#94A3B8" : "#475569",
+        disabled:  mode === "light" ? "#94A3B8" : "#64748B", // dark: readable as a placeholder dash or zero, still clearly dimmer than secondary
       },
       divider: mode === "light" ? "rgba(15,23,42,0.1)" : "rgba(255,255,255,0.1)",
       ...(mode === "dark" && {
@@ -675,12 +675,20 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
     },
     shape: { borderRadius: 10 },
     components: {
+      // A bare <button> otherwise draws black text from the browser, unreadable on the dark surface.
+      MuiCssBaseline: { styleOverrides: { button: { color: "inherit" } } },
       // The admin indigo is too dark to read as "ticked" on the dark surface, so use the brighter accent there.
       MuiCheckbox: { styleOverrides: { root: { "&.Mui-checked": { color: mode === "dark" ? primaryLight : primaryColor } } } },
       MuiRadio:    { styleOverrides: { root: { "&.Mui-checked": { color: mode === "dark" ? primaryLight : primaryColor } } } },
       MuiBottomNavigationAction: { styleOverrides: { root: { "&.Mui-selected": { color: mode === "dark" ? primaryLight : primaryColor } } } },
       MuiButton: {
         defaultProps: { disableElevation: true },
+        // Outlined and text buttons draw the brand colour as text and border; the admin indigo is too dark for that on the dark surface.
+        // Variants apply before a component's own sx, so any button that sets its own colour or fill still wins.
+        variants: mode === "dark" ? [
+          { props: { variant: "outlined", color: "primary" }, style: { color: primaryLight, borderColor: alpha(primaryLight, 0.5) } },
+          { props: { variant: "text", color: "primary" }, style: { color: primaryLight } },
+        ] : [],
         styleOverrides: {
           root: {
             borderRadius: "12px",
@@ -690,11 +698,6 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
             "&:active": {
               transform: "scale(0.97) translateY(1px)",
             },
-            // Outlined and text buttons draw the brand colour as text and border; the admin indigo is too dark for that on the dark surface.
-            ...(mode === "dark" && {
-              "&:where(.MuiButton-outlined.MuiButton-colorPrimary)": { color: primaryLight, borderColor: alpha(primaryLight, 0.5) },
-              "&:where(.MuiButton-text.MuiButton-colorPrimary)": { color: primaryLight },
-            }),
             "&.MuiButton-sizeSmall":  { borderRadius: "12px", padding: "5px 14px" },
             "&.MuiButton-sizeMedium": { borderRadius: "12px" },
             "&.MuiButton-sizeLarge":  { borderRadius: "12px" },
@@ -994,3 +997,137 @@ export const expenseCategoryStyles = {
   form: { p: { xs: 2, sm: 3 } },
 } as const;
 
+
+// Status pills and tinted actions are built from a palette tone, so the same red, green, amber and blue are used everywhere
+// and both modes stay readable (soft tinted fill, the dark shade of the tone on light, the light shade on dark).
+type StatusTone = "success" | "error" | "warning" | "info";
+// Amber is the one tone whose "dark" shade is still too pale for small text on its own tint in light mode, so it is darkened further.
+const toneText = (tone: StatusTone) => (theme: Theme) => {
+  if (theme.palette.mode === "dark") return theme.palette[tone].light;
+  return tone === "warning" ? darken(theme.palette.warning.dark, 0.4) : theme.palette[tone].dark;
+};
+export const tonePill = (tone: StatusTone) => ({ bgcolor: tint(tone, 0.14), color: toneText(tone) }) as const;
+export const toneNeutralPill = { bgcolor: "action.hover", color: "text.secondary" } as const;
+const toneAction = (tone: StatusTone) => ({
+  ...tonePill(tone), border: "1px solid", borderColor: tint(tone, 0.3), boxShadow: "none",
+  "&:hover": { bgcolor: tint(tone, 0.24), boxShadow: "none" },
+}) as const;
+
+// Status badge (components/status-badge.tsx): the Paid/Unpaid pill on expenses and the status pill on sales and records.
+export const statusBadgeStyles = {
+  expense: { fontWeight: 800, fontSize: "0.6875rem", height: 22, "& .MuiChip-icon": { color: "inherit" } },
+  sale: { fontWeight: 700, fontSize: "0.625rem", height: 20, borderRadius: 99 },
+  pulse: { animation: "pulse 2s infinite" },
+  tone: { success: tonePill("success"), error: tonePill("error"), warning: tonePill("warning"), info: tonePill("info") },
+} as const;
+
+// Expenses pages (owner and cashier). Icons take their colour from a wrapper, because they cannot read palette tokens.
+const expenseLabel = { fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 } as const;
+const expenseClip = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
+const expenseIconButton = { bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2 } as const;
+const expenseHeaderStart = { display: "flex", alignItems: "center", gap: 1.5 } as const;
+export const expenseStyles = {
+  page: { p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, maxWidth: 768, minHeight: "100vh" },
+  header: { mb: 2.5 },
+  headerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, mb: 0.5 },
+  headerStart: expenseHeaderStart,
+  headerSolo: { ...expenseHeaderStart, mb: 0.5 },
+  backButton: { display: { md: "none" }, ...expenseIconButton },
+  titleBox: { display: "flex", alignItems: "center", gap: 1 },
+  headerIcon: { display: "flex", color: accent },
+  title: { fontWeight: 800 },
+  actions: { display: "flex", alignItems: "center", gap: 1 },
+  iconButton: expenseIconButton,
+  newButton: { height: 36, px: 2, borderRadius: 2, fontWeight: 800, fontSize: "0.75rem" },
+  subtitle: { color: "text.secondary" },
+  alert: { display: "flex", alignItems: "center", gap: 1, px: 2, py: 1.25, borderRadius: 2.5, mb: 2, border: "1px solid", borderColor: tint("error", 0.3), bgcolor: tint("error", 0.1) },
+  alertIcon: { display: "flex", flexShrink: 0, color: "error.main" },
+  alertAmount: { fontWeight: 800, color: toneText("error") },
+  alertNote: { color: "text.secondary" },
+  form: { mb: 3 },
+  filters: { display: "flex", gap: 1, mb: 2 },
+  filterButton: { borderRadius: 2, fontWeight: 800, fontSize: "0.75rem", height: 32, px: 2 },
+  list: { borderRadius: "16px", overflow: "hidden", mb: 3 },
+  loading: { display: "flex", alignItems: "center", justifyContent: "center", gap: 1, py: 6, color: "text.secondary" },
+  empty: { py: 6, textAlign: "center" },
+  emptyIcon: { display: "flex", justifyContent: "center", mb: 1, color: "text.disabled" },
+  emptyText: { fontWeight: 800, color: "text.disabled" },
+  row: { borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: "none" } },
+  rowButton: {
+    width: "100%", display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.75, textAlign: "left", bgcolor: "transparent", border: "none", cursor: "pointer",
+    color: "text.primary", "&:hover": { bgcolor: "action.hover" }, transition: "background-color 0.15s",
+  },
+  rowMain: { flex: 1, minWidth: 0 },
+  titleLine: { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" },
+  category: { fontWeight: 800, ...expenseClip },
+  payee: { color: "text.secondary", ...expenseClip },
+  meta: { color: "text.secondary", display: "block", mt: 0.25, ...expenseClip },
+  rowEnd: { display: "flex", alignItems: "center", gap: 1, flexShrink: 0 },
+  amount: { fontWeight: 800, color: "error.main" },
+  chevron: { display: "flex", color: "text.disabled" },
+  details: { px: 2, pb: 2, pt: 0.5, bgcolor: (theme: Theme) => (theme.palette.mode === "dark" ? theme.palette.grey[100] : theme.palette.grey[50]) },
+  detailGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 },
+  span2: { gridColumn: "span 2" },
+  label: expenseLabel,
+  labelReceipt: { ...expenseLabel, mb: 0.5 },
+  labelStatus: { ...expenseLabel, mb: 1 },
+  value: { fontWeight: 700 },
+  receiptLink: { display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", fontWeight: 800, color: accent, textDecoration: "none", "&:hover": { textDecoration: "underline" } },
+  statusBlock: { borderTop: "1px solid", borderColor: "divider", pt: 1.5 },
+  paidBy: { color: "success.main", display: "block", mb: 1 },
+  toggle: { height: 32, px: 2, borderRadius: 2, fontSize: "0.6875rem", fontWeight: 800 },
+  markUnpaid: toneAction("error"),
+  markPaid: toneAction("success"),
+  sessionIcon: { display: "flex", color: "text.secondary" },
+  receiptPreview: { maxHeight: 160, mx: "auto", display: "block", borderRadius: "8px", border: "1px solid", borderColor: "divider" },
+} as const;
+
+// Records page cards (components/record-card.tsx, batch-card.tsx).
+const cardChip = { fontSize: "0.625rem", fontWeight: 600, height: 20, borderRadius: 10 } as const;
+export const recordCardStyles = {
+  chip: cardChip,
+  batchChip: { ...cardChip, fontWeight: 900, fontSize: "0.6rem" },
+  status: {
+    Settled: tonePill("success"),
+    "Part-payment": tonePill("warning"),
+    "In Progress": tonePill("info"),
+    Syncing: { bgcolor: "primary.main", color: "primary.contrastText" },
+  },
+  syncingPulse: { animation: "pulse 1.5s infinite" },
+  // Job stage: neutral until work starts, then the same tones as payment status.
+  job: {
+    waiting: toneNeutralPill,
+    printing: tonePill("warning"),
+    working: tonePill("info"),
+    ready: tonePill("success"),
+    done: { bgcolor: tint("primary", 0.12), color: accent },
+  },
+  // Left edge of a record card: the brand colour at a strength that tells pending, expense and sale apart.
+  card: { p: 2.5, borderRadius: 3, mb: 1.25, borderColor: "grey.100", bgcolor: "background.paper", transition: "background 0.3s" },
+  cardPending: { borderColor: tint("primary", 0.4), bgcolor: tint("primary", 0.08) },
+  edge: { borderLeft: "3px solid" },
+  edgePending: { borderLeftColor: tint("primary", 0.6) },
+  edgeExpense: { borderLeftColor: tint("primary", 0.4) },
+  edgeSale: { borderLeftColor: tint("primary", 0.5) },
+  batchOpen: { boxShadow: (theme: Theme) => `0 0 0 1px ${alpha(theme.palette.primary.main, 0.2)}` },
+  batch: { borderRadius: 3, mb: 1.25, overflow: "hidden", transition: "box-shadow 0.3s, border-color 0.3s", borderColor: "grey.100" },
+  batchActive: { borderColor: "primary.light" },
+} as const;
+
+// Material badge (components/material-badge.tsx): one hue per material family, readable on both surfaces.
+const hueBadge = (base: string) => ({
+  bgcolor: alpha(base, 0.14),
+  color: (theme: Theme) => (theme.palette.mode === "dark" ? lighten(base, 0.45) : darken(base, 0.25)),
+  borderColor: alpha(base, 0.3),
+}) as const;
+const toneBadge = (tone: StatusTone) => ({ ...tonePill(tone), borderColor: tint(tone, 0.3) }) as const;
+export const materialBadgeStyles = {
+  chip: { fontSize: "9px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", borderRadius: "6px", height: "18px", minWidth: "32px", "& .MuiChip-label": { px: "6px", py: 0 } },
+  flex: toneBadge("info"),
+  sav: toneBadge("error"),
+  vinyl: { bgcolor: tint("primary", 0.12), color: accent, borderColor: tint("primary", 0.3) },
+  window: hueBadge(CHART_EXTRA.teal),
+  sticker: hueBadge(CHART_EXTRA.violet),
+  reflective: toneBadge("warning"),
+  neutral: { ...toneNeutralPill, borderColor: "divider" },
+} as const;

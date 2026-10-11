@@ -19,6 +19,7 @@ import { WhatsAppReminder } from "@/components/whatsapp-reminder";
 import { ReceiptModal } from "@/components/receipt-modal";
 import { BatchCard } from "@/components/batch-card";
 
+import { accent } from "@/app/theme";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Card from "@mui/material/Card";
@@ -367,7 +368,7 @@ export default function RecordsPage() {
                 label="Syncing..."
                 size="small"
                 icon={<RefreshCw size={10} style={{ animation: "spin 1s linear infinite" }} />}
-                sx={{ bgcolor: "rgba(200,71,46,0.08)", color: "primary.main", fontWeight: 700, fontSize: "0.625rem", border: "1px solid", borderColor: "primary.light" }}
+                sx={{ bgcolor: "rgba(200,71,46,0.08)", color: accent, fontWeight: 700, fontSize: "0.625rem", border: "1px solid", borderColor: "primary.light" }}
               />
             )}
           </Box>
@@ -492,7 +493,7 @@ export default function RecordsPage() {
             sx={{
               width: 44, height: 44, borderRadius: 2,
               bgcolor: "background.paper", border: "1px solid", borderColor: "divider",
-              color: "primary.main",
+              color: accent,
               transform: sortOrder === "desc" ? "rotate(180deg)" : "none",
               transition: "transform 0.2s ease",
             }}
@@ -575,7 +576,7 @@ export default function RecordsPage() {
                               <WhatsAppReminder clientName={r.client} contact={r.contact || ""} balance={r.balance || 0} jobDescription={r.description} variant="icon" />
                             )}
                             {r.type === "Sale" && (
-                              <IconButton size="small" sx={{ color: "primary.main", "&:hover": { bgcolor: "rgba(200,71,46,0.08)" } }} onClick={() => handleGroupReceipt([r], r.salesId || "")}>
+                              <IconButton size="small" sx={{ color: accent, "&:hover": { bgcolor: "rgba(200,71,46,0.08)" } }} onClick={() => handleGroupReceipt([r], r.salesId || "")}>
                                 <Printer size={16} />
                               </IconButton>
                             )}
@@ -606,20 +607,20 @@ export default function RecordsPage() {
                           setExpandedGroups(next);
                         }}
                       >
-                        <TableCell sx={{ fontSize: "0.75rem", fontWeight: 800, color: "primary.main", py: 2 }}>
+                        <TableCell sx={{ fontSize: "0.75rem", fontWeight: 800, color: accent, py: 2 }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                             {firstItem.date}
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <Chip label="Batch" size="small" variant="outlined" sx={{ fontSize: "0.5625rem", fontWeight: 800, textTransform: "uppercase", color: "primary.main", borderColor: "primary.light", height: 18 }} />
+                          <Chip label="Batch" size="small" variant="outlined" sx={{ fontSize: "0.5625rem", fontWeight: 800, textTransform: "uppercase", color: accent, borderColor: "primary.light", height: 18 }} />
                         </TableCell>
                         <TableCell sx={{ fontWeight: 800 }}>
                           {firstItem.client}
                           <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>{unit.salesId}</Typography>
                         </TableCell>
-                        <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>{unit.items.length} Batched Items</TableCell>
+                        <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: accent }}>{unit.items.length} Batched Items</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: describeBalance(totalBal, false, !!firstItem.raw?._jobId).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(totalBal, false, !!firstItem.raw?._jobId).label}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={groupStatus(unit.items)} /></TableCell>
@@ -627,7 +628,7 @@ export default function RecordsPage() {
                         <TableCell sx={{ textAlign: "center" }}>—</TableCell>
                         <TableCell sx={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
                           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
-                            <IconButton size="small" sx={{ color: "primary.main", "&:hover": { bgcolor: "rgba(200,71,46,0.08)" } }} onClick={() => handleGroupReceipt(unit.items, unit.salesId)}>
+                            <IconButton size="small" sx={{ color: accent, "&:hover": { bgcolor: "rgba(200,71,46,0.08)" } }} onClick={() => handleGroupReceipt(unit.items, unit.salesId)}>
                               <Printer size={16} />
                             </IconButton>
                             <ManageBatchAction variant="icon" records={unit.items} salesId={unit.salesId} onUpdate={fetchData} />
@@ -706,7 +707,7 @@ export default function RecordsPage() {
       {totalPages > 1 && (
         <Paper variant="outlined" sx={{ mt: 4, display: "flex", alignItems: "center", justifyContent: "space-between", p: 2, borderRadius: "16px" }}>
           <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>
-            Page <Box component="span" sx={{ color: "primary.main" }}>{currentPage}</Box> of {totalPages}
+            Page <Box component="span" sx={{ color: accent }}>{currentPage}</Box> of {totalPages}
             <Box component="span" sx={{ ml: 1, opacity: 0.6 }}>({displayUnits.length} units)</Box>
           </Typography>
           <Box sx={{ display: "flex", gap: 1 }}>

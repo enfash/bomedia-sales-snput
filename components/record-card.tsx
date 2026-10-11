@@ -1,5 +1,6 @@
 "use client";
 
+import { accent, recordCardStyles as styles } from "@/app/theme";
 import {
   ManageSaleAction,
   type UnifiedRecord,
@@ -54,25 +55,12 @@ export function RecordCard({
   const { pendingQueue } = useSyncStore();
   const [batchRecords, setBatchRecords] = useState<UnifiedRecord[]>([]);
 
-  const statusChipSx: Record<RecordStatus, object> = {
-    Settled: { bgcolor: "#d1fae5", color: "#065f46" },
-    "Part-payment": { bgcolor: "#fef3c7", color: "#92400e" },
-    "In Progress": { bgcolor: "#e0f2fe", color: "#075985" },
-    Syncing: { bgcolor: "primary.light", color: "primary.contrastText" },
-  };
-
-  const jobStatusChipSx = (jobStatus: string): object => {
-    if (jobStatus === "Quoted" || jobStatus === "Pending")
-      return { bgcolor: "grey.100", color: "text.secondary" };
-    if (jobStatus === "Printing")
-      return { bgcolor: "#fef3c7", color: "#92400e" };
-    if (jobStatus === "Finishing" || jobStatus === "In Progress")
-      return { bgcolor: "#e0f2fe", color: "#075985" };
-    if (jobStatus === "Ready")
-      return { bgcolor: "#d1fae5", color: "#065f46" };
-    if (jobStatus === "Delivered" || jobStatus === "Completed")
-      return { bgcolor: "primary.50", color: "primary.main" };
-    return { bgcolor: "grey.100", color: "text.secondary" };
+  const jobStatusChipSx = (jobStatus: string) => {
+    if (jobStatus === "Printing") return styles.job.printing;
+    if (jobStatus === "Finishing" || jobStatus === "In Progress") return styles.job.working;
+    if (jobStatus === "Ready") return styles.job.ready;
+    if (jobStatus === "Delivered" || jobStatus === "Completed") return styles.job.done;
+    return styles.job.waiting;
   };
 
   const handleGenerateReceipt = async (e: React.MouseEvent) => {
@@ -156,24 +144,12 @@ export function RecordCard({
   }
 
   const isExpense = type === "Expense";
-  const accentColor = isPending
-    ? "rgba(200,71,46,0.6)"
-    : isExpense
-      ? "rgba(200,71,46,0.4)"
-      : "rgba(200,71,46,0.5)";
+  const edgeSx = isPending ? styles.edgePending : isExpense ? styles.edgeExpense : styles.edgeSale;
 
   return (
     <Paper
       variant="outlined"
-      sx={{
-        p: 2.5,
-        borderRadius: 3,
-        mb: 1.25,
-        borderLeft: `3px solid ${accentColor}`,
-        borderColor: isPending ? "primary.light" : "grey.100",
-        bgcolor: isPending ? "primary.50" : "background.paper",
-        transition: "background 0.3s",
-      }}
+      sx={[styles.card, isPending ? styles.cardPending : false, styles.edge, edgeSx]}
     >
       <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1.5, pb: 1.5, borderBottom: "1px solid", borderColor: "grey.50" }}>
         <Box>
@@ -229,13 +205,13 @@ export function RecordCard({
               <Chip
                 label={record.jobStatus}
                 size="small"
-                sx={{ fontSize: "0.625rem", fontWeight: 600, height: 20, borderRadius: 10, ...jobStatusChipSx(record.jobStatus) }}
+                sx={[styles.chip, jobStatusChipSx(record.jobStatus)]}
               />
             )}
             <Chip
               label={status}
               size="small"
-              sx={{ fontSize: "0.625rem", fontWeight: 600, height: 20, borderRadius: 10, ...(statusChipSx[status] || { bgcolor: "grey.100", color: "text.secondary" }) }}
+              sx={[styles.chip, styles.status[status] ?? styles.job.waiting]}
             />
           </Stack>
 
@@ -254,7 +230,7 @@ export function RecordCard({
                 size="small"
                 onClick={handleGenerateReceipt}
                 title="Download PDF Receipt"
-                sx={{ width: 32, height: 32, color: "text.secondary", border: "1px solid", borderColor: "grey.200", "&:hover": { color: "primary.main" } }}
+                sx={{ width: 32, height: 32, color: "text.secondary", border: "1px solid", borderColor: "grey.200", "&:hover": { color: accent } }}
               >
                 <Printer size={16} />
               </IconButton>

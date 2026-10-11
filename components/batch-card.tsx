@@ -1,5 +1,6 @@
 "use client";
 
+import { accent, recordCardStyles as styles } from "@/app/theme";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
@@ -45,13 +46,6 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
     toast.success("Item removed from batch");
   };
 
-  const statusChipSx: Record<RecordStatus, object> = {
-    Settled: { bgcolor: "#d1fae5", color: "#065f46" },
-    "Part-payment": { bgcolor: "#fef3c7", color: "#92400e" },
-    "In Progress": { bgcolor: "#dbeafe", color: "#1e40af" },
-    Syncing: { bgcolor: "primary.light", color: "primary.contrastText", animation: "pulse 1.5s infinite" },
-  };
-
   const handleGenerateReceipt = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsReceiptModalOpen(true);
@@ -64,14 +58,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
   return (
     <Paper
       variant="outlined"
-      sx={{
-        borderRadius: 3,
-        mb: 1.25,
-        overflow: "hidden",
-        transition: "box-shadow 0.3s, border-color 0.3s",
-        boxShadow: isExpanded ? "0 0 0 1px rgba(200,71,46,0.2)" : undefined,
-        borderColor: isExpanded ? "primary.light" : "grey.100",
-      }}
+      sx={[styles.batch, isExpanded && styles.batchActive, isExpanded && styles.batchOpen]}
     >
       <Box
         onClick={() => setIsExpanded(!isExpanded)}
@@ -93,7 +80,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
               <ChevronRight size={16} />
             </Box>
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", textTransform: "uppercase", letterSpacing: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 900, color: accent, textTransform: "uppercase", letterSpacing: 1 }}>
                 {firstItem.date}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 900, color: "text.primary", lineHeight: 1.2 }}>
@@ -107,7 +94,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
           <Chip
             label={status}
             size="small"
-            sx={{ fontSize: "0.6rem", fontWeight: 900, height: 20, borderRadius: 10, ...statusChipSx[status] }}
+            sx={[styles.batchChip, styles.status[status], status === "Syncing" && styles.syncingPulse]}
           />
         </Stack>
 
@@ -141,7 +128,7 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
             <IconButton
               size="small"
               onClick={handleGenerateReceipt}
-              sx={{ width: 32, height: 32, color: "primary.main", border: "1px solid", borderColor: "primary.light" }}
+              sx={{ width: 32, height: 32, color: accent, border: "1px solid", borderColor: "primary.light" }}
             >
               <Printer size={16} />
             </IconButton>

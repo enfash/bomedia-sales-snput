@@ -1,5 +1,6 @@
 "use client";
 
+import { accent } from "@/app/theme";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 
 import { useState, useMemo, useRef } from "react";
@@ -162,7 +163,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       size="small"
       onClick={() => setIsOpen(true)}
       title="Pay Batch"
-      sx={{ color: "primary.main", "&:hover": { bgcolor: "primary.main", color: "white" } }}
+      sx={{ color: accent, "&:hover": { bgcolor: "primary.main", color: "white" } }}
     >
       <Wallet size={16} />
     </IconButton>
@@ -178,8 +179,8 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
         fontSize: "0.625rem",
         fontWeight: 900,
         letterSpacing: "0.08em",
-        borderColor: "primary.main",
-        color: "primary.main",
+        borderColor: accent,
+        color: accent,
         whiteSpace: "nowrap",
         minWidth: "max-content",
         "&:hover": { bgcolor: "primary.main", color: "primary.contrastText" },

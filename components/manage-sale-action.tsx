@@ -1,5 +1,6 @@
 "use client";
 
+import { accent } from "@/app/theme";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 
 import { useState, useMemo, useRef } from "react";
@@ -213,7 +214,7 @@ export function ManageSaleAction({
       <IconButton
         size="small"
         onClick={() => setIsOpen(true)}
-        sx={{ color: "primary.main", "&:hover": { bgcolor: "primary.main", color: "white" } }}
+        sx={{ color: accent, "&:hover": { bgcolor: "primary.main", color: "white" } }}
       >
         <MoreHorizontal size={16} />
       </IconButton>
@@ -349,7 +350,7 @@ function ContentBody({
             >
               Current Status
             </Typography>
-            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: accent }}>
               {record.status}
             </Typography>
           </Box>

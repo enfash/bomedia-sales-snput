@@ -1,5 +1,6 @@
 "use client";
 
+import { expenseStyles } from "@/app/theme";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { compressReceipt } from '@/lib/receipt-image';
 import { PaidBy } from './paid-by';
@@ -641,7 +642,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
               }}
             >
               <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                <Receipt style={{ width: 14, height: 14, color: "#6B7480" }} />
+                <Box component="span" sx={expenseStyles.sessionIcon}><Receipt style={{ width: 14, height: 14 }} /></Box>
                 <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
                   This Session
                 </Typography>
@@ -805,12 +806,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
               {formData.receiptUrl && (
                 <Box sx={{ gridColumn: "1 / -1", borderTop: "1px solid", borderColor: "divider", pt: 1.5, textAlign: "center" }}>
                   <Typography sx={{ ...fieldLabelSx, mb: 1 }}>Receipt Preview</Typography>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={formData.receiptUrl}
-                    alt="Receipt"
-                    style={{ maxHeight: 160, margin: "0 auto", display: "block", borderRadius: 8, border: "1px solid #ECE7E0" }}
-                  />
+                  <Box component="img" src={formData.receiptUrl} alt="Receipt" sx={expenseStyles.receiptPreview} />
                 </Box>
               )}
             </Box>

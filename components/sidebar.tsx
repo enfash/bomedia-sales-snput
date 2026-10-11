@@ -252,12 +252,12 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
           <Divider sx={{ borderColor: whiteTint(0.08) }} />
           <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, display: "flex", flexDirection: isCollapsed ? "column" : "row", alignItems: "center", justifyContent: isCollapsed ? "center" : "space-between", gap: isCollapsed ? 2 : 0 }}>
             {isCollapsed ? (
-              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.875rem", fontWeight: 700 }}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", color: "primary.contrastText", fontSize: "0.875rem", fontWeight: 700 }}>
                 {userName[0]?.toUpperCase()}
               </Avatar>
             ) : (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
-                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.875rem", fontWeight: 700 }}>
+                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", color: "primary.contrastText", fontSize: "0.875rem", fontWeight: 700 }}>
                   {userName[0]?.toUpperCase()}
                 </Avatar>
                 <Box sx={{ minWidth: 0 }}>
