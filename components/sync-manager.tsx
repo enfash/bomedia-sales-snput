@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSyncStore } from "@/lib/store";
+import { PaymentSync } from './payment-sync';
+import { ExpenseSync } from './expense-sync';
+import { OrderSync } from './order-sync';
+import { paymentContext, legacyQueueHold } from '@/lib/payment-outbox';
 import { toast } from "sonner";
 import { CloudOff, RefreshCw, X } from "lucide-react";
 import Button from "@mui/material/Button";
@@ -109,6 +113,9 @@ export function SyncManager() {
           return;
         }
 
+        let backend: 'sheets' | 'postgres';
+        try { backend = (await paymentContext()).backend; }
+        catch (error) { setSyncStatus('error', (error as Error).message); return; }
         const now = Date.now();
         const itemsToSync = currentQueue.filter((item) => {
           if ((item.retryCount ?? 0) >= MAX_RETRIES) return false;
@@ -137,6 +144,13 @@ export function SyncManager() {
             continue;
           }
           try {
+            const holdReason = legacyQueueHold(item, backend);
+            if (holdReason) {
+              updateEntryError(item.id, holdReason);
+              updateEntryRetry(item.id, MAX_RETRIES, Date.now());
+              errorCount++;
+              continue;
+            }
             if (item.type === "payment_batch") {
               // A whole lump-sum distribution retried as one call. Replaying it
               // as individual payments would re-create the quota blowout that
@@ -157,7 +171,8 @@ export function SyncManager() {
                   // and drops it — with the balance still unpaid and nobody
                   // told. Surface it and stop retrying.
                   toast.error(errData.error, { duration: 30000 });
-                  removeEntry(item.id);
+                  updateEntryError(item.id, errData.error);
+                  updateEntryRetry(item.id, MAX_RETRIES, Date.now());
                   errorCount++;
                   continue;
                 }
@@ -315,7 +330,8 @@ export function SyncManager() {
   }, [pendingQueue.length, removeEntry, setSyncStatus, setLastSyncTime, updateEntryRetry, updateEntryError]);
 
   if (exhaustedItems.length > 0 && !bannerDismissed) {
-    return (
+    return (<>
+      <PaymentSync /><OrderSync /><ExpenseSync />
       <Box
         role="alert"
         sx={{
@@ -383,8 +399,8 @@ export function SyncManager() {
           </IconButton>
         </Stack>
       </Box>
-    );
+    </>);
   }
 
-  return null;
+  return <><PaymentSync /><OrderSync /><ExpenseSync /></>;
 }

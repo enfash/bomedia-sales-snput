@@ -124,8 +124,8 @@ export function BatchCard({ salesId, records, onUpdate }: BatchCardProps) {
             <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "text.disabled", letterSpacing: 1, display: "block", mb: 0.25 }}>
               Total Balance
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 900, color: describeBalance(totalBal).color, fontFamily: "monospace" }}>
-              {describeBalance(totalBal).label}
+            <Typography variant="body2" sx={{ fontWeight: 900, color: describeBalance(totalBal, false, !!firstItem.raw?._jobId).color, fontFamily: "monospace" }}>
+              {describeBalance(totalBal, false, !!firstItem.raw?._jobId).label}
             </Typography>
           </Box>
         </Stack>

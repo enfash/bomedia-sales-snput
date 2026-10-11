@@ -155,7 +155,8 @@ export default function CashierRecordsPage() {
     fetchData();
     const handleOnline = () => fetchData();
     window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
+    window.addEventListener("bomedia-data-changed", handleOnline);
+    return () => { window.removeEventListener("online", handleOnline); window.removeEventListener("bomedia-data-changed", handleOnline); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -248,7 +249,7 @@ export default function CashierRecordsPage() {
       r.description.toLowerCase().includes(search.toLowerCase());
     // Sorting by debt turns the list into a debtors view, so settled and
     // overpaid rows drop out rather than sorting to the bottom.
-    if (sortBy === "debt" && !hasOutstandingDebt(r.balance)) return false;
+    if (sortBy === "debt" && !hasOutstandingDebt(r.balance, !!r.raw?._jobId)) return false;
     if (activeTab === "Pending") return matchesSearch && r.isPending;
     return matchesSearch;
   });
@@ -319,7 +320,7 @@ export default function CashierRecordsPage() {
   useEffect(() => { setCurrentPage(1); }, [search, activeTab, sortBy, sortOrder, dateRange, customStart, customEnd]);
 
   return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 14, md: 4 }, minHeight: "100vh", bgcolor: "rgba(255, 167, 38, 0.02)"}}>
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, minHeight: "100vh", bgcolor: "rgba(255, 167, 38, 0.02)"}}>
 
       {/* Header */}
       <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, alignItems: { md: "center" }, justifyContent: { md: "space-between" }, gap: 2, mb: 4 }}>
@@ -495,7 +496,7 @@ export default function CashierRecordsPage() {
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>{r.client}</TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(r.balance).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(r.balance).label}</TableCell>
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(r.balance, false, !!r.raw?._jobId).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(r.balance, false, !!r.raw?._jobId).label}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={r.status} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{r.loggedBy}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}>
@@ -542,7 +543,7 @@ export default function CashierRecordsPage() {
                         </TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>{unit.items.length} Batched Items</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: describeBalance(totalBal).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(totalBal).label}</TableCell>
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: describeBalance(totalBal, false, !!firstItem.raw?._jobId).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(totalBal, false, !!firstItem.raw?._jobId).label}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={groupStatus(unit.items)} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>Multiple</TableCell>
                         <TableCell sx={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
@@ -559,7 +560,7 @@ export default function CashierRecordsPage() {
                           <TableCell sx={{ pl: 4, fontSize: "0.75rem", color: "text.disabled" }}>—</TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary" }}>{item.description || "No description"}</TableCell>
                           <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(item.balance, true).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(item.balance, true).label}</TableCell>
+                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(item.balance, true, !!item.raw?._jobId).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(item.balance, true, !!item.raw?._jobId).label}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}><StatusBadge status={item.status} /></TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{item.loggedBy}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}><ManageSaleAction record={item} onUpdate={fetchData} /></TableCell>

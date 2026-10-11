@@ -8,6 +8,7 @@ import { nairaToKobo } from '@/lib/accounting-entry';
 import type { PendingAccountingEntry } from '@/lib/accounting-pending';
 import { askedUnitKobo,billing,itemFigures,type JobItem,type JobMaterial,type JobService } from '@/lib/job-items';
 import type { PaymentMethod } from '@/lib/payment-methods';
+import { PaidBy } from './paid-by';
 
 type Customer={id:string;display_name:string;contact:string|null};
 type Method={method:PaymentMethod;label:string};
@@ -188,9 +189,8 @@ export function JobEntry({staffId,customers,materials,services,methods,ready,loc
       <Stack spacing={1.5} sx={{mt:1.5}}>
         <TextField label="Paid now (₦)" value={paid} disabled={locked} onChange={event=>setPaid(event.target.value)} slotProps={{htmlInput:{inputMode:'decimal'}}}
           helperText="Enter 0 if nothing has been paid. Whatever is unpaid stays as the customer's balance."/>
-        {paidKobo!==null&&paidKobo!=='0'&&<ToggleButtonGroup exclusive fullWidth color="primary" aria-label="Paid by" value={method} disabled={locked} onChange={(_,value:PaymentMethod|null)=>setMethod(value||'')}>
-          {methods.map(m=><ToggleButton key={m.method} value={m.method}>{m.label}</ToggleButton>)}
-        </ToggleButtonGroup>}
+        <PaidBy value={method} onChange={setMethod} disabled={locked}
+          required={paidKobo!==null&&paidKobo!=='0'} methods={methods.map(m=>({value:m.method,label:m.label}))} />
       </Stack>
     </Paper>}
     {changed&&!waiting&&<FormControlLabel control={<Checkbox checked={agreed} disabled={locked} onChange={(_,checked)=>setAgreed(checked)}/>} label="The customer has agreed to today's total"/>}
@@ -214,7 +214,7 @@ export function JobEntry({staffId,customers,materials,services,methods,ready,loc
           </ToggleButtonGroup>
           {editing.kind==='service' ? <>
             <TextField select label="Service" value={editing.serviceId ?? ''} onChange={event=>{const next=service(event.target.value);set({serviceId:event.target.value});if(next?.pricing==='per_job')setAsking(true);}}
-              helperText={services.length ? 'The owner keeps this list. Fixed-price services fill in their price.' : 'No services yet. The owner adds them on the accounting page.'}>
+              helperText={services.length ? 'The owner keeps this list. Fixed-price services fill in their price.' : 'No services yet. The owner adds them in Settings → Services.'}>
               {services.map(x=><MenuItem key={x.id} value={x.id}>{x.name} · {x.pricing==='fixed' ? `${formatKobo(x.unit_price_kobo!)} each` : 'priced per job'}</MenuItem>)}
             </TextField>
             <TextField label="Details" value={editing.description} onChange={event=>set({description:event.target.value})} slotProps={{htmlInput:{maxLength:1000}}} placeholder="e.g. Fix 2 banners at church gate, Ikotun"/>

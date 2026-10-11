@@ -32,7 +32,7 @@ export default function CashierNewEntryPage() {
               Log New Sale
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-              Log a new print job for a customer.
+              Add the customer’s items and record any initial payment.
             </Typography>
           </Box>
         </Box>

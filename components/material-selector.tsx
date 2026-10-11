@@ -1,12 +1,12 @@
 "use client";
 
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+
 import { useState, useMemo } from "react";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import { Package, Layers, ChevronDown } from "lucide-react";
-import Dialog from "@mui/material/Dialog";
-import { useMediaQuery } from "@/lib/useMediaQuery";
 
 const parseNum = (v: string | number | undefined) =>
   parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
@@ -24,7 +24,6 @@ export function MaterialSelector({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const isMobile = useMediaQuery("(max-width: 768px)");
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -131,46 +130,13 @@ export function MaterialSelector({
         <ChevronDown style={{ width: 16, height: 16, flexShrink: 0, marginLeft: 8, color: selectedMaterialId ? "#fff" : undefined }} />
       </Box>
 
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        fullScreen={isMobile}
-        slotProps={{
-          paper: {
-            sx: isMobile ? {
-              mt: "12vh",
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-              bgcolor: "background.default",
-              display: "flex",
-              flexDirection: "column",
-            } : {
-              borderRadius: 4,
-              maxHeight: "85vh",
-              bgcolor: "background.default",
-            }
-          }
-        }}
-        sx={isMobile ? {
-          "& .MuiDialog-container": {
-            alignItems: "flex-end",
-          }
-        } : undefined}
-        maxWidth="sm"
-        fullWidth
-      >
-        {isMobile && <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 1, flexShrink: 0 }} />}
-
+      <ResponsiveSheet open={open} onClose={() => setOpen(false)} title="Choose a Material">
         <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: "1px solid", borderColor: "divider" }}>
-          <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary", mb: 2 }}>
-            Choose a Material
-          </Typography>
               <TextField
                 placeholder="Search materials…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 fullWidth
-                autoFocus
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2.5 } }}
               />
             </Box>
@@ -284,7 +250,7 @@ export function MaterialSelector({
                 </Box>
               )}
             </Box>
-      </Dialog>
+      </ResponsiveSheet>
     </Box>
   );
 }

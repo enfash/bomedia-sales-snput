@@ -11,7 +11,7 @@ export default function ExpensesPage() {
   const router = useRouter();
 
   return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 14, md: 4 }, maxWidth: 768, minHeight: "100vh"}}>
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, maxWidth: 768, minHeight: "100vh"}}>
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
           <IconButton

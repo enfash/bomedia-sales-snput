@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { parseAmount } from "@/lib/financial-utils";
 import { useRouter } from "next/navigation";
+import { Alert } from '@mui/material';
+import { ExpensePaymentSheet } from '@/components/expense-payment-sheet';
 import { ExpenseEntry } from "@/components/expense-entry";
 import { StatusBadge } from "@/components/status-badge";
 import {
@@ -19,7 +21,9 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 
-type Expense = {
+export type Expense = {
+  _expenseId?:string; _amountKobo?:string; _payable?:boolean; _backend?:string;
+  "EXPENSE ID"?:string;
   _rowIndex?: number;
   DATE: string; AMOUNT: string; CATEGORY: string; DESCRIPTION: string;
   "PAID TO": string; "PAYMENT METHOD": string; "RECEIPT URL": string;
@@ -44,7 +48,7 @@ function formatDateTime(d: string) {
 
 function ExpenseRow({ expense, onStatusToggle }: {
   expense: Expense;
-  onStatusToggle: (timestamp: string, newStatus: "Paid" | "Unpaid") => Promise<void>;
+  onStatusToggle: (expense: Expense, newStatus: "Paid" | "Unpaid") => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -53,7 +57,7 @@ function ExpenseRow({ expense, onStatusToggle }: {
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setToggling(true);
-    await onStatusToggle(expense.TIMESTAMP, isPaid ? "Unpaid" : "Paid");
+    await onStatusToggle(expense, isPaid ? "Unpaid" : "Paid");
     setToggling(false);
   };
 
@@ -104,6 +108,7 @@ function ExpenseRow({ expense, onStatusToggle }: {
               <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>Logged By</Typography>
               <Typography variant="body2" sx={{ fontWeight: 700 }}>{expense["Logged By"] || "—"}</Typography>
             </Box>
+            {expense['EXPENSE ID']&&<Typography variant="caption">{expense['EXPENSE ID']}</Typography>}
             {expense.DESCRIPTION && (
               <Box sx={{ gridColumn: "span 2" }}>
                 <Typography sx={{ fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>Description</Typography>
@@ -129,7 +134,8 @@ function ExpenseRow({ expense, onStatusToggle }: {
                 Marked paid by <strong>{expense["PAID BY"]}</strong> on {formatDateTime(expense["PAID AT"])}
               </Typography>
             )}
-            <Button
+            {expense._backend==='postgres'&&expense.STATUS==='Unpaid'&&!expense._payable&&<Alert severity="warning">Opening balance review required. This historical expense has no accepted liability in the books yet. Keep its original amount, date and receipt for the final-import reconciliation.</Alert>}
+            {!(expense._backend==='postgres'&&(isPaid||!expense._payable))&&<Button
               size="small"
               disabled={toggling}
               onClick={handleToggle}
@@ -154,7 +160,7 @@ function ExpenseRow({ expense, onStatusToggle }: {
               }}
             >
               {toggling ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : isPaid ? "Mark as Unpaid" : "Mark as Paid"}
-            </Button>
+            </Button>}
           </Box>
         </Box>
       )}
@@ -177,6 +183,7 @@ export default function ExpensesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"All" | "Paid" | "Unpaid">("All");
   const [showForm, setShowForm] = useState(false);
+  const [paying,setPaying]=useState<Expense|null>(null);
 
   const fetchExpenses = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -194,7 +201,7 @@ export default function ExpensesPage() {
       // store was replaced, which re-triggered the fetch effect.
       const { cachedSales, cachedInventory, cachedPayments, cachedMaterials } =
         useSyncStore.getState();
-      setCachedData(cachedSales, data, cachedInventory, cachedPayments, cachedMaterials);
+      useSyncStore.setState({cachedExpenses:data});
       if (isManual) toast.success("Expenses refreshed");
     } catch {
       toast.error("Could not load expenses.");
@@ -213,7 +220,12 @@ export default function ExpensesPage() {
     }
   }, [cachedExpenses]);
 
-  const handleStatusToggle = async (timestamp: string, newStatus: "Paid" | "Unpaid") => {
+  const handleStatusToggle = async (expense: Expense, newStatus: "Paid" | "Unpaid") => {
+    if(expense._backend==='postgres'){
+      if(newStatus==='Paid'&&expense._payable)setPaying(expense);
+      return;
+    }
+    const timestamp=expense.TIMESTAMP;
     const userName = localStorage.getItem("userName") || "Unknown";
     try {
       const res = await fetch("/api/expenses", {
@@ -238,7 +250,7 @@ export default function ExpensesPage() {
   const totalUnpaid = unpaidExpenses.reduce((sum, e) => sum + parseAmount(e.AMOUNT), 0);
 
   return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 14, md: 4 }, maxWidth: 768, minHeight: "100vh"}}>
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, maxWidth: 768, minHeight: "100vh"}}>
       {/* Header */}
       <Box sx={{ mb: 2.5 }}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, mb: 0.5 }}>
@@ -296,6 +308,7 @@ export default function ExpensesPage() {
         </Box>
       )}
 
+      <ExpensePaymentSheet expense={paying} onClose={()=>setPaying(null)}/>
       {/* Filter pills */}
       <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
         {(["All", "Unpaid", "Paid"] as const).map(f => (
@@ -323,7 +336,7 @@ export default function ExpensesPage() {
           </Box>
         ) : (
           filtered.map((expense, i) => (
-            <ExpenseRow key={expense._rowIndex ?? `${expense.TIMESTAMP}-${expense.DESCRIPTION}-${i}`} expense={expense} onStatusToggle={handleStatusToggle} />
+            <ExpenseRow key={expense._expenseId ?? expense._rowIndex ?? `${expense.TIMESTAMP}-${expense.DESCRIPTION}-${i}`} expense={expense} onStatusToggle={handleStatusToggle} />
           ))
         )}
       </Paper>

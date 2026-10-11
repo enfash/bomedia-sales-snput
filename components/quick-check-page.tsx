@@ -115,7 +115,7 @@ export default function QuickCheckPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "rgba(232,161,58,0.02)", minHeight: "100vh", pb: 16 }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "rgba(232,161,58,0.02)", minHeight: "100vh", pb: { xs: 3, md: 16 } }}>
       <Box sx={{ maxWidth: 672, mx: "auto" }}>
 
         {/* Header */}

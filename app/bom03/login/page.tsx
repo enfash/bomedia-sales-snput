@@ -30,6 +30,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
+        localStorage.removeItem("bomedia-payment-context-v1");
         localStorage.setItem("userName", "Admin");
         toast.success("Welcome back!");
         router.push("/bom03");

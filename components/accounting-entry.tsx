@@ -42,7 +42,7 @@ export function AccountingEntry({staffId,isOwner=false,initialOperation,initialC
   const [jobs,setJobs]=useState<Job[]>([]),[jobIds,setJobIds]=useState<string[]>([]);
   const [name,setName]=useState(''),[contact,setContact]=useState('');
   const [priceRequests,setPriceRequests]=useState<PriceRequest[]>([]),[decisionNotes,setDecisionNotes]=useState<Record<string,string>>({});
-  const [services,setServices]=useState<JobService[]>([]),[serviceForm,setServiceForm]=useState<{id?:string;name:string;pricing:'fixed'|'per_job';price:string;visible:boolean}|null>(null);
+  const [services,setServices]=useState<JobService[]>([]);
   const [businessDate,setBusinessDate]=useState(()=>lagosBusinessDate()),[amount,setAmount]=useState('0'),[method,setMethod]=useState<PaymentMethod|''>('');
   const [pending,setPending]=useState<PendingAccountingEntry|null>(null),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[jobsReady,setJobsReady]=useState(false);
   const [error,setError]=useState(''),[success,setSuccess]=useState('');
@@ -85,7 +85,6 @@ export function AccountingEntry({staffId,isOwner=false,initialOperation,initialC
         const result=await sendAccountingEntry(localStorage,entry);
         setPending(null);requestId.current=null;
         const confirmedId=String(result.quote_number||result.customer_id||result.order_id||result.payment_id||result.expense_id||result.price_request_id||result.service_id);
-        if(entry.operation==='services')setServiceForm(null);
         setSuccess(entry.operation==='quotes' ? `Quote ${confirmedId} saved.` : entry.operation==='price-requests' ? `Price ${String(result.status)}.` : entry.operation==='services' ? 'Service saved.'
           : `${entry.operation==='customers' ? 'Customer created' : entry.operation==='expense-payments' ? 'Expense marked paid' : 'Recorded'} successfully. Reference: ${confirmedId}`);
         setPayee('');setExpenseNote('');setPayingId('');setPayMethod('');
@@ -105,15 +104,6 @@ export function AccountingEntry({staffId,isOwner=false,initialOperation,initialC
     const note=(decisionNotes[request.id] ?? '').trim();
     void dispatch({version:1,staffId,operation:'price-requests',requestId:crypto.randomUUID(),payload:{priceRequestId:request.id,decision,...(note ? {note} : {})},
       summary:`${decision==='approve' ? 'Approve' : 'Decline'} ${formatKobo(request.requested_total_kobo)} for ${request.description} (${request.quote_number})`});
-  }
-  function saveServiceForm() {
-    if(!serviceForm || !ready || locked)return;
-    const price=nairaToKobo(serviceForm.price);
-    if(!serviceForm.name.trim()){setError('Name the service.');return;}
-    if(serviceForm.pricing==='fixed'&&(!price||price==='0')){setError('Enter the price each.');return;}
-    void dispatch({version:1,staffId,operation:'services',requestId:crypto.randomUUID(),
-      payload:{...(serviceForm.id ? {serviceId:serviceForm.id} : {}),name:serviceForm.name.trim(),pricing:serviceForm.pricing,visible:serviceForm.visible,
-        ...(serviceForm.pricing==='fixed' ? {unitPriceKobo:price} : {})},summary:`Save service: ${serviceForm.name.trim()}`});
   }
   function expenseSummary(kobo:string) {
     const how=expenseStatus==='paid' ? `paid by ${methods.find(m=>m.method===method)?.label ?? '…'}` : 'not yet paid';
@@ -157,7 +147,7 @@ export function AccountingEntry({staffId,isOwner=false,initialOperation,initialC
     requestId.current??=crypto.randomUUID();
     void dispatch({version:1,staffId,operation,requestId:requestId.current,payload,summary});
   }
-  return <Box sx={{p:{xs:2,md:4},pb:12,maxWidth:780,mx:'auto'}}>
+  return <Box sx={{p:{xs:2,md:4},pb:{xs:3,md:12},maxWidth:780,mx:'auto'}}>
     <Typography variant="h4" component="h1" sx={{mb:1,fontWeight:800}}>Accounting entry</Typography>
     <Typography color="text.secondary" sx={{mb:3}}>Record a print job or quote, a customer payment or an expense.</Typography>
     <Stack spacing={2}>
@@ -224,34 +214,7 @@ export function AccountingEntry({staffId,isOwner=false,initialOperation,initialC
           </Stack>
         </Box>}
       </Paper>
-      {isOwner&&<Paper variant="outlined" sx={{p:{xs:2,md:3}}}>
-        <Typography variant="h6" component="h2" sx={{fontWeight:800}}>Services</Typography>
-        <Typography color="text.secondary" sx={{mb:2}}>What staff can sell besides printing. A price change applies to new quotes and jobs only. Services use no roll stock.</Typography>
-        <Stack spacing={1.25}>
-          {services.map(x=><Paper key={x.id} variant="outlined" sx={{p:2,display:'flex',justifyContent:'space-between',alignItems:'center',gap:2,...(x.visible ? {} : {borderStyle:'dashed',bgcolor:'action.hover'})}}>
-            <Box><Typography sx={{fontWeight:700}} color={x.visible ? undefined : 'text.secondary'}>{x.name}</Typography>
-              <Typography variant="body2" color="text.secondary">{!x.visible ? 'Hidden from staff' : x.pricing==='fixed' ? `Fixed · ${formatKobo(x.unit_price_kobo!)} each` : 'Priced per job · needs your approval'}</Typography></Box>
-            <Button variant="outlined" disabled={locked} onClick={()=>setServiceForm({id:x.id,name:x.name,pricing:x.pricing,price:x.unit_price_kobo ? (Number(x.unit_price_kobo)/100).toString() : '',visible:x.visible})}>Edit</Button>
-          </Paper>)}
-          {!services.length&&<Typography color="text.secondary">{ready ? 'No services yet.' : 'Loading…'}</Typography>}
-          {serviceForm ? <Paper variant="outlined" sx={{p:2,borderColor:'primary.main',borderWidth:2}}><Stack spacing={1.5}>
-            <Typography sx={{fontWeight:800}}>{serviceForm.id ? 'Edit service' : 'Add a service'}</Typography>
-            <TextField label="Name" value={serviceForm.name} disabled={locked} onChange={event=>setServiceForm({...serviceForm,name:event.target.value})} slotProps={{htmlInput:{maxLength:100}}}/>
-            <Box component="fieldset" sx={{border:0,m:0,p:0}}>
-              <Typography component="legend" sx={{fontWeight:600,mb:1}}>How is it priced?</Typography>
-              <ToggleButtonGroup exclusive fullWidth color="primary" value={serviceForm.pricing} disabled={locked} onChange={(_,value:'fixed'|'per_job'|null)=>{if(value)setServiceForm({...serviceForm,pricing:value});}}>
-                <ToggleButton value="fixed">Fixed price</ToggleButton><ToggleButton value="per_job">Per job, I approve</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-            {serviceForm.pricing==='fixed'&&<TextField label="Price each (₦)" value={serviceForm.price} disabled={locked} onChange={event=>setServiceForm({...serviceForm,price:event.target.value})} slotProps={{htmlInput:{inputMode:'decimal'}}}/>}
-            <FormControlLabel control={<Checkbox checked={serviceForm.visible} disabled={locked} onChange={(_,checked)=>setServiceForm({...serviceForm,visible:checked})}/>} label="Staff can use it"/>
-            <Stack direction="row" spacing={1}>
-              <Button fullWidth variant="outlined" disabled={locked} onClick={()=>setServiceForm(null)}>Cancel</Button>
-              <Button fullWidth variant="contained" disabled={!ready||locked} onClick={saveServiceForm}>Save service</Button>
-            </Stack>
-          </Stack></Paper> : <Button variant="outlined" disabled={!ready||locked} onClick={()=>setServiceForm({name:'',pricing:'fixed',price:'',visible:true})}>+ Add a service</Button>}
-        </Stack>
-      </Paper>}
+      {isOwner&&<Alert severity="info">Manage the services staff can sell in <Link href="/bom03/settings/services">Settings → Services</Link>.</Alert>}
       {isOwner&&<Paper variant="outlined" sx={{p:{xs:2,md:3}}}>
         <Typography variant="h6" component="h2" sx={{fontWeight:800}}>Price requests</Typography>
         <Typography color="text.secondary" sx={{mb:2}}>{priceRequests.filter(r=>r.pending).length} waiting</Typography>

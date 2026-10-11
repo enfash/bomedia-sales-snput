@@ -62,6 +62,7 @@ export default function CashierLoginPage() {
         body: JSON.stringify({ name: selectedCashier.Name, passcode: "" }),
       });
       if (res.ok) {
+        localStorage.removeItem("bomedia-payment-context-v1");
         localStorage.setItem("userName", selectedCashier.Name);
         toast.success(`Welcome back, ${selectedCashier.Name}!`);
         await fetch("/api/cashiers", {
@@ -92,6 +93,7 @@ export default function CashierLoginPage() {
         body: JSON.stringify({ name: selectedCashier.Name, passcode: pin }),
       });
       if (res.ok) {
+        localStorage.removeItem("bomedia-payment-context-v1");
         localStorage.setItem("userName", selectedCashier.Name);
         toast.success(`Welcome back, ${selectedCashier.Name}!`);
         await fetch("/api/cashiers", {

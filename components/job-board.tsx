@@ -15,6 +15,7 @@ import MenuItem from "@mui/material/MenuItem";
 import { MaterialBadge } from "@/components/material-badge";
 import { Clock, CheckCircle2, RefreshCw, X, Check, MoreVertical } from "lucide-react";
 import { useSyncStore } from "@/lib/store";
+import { canonicalJobStatus } from '@/lib/job-status';
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -88,14 +89,7 @@ const COLUMNS = [
   },
 ];
 
-const getColumnId = (status: string) => {
-  if (status === "Pending" || status === "Quoted") return "Quoted";
-  if (status === "In Progress" || status === "Finishing") return "Finishing";
-  if (status === "Completed" || status === "Delivered") return "Delivered";
-  if (status === "Ready") return "Ready";
-  if (status === "Printing") return "Printing";
-  return "Quoted";
-};
+const getColumnId = (status: string) => canonicalJobStatus(status) ?? 'Quoted';
 
 interface JobBoardProps {
   isAdmin?: boolean;

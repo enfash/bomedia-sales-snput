@@ -308,7 +308,7 @@ export default function CustomersPage({ isAdmin = true }: { isAdmin?: boolean })
   const isFiltered = !!search || debtorsOnly;
 
   return (
-    <Box sx={{ p: { xs: 1.5, md: 4 }, bgcolor: "background.default", minHeight: "100vh", pb: 16 }}>
+    <Box sx={{ p: { xs: 1.5, md: 4 }, bgcolor: "background.default", minHeight: "100vh", pb: { xs: 3, md: 16 } }}>
 
       {/* ── Header ── */}
       <Box sx={{

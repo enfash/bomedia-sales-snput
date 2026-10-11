@@ -554,7 +554,7 @@ export default function EstimatorPage() {
   const hasAnyResult = grandTotal > 0;
 
   return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 12, md: 4 }, minHeight: "100vh", bgcolor: "background.default", transition: "background-color 0.5s"}}>
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, minHeight: "100vh", bgcolor: "background.default", transition: "background-color 0.5s"}}>
       {/* ── Hero ── */}
       <Box sx={{ bgcolor: "primary.main", color: "primary.contrastText", px: { xs: 2, md: 4 }, py: 4 }}>
         <Box sx={{ maxWidth: "md", mx: "auto" }}>

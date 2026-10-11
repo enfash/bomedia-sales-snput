@@ -12,7 +12,7 @@ export default function AdminBoardPage() {
   const router = useRouter();
 
   return (
-    <Box sx={{ p: { xs: 3, md: 4 }, pb: { xs: 14, md: 4 }, width: "100%", mx: "auto" }}>
+    <Box sx={{ p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, width: "100%", mx: "auto" }}>
       {/* Header */}
       <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, alignItems: { md: "flex-end" }, justifyContent: "space-between", gap: 2, mb: 4 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>

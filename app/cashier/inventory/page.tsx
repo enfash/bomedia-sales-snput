@@ -135,7 +135,7 @@ export default function CashierInventoryPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", pb: 16 }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", pb: { xs: 3, md: 16 } }}>
       {/* Header */}
       <Stack
         direction={{ xs: "column", md: "row" }}

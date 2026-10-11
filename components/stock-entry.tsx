@@ -101,7 +101,7 @@ export function StockEntry({staffId,isOwner=false}:{staffId:string;isOwner?:bool
     void dispatch({version:1,staffId,operation:tab,requestId:requestId.current,payload,summary});
   }
   const rollChoices=tab==='waste' ? rolls.filter(inStock) : rolls;
-  return <Box sx={{p:{xs:2,md:4},pb:12,maxWidth:780,mx:'auto'}}>
+  return <Box sx={{p:{xs:2,md:4},pb:{xs:3,md:12},maxWidth:780,mx:'auto'}}>
     <Typography variant="h4" component="h1" sx={{mb:1,fontWeight:800}}>Stock</Typography>
     <Typography color="text.secondary" sx={{mb:3}}>{isOwner ? 'Restock rolls, log waste or correct a roll after measuring it.' : 'Log material wasted from a roll.'}</Typography>
     <Stack spacing={2}>

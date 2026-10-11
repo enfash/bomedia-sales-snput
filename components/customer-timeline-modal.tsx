@@ -1,8 +1,8 @@
 "use client";
 
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+
 import { useMemo, useState } from "react";
-import { Drawer } from "vaul";
-import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useSyncStore } from "@/lib/store";
 import { parseAmount } from "@/lib/financial-utils";
 import { format } from "date-fns";
@@ -12,9 +12,6 @@ import {
   ChevronDown, ChevronUp, Layers
 } from "lucide-react";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
@@ -88,7 +85,6 @@ function PersonChip({ name, label }: { name: string; label: string }) {
 }
 
 export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, onUpdate, theme = "brand" }: CustomerTimelineModalProps) {
-  const isMobile = useMediaQuery("(max-width: 768px)");
   const { cachedSales, cachedPayments } = useSyncStore();
   const [payOpen, setPayOpen] = useState(false);
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
@@ -224,7 +220,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
   }, [timelineEvents]);
 
   const body = (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "background.default" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: 0, bgcolor: "background.default" }}>
       <Box sx={{
         p: 2.5,
         borderBottom: "1px solid",
@@ -313,7 +309,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, overflowY: "auto", px: 2.5, py: 3 }}>
+      <Box sx={{ px: 2.5, py: 3 }}>
         <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled", mb: 2.5 }}>
           Activity Timeline · {timelineEvents.length} events
         </Typography>
@@ -561,96 +557,18 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
   const payModal = (
     <DebtorPaymentModal
       clientName={clientName}
-      isOpen={payOpen}
+      isOpen={isOpen && payOpen}
       onClose={() => setPayOpen(false)}
       onUpdate={() => onUpdate?.()}
       theme={theme}
     />
   );
 
-  if (isMobile) {
-    return (
-      <>
-      <Dialog
-        fullScreen
-        open={isOpen}
-        onClose={onClose}
-
-        slotProps={{
-          paper: {
-            sx: {
-              mt: "10vh",
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-              bgcolor: "background.default",
-              display: "flex",
-              flexDirection: "column",
-            }
-          }
-        }}
-        sx={{
-          "& .MuiDialog-container": {
-            alignItems: "flex-end",
-          }
-        }}
-      >
-        <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 1, flexShrink: 0 }} />
-        <Button
-          variant="text"
-          onClick={onClose}
-          sx={{
-            position: "absolute",
-            right: 16,
-            top: 16,
-            minWidth: 0,
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            bgcolor: "action.hover",
-            "&:hover": { bgcolor: "action.selected" },
-            zIndex: 10,
-            p: 0,
-          }}
-        >
-          <X size={20} color="#6b7280" />
-        </Button>
-        <Box sx={{ flex: 1, overflow: "hidden", borderRadius: "2.5rem 2.5rem 0 0" }}>
-          {body}
-        </Box>
-      </Dialog>
-      {payModal}
-      </>
-    );
-  }
-
-  return (
-    <>
-    <Dialog
-      open={isOpen}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: 4,
-            overflow: "hidden",
-            height: "85vh",
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 201,
-          },
-        },
-      }}
-    >
-      <DialogTitle sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
-        Customer Timeline — {clientName}
-      </DialogTitle>
-      <DialogContent sx={{ p: 0, display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-        {body}
-      </DialogContent>
-    </Dialog>
+  return <>
+    <ResponsiveSheet open={isOpen} onClose={() => { setPayOpen(false); onClose(); }} maxWidth="md"
+      title="Customer Timeline" description={clientName ?? undefined}>
+      {body}
+    </ResponsiveSheet>
     {payModal}
-    </>
-  );
+  </>;
 }

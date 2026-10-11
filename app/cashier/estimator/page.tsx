@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Ruler, Calculator, RefreshCw, Share2, Copy, Check,
   ChevronRight, Package, AlertTriangle, Plus, Trash2,
@@ -10,6 +10,10 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSyncStore } from "@/lib/store";
+import { paymentContext } from '@/lib/payment-outbox';
+import { saveScreenOrder } from '@/lib/order-outbox';
+import { orderTotal, orderItemTotal, type OrderItem } from '@/lib/order-contract';
+import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
 import { MaterialSelector } from "@/components/material-selector";
 
 import Box from "@mui/material/Box";
@@ -68,14 +72,20 @@ function calcItem(item: QuoteItem, material: any) {
 
   const fitsNormal  = !material || wFt <= rollWidth;
   const fitsFlipped = !material || hFt <= rollWidth;
-  const isFlipped   = !fitsNormal && fitsFlipped;
+  const normal = fitsNormal && wFt > 0 ? Math.ceil(qty/Math.floor(rollWidth/wFt))*hFt : Infinity;
+  const rotated = fitsFlipped && hFt > 0 ? Math.ceil(qty/Math.floor(rollWidth/hFt))*wFt : Infinity;
+  const isFlipped = rotated < normal;
   const widthOk     = fitsNormal || fitsFlipped;
 
   const unitSqft    = wFt * hFt;
-  const unitCost    = unitSqft * price;
+  let unitCost = unitSqft * price;
+  try {
+    const priceKobo=nairaToKobo(String(price));
+    if(priceKobo && wFt>0 && hFt>0) unitCost=Number(orderItemTotal({kind:'print',ref:item.materialId,description:item.description,quantity:'1',width:item.width,height:item.height,unit:item.dimUnit,priceKobo}))/100;
+  } catch { /* Incomplete input keeps the estimate editable. Save validates it. */ }
   const totalCost   = unitCost * qty;
 
-  const totalLength = (isFlipped ? wFt : hFt) * qty;
+  const totalLength = Number.isFinite(Math.min(normal,rotated)) ? Math.min(normal,rotated) : 0;
   const remaining   = material ? parseNum(material["Total Remaining (ft)"]) : 0;
   const remainAfter = remaining - totalLength;
   const stockOk     = totalLength === 0 || remainAfter >= 0;
@@ -500,6 +510,18 @@ export default function CashierEstimatorPage() {
   const [items, setItems] = useState<QuoteItem[]>([newItem()]);
   const [copied, setCopied] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
+  const quoteSavingRef = useRef(false);
+  const savedRequest = useRef<{id:string;snapshot:string}|null>(null);
+  const [savedQuote, setSavedQuote] = useState<{number:string;snapshot:string}|null>(null);
+  useEffect(()=>{
+    const confirmed=(event:Event)=>{
+      const result=(event as CustomEvent).detail;
+      if(result?.request_id===savedRequest.current?.id && result.quote_number)
+        setSavedQuote({number:result.quote_number,snapshot:savedRequest.current!.snapshot});
+    };
+    window.addEventListener('bomedia-order-confirmed',confirmed);
+    return()=>window.removeEventListener('bomedia-order-confirmed',confirmed);
+  },[]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -513,7 +535,7 @@ export default function CashierEstimatorPage() {
     try {
       const r = await fetch("/api/materials");
       const j = await r.json();
-      if (j.data) setCachedData(cachedSales, cachedExpenses, cachedInventory, cachedPayments, j.data);
+      if (j.data) useSyncStore.setState({cachedMaterials:j.data});
     } catch { /* silent */ }
     finally { setSyncing(false); }
   }, [cachedSales, cachedExpenses, cachedPayments, cachedInventory, setCachedData]);
@@ -584,6 +606,9 @@ export default function CashierEstimatorPage() {
   };
 
   const handleSaveQuote = async () => {
+    if(savedQuote?.snapshot===JSON.stringify({clientName,items})) {
+      toast.success(`This quote is already saved: ${savedQuote.number}`);return;
+    }
     if (!clientName.trim()) {
       toast.error("Please enter a Client Name to save a quote.");
       return;
@@ -593,7 +618,27 @@ export default function CashierEstimatorPage() {
       return;
     }
 
-    setSavingQuote(true);
+    if (quoteSavingRef.current) return;
+    quoteSavingRef.current=true;setSavingQuote(true);
+    try {
+      const context=await paymentContext();
+      if(context.backend==='postgres') {
+        const orderItems:OrderItem[]=items.map(item=>{
+          const material=materials.find(m=>m['Material ID']===item.materialId);
+          const price=material ? nairaToKobo(String(material['Selling Price'])) : null;
+          if(!price)throw new Error('Refresh material prices before saving the quote.');
+          return {kind:'print',ref:item.materialId,description:item.description.trim()||`${material['Material Name']} print job`,quantity:item.qty,
+            width:item.width,height:item.height,unit:item.dimUnit,priceKobo:price};
+        });
+        const entry=await saveScreenOrder({operation:'quote',businessDate:lagosBusinessDate(),clientName:clientName.trim(),contact:'',jobStatus:'Quoted',
+          initialPaymentKobo:'0',totalKobo:orderTotal(orderItems),items:orderItems});
+        savedRequest.current={id:entry.order.requestId,snapshot:JSON.stringify({clientName,items})};
+        toast.success('Quote saved on this device. Its number appears after confirmation.');
+        return;
+      }
+    } catch(e) { toast.error(e instanceof Error ? e.message : 'Quote could not be saved.'); return; }
+    finally {quoteSavingRef.current=false;setSavingQuote(false);}
+    quoteSavingRef.current=true;setSavingQuote(true);
     const quoteId = `QT-${Math.floor(1000 + Math.random() * 9000)}`;
 
     try {
@@ -618,15 +663,22 @@ export default function CashierEstimatorPage() {
     } catch (e) {
       toast.error("Network error saving quote");
     } finally {
-      setSavingQuote(false);
+      quoteSavingRef.current=false;setSavingQuote(false);
     }
   };
 
-  const handleLogSale = () => {
+  const handleLogSale = async () => {
+    if(savedRequest.current?.snapshot===JSON.stringify({clientName,items}) && savedQuote?.snapshot!==savedRequest.current.snapshot) {
+      toast.error('Wait for this saved quote to be confirmed, then continue to New Entry.');return;
+    }
+    let context;
+    try { context=await paymentContext(); } catch(e) { toast.error(e instanceof Error?e.message:"Reconnect before continuing.");return; }
     // Save to local storage for the new-entry page to pick up
     localStorage.setItem("estimatorCart", JSON.stringify({
+      version: 3, backend: context.backend,
       clientName,
-      items
+      items,
+      ...(savedQuote?.snapshot===JSON.stringify({clientName,items}) ? {quoteNumber:savedQuote.number} : {})
     }));
     router.push("/cashier/new-entry");
   };
@@ -638,8 +690,9 @@ export default function CashierEstimatorPage() {
   });
 
   return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 12, md: 4 }, minHeight: "100vh", bgcolor: "background.default"}}>
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, minHeight: "100vh", bgcolor: "background.default"}}>
 
+      {savedQuote && <Typography role="status">Saved quote: {savedQuote.number}</Typography>}
       {/* ── Hero ── */}
       <Box sx={{ bgcolor: "primary.main", color: "primary.contrastText", px: { xs: 2, md: 4 }, py: 4 }}>
         <Box sx={{ maxWidth: 672, mx: "auto" }}>

@@ -1078,6 +1078,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [adjustTarget, setAdjustTarget] = useState<Roll | null>(null);
   const [wasteTarget, setWasteTarget] = useState<Roll | null>(null);
+  const [wasteOpen, setWasteOpen] = useState(false);
   const [restockTarget, setRestockTarget] = useState<Material | null>(null);
   const [expandedMaterialId, setExpandedMaterialId] = useState<string | null>(null);
   const [activeRollsAnchor, setActiveRollsAnchor] = useState<HTMLElement | null>(null);
@@ -1194,7 +1195,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "background.default", minHeight: "100vh", pb: 16 }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "background.default", minHeight: "100vh", pb: { xs: 3, md: 16 } }}>
       {/* Header */}
       <Stack
         direction={{ xs: "column", md: "row" }}
@@ -1803,7 +1804,7 @@ export default function InventoryPage() {
                                           <Button
                                             variant="outlined"
                                             size="small"
-                                            onClick={(e) => { e.stopPropagation(); setWasteTarget(roll); }}
+                                            onClick={(e) => { e.stopPropagation(); setWasteTarget(roll); setWasteOpen(true); }}
                                             sx={{ height: 32, borderRadius: 2, fontSize: "0.625rem", fontWeight: 900, borderColor: "#fecaca", color: "#dc2626", "&:hover": { bgcolor: "#fff1f2" } }}
                                           >
                                             Log Waste
@@ -1914,9 +1915,9 @@ export default function InventoryPage() {
       {wasteTarget && (
         <WasteLogModal
           roll={wasteTarget as InventoryRollForWaste}
-          isOpen={!!wasteTarget}
-          onClose={() => setWasteTarget(null)}
-          onSaved={() => { setWasteTarget(null); fetchData(); }}
+          isOpen={wasteOpen}
+          onClose={() => setWasteOpen(false)}
+          onSaved={() => { setWasteOpen(false); fetchData(); }}
         />
       )}
     </Box>

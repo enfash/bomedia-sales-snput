@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle, CheckCircle2, Plus, Sparkles,
@@ -37,6 +37,13 @@ import Alert from "@mui/material/Alert";
 import { PaidBy } from "@/components/paid-by";
 import type { PaymentMethod } from "@/lib/payment-methods";
 
+import { paymentContext, cachedPaymentContext } from '@/lib/payment-outbox';
+import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
+import { saveScreenOrder } from '@/lib/order-outbox';
+import { orderItemTotal, orderTotal, type OrderCatalog } from '@/lib/order-contract';
+import { cartOrderItem, quoteCart, type OrderCartRow, type ScreenQuote } from '@/lib/order-cart';
+import { ServiceOrderEntry } from '@/components/service-order-entry';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface InventoryRoll {
@@ -51,27 +58,7 @@ interface InventoryRoll {
   _rowIndex: number;
 }
 
-interface CartItem {
-  id: string;
-  materialId: string;
-  rollId?: string;
-  rollLabel: string;
-  itemName: string;
-  widthFt: number;
-  jobDescription: string;
-  jobWidth: number;
-  jobHeight: number;
-  dimUnit: 'ft' | 'in';
-  qty: number;
-  costPerSqft: number;
-  unitSqft: number;
-  unitCost: number;
-  totalAmount: number;
-  jobLengthFt: number;
-  remainingAfterJob: number;
-  fromInventory: boolean;
-  isFlipped: boolean;
-}
+type CartItem = OrderCartRow;
 
 interface BatchMeta {
   date: string;
@@ -138,7 +125,7 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: (id: strin
             )}
           </Box>
           <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
-            {item.qty}× · {item.jobWidth}{item.dimUnit} × {item.jobHeight}{item.dimUnit} · {item.jobLengthFt.toFixed(1)}ft consumed
+            {item.orderItem?.kind === 'service' ? `${item.qty} service(s) · No roll stock used` : `${item.qty}× · ${item.jobWidth}${item.dimUnit} × ${item.jobHeight}${item.dimUnit} · ${item.jobLengthFt.toFixed(1)}ft consumed`}
           </Typography>
           {!stockOk && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 1 }}>
@@ -151,7 +138,7 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: (id: strin
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
           <Typography variant="body1" sx={{ fontWeight: 800 }}>{fmtCurrency(item.totalAmount)}</Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>₦{item.costPerSqft}/sqft</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>{item.orderItem?.kind === 'service' ? `${fmtCurrency(item.unitCost)} each` : `₦${item.costPerSqft}/sqft`}</Typography>
         </Box>
       </Box>
       <IconButton
@@ -287,7 +274,7 @@ export function SalesEntry() {
       const res = await fetch("/api/sales");
       const json = await res.json();
       if (res.ok && json.data?.length) {
-        setCachedData(json.data, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials);
+        useSyncStore.setState({cachedSales:json.data});
       }
     } catch { /* silent */ }
   }, [cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData]);
@@ -303,7 +290,7 @@ export function SalesEntry() {
       const res = await fetch("/api/materials");
       const json = await res.json();
       if (res.ok) {
-        setCachedData(cachedSales, cachedExpenses, cachedInventory, cachedPayments, json.data || []);
+        useSyncStore.setState({cachedMaterials:json.data || []});
       } else {
         toast.error(`Materials: ${json.error || "Failed to load"}`);
       }
@@ -321,7 +308,7 @@ export function SalesEntry() {
 
   // ── Batch meta ───────────────────────────────────────────────────────────
   const [meta, setMeta] = useState<BatchMeta>({
-    date: new Date().toISOString().split("T")[0],
+    date: lagosBusinessDate(),
     clientName: "",
     contact: "",
     jobStatus: JOB_STATUSES[0],
@@ -332,6 +319,33 @@ export function SalesEntry() {
   // How the customer paid the initial payment. The books keep cash, bank
   // transfer and POS apart, so it is asked whenever money is entered.
   const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
+  const savingRef = useRef(false);
+  const [catalog, setCatalog] = useState<OrderCatalog | null>(null);
+  const [postgres, setPostgres] = useState(false);
+  const [backendReady,setBackendReady]=useState(false);
+  const [customerId, setCustomerId] = useState<string | undefined>();
+  const [loadedQuote, setLoadedQuote] = useState<{id:string;number:string;changed:boolean}|null>(null);
+  const [quoteInput, setQuoteInput] = useState('');
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void paymentContext().then(async context => {
+      if (!active) return;
+      setPostgres(context.backend === 'postgres');setBackendReady(true);
+      if (context.backend !== 'postgres') return;
+      const response = await fetch('/api/accounting/orders', {cache:'no-store'});
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Customer and service list unavailable.');
+      if (active) { setCatalog(result); localStorage.setItem('bomedia-order-catalog',JSON.stringify(result)); }
+    }).catch(() => {
+      if (active && cachedPaymentContext(localStorage)?.backend === 'postgres') {
+        setPostgres(true);setBackendReady(true);
+        try { setCatalog(JSON.parse(localStorage.getItem('bomedia-order-catalog') || 'null')); } catch { /* Keep entered items. */ }
+      }
+    });
+    return () => { active = false; };
+  }, []);
+
 
   // ── Client suggestions ───────────────────────────────────────────────────
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -367,8 +381,9 @@ export function SalesEntry() {
 
   const filteredClients = useMemo(() => {
     const q = meta.clientName.toLowerCase();
-    return uniqueClients.filter((c) => c.toLowerCase().includes(q)).slice(0, 6);
-  }, [uniqueClients, meta.clientName]);
+    return catalog ? catalog.customers.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6).map(c=>({label:c.name,id:c.id,contact:c.contact||''}))
+      : uniqueClients.filter(c=>c.toLowerCase().includes(q)).slice(0,6).map(c=>({label:c,id:undefined,contact:clientContacts[c]||''}));
+  }, [uniqueClients, meta.clientName, catalog, clientContacts]);
 
   // ── Job form ─────────────────────────────────────────────────────────────
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
@@ -440,7 +455,11 @@ export function SalesEntry() {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const handleAddToCart = () => {
+    if (loadedQuote) { toast.error('Start a new order before changing quoted items.'); return; }
     setFormTouched(true);
+    if (!/^[1-9][0-9]{0,4}$/.test(qty) || Number(qty) > 10000 || !nairaToKobo(costOverride) || costPerSqft <= 0 || jobWFt <= 0 || jobHFt <= 0) {
+      toast.error('Enter positive sizes, a whole quantity, and a price with at most two decimal places.'); return;
+    }
     if (!selectedMaterialId) { toast.error("Please select a material profile"); return; }
     if (!jobWidth || !jobHeight) { toast.error("Enter both job width and height"); return; }
     if (!widthCompatible) {
@@ -479,32 +498,64 @@ export function SalesEntry() {
       isFlipped,
     };
 
+    if (postgres) {
+      try { newItem.orderItem = cartOrderItem(newItem,catalog); newItem.totalAmount = Number(orderItemTotal(newItem.orderItem))/100; newItem.unitCost = newItem.totalAmount/newItem.qty; }
+      catch (e) { toast.error((e as Error).message); return; }
+    }
+    setLoadedQuote(null);
     setCart((prev) => [...prev, newItem]);
     toast.success("Job added to order");
     setJobDesc(""); setJobWidth(""); setJobHeight(""); setQty("1"); setFormTouched(false);
   };
 
+  async function loadPostgresQuote(qId: string) {
+                          const [response, catalogResponse] = await Promise.all([
+                            fetch(`/api/accounting/quotes?number=${encodeURIComponent(qId)}`,{cache:'no-store'}),
+                            fetch('/api/accounting/orders',{cache:'no-store'})]);
+                          const quote = await response.json(); const fresh = await catalogResponse.json();
+                          if (!response.ok || !catalogResponse.ok) throw new Error(quote.error || fresh.error || 'Quote unavailable.');
+                          const items = quoteCart(quote as ScreenQuote,fresh);
+                          setCatalog(fresh); setCart(items); setCustomerId(quote.customer_id || undefined);
+                          setMeta(previous=>({...previous,clientName:quote.client_name,contact:fresh.customers.find((c:{id:string})=>c.id===quote.customer_id)?.contact||'',initialPayment:'0'}));
+                          setPaidBy(''); setLoadedQuote({id:quote.estimate_id,number:quote.quote_number,changed:orderTotal(items.map(i=>cartOrderItem(i,fresh)))!==quote.total_kobo});
+                          toast.success('Quote loaded. Review the order and payment before saving.');
+  }
+  const handoffLoading = useRef(false);
+
   // ── Load from Estimator Handoff ──────────────────────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem("estimatorCart");
-    if (saved && materials.length > 0) {
+    if (saved && materials.length > 0 && backendReady) {
       try {
         const data = JSON.parse(saved);
+        if ((data.backend && data.backend !== (postgres?'postgres':'sheets')) || (!data.backend && postgres)) throw new Error('This older estimate needs review. Load a saved PostgreSQL quote or re-enter its items; the original draft is preserved.');
+        if (data.quoteNumber) {
+          if (!handoffLoading.current) {
+            handoffLoading.current = true;
+            void loadPostgresQuote(data.quoteNumber).then(()=>{setQuoteInput(data.quoteNumber);localStorage.removeItem('estimatorCart');})
+              .catch(error=>toast.error(error.message)).finally(()=>{handoffLoading.current=false;});
+          }
+          return;
+        }
         if (data.clientName) setMetaField("clientName", data.clientName);
         if (data.items && Array.isArray(data.items)) {
           const newCartItems = data.items.map((it: any) => {
             const material = materials.find(m => m["Material ID"] === it.materialId);
-            if (!material) return null;
+            if (!material) throw new Error("A quoted material is unavailable. No items were dropped.");
             const wFt = it.dimUnit === "in" ? (parseFloat(it.width) || 0) / 12 : (parseFloat(it.width) || 0);
             const hFt = it.dimUnit === "in" ? (parseFloat(it.height) || 0) / 12 : (parseFloat(it.height) || 0);
-            const qty = parseInt(it.qty) || 1;
+            if (!/^[1-9][0-9]{0,4}$/.test(String(it.qty)) || Number(it.qty)>10000 || wFt<=0 || hFt<=0) throw new Error('Estimate dimensions or quantity need review.');
+            const qty = Number(it.qty);
             const costPerSqft = parseNum(material["Selling Price"]);
             const unitSqft = wFt * hFt;
             const rollWidth = parseNum(material["Width (ft)"]);
             const fitsNormal = wFt <= rollWidth;
             const fitsFlipped = hFt <= rollWidth;
-            const isFlipped = !fitsNormal && fitsFlipped;
-            const jobLengthFt = (isFlipped ? wFt : hFt) * qty;
+            if (!fitsNormal && !fitsFlipped) throw new Error('An estimate item does not fit its roll.');
+            const normal = fitsNormal ? Math.ceil(qty/Math.floor(rollWidth/wFt))*hFt : Infinity;
+            const rotated = fitsFlipped ? Math.ceil(qty/Math.floor(rollWidth/hFt))*wFt : Infinity;
+            const isFlipped = rotated < normal;
+            const jobLengthFt = Math.min(normal,rotated);
             return {
               id: crypto.randomUUID(),
               materialId: it.materialId,
@@ -525,33 +576,34 @@ export function SalesEntry() {
               fromInventory: true,
               isFlipped,
             };
-          }).filter(Boolean);
+          }).map((row:CartItem)=>{const item=cartOrderItem(row,catalog);const exact=Number(orderItemTotal(item))/100;return {...row,orderItem:postgres?item:undefined,totalAmount:exact,unitCost:exact/row.qty};});
           if (newCartItems.length > 0) {
             setCart(prev => [...prev, ...newCartItems]);
             toast.success("Loaded estimate from Calculator!");
           }
         }
-      } catch { /* ignore */ }
-      localStorage.removeItem("estimatorCart");
+        localStorage.removeItem("estimatorCart");
+      } catch (error) { toast.error(error instanceof Error ? error.message : "Estimate needs review."); }
     }
-  }, [materials]);
+  }, [materials,backendReady,postgres]);
 
   // ── Totals ───────────────────────────────────────────────────────────────
-  const grandTotal = useMemo(() => cart.reduce((s, i) => s + i.totalAmount, 0), [cart]);
+  const grandTotal = useMemo(() => postgres ? Number(orderTotal(cart.map(i=>cartOrderItem(i,catalog))))/100 : cart.reduce((s, i) => s + i.totalAmount, 0), [cart, postgres, catalog]);
   const initialPaymentNum = parseFloat(meta.initialPayment) || 0;
   const balance = grandTotal - initialPaymentNum;
   const paymentStatus = useMemo(() => {
-    if (grandTotal === 0) return "Unpaid";
+    if (grandTotal === 0) return cart.length ? "Free" : "Unpaid";
     if (balance <= 0) return "Paid";
     if (balance < grandTotal) return "Part-payment";
     return "Unpaid";
-  }, [grandTotal, balance]);
+  }, [grandTotal, balance, cart.length]);
 
   // ── AI / NL state ────────────────────────────────────────────────────────
   const [nlText, setNlText] = useState("");
   const [nlParsing, setNlParsing] = useState(false);
 
   const handleNlSubmit = async () => {
+    if (loadedQuote) { toast.error('Start a new order before changing quoted items.'); return; }
     if (!nlText.trim()) return;
     setNlParsing(true);
     try {
@@ -563,7 +615,7 @@ export function SalesEntry() {
       const json = await res.json();
       if (res.ok && json.data) {
         const d = json.data;
-        if (d["CLIENT NAME"]) setMetaField("clientName", d["CLIENT NAME"]);
+        if (d["CLIENT NAME"]) { setMetaField("clientName", d["CLIENT NAME"]); setCustomerId(undefined); }
         if (d["CONTACT"]) setMetaField("contact", d["CONTACT"]);
         if (d["INITIAL PAYMENT (₦)"]) setMetaField("initialPayment", String(d["INITIAL PAYMENT (₦)"]));
         if (d["JOB DESCRIPTION"]) setJobDesc(d["JOB DESCRIPTION"]);
@@ -601,16 +653,36 @@ export function SalesEntry() {
     if (!meta.clientName.trim()) { toast.error("Client name is required"); return; }
     // Safety net: blur normally handles this, but nothing should reach the
     // sheet under a spelling that splits an existing customer's history.
-    const canonicalClient = canonicalClientName(meta.clientName, allClientNames);
+    const canonicalClient = postgres ? meta.clientName.trim() : canonicalClientName(meta.clientName, allClientNames);
     if (canonicalClient !== meta.clientName) setMetaField("clientName", canonicalClient);
     if (cart.length === 0) { toast.error("Add at least one job to the order"); return; }
     if (initialPaymentNum > 0 && !paidBy) { toast.error("Choose how the customer paid: Cash, Transfer or POS"); return; }
+    const paid = nairaToKobo(meta.initialPayment || '0');
+    if (paid === null || BigInt(paid) > BigInt(orderTotal(cart.map(i=>cartOrderItem(i,catalog))))) { toast.error('Enter a valid payment no greater than the order total.'); return; }
     setShowConfirm(true);
   };
 
   const handleSave = async () => {
-    if (saving) return;
-    setSaving(true);
+    if (savingRef.current) return;
+    savingRef.current = true; setSaving(true);
+    try {
+      const context = await paymentContext();
+      if (context.backend === 'postgres') {
+        const items = cart.map(i=>cartOrderItem(i,catalog));
+        const paid = nairaToKobo(meta.initialPayment || '0');
+        if (paid === null) throw new Error('Enter the initial payment to the nearest kobo.');
+        await saveScreenOrder({operation:'sale',businessDate:meta.date,clientName:meta.clientName.trim(),contact:meta.contact,
+          ...(customerId ? {customerId} : {}), ...(loadedQuote ? {quoteId:loadedQuote.id} : {}), jobStatus:meta.jobStatus,
+          initialPaymentKobo:paid,...(paid!=='0'&&paidBy ? {paymentMethod:paidBy} : {}),totalKobo:orderTotal(items),items});
+        toast.success('Order saved on this device. Its reference appears after confirmation.');
+        setShowConfirm(false);setCart([]);setLoadedQuote(null);setCustomerId(undefined);setPaidBy('');
+        setMeta({date:lagosBusinessDate(),clientName:'',contact:'',jobStatus:JOB_STATUSES[0],initialPayment:'0'});
+        return;
+      }
+      if (cart.some(i=>i.orderItem?.kind==='service') || loadedQuote) throw new Error('This order belongs to PostgreSQL. Reconnect before saving.');
+    } catch(error) { toast.error(error instanceof Error ? error.message : 'Order could not be saved.'); return; }
+    finally { savingRef.current=false;setSaving(false); }
+    savingRef.current=true;setSaving(true);
     const loggedBy = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown" : "Unknown";
     let remainingPayment = initialPaymentNum;
 
@@ -676,14 +748,14 @@ export function SalesEntry() {
 
       toast.success("Order saved locally — syncing to Google Sheets…");
       setShowConfirm(false);
-      setMeta({ date: new Date().toISOString().split("T")[0], clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
+      setMeta({ date: lagosBusinessDate(), clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
       setPaidBy("");
       setCart([]); setSelectedMaterialId(""); setJobDesc(""); setJobWidth("");
       setJobHeight(""); setQty("1"); setCostOverride(""); setNlText(""); setFormTouched(false);
     } catch {
       toast.error("Failed to save locally");
     } finally {
-      setSaving(false);
+      savingRef.current=false;setSaving(false);
     }
   };
 
@@ -765,16 +837,17 @@ export function SalesEntry() {
                   <TextField
                     fullWidth
                     placeholder="Sarah Jones"
+                    disabled={!!loadedQuote}
                     value={meta.clientName}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => {
                       // Correct to the spelling already on file. Runs on tap-away,
                       // so it does not depend on a keyboard. Suggestion taps fire
                       // onMouseDown first, so this only ever confirms their choice.
-                      setMetaField("clientName", canonicalClientName(meta.clientName, allClientNames));
+                      if (!postgres) setMetaField("clientName", canonicalClientName(meta.clientName, allClientNames));
                       setTimeout(() => setShowSuggestions(false), 180);
                     }}
-                    onChange={(e) => { setMetaField("clientName", e.target.value); setShowSuggestions(true); }}
+                    onChange={(e) => { setMetaField("clientName", e.target.value); setCustomerId(undefined); setLoadedQuote(null); setShowSuggestions(true); }}
                   />
                   {showSuggestions && filteredClients.length > 0 && (
                     <Paper
@@ -783,12 +856,13 @@ export function SalesEntry() {
                     >
                       {filteredClients.map((c) => (
                         <Box
-                          key={c}
+                          key={c.id || c.label}
                           component="button"
                           type="button"
                           onMouseDown={() => {
-                            setMetaField("clientName", c);
-                            setMetaField("contact", clientContacts[c] || meta.contact);
+                            setMetaField("clientName", c.label);
+                            setCustomerId(c.id);
+                            setMetaField("contact", c.contact || meta.contact);
                             setShowSuggestions(false);
                           }}
                           sx={{
@@ -799,7 +873,7 @@ export function SalesEntry() {
                             "&:hover": { bgcolor: "action.hover" },
                           }}
                         >
-                          {c}
+                          {c.label}{c.contact ? ` · ${c.contact}` : ""}
                         </Box>
                       ))}
                     </Paper>
@@ -823,34 +897,33 @@ export function SalesEntry() {
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <TextField
                     id="quoteInput"
+                    value={quoteInput}
+                    onChange={e=>setQuoteInput(e.target.value)}
                     placeholder="e.g. QT-1234"
                     size="small"
                     sx={{ flex: 1, "& input": { textTransform: "uppercase" } }}
                   />
                   <Button
                     variant="outlined"
+                    disabled={quoteLoading}
                     onClick={async () => {
-                      const input = document.getElementById("quoteInput") as HTMLInputElement;
-                      const qId = input?.value.trim().toUpperCase();
+                      const qId = quoteInput.trim().toUpperCase();
                       if (!qId) return;
-                      const toastId = toast.loading("Loading quote...");
+                      if (cart.length && !window.confirm('Replace the current order items with this quote?')) return;
+                      setQuoteLoading(true);
                       try {
-                        const res = await fetch(`/api/estimates?quoteId=${qId}`);
-                        const json = await res.json();
-                        if (res.ok && json.data) {
-                          const estimate = json.data;
-                          setMetaField("clientName", estimate["CLIENT NAME"]);
-                          let cartData;
-                          try { cartData = JSON.parse(estimate["CART DATA"]); }
-                          catch { throw new Error("Invalid quote data"); }
-                          localStorage.setItem("estimatorCart", JSON.stringify({ clientName: estimate["CLIENT NAME"], items: cartData }));
-                          window.location.reload();
+                        const context = await paymentContext();
+                        if (context.backend === 'postgres') {
+                          await loadPostgresQuote(qId);
                         } else {
-                          toast.error(json.error || "Quote not found", { id: toastId });
+                          const response = await fetch(`/api/estimates?quoteId=${encodeURIComponent(qId)}`);
+                          const result = await response.json();
+                          if (!response.ok || !result.data) throw new Error(result.error || 'Quote not found.');
+                          localStorage.setItem('estimatorCart',JSON.stringify({version:3,backend:'sheets',clientName:result.data['CLIENT NAME'],items:JSON.parse(result.data['CART DATA'])}));
+                          window.location.reload();
                         }
-                      } catch {
-                        toast.error("Failed to load quote", { id: toastId });
-                      }
+                      } catch(e) { toast.error(e instanceof Error ? e.message : 'Quote could not be loaded.'); }
+                      finally { setQuoteLoading(false); }
                     }}
                   >
                     Load
@@ -1089,6 +1162,11 @@ export function SalesEntry() {
             </CardContent>
           </Card>
 
+          {postgres && catalog && !loadedQuote && <ServiceOrderEntry services={catalog.services} onAdd={item=>{setCart(previous=>[...previous,item]);}} />}
+          {loadedQuote && <Alert severity={loadedQuote.changed ? "warning" : "info"}>
+            Quote {loadedQuote.number} loaded. {loadedQuote.changed ? 'Prices have changed. Confirm the current total with the customer before saving.' : 'Review the items before saving.'}
+            <Button onClick={()=>{if(window.confirm('Clear the quoted items and start a new order?')){setCart([]);setLoadedQuote(null);setQuoteInput('');}}}>Start a new order</Button>
+          </Alert>}
           {/* Section 4: Cart */}
           {cart.length > 0 && (
             <Card>
@@ -1104,7 +1182,7 @@ export function SalesEntry() {
 
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 3 }}>
                   {cart.map((item) => (
-                    <CartItemCard key={item.id} item={item} onRemove={(id) => setCart((prev) => prev.filter((i) => i.id !== id))} />
+                    <CartItemCard key={item.id} item={item} onRemove={(id) => { if(loadedQuote){toast.error('Start a new order before changing quoted items.');return;} setCart((prev) => prev.filter((i) => i.id !== id)); }} />
                   ))}
                 </Box>
 
@@ -1120,9 +1198,7 @@ export function SalesEntry() {
                       slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
                     />
                   </Box>
-                  {initialPaymentNum > 0 && (
-                    <PaidBy value={paidBy} onChange={setPaidBy} />
-                  )}
+                  <PaidBy value={paidBy} onChange={setPaidBy} required={initialPaymentNum > 0} />
                   <Box>
                     <FieldLabel>Job Status</FieldLabel>
                     <FormControl fullWidth>
@@ -1140,7 +1216,7 @@ export function SalesEntry() {
                   <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "flex-end" }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>
                       Balance Due ·{" "}
-                      <Box component="span" sx={{ color: paymentStatus === "Paid" ? "success.main" : "error.main" }}>
+                      <Box component="span" sx={{ color: balance <= 0 ? "success.main" : "error.main" }}>
                         {paymentStatus.toUpperCase()}
                       </Box>
                     </Typography>
@@ -1255,7 +1331,7 @@ export function SalesEntry() {
         <DialogTitle sx={{ bgcolor: "primary.main", color: "primary.contrastText", pb: 1 }}>
           <Typography component="span" variant="h6" sx={{ fontWeight: 800, color: "inherit", display: "block" }}>Confirm Order</Typography>
           <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)", display: "block" }}>
-            Review before pushing to Google Sheets
+            Review items and payment before saving
           </Typography>
         </DialogTitle>
 
@@ -1283,7 +1359,7 @@ export function SalesEntry() {
                       {i + 1}. {item.jobDescription}
                     </Typography>
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      {item.rollLabel} · {item.qty}× {item.jobWidth}{item.dimUnit}×{item.jobHeight}{item.dimUnit}
+                      {item.orderItem?.kind === "service" ? `${item.rollLabel} · ${item.qty} service(s)` : `${item.rollLabel} · ${item.qty}× ${item.jobWidth}${item.dimUnit}×${item.jobHeight}${item.dimUnit}`}
                     </Typography>
                   </Box>
                   <Typography variant="body2" sx={{ fontWeight: 800, flexShrink: 0 }}>{fmtCurrency(item.totalAmount)}</Typography>
@@ -1296,7 +1372,7 @@ export function SalesEntry() {
               {[
                 { label: "Grand Total", val: fmtCurrency(grandTotal) },
                 { label: "Initial Payment", val: fmtCurrency(initialPaymentNum), green: true },
-                ...(initialPaymentNum > 0 ? [{ label: "Paid by", val: paidBy === "pos" ? "POS" : paidBy ? paidBy[0].toUpperCase() + paidBy.slice(1) : "—" }] : []),
+                ...(initialPaymentNum > 0 ? [{ label: "Payment method", val: paidBy === "pos" ? "POS" : paidBy ? paidBy[0].toUpperCase() + paidBy.slice(1) : "—" }] : []),
                 { label: "Balance Due", val: fmtCurrency(Math.max(0, balance)), red: balance > 0 },
               ].map(({ label, val, green, red }) => (
                 <Box key={label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1309,7 +1385,7 @@ export function SalesEntry() {
             <Paper variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, bgcolor: "rgba(200,71,46,0.04)", borderColor: "primary.light" }}>
               <Info size={16} color="#C8472E" style={{ flexShrink: 0 }} />
               <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700 }}>
-                Roll stock will be decremented automatically when this syncs.
+                Print items deduct roll stock once when confirmed. Services use no rolls.
               </Typography>
             </Paper>
           </Box>

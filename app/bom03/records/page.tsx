@@ -139,7 +139,8 @@ export default function RecordsPage() {
     fetchData();
     const handleOnline = () => { console.log("Back online, refreshing records..."); fetchData(); };
     window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
+    window.addEventListener("bomedia-data-changed", handleOnline);
+    return () => { window.removeEventListener("online", handleOnline); window.removeEventListener("bomedia-data-changed", handleOnline); };
   }, []);
 
   useEffect(() => {
@@ -255,7 +256,7 @@ export default function RecordsPage() {
     // Sorting by debt turns the list into a debtors view, so settled and
     // overpaid rows drop out rather than sorting to the bottom. Expenses
     // carry no balance, so they drop out too.
-    if (sortBy === "debt" && !(r.type === "Sale" && hasOutstandingDebt(r.balance))) return false;
+    if (sortBy === "debt" && !(r.type === "Sale" && hasOutstandingDebt(r.balance, !!r.raw?._jobId))) return false;
     if (activeTab === "Sales") return matchesSearch && r.type === "Sale";
     if (activeTab === "Expenses") return matchesSearch && r.type === "Expense";
     if (activeTab === "Pending") return matchesSearch && r.isPending;
@@ -347,7 +348,7 @@ export default function RecordsPage() {
   ];
 
   return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 14, md: 4 }, minHeight: "100vh", bgcolor: "background.default"}}>
+    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, minHeight: "100vh", bgcolor: "background.default"}}>
 
       {/* Header */}
       <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, alignItems: { md: "center" }, justifyContent: { md: "space-between" }, gap: 2, mb: 4 }}>
@@ -560,8 +561,8 @@ export default function RecordsPage() {
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>{r.client}</TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.description}</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: r.type === "Sale" ? describeBalance(r.balance).color : "text.disabled", textAlign: "right", fontFamily: "monospace" }}>
-                          {r.type === "Sale" ? describeBalance(r.balance).label : "—"}
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: r.type === "Sale" ? describeBalance(r.balance, false, !!r.raw?._jobId).color : "text.disabled", textAlign: "right", fontFamily: "monospace" }}>
+                          {r.type === "Sale" ? describeBalance(r.balance, false, !!r.raw?._jobId).label : "—"}
                         </TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={r.status} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{r.loggedBy}</TableCell>
@@ -620,7 +621,7 @@ export default function RecordsPage() {
                         </TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>{unit.items.length} Batched Items</TableCell>
                         <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: describeBalance(totalBal).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(totalBal).label}</TableCell>
+                        <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, color: describeBalance(totalBal, false, !!firstItem.raw?._jobId).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(totalBal, false, !!firstItem.raw?._jobId).label}</TableCell>
                         <TableCell sx={{ textAlign: "center" }}><StatusBadge status={groupStatus(unit.items)} /></TableCell>
                         <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>Multiple</TableCell>
                         <TableCell sx={{ textAlign: "center" }}>—</TableCell>
@@ -640,7 +641,7 @@ export default function RecordsPage() {
                           <TableCell sx={{ fontSize: "0.75rem", color: "text.disabled" }}>—</TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary" }}>{item.description || "No description"}</TableCell>
                           <TableCell sx={{ fontSize: "0.875rem", fontWeight: 800, textAlign: "right", fontFamily: "monospace" }}>₦{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(item.balance, true).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(item.balance, true).label}</TableCell>
+                          <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700, color: describeBalance(item.balance, true, !!item.raw?._jobId).color, textAlign: "right", fontFamily: "monospace" }}>{describeBalance(item.balance, true, !!item.raw?._jobId).label}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}><StatusBadge status={item.status} /></TableCell>
                           <TableCell sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{item.loggedBy}</TableCell>
                           <TableCell sx={{ textAlign: "center" }}>

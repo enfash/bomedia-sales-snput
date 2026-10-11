@@ -191,8 +191,8 @@ export function RecordCard({
           <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", color: "text.secondary", display: "block", lineHeight: 1, mb: 0.5, letterSpacing: 1 }}>
             Difference
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 900, color: record?.type === "Sale" ? describeBalance(record.balance).color : "text.disabled", lineHeight: 1, fontFamily: "monospace" }}>
-            {record?.type === "Sale" ? describeBalance(record.balance).label : "—"}
+          <Typography variant="body2" sx={{ fontWeight: 900, color: record?.type === "Sale" ? describeBalance(record.balance, false, !!record.raw?._jobId).color : "text.disabled", lineHeight: 1, fontFamily: "monospace" }}>
+            {record?.type === "Sale" ? describeBalance(record.balance, false, !!record.raw?._jobId).label : "—"}
           </Typography>
         </Box>
       </Stack>
