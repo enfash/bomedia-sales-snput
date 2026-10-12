@@ -335,3 +335,8 @@ Verified against the real sandbox before committing Materials. Two collisions we
 - Shared page for both roles; cards, order list, floating total (phone) and review sheet on the theme; Print/Service chips; "Why?" box for approvals now lives in the review sheet. Business logic untouched. `approval-reason-sheet.tsx` removed.
 - Checked in the sandbox as the owner: picked a material, entered a size, added it to the order, reviewed and saved (sale recorded, stock 326 to 324 ft); with the rules faked as non-owner the review sheet showed the date and price changes and a required reason, and Send for approval stayed disabled until a reason was typed. Desktop and dark mode looked right. `npm test` 93 files / 663 passed, tsc clean.
 - A test sale "Layout Test" (6 x 2 ft Flex) now exists in the sandbox.
+
+## Customer profiles (12 Oct, uncommitted)
+- Migration `202610120038_customer_profiles.sql` applied to the sandbox with `npm run sandbox:setup`: customer IDs (CUS-0001...), change history, list/profile/save functions. 12 sandbox customers got IDs. Registered in `financial-db.ts`, `provision-auth.mjs`, `verify-financial.mjs`. Backup test now expects 44 tables, schema version 40 migrations.
+- Checked in the sandbox: list, tiles, search chips, profile sheet, edit as the owner (notes saved, history shows owner, time and old to new), edit as the test cashier through the API (phone and notes saved under her name, a rename refused with a plain message), desktop width.
+- Sandbox data now has a note on Adeola Stores (CUS-0001) and a phone and note on "new user" (CUS-0003).

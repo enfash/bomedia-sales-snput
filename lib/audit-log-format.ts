@@ -40,6 +40,10 @@ const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   material_renamed: (e) => `renamed the material ${asText(e.details.from) || 'a material'} to ${asText(e.details.to) || 'a new name'}`,
   material_added: (e) => `added the material ${asText(e.details.name) || ''}${koboLabel(e.details.to) ? ` at ${koboLabel(e.details.to)} per sq ft` : ''}`.trim(),
   material_size_added: (e) => `added the size ${asText(e.details.name) || 'a size'}`,
+  customer_updated: (e) => {
+    const names = (Array.isArray(e.details.fields) ? e.details.fields : []).map((f) => (f === 'contact' ? 'phone number' : f === 'notes' ? 'notes' : f === 'name' ? 'name' : '')).filter(Boolean);
+    return `changed the ${names.length ? names.join(' and ') : 'details'} of ${asText(e.details.name) || 'a customer'}${asText(e.details.customer) ? ` (${asText(e.details.customer)})` : ''}`;
+  },
   approval_requested: (e) => `asked for approval of a sale (${approvalWhy(e.details.kinds)})`,
   approval_approved: (e) => `approved a sale (${approvalWhy(e.details.kinds)})`,
   approval_declined: (e) => `declined a sale (${approvalWhy(e.details.kinds)})`,

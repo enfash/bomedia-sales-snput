@@ -20,7 +20,7 @@ Owner: Elijah (BOMedia, Lagos large-format printing). Project: Next.js 16 App Ro
 - Logic never lives in a page file: the Records and Job board logic is in `lib/records-view.ts` and `lib/job-board.ts` with tests that pin today's behaviour. Move logic first, with tests, then rebuild the view.
 - A production build is checked in an env-free copy of the project (rsync without `.env*`, `cp -Rc node_modules`) so it never reads secrets or overwrites the running preview's `.next`.
 - Lagos has no daylight saving; "today" means the Lagos date.
-- Migrations are append-only; never edit one that has been applied. Next number is `202610120038` (037 is the owner approvals migration, applied only to PGlite tests so far, not yet to the sandbox database). Adding a migration also means updating `lib/schema-version.ts` (a test fails until it matches the folder).
+- Migrations are append-only; never edit one that has been applied. Next number is `202610120039` (037 owner approvals and 038 customer profiles are applied to the sandbox). Adding a migration also means updating `lib/schema-version.ts` (a test fails until it matches the folder).
 
 ## What exists (Settings area, owner only)
 Applied to the sandbox through migration 036 (no new migration for the Inventory redesign) and passing `npm test` (see the handoff for the latest count):
@@ -54,6 +54,12 @@ The owner wants to hold anything unusual until he approves it. Plan the owner ap
 
 ## Notification drawer links (12 Oct, uncommitted)
 Each update in the drawer is tappable: a sale opens Records with its details (`?open=<sales reference>`, read in `records-page.tsx`, shown even if the page filters would hide it, and cleared on close); a sale with no reference or an owner's expense opens Records with a search (`?q=`); a cashier's expense opens the Expenses page. A stock alert is tappable and goes to Inventory. The "Restock Roll" button (a fixed 164 ft) was removed from the drawer. Records pages are wrapped in `Suspense` for `useSearchParams`.
+
+## Customers (12 Oct, uncommitted)
+- Migration 038: every customer has a readable ID (`CUS-0001`, `bomedia.customers.reference`, filled by a trigger and backfilled), a `customer_changes` history table, and `api_customers`, `api_customer_profile`, `api_customer_save` (staff may edit phone and notes; only the owner may rename, `by_owner` set by the server as with approvals). Every real change is kept on the profile and in the audit log (`customer_updated`, shown under Sales and payments).
+- API: `GET /api/accounting/customers` (list), `GET/POST /api/accounting/customer-profile` (`?id=`; POST saves). Service `lib/server/customers.ts`, routes `customers-routes.ts`, tests in `supabase/tests/customer-profiles.test.ts` and `lib/server/customers-routes.test.ts`.
+- Screens: one page for both roles (`components/customers/customers-page.tsx`, profile and edit sheets in `customer-profile-sheet.tsx`, helpers `lib/customers-view.ts`). When the app is still sheet-backed it falls back to grouping sales rows by name and opens the old `customer-timeline-modal.tsx` (which still has literal colours; delete it once Sheets is gone). The desktop view is the same list as the phone, not the docked table drawn on the canvas.
+- Not built: a bell alert for staff edits (history plus audit log only), merging duplicate customers, an owner "Customer" link from New Sale suggestions to the profile.
 
 ## Still to do, in this order of preference
 - Item 4: Approved devices (blocked: phones cannot be identified yet; needs a decision between pairing-code devices and admin-screens-only). Opening balances: guided flow, owner decisions needed.

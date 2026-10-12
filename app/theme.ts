@@ -1459,3 +1459,31 @@ export const materialPickerStyles = {
   fill_error: { bgcolor: "error.main" },
   empty: { textAlign: "center", py: 6, color: "text.secondary", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 },
 } as const;
+
+// Customers: the list rows reuse the Records row look; these are the profile sheet's own parts.
+export const customerStyles = {
+  tag: { fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100, whiteSpace: "nowrap" },
+  tagOwes: tonePill("error"),
+  tagPaid: tonePill("success"),
+  ref: { fontFamily: "monospace", fontWeight: 600 },
+  noPhone: { color: toneText("error"), fontWeight: 600 },
+  actions: { display: "flex", gap: 1, flexWrap: "wrap" },
+  actionGrow: { flex: 1, minWidth: 140 },
+  tiles: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  details: { p: 1.5, borderRadius: 2, bgcolor: "action.hover", display: "flex", flexDirection: "column", gap: 0.75 },
+  detailLine: { display: "flex", justifyContent: "space-between", gap: 2 },
+  detailValue: { fontWeight: 600, textAlign: "right", overflowWrap: "anywhere" },
+  line: { display: "flex", justifyContent: "space-between", gap: 1.5, py: 1.25, borderTop: "1px solid", borderColor: "divider" },
+  lineMain: { minWidth: 0, flex: 1 },
+  lineName: { fontWeight: 600, overflowWrap: "anywhere" },
+  lineEnd: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5, flexShrink: 0 },
+  change: { p: 1.75, borderRadius: "16px", border: "1px solid", borderColor: "divider", display: "flex", flexDirection: "column", gap: 1 },
+  changeHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 1 },
+  diff: { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" },
+  diffOld: { ...tonePill("error"), px: 1.25, py: 0.25, borderRadius: 2, textDecoration: "line-through", overflowWrap: "anywhere" },
+  diffNew: { ...tonePill("success"), px: 1.25, py: 0.25, borderRadius: 2, fontWeight: 600, overflowWrap: "anywhere" },
+  diffEmpty: { ...toneNeutralPill, px: 1.25, py: 0.25, borderRadius: 2 },
+  note: { p: 1.5, borderRadius: 2, bgcolor: "action.hover", color: "text.secondary" },
+  formBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
+  formFooter: { p: 2, display: "flex", flexDirection: "column", gap: 1 },
+} as const;

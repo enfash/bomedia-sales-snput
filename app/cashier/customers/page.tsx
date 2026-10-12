@@ -1,7 +1,7 @@
 "use client";
 
-import CustomersPage from "@/components/customers-manager";
+import { CustomersPage } from "@/components/customers/customers-page";
 
-export default function CashierCustomersPage() {
-  return <CustomersPage isAdmin={false} />;
+export default function Page() {
+  return <CustomersPage role="cashier" />;
 }
