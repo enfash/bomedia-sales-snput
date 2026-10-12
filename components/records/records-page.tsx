@@ -5,6 +5,7 @@ import { Alert, Box, Button, ButtonBase, IconButton, Paper, Skeleton, TextField,
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { recordsStyles as styles } from '@/app/theme';
 import { HomeBackLink } from '@/components/back-link';
+import { useFloatingNotice } from '@/components/floating-notice';
 import type { UnifiedRecord } from '@/components/manage-sale-action';
 import { BatchDetailsSheet, RecordDetailsSheet } from '@/components/records/record-details-sheet';
 import { ReceiptModal } from '@/components/receipt-modal';
@@ -181,6 +182,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
   };
 
   const openReceipt = (list: UnifiedRecord[], salesId: string) => setReceipt({ records: list, salesId });
+  useFloatingNotice('records-waiting', waiting > 0 ? { tone: 'warning', text: `${waiting} ${waiting === 1 ? 'entry is' : 'entries are'} waiting to send. ${waiting === 1 ? 'It' : 'They'} will save by themselves when the phone is online.` } : null);
   const searching = search.trim().length > 0;
   const resetAll = () => { setSearch(''); setTab('All'); setSortBy('date'); setSortOrder('desc'); setRange(owner ? 'all' : '30d'); setPage(1); };
 
@@ -205,8 +207,6 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
       {owner && <StatTile label="Expenses" value={naira(summary.expenses)} caption={`${summary.expenseCount} expense${summary.expenseCount === 1 ? '' : 's'}`} />}
       {owner && <StatTile label="Net profit" value={naira(summary.net)} caption="sales less expenses" />}
     </Box>}
-
-    {waiting > 0 && <Alert severity="warning">{waiting} {waiting === 1 ? 'entry is' : 'entries are'} waiting to send. {waiting === 1 ? 'It' : 'They'} will save by themselves when the phone is online.</Alert>}
 
     <Box sx={styles.chips} role="group" aria-label="Period">
       {RANGES[role].map((r) => <Button key={r.id} variant={range === r.id ? 'contained' : 'outlined'} color="primary" sx={styles.chip} aria-pressed={range === r.id} onClick={() => { setRange(r.id); setPage(1); }}>{r.label}</Button>)}

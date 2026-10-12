@@ -1,6 +1,6 @@
 "use client";
 
-import { alpha, createTheme, darken, keyframes, lighten, type Theme } from "@mui/material/styles";
+import { alpha, createTheme, darken, keyframes, lighten, type Components, type Theme } from "@mui/material/styles";
 
 export const dateRangeStyles = {
   periods: {
@@ -610,6 +610,15 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
   const primaryLight = role === "admin" ? (mode === "dark" ? "#8c97ee" : "#4a56b0") : "#fa8b3e";
   const primary50    = role === "admin" ? "#eef0fb" : "#fef0e6"; // Light primary tint background
 
+  const buttonVariants: NonNullable<Components<Theme>["MuiButton"]>["variants"] = [
+          ...(mode === "dark" ? [
+            { props: { variant: "outlined", color: "primary" } as const, style: { color: primaryLight, borderColor: alpha(primaryLight, 0.5) } },
+            { props: { variant: "text", color: "primary" } as const, style: { color: primaryLight } },
+          ] : []),
+          // Neutral outlined buttons: a soft border instead of MUI's near-white one on dark surfaces.
+          { props: { variant: "outlined", color: "inherit" } as const, style: { borderColor: mode === "dark" ? alpha("#f8fafc", 0.2) : alpha("#0F172A", 0.2) } },
+        ];
+
   return createTheme({
     palette: {
       mode,
@@ -685,10 +694,7 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
         defaultProps: { disableElevation: true },
         // Outlined and text buttons draw the brand colour as text and border; the admin indigo is too dark for that on the dark surface.
         // Variants apply before a component's own sx, so any button that sets its own colour or fill still wins.
-        variants: mode === "dark" ? [
-          { props: { variant: "outlined", color: "primary" }, style: { color: primaryLight, borderColor: alpha(primaryLight, 0.5) } },
-          { props: { variant: "text", color: "primary" }, style: { color: primaryLight } },
-        ] : [],
+        variants: buttonVariants,
         styleOverrides: {
           root: {
             borderRadius: "12px",
@@ -1132,4 +1138,170 @@ export const recordsStyles = {
   fullWidth: { minHeight: 48, width: "100%" },
   // The WhatsApp reminder is an existing compact button; stretch it to match the buttons beside it.
   whatsapp: { display: "flex", "& > a": { display: "block", width: "100%" }, "& button": { width: "100%", height: 48, fontSize: "0.875rem" } },
+} as const;
+
+// Job board (components/job-board.tsx). One look per production stage, from palette tones, readable in both modes.
+const stageColor = (tone: "warning" | "info" | "success") => (theme: Theme) => (theme.palette.mode === "dark" ? theme.palette[tone].light : theme.palette[tone].main);
+const stageLook = (color: string | ((theme: Theme) => string), fill: string | ((theme: Theme) => string), text: string | ((theme: Theme) => string)) => ({
+  dot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0, bgcolor: color },
+  dotLarge: { width: 10, height: 10, borderRadius: "50%", flexShrink: 0, bgcolor: color },
+  active: { bgcolor: fill, borderColor: color, color: text, "&:hover": { bgcolor: fill } },
+}) as const;
+export const stageStyles = {
+  Quoted: stageLook("text.secondary", "action.hover", "text.primary"),
+  Printing: stageLook(stageColor("warning"), tint("warning", 0.18), toneText("warning")),
+  Finishing: stageLook(stageColor("info"), tint("info", 0.18), toneText("info")),
+  Ready: stageLook(stageColor("success"), tint("success", 0.18), toneText("success")),
+  Delivered: stageLook(accent, tint("primary", 0.18), accent),
+} as const;
+
+export const boardStyles = {
+  ...recordsStyles,
+  screen: { ...recordsStyles.screen, maxWidth: "none" },
+  stageChips: { display: "flex", gap: 1, overflowX: "auto", pb: 0.5, scrollSnapType: "x proximity" },
+  stageChip: { minHeight: 44, borderRadius: 100, px: 1.75, fontWeight: 700, whiteSpace: "nowrap", gap: 1, flexShrink: 0 },
+  listHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
+  jobList: { display: "flex", flexDirection: "column", gap: 1.5 },
+  jobCard: { display: "flex", gap: 1.5, p: 2, borderRadius: "16px", border: "1px solid", borderColor: "divider", bgcolor: "background.paper", textAlign: "left" },
+  jobCardSelected: { bgcolor: tint("primary", 0.1), outline: "2px solid", outlineColor: accent, outlineOffset: -1 },
+  jobBody: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1.25 },
+  jobClient: { color: "text.secondary" },
+  jobTitle: { fontWeight: 700, lineHeight: 1.3, overflowWrap: "anywhere" },
+  jobMeta: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
+  jobDate: { display: "flex", alignItems: "center", gap: 0.75, color: "text.secondary" },
+  jobDone: { display: "flex", alignItems: "center", gap: 0.5, fontWeight: 700, color: toneText("success") },
+  jobActions: { display: "flex", gap: 1 },
+  moveNext: { flex: 1, minHeight: 44 },
+  moveOther: { width: 44, height: 44, borderRadius: "12px", border: "1px solid", borderColor: "divider" },
+  tick: { width: 28, height: 28, borderRadius: "8px", border: "2px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, mt: 0.25 },
+  tickOn: { bgcolor: "primary.main", borderColor: "primary.main", color: "primary.contrastText" },
+  selectBar: {
+    position: "fixed", left: 0, right: 0, bottom: { xs: 96, md: 0 }, zIndex: 1100, px: 2, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5,
+    bgcolor: "background.paper", borderTop: "1px solid", borderColor: "divider",
+  },
+  selectActions: { display: "flex", gap: 1 },
+  stageChoice: { minHeight: 56, borderRadius: "14px", justifyContent: "flex-start", gap: 1.5, px: 2, fontWeight: 600, fontSize: "1rem", border: "1px solid", borderColor: "divider", textAlign: "left", width: "100%" },
+  stageChoiceCurrent: { minHeight: 56, borderRadius: "14px", display: "flex", alignItems: "center", gap: 1.5, px: 2, fontWeight: 700, border: "1px solid" },
+  stageChoiceTag: { ml: "auto", fontWeight: 700 },
+  columns: { display: "grid", gridTemplateColumns: "repeat(5, minmax(170px, 1fr))", gap: 2, overflowX: "auto", pb: 2, alignItems: "start" },
+  column: { display: "flex", flexDirection: "column", gap: 1.5, p: 1.5, borderRadius: "16px", bgcolor: "action.hover", border: "1px solid", borderColor: "divider", minWidth: 0 },
+  columnOver: { borderStyle: "dashed", borderColor: accent, bgcolor: tint("primary", 0.06) },
+  columnHead: { display: "flex", alignItems: "center", justifyContent: "space-between", px: 0.5, pb: 0.5 },
+  columnTitle: { display: "flex", alignItems: "center", gap: 1, fontWeight: 700 },
+  columnCount: { fontWeight: 700, px: 1, py: 0.25, borderRadius: 100, bgcolor: "background.paper", border: "1px solid", borderColor: "divider" },
+  columnScroll: { display: "flex", flexDirection: "column", gap: 1.25, maxHeight: "calc(100vh - 22rem)", overflowY: "auto", p: 0.5 },
+  deskCard: { cursor: "grab", "&:active": { cursor: "grabbing" }, flexDirection: "column", gap: 1, p: 1.75, position: "relative", overflow: "visible" },
+  dragging: { opacity: 0.5 },
+  tickBadge: { position: "absolute", top: -8, right: -8, width: 22, height: 22, borderRadius: "50%", bgcolor: "primary.main", color: "primary.contrastText", display: "flex", alignItems: "center", justifyContent: "center" },
+  dropHint: { minHeight: 96, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "14px", border: "1px dashed", borderColor: "divider", color: "text.secondary", textAlign: "center", px: 1 },
+  selection: { display: "flex", alignItems: "center", gap: 1.5, minHeight: 44, flexWrap: "wrap" },
+  selectedPill: { fontWeight: 700, px: 1.75, py: 0.75, borderRadius: 100, bgcolor: tint("primary", 0.12), color: accent, border: "1px solid", borderColor: tint("primary", 0.3) },
+} as const;
+
+// A panel that slides in from the right (notifications and the like). On a phone it leaves a strip of the page visible, so a tap there closes it.
+export const sidePanelStyles = {
+  paper: {
+    width: { xs: "calc(100% - 56px)", sm: 420 }, maxWidth: "100%", display: "flex", flexDirection: "column", bgcolor: "background.paper", color: "text.primary",
+    borderLeft: "1px solid", borderColor: "divider", backgroundImage: "none",
+  },
+  header: { display: "flex", alignItems: "flex-start", gap: 1.5, p: 3, pr: 2, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", flexShrink: 0 },
+  headerText: { flex: 1, minWidth: 0 },
+  titleLine: { display: "flex", alignItems: "center", gap: 1, mb: 0.5 },
+  titleIcon: { display: "flex", color: accent },
+  title: { fontWeight: 900, letterSpacing: "-0.02em", color: "text.primary" },
+  subtitle: { fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.secondary" },
+  closeButton: { width: 44, height: 44, flexShrink: 0, color: "text.secondary", border: "1px solid", borderColor: "divider", borderRadius: "12px" },
+  body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+} as const;
+
+// Notifications (components/activity-feed.tsx): recent updates and system alerts.
+const monoTag = { px: 1, py: 0.5, borderRadius: "6px", fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", fontFamily: "monospace" } as const;
+const sectionPill = { display: "inline-flex", alignItems: "center", gap: 0.75, fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", px: 1.5, py: 0.5, borderRadius: 100, mb: 1.5 } as const;
+const stockLook = (tone: "error" | "warning") => ({
+  card: { p: 2, borderRadius: "16px", border: "1px solid", borderColor: tint(tone, 0.3), bgcolor: tint(tone, 0.04) },
+  dot: { width: 8, height: 8, borderRadius: "50%", bgcolor: `${tone}.main`, ...(tone === "error" && { animation: "ping 1s infinite" }) },
+  tag: { mt: 1.5, display: "inline-block", px: 1, py: 0.25, borderRadius: "6px", fontSize: "0.55rem", fontWeight: 900, textTransform: "uppercase", ...tonePill(tone) },
+  button: {
+    flexShrink: 0, height: 32, px: 1.5, borderRadius: "8px", fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em",
+    borderColor: tint(tone, 0.4), color: toneText(tone), "&:hover": { bgcolor: `${tone}.main`, color: `${tone}.contrastText`, borderColor: "transparent" },
+  },
+}) as const;
+export const activityStyles = {
+  bell: {
+    position: "relative", width: 40, height: 40, borderRadius: "50%", color: "text.secondary",
+    "&:hover": { color: accent, bgcolor: tint("primary", 0.1) }, transition: "background-color 0.2s, color 0.2s, transform 0.2s", "&:active": { transform: "scale(0.97)" },
+  },
+  bellDot: { position: "absolute", top: 8, right: 8, width: 10, height: 10, borderRadius: "50%", bgcolor: "error.main", border: "2px solid", borderColor: "background.paper", animation: "bounce 1s infinite" },
+  tabsWrap: { px: 2, pt: 2, flexShrink: 0 },
+  tabs: {
+    bgcolor: "grey.100", borderRadius: "16px", p: 0.5, minHeight: 0, "& .MuiTabs-indicator": { display: "none" },
+    "& .MuiTab-root": {
+      minHeight: 36, borderRadius: "12px", fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary",
+      "&.Mui-selected": { bgcolor: "background.paper", color: "text.primary", boxShadow: softShadow(0.1) },
+    },
+  },
+  tabLabel: { display: "flex", alignItems: "center", gap: 0.5 },
+  countChip: { height: 16, fontSize: "0.55rem", fontWeight: 900, "& .MuiChip-label": { px: 0.75 } },
+  countCritical: { bgcolor: "error.main", color: "error.contrastText", animation: "pulse 2s infinite" },
+  countWarning: { bgcolor: "warning.main", color: "warning.contrastText" },
+  scroll: { flex: 1, overflowY: "auto", p: 2 },
+  empty: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", p: 4, mt: 6 },
+  emptyIcon: { width: 64, height: 64, borderRadius: "50%", bgcolor: "action.hover", color: "text.disabled", display: "flex", alignItems: "center", justifyContent: "center", mb: 2 },
+  emptyIconOk: { bgcolor: tint("success", 0.1), color: "success.main" },
+  emptyTitle: { fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", color: "text.primary" },
+  emptyText: { color: "text.secondary", mt: 1, fontWeight: 500 },
+  day: { mb: 3 },
+  dayHead: { display: "flex", alignItems: "center", gap: 1, position: "sticky", top: 0, zIndex: 10, bgcolor: "background.paper", py: 0.5 },
+  dayRule: { flex: 1, height: 1, bgcolor: "divider" },
+  dayLabel: { fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.6rem" },
+  list: { display: "flex", flexDirection: "column", gap: 1.5, mt: 1 },
+  item: { display: "flex", gap: 2, p: 2, borderRadius: "16px", border: "1px solid", borderColor: "divider", bgcolor: "background.paper", transition: "box-shadow 0.2s", "&:hover": { boxShadow: softShadow(0.08) } },
+  itemIcon: { width: 48, height: 48, borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  itemIconSale: { bgcolor: tint("success", 0.1), color: toneText("success") },
+  itemIconExpense: { bgcolor: tint("warning", 0.1), color: toneText("warning") },
+  itemBody: { flex: 1, minWidth: 0 },
+  itemTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
+  metaLabel: { fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", fontSize: "0.6rem" },
+  userPill: { display: "flex", alignItems: "center", gap: 0.5, bgcolor: tint("primary", 0.06), color: accent, px: 1, py: 0.25, borderRadius: 100 },
+  userName: { fontWeight: 700, fontSize: "0.6rem", color: "inherit" },
+  itemTitle: { fontWeight: 900, fontSize: "0.875rem", mt: 0.5, lineHeight: 1.3, letterSpacing: "-0.01em", color: "text.primary" },
+  itemNote: { color: "text.secondary", mt: 0.5, display: "block", fontStyle: "italic", fontWeight: 500 },
+  tags: { display: "flex", alignItems: "center", gap: 1, mt: 1.5 },
+  tagOk: { ...monoTag, ...tonePill("success") },
+  tagWarn: { ...monoTag, ...tonePill("warning") },
+  sections: { display: "flex", flexDirection: "column", gap: 3 },
+  pillWarn: { ...sectionPill, ...tonePill("warning") },
+  pillError: { ...sectionPill, ...tonePill("error") },
+  stack1: { display: "flex", flexDirection: "column", gap: 1 },
+  stack15: { display: "flex", flexDirection: "column", gap: 1.5 },
+  pendingRow: { display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.75, borderRadius: "16px", border: "1px solid", borderColor: tint("warning", 0.3), bgcolor: tint("warning", 0.04) },
+  pendingTitle: { fontSize: "0.75rem", fontWeight: 700, color: "text.primary" },
+  pendingTime: { fontSize: "0.55rem", fontFamily: "monospace", color: "text.disabled", mt: 0.25 },
+  pendingBadge: { ...tonePill("warning"), fontSize: "0.55rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", px: 1, py: 0.25, borderRadius: 100, animation: "pulse 2s infinite" },
+  stockRow: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1.5 },
+  stockName: { display: "flex", alignItems: "center", gap: 1 },
+  stockTitle: { fontSize: "0.75rem", fontWeight: 900, color: "text.primary" },
+  stockDesc: { fontSize: "0.7rem", color: "text.secondary", fontWeight: 500, mt: 0.5, lineHeight: 1.5 },
+  stock: { critical: stockLook("error"), low: stockLook("warning") },
+} as const;
+
+// The floating "entries failed to sync" card (components/sync-manager.tsx). It sits above the bottom nav on a phone.
+export const syncFailureStyles = {
+  card: {
+    position: "fixed", bottom: { xs: 104, md: 16 }, left: { xs: 12, md: "auto" }, right: { xs: 12, md: 16 }, width: { md: 380 }, zIndex: 1400,
+    borderRadius: "16px", bgcolor: "error.main", color: "error.contrastText", p: 2, boxShadow: (theme: Theme) => `0 20px 40px ${alpha(theme.palette.error.main, 0.3)}`,
+  },
+  row: { display: "flex", alignItems: "flex-start", gap: 1.5 },
+  icon: { mt: 0.25, flexShrink: 0, opacity: 0.9, display: "flex" },
+  body: { flex: 1, minWidth: 0 },
+  title: { fontWeight: 900, lineHeight: 1.3, color: "inherit" },
+  errors: { mt: 1, maxHeight: 80, overflowY: "auto" },
+  error: { color: whiteTint(0.9), display: "block", mb: 0.5, lineHeight: 1.2 },
+  errorLabel: { opacity: 0.8 },
+  note: { color: whiteTint(0.7), display: "block", mt: 1, fontStyle: "italic" },
+  retry: {
+    mt: 1.5, height: 32, px: 2, borderRadius: "12px", bgcolor: "common.white", color: "error.main", fontWeight: 900, fontSize: "0.6875rem", textTransform: "uppercase",
+    letterSpacing: 1, "&:hover": { bgcolor: whiteTint(0.9) },
+  },
+  dismiss: { color: "common.white", flexShrink: 0, "&:hover": { bgcolor: whiteTint(0.2) } },
 } as const;

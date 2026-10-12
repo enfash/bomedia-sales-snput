@@ -7,6 +7,7 @@ import { ExpenseSync } from './expense-sync';
 import { OrderSync } from './order-sync';
 import { paymentContext, legacyQueueHold } from '@/lib/payment-outbox';
 import { toast } from "sonner";
+import { syncFailureStyles as styles } from "@/app/theme";
 import { CloudOff, RefreshCw, X } from "lucide-react";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -332,72 +333,27 @@ export function SyncManager() {
   if (exhaustedItems.length > 0 && !bannerDismissed) {
     return (<>
       <PaymentSync /><OrderSync /><ExpenseSync />
-      <Box
-        role="alert"
-        sx={{
-          position: "fixed",
-          bottom: { xs: 72 + 24 + 8, md: 16 },
-          left: { xs: 12, md: "auto" },
-          right: { xs: 12, md: 16 },
-          width: { md: 380 },
-          zIndex: 1400,
-          borderRadius: 4,
-          bgcolor: "#dc2626",
-          color: "#fff",
-          p: 2,
-          boxShadow: "0 20px 40px rgba(220,38,38,0.3)",
-        }}
-      >
-        <Stack direction="row" sx={{ alignItems: "flex-start", gap: 1.5 }}>
-          <Box sx={{ mt: 0.25, flexShrink: 0, opacity: 0.9 }}>
-            <CloudOff size={20} />
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="body2" sx={{ fontWeight: 900, lineHeight: 1.3, color: "inherit" }}>
+      <Box role="alert" sx={styles.card}>
+        <Box sx={styles.row}>
+          <Box sx={styles.icon}><CloudOff size={20} /></Box>
+          <Box sx={styles.body}>
+            <Typography variant="body2" sx={styles.title}>
               {exhaustedItems.length} entr{exhaustedItems.length === 1 ? "y" : "ies"} failed to sync
             </Typography>
-            
-            <Box sx={{ mt: 1, maxHeight: '80px', overflowY: 'auto' }}>
+
+            <Box sx={styles.errors}>
               {exhaustedItems.map((item, idx) => (
-                <Typography key={item.id} variant="caption" sx={{ color: "rgba(255,255,255,0.9)", display: "block", mb: 0.5, lineHeight: 1.2 }}>
-                  <strong style={{ opacity: 0.8 }}>Item {idx + 1}:</strong> {item.lastError || "Network error or unavailable"}
+                <Typography key={item.id} variant="caption" sx={styles.error}>
+                  <Box component="strong" sx={styles.errorLabel}>Item {idx + 1}:</Box> {item.lastError || "Network error or unavailable"}
                 </Typography>
               ))}
             </Box>
 
-            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)", display: "block", mt: 1, fontStyle: 'italic' }}>
-              These records are saved locally.
-            </Typography>
-            <Button
-              size="small"
-              onClick={handleForceRetry}
-              startIcon={<RefreshCw size={12} />}
-              sx={{
-                mt: 1.5,
-                height: 32,
-                px: 2,
-                borderRadius: 3,
-                bgcolor: "#fff",
-                color: "#dc2626",
-                fontWeight: 900,
-                fontSize: "0.6875rem",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                "&:hover": { bgcolor: "rgba(255,255,255,0.9)" },
-              }}
-            >
-              Tap to Retry
-            </Button>
+            <Typography variant="caption" sx={styles.note}>These records are saved locally.</Typography>
+            <Button size="small" onClick={handleForceRetry} startIcon={<RefreshCw size={12} />} sx={styles.retry}>Tap to Retry</Button>
           </Box>
-          <IconButton
-            onClick={() => setBannerDismissed(true)}
-            aria-label="Dismiss"
-            size="small"
-            sx={{ color: "#fff", flexShrink: 0, "&:hover": { bgcolor: "rgba(255,255,255,0.2)" } }}
-          >
-            <X size={16} />
-          </IconButton>
-        </Stack>
+          <IconButton onClick={() => setBannerDismissed(true)} aria-label="Dismiss" size="small" sx={styles.dismiss}><X size={16} /></IconButton>
+        </Box>
       </Box>
     </>);
   }

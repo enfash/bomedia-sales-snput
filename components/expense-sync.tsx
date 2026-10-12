@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { Alert, Button, Stack } from '@mui/material';
+import { useFloatingNotice } from '@/components/floating-notice';
 import { usePathname, useRouter } from 'next/navigation';
 import { deliverExpense, readExpenses, EXPENSE_EVENT, EXPENSE_PREFIX, EXPENSE_RECEIPT } from '@/lib/expense-outbox';
 import { useSyncStore } from '@/lib/store';
 import { paymentContext } from '@/lib/payment-outbox';
+const SEEN=EXPENSE_RECEIPT+':seen';
+const retryExpenses=()=>window.dispatchEvent(new CustomEvent(EXPENSE_EVENT,{detail:{retry:true}}));
+
 export function ExpenseSync() {
   const [message,setMessage]=useState('');
   const [reference,setReference]=useState('');
@@ -26,7 +29,7 @@ export function ExpenseSync() {
             if(entry.state!=='pending'&&!retry)continue;
             const result=await deliverExpense(localStorage,entry,context,fetch);
             if(result){
-              if(active)setReference(result.expenses.map(e=>e.reference).join(', '));
+              if(active){const shown=result.expenses.map(e=>e.reference).join(', ');setReference(shown);localStorage.setItem(SEEN,shown);}
               window.dispatchEvent(new CustomEvent('bomedia-expense-confirmed',{detail:result}));
               try {
                 const responses=await Promise.all(['expenses'].map(resource=>fetch(`/api/${resource}`,{cache:'no-store'})));
@@ -48,16 +51,18 @@ export function ExpenseSync() {
     // The last confirmed reference survives a page reload, without showing a raw ID.
     void paymentContext().then(context=>{
       const saved=JSON.parse(localStorage.getItem(EXPENSE_RECEIPT)||'null');
-      if(active&&context.backend==='postgres'&&saved?.staffId===context.staffId)setReference(saved.expenses?.map((e:{reference:string})=>e.reference).join(', ')||'');
+      if(active&&context.backend==='postgres'&&saved?.staffId===context.staffId){
+        const shown=saved.expenses?.map((e:{reference:string})=>e.reference).join(', ')||'';
+        // Show it once after a reload, then leave it alone: it used to sit on the page until closed.
+        if(shown&&localStorage.getItem(SEEN)!==shown){setReference(shown);localStorage.setItem(SEEN,shown);}
+      }
     }).catch(()=>{});
     const changed=(event:StorageEvent)=>{if(event.key?.startsWith(EXPENSE_PREFIX))void sync();};
     void sync();const timer=setInterval(()=>void sync(),15000);
     window.addEventListener(EXPENSE_EVENT,sync);window.addEventListener('online',sync);window.addEventListener('storage',changed);
     return()=>{active=false;clearInterval(timer);window.removeEventListener(EXPENSE_EVENT,sync);window.removeEventListener('online',sync);window.removeEventListener('storage',changed);};
   },[pathname,router]);
-  if(pathname.includes('/login'))return null;
-  return <Stack spacing={1}>
-    {message&&<Alert severity="warning" action={<Button color="inherit" onClick={()=>window.dispatchEvent(new CustomEvent(EXPENSE_EVENT,{detail:{retry:true}}))}>Retry saved expenses</Button>}>{message}</Alert>}
-    {reference&&<Alert severity="success" onClose={()=>setReference('')}>Saved and confirmed: {reference}</Alert>}
-  </Stack>;
+  useFloatingNotice('expense-pending',message?{tone:'warning',text:message,action:{label:'Retry saved expenses',run:retryExpenses}}:null);
+  useFloatingNotice('expense-confirmed',reference?{tone:'success',text:`Saved and confirmed: ${reference}`}:null);
+  return null;
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { accent } from "@/app/theme";
 import * as React from "react"
 import { Moon, Sun } from "lucide-react"
 import { IconButton } from "@mui/material"
@@ -80,10 +81,12 @@ export function ThemeToggle() {
         transition: "background-color 0.2s, box-shadow 0.2s",
         "&:active": { transform: "scale(0.95)" },
         "& .sun-icon": {
+          color: "warning.main",
           transition: "transform 0.3s, opacity 0.3s",
         },
         "& .moon-icon": {
           position: "absolute",
+          color: accent,
           transition: "transform 0.3s, opacity 0.3s",
         },
       }}
@@ -92,7 +95,6 @@ export function ThemeToggle() {
         className="sun-icon"
         size={19}
         style={{
-          color: "#f59e0b",
           transform: mode === "dark" ? "rotate(-90deg) scale(0)" : "rotate(0deg) scale(1)",
           opacity: mode === "dark" ? 0 : 1,
         }}
@@ -101,7 +103,6 @@ export function ThemeToggle() {
         className="moon-icon"
         size={19}
         style={{
-          color: "#C8472E",
           transform: mode === "dark" ? "rotate(0deg) scale(1)" : "rotate(90deg) scale(0)",
           opacity: mode === "dark" ? 1 : 0,
         }}

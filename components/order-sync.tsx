@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { Alert, Button, Stack } from '@mui/material';
+import { useFloatingNotice } from '@/components/floating-notice';
 import { usePathname, useRouter } from 'next/navigation';
 import { deliverOrder, readOrders, ORDER_EVENT, ORDER_PREFIX, ORDER_RECEIPT } from '@/lib/order-outbox';
 import { useSyncStore } from '@/lib/store';
 import { paymentContext } from '@/lib/payment-outbox';
+const SEEN=ORDER_RECEIPT+':seen';
+const retryOrders=()=>window.dispatchEvent(new CustomEvent(ORDER_EVENT,{detail:{retry:true}}));
+
 export function OrderSync() {
   const [message,setMessage]=useState('');
   const [reference,setReference]=useState('');
@@ -26,7 +29,7 @@ export function OrderSync() {
             if(entry.state!=='pending'&&!retry)continue;
             const result=await deliverOrder(localStorage,entry,context,fetch);
             if(result){
-              if(active)setReference(String(result.quote_number||result.sales_id));
+              if(active){const shown=String(result.quote_number||result.sales_id);setReference(shown);localStorage.setItem(SEEN,shown);}
               window.dispatchEvent(new CustomEvent('bomedia-order-confirmed',{detail:result}));
               try {
                 const responses=await Promise.all(['sales','payments','materials','inventory'].map(resource=>fetch(`/api/${resource}`,{cache:'no-store'})));
@@ -48,16 +51,18 @@ export function OrderSync() {
     // The last confirmed reference survives a page reload, without showing a raw ID.
     void paymentContext().then(context=>{
       const saved=JSON.parse(localStorage.getItem(ORDER_RECEIPT)||'null');
-      if(active&&context.backend==='postgres'&&saved?.staffId===context.staffId)setReference(saved.quote_number||saved.sales_id||'');
+      if(active&&context.backend==='postgres'&&saved?.staffId===context.staffId){
+        const shown=String(saved.quote_number||saved.sales_id||'');
+        // Show it once after a reload, then leave it alone: it used to sit on the page until closed.
+        if(shown&&localStorage.getItem(SEEN)!==shown){setReference(shown);localStorage.setItem(SEEN,shown);}
+      }
     }).catch(()=>{});
     const changed=(event:StorageEvent)=>{if(event.key?.startsWith(ORDER_PREFIX))void sync();};
     void sync();const timer=setInterval(()=>void sync(),15000);
     window.addEventListener(ORDER_EVENT,sync);window.addEventListener('online',sync);window.addEventListener('storage',changed);
     return()=>{active=false;clearInterval(timer);window.removeEventListener(ORDER_EVENT,sync);window.removeEventListener('online',sync);window.removeEventListener('storage',changed);};
   },[pathname,router]);
-  if(pathname.includes('/login'))return null;
-  return <Stack spacing={1}>
-    {message&&<Alert severity="warning" action={<Button color="inherit" onClick={()=>window.dispatchEvent(new CustomEvent(ORDER_EVENT,{detail:{retry:true}}))}>Retry saved orders</Button>}>{message}</Alert>}
-    {reference&&<Alert severity="success" onClose={()=>setReference('')}>Saved and confirmed: {reference}</Alert>}
-  </Stack>;
+  useFloatingNotice('order-pending',message?{tone:'warning',text:message,action:{label:'Retry saved orders',run:retryOrders}}:null);
+  useFloatingNotice('order-confirmed',reference?{tone:'success',text:`Saved and confirmed: ${reference}`}:null);
+  return null;
 }

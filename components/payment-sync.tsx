@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { Alert, Button } from '@mui/material';
+import { useFloatingNotice } from '@/components/floating-notice';
 import { usePathname, useRouter } from 'next/navigation';
 import { deliverPayment, paymentContext, PAYMENT_EVENT, readPaymentOutbox, PAYMENT_PREFIX } from '@/lib/payment-outbox';
+
+const retryPayments = () => window.dispatchEvent(new CustomEvent(PAYMENT_EVENT, { detail: { retry: true } }));
 
 export function PaymentSync() {
   const [message, setMessage] = useState('');
@@ -45,5 +47,6 @@ export function PaymentSync() {
     window.addEventListener('storage', changed);
     return () => { active = false; clearInterval(interval); window.removeEventListener(PAYMENT_EVENT, sync); window.removeEventListener('online', sync); window.removeEventListener('storage', changed); };
   }, [pathname, router]);
-  return message ? <Alert severity="warning" action={<Button color="inherit" onClick={() => window.dispatchEvent(new CustomEvent(PAYMENT_EVENT, { detail: { retry: true } }))}>Retry saved payment</Button>}>{message}</Alert> : null;
+  useFloatingNotice('payment-pending', message ? { tone: 'warning', text: message, action: { label: 'Retry saved payment', run: retryPayments } } : null);
+  return null;
 }

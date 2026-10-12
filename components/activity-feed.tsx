@@ -6,14 +6,14 @@ import { useMemo, useState } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import { toast } from "sonner";
 import IconButton from "@mui/material/IconButton";
-import Drawer from "@mui/material/Drawer";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Stack from "@mui/material/Stack";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import { activityStyles as styles } from "@/app/theme";
+import { SidePanel } from "@/components/side-panel";
 
 type ActivityType = "sale" | "expense" | "inventory";
 
@@ -177,312 +177,79 @@ export function ActivityFeed() {
 
   return (
     <>
-      <IconButton
-        onClick={() => setDrawerOpen(true)}
-        sx={{
-          position: "relative",
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          color: "text.secondary",
-          "&:hover": { color: "primary.main", bgcolor: "primary.main" + "1A" },
-          transition: "background-color 0.2s, color 0.2s, transform 0.2s",
-          "&:active": { transform: "scale(0.97)" },
-        }}
-      >
+      <IconButton aria-label="Notifications" onClick={() => setDrawerOpen(true)} sx={styles.bell}>
         <Bell size={20} />
-        {alerts.totalCount > 0 && (
-          <Box
-            component="span"
-            sx={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              bgcolor: "#f43f5e",
-              border: "2px solid white",
-              animation: "bounce 1s infinite",
-            }}
-          />
-        )}
+        {alerts.totalCount > 0 && <Box component="span" sx={styles.bellDot} />}
       </IconButton>
 
-      <Drawer
-        anchor="right"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        slotProps={{
-          paper: {
-            sx: {
-              width: { xs: "100%", sm: 420 },
-              display: "flex",
-              flexDirection: "column",
-              bgcolor: "background.paper",
-              color: "text.primary",
-              borderLeft: "1px solid",
-              borderColor: "divider",
-            },
-          },
-        }}
-      >
-        <Box
-          sx={{
-            p: 3,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-            bgcolor: "grey.50",
-            flexShrink: 0,
-          }}
-        >
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 0.5 }}>
-            <Clock size={20} color="#C8472E" />
-            <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: "-0.02em", color: "text.primary" }}>
-              Activity & System Alerts
-            </Typography>
-          </Stack>
-          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.secondary" }}>
-            Recent updates & warnings
-          </Typography>
-        </Box>
-
-        <Box sx={{ px: 2, pt: 2, flexShrink: 0 }}>
-          <Tabs
-            value={tabValue}
-            onChange={(_, v) => setTabValue(v)}
-            variant="fullWidth"
-            sx={{
-              bgcolor: "grey.100",
-              borderRadius: 3,
-              p: 0.5,
-              minHeight: 0,
-              "& .MuiTabs-indicator": { display: "none" },
-              "& .MuiTab-root": {
-                minHeight: 36,
-                borderRadius: 2,
-                fontSize: "0.7rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                color: "text.secondary",
-                "&.Mui-selected": {
-                  bgcolor: "background.paper",
-                  color: "text.primary",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                },
-              },
-            }}
-          >
-            <Tab
-              label={
-                <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
-                  <Clock size={14} />
-                  <span>Updates ({activityItems.length})</span>
-                </Stack>
-              }
-            />
-            <Tab
-              label={
-                <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
-                  <AlertTriangle size={14} />
-                  <span>Alerts</span>
-                  {alerts.totalCount > 0 && (
-                    <Chip
-                      label={alerts.totalCount}
-                      size="small"
-                      sx={{
-                        height: 16,
-                        fontSize: "0.55rem",
-                        fontWeight: 900,
-                        bgcolor: alerts.criticalCount > 0 ? "#f43f5e" : "#f59e0b",
-                        color: "white",
-                        "& .MuiChip-label": { px: 0.75 },
-                        animation: alerts.criticalCount > 0 ? "pulse 2s infinite" : "none",
-                      }}
-                    />
-                  )}
-                </Stack>
-              }
-            />
+      <SidePanel open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Activity & System Alerts" subtitle="Recent updates & warnings" icon={<Clock size={20} />}>
+        <Box sx={styles.tabsWrap}>
+          <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} variant="fullWidth" sx={styles.tabs}>
+            <Tab label={<Box sx={styles.tabLabel}><Clock size={14} /><span>Updates ({activityItems.length})</span></Box>} />
+            <Tab label={
+              <Box sx={styles.tabLabel}>
+                <AlertTriangle size={14} />
+                <span>Alerts</span>
+                {alerts.totalCount > 0 && <Chip label={alerts.totalCount} size="small" sx={[styles.countChip, alerts.criticalCount > 0 ? styles.countCritical : styles.countWarning]} />}
+              </Box>
+            } />
           </Tabs>
         </Box>
 
         {tabValue === 0 && (
-          <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
+          <Box sx={styles.scroll}>
             {Object.keys(groupedActivities).length === 0 ? (
-              <Stack sx={{ alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", p: 4, mt: 6 }}>
-                <Box
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    bgcolor: "grey.100",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                  }}
-                >
-                  <Bell size={32} color="#9ca3af" />
-                </Box>
-                <Typography sx={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", color: "text.primary" }}>
-                  Quiet on the front
-                </Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, fontWeight: 500 }}>
-                  New transactions will appear here.
-                </Typography>
-              </Stack>
+              <Box sx={styles.empty}>
+                <Box sx={styles.emptyIcon}><Bell size={32} /></Box>
+                <Typography sx={styles.emptyTitle}>Quiet on the front</Typography>
+                <Typography variant="caption" sx={styles.emptyText}>New transactions will appear here.</Typography>
+              </Box>
             ) : (
               Object.entries(groupedActivities).map(([date, items]) => (
-                <Box key={date} sx={{ mb: 3 }}>
-                  <Stack
-                    direction="row"
-                    sx={{
-                      alignItems: "center",
-                      gap: 1,
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 10,
-                      bgcolor: "background.paper",
-                      backdropFilter: "blur(8px)",
-                      py: 0.5,
-                    }}
-                  >
-                    <Box sx={{ flex: 1, height: 1, bgcolor: "grey.100" }} />
-                    <Typography
-                      variant="caption"
-                      sx={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.6rem" }}
-                    >
-                      {date}
-                    </Typography>
-                    <Box sx={{ flex: 1, height: 1, bgcolor: "grey.100" }} />
-                  </Stack>
+                <Box key={date} sx={styles.day}>
+                  <Box sx={styles.dayHead}>
+                    <Box sx={styles.dayRule} />
+                    <Typography variant="caption" sx={styles.dayLabel}>{date}</Typography>
+                    <Box sx={styles.dayRule} />
+                  </Box>
 
-                  <Stack sx={{ gap: 1.5, mt: 1 }}>
+                  <Box sx={styles.list}>
                     {items.map((item) => (
-                      <Box
-                        key={item.id}
-                        sx={{
-                          p: 2,
-                          borderRadius: 3,
-                          border: "1px solid",
-                          borderColor: "grey.100",
-                          bgcolor: "background.paper",
-                          "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.08)" },
-                          transition: "box-shadow 0.2s",
-                        }}
-                      >
-                        <Stack direction="row" sx={{ gap: 2 }}>
-                          <Box
-                            sx={{
-                              width: 48,
-                              height: 48,
-                              borderRadius: 3,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                              bgcolor: item.type === "sale" ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
-                              color: item.type === "sale" ? "#059669" : "#d97706",
-                            }}
-                          >
-                            {item.type === "sale" ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                          </Box>
+                      <Box key={item.id} sx={styles.item}>
+                        <Box sx={[styles.itemIcon, item.type === "sale" ? styles.itemIconSale : styles.itemIconExpense]}>
+                          {item.type === "sale" ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                        </Box>
 
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", fontSize: "0.6rem" }}>
-                                {item.type} • {formatTime(item.timestamp)}
-                              </Typography>
-                              {item.user && (
-                                <Stack
-                                  direction="row"
-                                  sx={{
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    bgcolor: "primary.main" + "0D",
-                                    px: 1,
-                                    py: 0.25,
-                                    borderRadius: 100,
-                                  }}
-                                >
-                                  <User size={10} color="#C8472E" />
-                                  <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main", fontSize: "0.6rem" }}>
-                                    {item.user}
-                                  </Typography>
-                                </Stack>
-                              )}
-                            </Stack>
-
-                            <Typography sx={{ fontWeight: 900, fontSize: "0.875rem", mt: 0.5, lineHeight: 1.3, letterSpacing: "-0.01em", color: "text.primary" }}>
-                              {item.type === "sale"
-                                ? `New Sale for ${item.client}`
-                                : `Expense: ${item.category}`}
-                            </Typography>
-
-                            <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: "block", fontStyle: "italic", fontWeight: 500 }}>
-                              {item.description}
-                            </Typography>
-
-                            {item.type === "sale" && (
-                              <Stack direction="row" sx={{ alignItems: "center", gap: 1, mt: 1.5 }}>
-                                <Box
-                                  sx={{
-                                    px: 1,
-                                    py: 0.5,
-                                    borderRadius: 1,
-                                    bgcolor: "rgba(16,185,129,0.08)",
-                                    color: "#059669",
-                                    fontSize: "0.6rem",
-                                    fontWeight: 900,
-                                    textTransform: "uppercase",
-                                    fontFamily: "monospace",
-                                  }}
-                                >
-                                  Paid: ₦{item.paid?.toLocaleString()}
-                                </Box>
-                                <Box
-                                  sx={{
-                                    px: 1,
-                                    py: 0.5,
-                                    borderRadius: 1,
-                                    bgcolor: item.balance! > 0 ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)",
-                                    color: item.balance! > 0 ? "#d97706" : "#059669",
-                                    fontSize: "0.6rem",
-                                    fontWeight: 900,
-                                    textTransform: "uppercase",
-                                    fontFamily: "monospace",
-                                  }}
-                                >
-                                  Bal: ₦{item.balance?.toLocaleString()}
-                                </Box>
-                              </Stack>
-                            )}
-
-                            {item.type === "expense" && (
-                              <Box
-                                sx={{
-                                  mt: 1.5,
-                                  px: 1,
-                                  py: 0.5,
-                                  width: "fit-content",
-                                  borderRadius: 1,
-                                  bgcolor: "rgba(245,158,11,0.08)",
-                                  color: "#d97706",
-                                  fontSize: "0.6rem",
-                                  fontWeight: 900,
-                                  textTransform: "uppercase",
-                                  fontFamily: "monospace",
-                                }}
-                              >
-                                Amount: ₦{item.amount.toLocaleString()}
+                        <Box sx={styles.itemBody}>
+                          <Box sx={styles.itemTop}>
+                            <Typography variant="caption" sx={styles.metaLabel}>{item.type} • {formatTime(item.timestamp)}</Typography>
+                            {item.user && (
+                              <Box sx={styles.userPill}>
+                                <User size={10} />
+                                <Typography variant="caption" sx={styles.userName}>{item.user}</Typography>
                               </Box>
                             )}
                           </Box>
-                        </Stack>
+
+                          <Typography sx={styles.itemTitle}>
+                            {item.type === "sale" ? `New Sale for ${item.client}` : `Expense: ${item.category}`}
+                          </Typography>
+                          <Typography variant="caption" sx={styles.itemNote}>{item.description}</Typography>
+
+                          {item.type === "sale" && (
+                            <Box sx={styles.tags}>
+                              <Box sx={styles.tagOk}>Paid: ₦{item.paid?.toLocaleString()}</Box>
+                              <Box sx={item.balance! > 0 ? styles.tagWarn : styles.tagOk}>Bal: ₦{item.balance?.toLocaleString()}</Box>
+                            </Box>
+                          )}
+
+                          {item.type === "expense" && (
+                            <Box sx={styles.tags}><Box sx={styles.tagWarn}>Amount: ₦{item.amount.toLocaleString()}</Box></Box>
+                          )}
+                        </Box>
                       </Box>
                     ))}
-                  </Stack>
+                  </Box>
                 </Box>
               ))
             )}
@@ -490,205 +257,65 @@ export function ActivityFeed() {
         )}
 
         {tabValue === 1 && (
-          <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
+          <Box sx={styles.scroll}>
             {alerts.totalCount === 0 ? (
-              <Stack sx={{ alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", p: 4, mt: 6 }}>
-                <Box
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    bgcolor: "rgba(16,185,129,0.08)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                  }}
-                >
-                  <CheckCircle2 size={32} color="#10b981" />
-                </Box>
-                <Typography sx={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", color: "text.primary" }}>
-                  All systems operational
-                </Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, fontWeight: 500 }}>
-                  No low stock warnings or pending offline actions.
-                </Typography>
-              </Stack>
+              <Box sx={styles.empty}>
+                <Box sx={[styles.emptyIcon, styles.emptyIconOk]}><CheckCircle2 size={32} /></Box>
+                <Typography sx={styles.emptyTitle}>All systems operational</Typography>
+                <Typography variant="caption" sx={styles.emptyText}>No low stock warnings or pending offline actions.</Typography>
+              </Box>
             ) : (
-              <Stack sx={{ gap: 3 }}>
+              <Box sx={styles.sections}>
                 {alerts.pending.length > 0 && (
                   <Box>
-                    <Box
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.75,
-                        fontSize: "0.6rem",
-                        fontWeight: 900,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "#d97706",
-                        bgcolor: "rgba(245,158,11,0.08)",
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 100,
-                        mb: 1.5,
-                      }}
-                    >
-                      <WifiOff size={14} />
-                      Offline Sync Queue ({alerts.pending.length})
-                    </Box>
-                    <Stack sx={{ gap: 1 }}>
+                    <Box sx={styles.pillWarn}><WifiOff size={14} />Offline Sync Queue ({alerts.pending.length})</Box>
+                    <Box sx={styles.stack1}>
                       {alerts.pending.map((p) => (
-                        <Stack
-                          key={p.id}
-                          direction="row"
-                          sx={{
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            p: 1.75,
-                            borderRadius: 3,
-                            border: "1px solid rgba(245,158,11,0.3)",
-                            bgcolor: "rgba(245,158,11,0.04)",
-                          }}
-                        >
+                        <Box key={p.id} sx={styles.pendingRow}>
                           <Box>
-                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary" }}>
-                              {p.description}
-                            </Typography>
-                            <Typography sx={{ fontSize: "0.55rem", fontFamily: "monospace", color: "text.disabled", mt: 0.25 }}>
-                              Queued: {format(new Date(p.timestamp), "h:mm a")}
-                            </Typography>
+                            <Typography sx={styles.pendingTitle}>{p.description}</Typography>
+                            <Typography sx={styles.pendingTime}>Queued: {format(new Date(p.timestamp), "h:mm a")}</Typography>
                           </Box>
-                          <Box
-                            sx={{
-                              fontSize: "0.55rem",
-                              fontWeight: 900,
-                              color: "#d97706",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.15em",
-                              bgcolor: "rgba(245,158,11,0.12)",
-                              px: 1,
-                              py: 0.25,
-                              borderRadius: 100,
-                              animation: "pulse 2s infinite",
-                            }}
-                          >
-                            Pending Sync
-                          </Box>
-                        </Stack>
+                          <Box sx={styles.pendingBadge}>Pending Sync</Box>
+                        </Box>
                       ))}
-                    </Stack>
+                    </Box>
                   </Box>
                 )}
 
                 {alerts.inventory.length > 0 && (
                   <Box>
-                    <Box
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.75,
-                        fontSize: "0.6rem",
-                        fontWeight: 900,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "#e11d48",
-                        bgcolor: "rgba(244,63,94,0.08)",
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 100,
-                        mb: 1.5,
-                      }}
-                    >
-                      <AlertCircle size={14} />
-                      Material Stock Alerts ({alerts.inventory.length})
-                    </Box>
-                    <Stack sx={{ gap: 1.5 }}>
-                      {alerts.inventory.map((item) => (
-                        <Box
-                          key={item.id}
-                          sx={{
-                            p: 2,
-                            borderRadius: 3,
-                            border: "1px solid",
-                            borderColor: item.critical ? "rgba(244,63,94,0.3)" : "rgba(245,158,11,0.3)",
-                            bgcolor: item.critical ? "rgba(244,63,94,0.04)" : "rgba(245,158,11,0.04)",
-                          }}
-                        >
-                          <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", gap: 1.5 }}>
-                            <Box>
-                              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                                <Box
-                                  sx={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: "50%",
-                                    bgcolor: item.critical ? "#f43f5e" : "#f59e0b",
-                                    animation: item.critical ? "ping 1s infinite" : "none",
-                                  }}
-                                />
-                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary" }}>
-                                  {item.itemName}
-                                </Typography>
-                              </Stack>
-                              <Typography sx={{ fontSize: "0.7rem", color: "text.secondary", fontWeight: 500, mt: 0.5, lineHeight: 1.5 }}>
-                                {item.description}
-                              </Typography>
-                              <Box
-                                sx={{
-                                  mt: 1.5,
-                                  display: "inline-block",
-                                  px: 1,
-                                  py: 0.25,
-                                  borderRadius: 1,
-                                  fontSize: "0.55rem",
-                                  fontWeight: 900,
-                                  textTransform: "uppercase",
-                                  bgcolor: item.critical ? "rgba(244,63,94,0.1)" : "rgba(245,158,11,0.1)",
-                                  color: item.critical ? "#e11d48" : "#d97706",
-                                }}
-                              >
-                                Stock: {item.stock.toFixed(1)} ft remaining
+                    <Box sx={styles.pillError}><AlertCircle size={14} />Material Stock Alerts ({alerts.inventory.length})</Box>
+                    <Box sx={styles.stack15}>
+                      {alerts.inventory.map((item) => {
+                        const look = styles.stock[item.critical ? "critical" : "low"];
+                        return (
+                          <Box key={item.id} sx={look.card}>
+                            <Box sx={styles.stockRow}>
+                              <Box>
+                                <Box sx={styles.stockName}>
+                                  <Box sx={look.dot} />
+                                  <Typography sx={styles.stockTitle}>{item.itemName}</Typography>
+                                </Box>
+                                <Typography sx={styles.stockDesc}>{item.description}</Typography>
+                                <Box sx={look.tag}>Stock: {item.stock.toFixed(1)} ft remaining</Box>
                               </Box>
-                            </Box>
 
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              disabled={isRestocking === item.rowIndex}
-                              onClick={() => handleRestock(item.rowIndex!, item.itemName!)}
-                              sx={{
-                                flexShrink: 0,
-                                height: 32,
-                                px: 1.5,
-                                borderRadius: 2,
-                                fontSize: "0.6rem",
-                                fontWeight: 900,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.05em",
-                                borderColor: item.critical ? "rgba(244,63,94,0.4)" : "rgba(245,158,11,0.4)",
-                                color: item.critical ? "#e11d48" : "#d97706",
-                                "&:hover": {
-                                  bgcolor: item.critical ? "#e11d48" : "#d97706",
-                                  color: "white",
-                                  borderColor: "transparent",
-                                },
-                              }}
-                            >
-                              {isRestocking === item.rowIndex ? "Restocking..." : "Restock Roll"}
-                            </Button>
-                          </Stack>
-                        </Box>
-                      ))}
-                    </Stack>
+                              <Button size="small" variant="outlined" disabled={isRestocking === item.rowIndex} onClick={() => handleRestock(item.rowIndex!, item.itemName!)} sx={look.button}>
+                                {isRestocking === item.rowIndex ? "Restocking..." : "Restock Roll"}
+                              </Button>
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                    </Box>
                   </Box>
                 )}
-              </Stack>
+              </Box>
             )}
           </Box>
         )}
-      </Drawer>
+      </SidePanel>
     </>
   );
 }
