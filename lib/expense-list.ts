@@ -45,6 +45,13 @@ const dayBefore = (date: string) => {
 // Fixed three-letter names: Intl writes "Sept" on some devices.
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
+/** "8 Oct" for 2026-10-08. */
+export const shortDay = (date: string): string => {
+  const [, m, d] = date.split('-').map(Number);
+  const name = MONTHS[m - 1];
+  return `${d} ${name[0]}${name.slice(1).toLowerCase()}`;
+};
+
 /** "TODAY · 11 OCT", "YESTERDAY · 10 OCT", otherwise "9 OCT 2026". */
 export function dayLabel(date: string, today: string): string {
   const [y, m, d] = date.split('-').map(Number);

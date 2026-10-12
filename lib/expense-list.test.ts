@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayLabel, sinceLabel, expenseDay, filterExpenses, groupByDay, naira, summarise, type Expense } from './expense-list';
+import { dayLabel, shortDay, sinceLabel, expenseDay, filterExpenses, groupByDay, naira, summarise, type Expense } from './expense-list';
 
 const make = (over: Partial<Expense>): Expense => ({
   DATE: '2026-10-11', AMOUNT: '500', CATEGORY: 'Ink', DESCRIPTION: '', 'PAID TO': '', 'PAYMENT METHOD': '', 'RECEIPT URL': '',
@@ -103,5 +103,12 @@ describe('sinceLabel', () => {
   it('names the first day of the month', () => {
     expect(sinceLabel('2026-10-01')).toBe('1 Oct');
     expect(sinceLabel('2026-09-01')).toBe('1 Sep');
+  });
+});
+
+describe('shortDay', () => {
+  it('reads a day as "8 Oct"', () => {
+    expect(shortDay('2026-10-08')).toBe('8 Oct');
+    expect(shortDay('2026-09-30')).toBe('30 Sep');
   });
 });
