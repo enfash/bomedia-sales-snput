@@ -1,13 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import {
-  Ruler, Calculator, RefreshCw, Share2, Copy, Check,
-  ChevronRight, Package, AlertTriangle, Plus, Trash2,
-  ArrowLeft, ChevronDown, ChevronUp, Save
-} from "lucide-react";
+import { ChevronRight, Package, Share2, Copy, Check, Save } from "lucide-react";
 import { toast } from "sonner";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSyncStore } from "@/lib/store";
 import { paymentContext } from '@/lib/payment-outbox';
@@ -15,14 +10,17 @@ import { saveScreenOrder } from '@/lib/order-outbox';
 import { orderTotal, orderItemTotal, type OrderItem } from '@/lib/order-contract';
 import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
 import { MaterialSelector } from "@/components/material-selector";
+import { estimatorStyles as styles } from "@/app/theme";
+import {
+  AddItemButton, EmptyCard, EstimatorHeading, FieldLabel, ItemCard, LinkCta, Notice, QuoteSummary, ResultTiles, SizeFields,
+} from "@/components/estimator/estimator-parts";
+import { fmtMoney, newItemId, parseNum, toFt } from "@/lib/estimator-view";
 
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import Stack from "@mui/material/Stack";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,26 +37,8 @@ interface QuoteItem {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const parseNum = (v: any) => parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
-const fmtMoney = (n: number) => `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
-const uid = () => Math.random().toString(36).slice(2, 8);
-
-const toFt = (val: string, unit: "ft" | "in") => {
-  const n = parseFloat(val) || 0;
-  return unit === "in" ? n / 12 : n;
-};
-
-const PRESETS = [
-  { label: "3×2", w: 3, h: 2 },
-  { label: "4×3", w: 4, h: 3 },
-  { label: "6×4", w: 6, h: 4 },
-  { label: "8×4", w: 8, h: 4 },
-  { label: "10×4", w: 10, h: 4 },
-  { label: "12×4", w: 12, h: 4 },
-];
-
 function newItem(): QuoteItem {
-  return { id: uid(), description: "", width: "", height: "", qty: "1", dimUnit: "ft", materialId: "", open: true };
+  return { id: newItemId(), description: "", width: "", height: "", qty: "1", dimUnit: "ft", materialId: "", open: true };
 }
 
 // ─── Per-item calculation ─────────────────────────────────────────────────────
@@ -115,387 +95,50 @@ function QuoteItemCard({
   const hasResult = material && unitSqft > 0;
 
   return (
-    <Card
-      sx={{
-        borderRadius: "16px",
-        border: "1px solid",
-        borderColor: "divider",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        overflow: "hidden",
-      }}
+    <ItemCard
+      index={index}
+      title={item.description || `Item ${index + 1}`}
+      summary={hasResult ? <>{item.width}{item.dimUnit} × {item.height}{item.dimUnit} × {qty} — <Box component="span" sx={styles.itemSummaryValue}>{fmtMoney(totalCost)}</Box></> : undefined}
+      money={hasResult ? fmtMoney(totalCost) : undefined}
+      open={item.open}
+      canRemove={canRemove}
+      onToggle={() => onChange({ open: !item.open })}
+      onRemove={onRemove}
     >
-      {/* ── Item header ── */}
-      <Box
-        onClick={() => onChange({ open: !item.open })}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          p: 2,
-          cursor: "pointer",
-          userSelect: "none",
-        }}
-      >
-        {/* Index badge */}
-        <Box
-          sx={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            bgcolor: "rgba(247,104,8,0.15)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: "0.65rem",
-              fontWeight: 900,
-              color: "#B8842E",
-              lineHeight: 1,
-            }}
-          >
-            {index + 1}
-          </Typography>
-        </Box>
-
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            sx={{
-              fontSize: "0.875rem",
-              fontWeight: 900,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {item.description || `Item ${index + 1}`}
-          </Typography>
-          {hasResult && !item.open && (
-            <Typography
-              sx={{
-                fontSize: "0.625rem",
-                color: "text.secondary",
-                mt: 0.25,
-              }}
-            >
-              {item.width}{item.dimUnit} × {item.height}{item.dimUnit} × {qty} —{" "}
-              <Box component="span" sx={{ color: "primary.main", fontWeight: 700 }}>
-                {fmtMoney(totalCost)}
-              </Box>
-            </Typography>
-          )}
-        </Box>
-
-        <Stack sx={{ gap: 1, alignItems: "center" }} direction="row">
-          {hasResult && (
-            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "primary.main" }}>
-              {fmtMoney(totalCost)}
-            </Typography>
-          )}
-          {canRemove && (
-            <IconButton
-              size="small"
-              onClick={e => { e.stopPropagation(); onRemove(); }}
-              sx={{
-                color: "text.disabled",
-                borderRadius: "10px",
-                "&:hover": { bgcolor: "error.lighter", color: "error.main" },
-              }}
-            >
-              <Trash2 size={14} />
-            </IconButton>
-          )}
-          {item.open
-            ? <ChevronUp size={16} color="var(--mui-palette-text-disabled, #9ca3af)" />
-            : <ChevronDown size={16} color="var(--mui-palette-text-disabled, #9ca3af)" />
-          }
-        </Stack>
+      <Box>
+        <FieldLabel>Description (optional)</FieldLabel>
+        <TextField fullWidth placeholder="e.g. Banner, Flex, Sticker…" value={item.description} onChange={e => onChange({ description: e.target.value })} size="small" />
       </Box>
 
-      {/* ── Expanded body ── */}
-      {item.open && (
-        <Box
-          sx={{
-            px: 2,
-            pb: 2,
-            pt: 2,
-            borderTop: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Stack sx={{ gap: 3 }}>
-            {/* Description */}
-            <Box>
-              <Typography
-                sx={{
-                  fontSize: "0.625rem",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.1em",
-                  color: "text.secondary",
-                  mb: 0.75,
-                }}
-              >
-                Description (optional)
-              </Typography>
-              <TextField
-                fullWidth
-                placeholder="e.g. Banner, Flex, Sticker…"
-                value={item.description}
-                onChange={e => onChange({ description: e.target.value })}
-                size="small"
-              />
-            </Box>
+      <Box>
+        <SizeFields item={item} onChange={onChange} />
+        {material && wFt > 0 && hFt > 0 && isFlipped && (
+          <Notice tone="warning" spaced>Rotated to fit — {item.dimUnit === "in" ? `${parseFloat(item.height)}in` : `${hFt.toFixed(1)}ft`} side along the {rollWidth.toFixed(1)}ft roll</Notice>
+        )}
+        {material && wFt > 0 && !widthOk && (
+          <Notice tone="error" spaced>Both dimensions exceed this roll&apos;s width — choose a wider material</Notice>
+        )}
+      </Box>
 
-            {/* Dimensions */}
-            <Box>
-              {/* Size label + unit toggle */}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: 1.5,
-                }}
-              >
-                <Stack direction="row" sx={{ gap: 0.75, alignItems: "center" }}>
-                  <Ruler size={12} color="var(--mui-palette-text-secondary, #6B7480)" />
-                  <Typography
-                    sx={{
-                      fontSize: "0.625rem",
-                      fontWeight: 900,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                      color: "text.secondary",
-                    }}
-                  >
-                    Size
-                  </Typography>
-                </Stack>
+      <Box>
+        <MaterialSelector
+          materials={materials}
+          selectedMaterialId={item.materialId}
+          onSelect={mat => onChange({ materialId: mat["Material ID"] })}
+          loading={false}
+        />
+      </Box>
 
-                {/* Unit toggle */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    bgcolor: "action.hover",
-                    borderRadius: "10px",
-                    p: 0.25,
-                  }}
-                >
-                  {(["ft", "in"] as const).map(u => (
-                    <Box
-                      key={u}
-                      component="button"
-                      type="button"
-                      onClick={() => onChange({ dimUnit: u })}
-                      sx={{
-                        px: 1.25,
-                        py: 0.5,
-                        border: "none",
-                        borderRadius: "10px",
-                        fontSize: "0.625rem",
-                        fontWeight: 900,
-                        textTransform: "uppercase",
-                        cursor: "pointer",
-                        transition: "background-color 0.15s ease, color 0.15s ease",
-                        bgcolor: item.dimUnit === u ? "primary.main" : "transparent",
-                        color: item.dimUnit === u ? "primary.contrastText" : "text.secondary",
-                        "&:active": { transform: "scale(0.97)" },
-                      }}
-                    >
-                      {u}
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-
-              {/* Presets */}
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 1.5 }}>
-                {PRESETS.map(p => (
-                  <Box
-                    key={p.label}
-                    component="button"
-                    type="button"
-                    onClick={() => onChange({
-                      width:  item.dimUnit === "in" ? String(p.w * 12) : String(p.w),
-                      height: item.dimUnit === "in" ? String(p.h * 12) : String(p.h),
-                    })}
-                    sx={{
-                      px: 1.25,
-                      py: 0.5,
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: "10px",
-                      bgcolor: "background.default",
-                      fontSize: "0.625rem",
-                      fontWeight: 900,
-                      color: "text.secondary",
-                      cursor: "pointer",
-                      transition: "border-color 0.15s ease, color 0.15s ease",
-                      "&:hover": { borderColor: "primary.main", color: "primary.main" },
-                      "&:active": { transform: "scale(0.97)" },
-                    }}
-                  >
-                    {p.label}ft
-                  </Box>
-                ))}
-              </Box>
-
-              {/* W / H / Qty inputs */}
-              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1 }}>
-                {[
-                  { key: "width",  label: `W (${item.dimUnit})`, ph: item.dimUnit === "ft" ? "4" : "48" },
-                  { key: "height", label: `H (${item.dimUnit})`, ph: item.dimUnit === "ft" ? "8" : "96" },
-                  { key: "qty",    label: "Qty",                 ph: "1" },
-                ].map(({ key, label, ph }) => (
-                  <Box key={key}>
-                    <Typography
-                      sx={{
-                        fontSize: "0.625rem",
-                        fontWeight: 900,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "text.secondary",
-                        mb: 0.5,
-                      }}
-                    >
-                      {label}
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      size="small"
-                      placeholder={ph}
-                      value={item[key as keyof QuoteItem] as string}
-                      onChange={e => onChange({ [key]: e.target.value })}
-                      slotProps={{ htmlInput: { min: key === "qty" ? 1 : undefined } }}
-                      sx={{ "& input": { fontWeight: 700 } }}
-                    />
-                  </Box>
-                ))}
-              </Box>
-
-              {/* Orientation warnings */}
-              {material && wFt > 0 && hFt > 0 && isFlipped && (
-                <Box
-                  sx={{
-                    mt: 1.5,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    p: 1.25,
-                    bgcolor: "rgba(245,158,11,0.08)",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(245,158,11,0.25)",
-                  }}
-                >
-                  <AlertTriangle size={14} color="#D97706" style={{ flexShrink: 0 }} />
-                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "#D97706" }}>
-                    Rotated to fit — {item.dimUnit === "in" ? `${parseFloat(item.height)}in` : `${hFt.toFixed(1)}ft`} side along the {rollWidth.toFixed(1)}ft roll
-                  </Typography>
-                </Box>
-              )}
-              {material && wFt > 0 && !widthOk && (
-                <Box
-                  sx={{
-                    mt: 1.5,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    p: 1.25,
-                    bgcolor: "rgba(192,57,43,0.06)",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(192,57,43,0.2)",
-                  }}
-                >
-                  <AlertTriangle size={14} color="#C0392B" style={{ flexShrink: 0 }} />
-                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "error.main" }}>
-                    Both dimensions exceed this roll's width — choose a wider material
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Material */}
-            <Box>
-              <MaterialSelector
-                materials={materials}
-                selectedMaterialId={item.materialId}
-                onSelect={mat => onChange({ materialId: mat["Material ID"] })}
-                loading={false}
-              />
-            </Box>
-
-            {/* Line result */}
-            {hasResult && widthOk && (
-              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1 }}>
-                {[
-                  { label: "Area",       value: `${unitSqft.toFixed(2)} sqft`, accent: false },
-                  { label: "Unit Price", value: fmtMoney(unitCost),             accent: false },
-                  { label: "Total",      value: fmtMoney(totalCost),            accent: true  },
-                ].map(c => (
-                  <Box
-                    key={c.label}
-                    sx={{
-                      p: 1.5,
-                      borderRadius: "10px",
-                      border: "1px solid",
-                      textAlign: "center",
-                      bgcolor: c.accent ? "primary.main" : "background.default",
-                      borderColor: c.accent ? "primary.main" : "divider",
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: "0.55rem",
-                        fontWeight: 900,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.12em",
-                        mb: 0.5,
-                        color: c.accent ? "rgba(255,255,255,0.7)" : "text.secondary",
-                      }}
-                    >
-                      {c.label}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: "0.875rem",
-                        fontWeight: 900,
-                        color: c.accent ? "primary.contrastText" : "text.primary",
-                      }}
-                    >
-                      {c.value}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            )}
-
-            {hasResult && !stockOk && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  p: 1.25,
-                  bgcolor: "rgba(192,57,43,0.06)",
-                  borderRadius: "10px",
-                  border: "1px solid rgba(192,57,43,0.2)",
-                }}
-              >
-                <AlertTriangle size={14} color="#C0392B" style={{ flexShrink: 0 }} />
-                <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "error.main" }}>
-                  Insufficient stock — confirm with your manager
-                </Typography>
-              </Box>
-            )}
-          </Stack>
-        </Box>
+      {hasResult && widthOk && (
+        <ResultTiles tiles={[
+          { label: "Area", value: `${unitSqft.toFixed(2)} sqft` },
+          { label: "Unit price", value: fmtMoney(unitCost) },
+          { label: "Total", value: fmtMoney(totalCost), accent: true },
+        ]} />
       )}
-    </Card>
+
+      {hasResult && !stockOk && <Notice tone="error">Insufficient stock — confirm with your manager</Notice>}
+    </ItemCard>
   );
 }
 
@@ -689,345 +332,54 @@ export default function CashierEstimatorPage() {
     return calcItem(item, mat).stockOk;
   });
 
+  const breakdown = items.flatMap((item, idx) => {
+    const mat = materials.find(m => m["Material ID"] === item.materialId) ?? null;
+    const { totalCost } = calcItem(item, mat);
+    return mat && totalCost > 0 ? [{ id: item.id, label: `${idx + 1}. ${item.description || `Item ${idx + 1}`}`, money: fmtMoney(totalCost) }] : [];
+  });
+
   return (
-    <Box sx={{p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, minHeight: "100vh", bgcolor: "background.default"}}>
+    <Box sx={styles.page}>
+      <EstimatorHeading backHref="/cashier" backLabel="Home" onRefresh={refreshMaterials} syncing={syncing} refreshLabel="Refresh materials" />
+      {savedQuote && <Notice tone="success">Saved quote: {savedQuote.number}</Notice>}
 
-      {savedQuote && <Typography role="status">Saved quote: {savedQuote.number}</Typography>}
-      {/* ── Hero ── */}
-      <Box sx={{ bgcolor: "primary.main", color: "primary.contrastText", px: { xs: 2, md: 4 }, py: 4 }}>
-        <Box sx={{ maxWidth: 672, mx: "auto" }}>
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-            <Link href="/cashier" style={{ textDecoration: "none" }}>
-              <IconButton
-                size="small"
-                sx={{
-                  bgcolor: "rgba(255,255,255,0.2)",
-                  color: "primary.contrastText",
-                  borderRadius: "10px",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                  "&:active": { transform: "scale(0.97)" },
-                }}
-              >
-                <ArrowLeft size={16} />
-              </IconButton>
-            </Link>
+      <Box sx={styles.stack}>
+        <Paper variant="outlined" sx={styles.card}>
+          <FieldLabel>Client name (optional)</FieldLabel>
+          <TextField fullWidth placeholder="e.g. John Doe — appears on the quote" value={clientName} onChange={e => setClientName(e.target.value)} size="small" />
+        </Paper>
 
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: "10px",
-                bgcolor: "rgba(255,255,255,0.2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Calculator size={20} />
+        {materials.length === 0 && syncing && <EmptyCard icon={<Package size={28} />}>Loading materials…</EmptyCard>}
+        {materials.length === 0 && !syncing && <EmptyCard icon={<Package size={28} />}>No materials available. Contact your manager.</EmptyCard>}
+
+        {materials.length > 0 && items.map((item, idx) => (
+          <QuoteItemCard
+            key={item.id}
+            item={item}
+            index={idx}
+            materials={materials}
+            canRemove={items.length > 1}
+            onChange={patch => updateItem(item.id, patch)}
+            onRemove={() => removeItem(item.id)}
+          />
+        ))}
+
+        {materials.length > 0 && <AddItemButton onClick={addItem} />}
+
+        {hasAnyResult && (
+          <QuoteSummary total={fmtMoney(grandTotal)} count={items.length} breakdown={breakdown}>
+            <Box sx={styles.actions}>
+              <Button variant="contained" color="success" onClick={handleWhatsApp} startIcon={<Share2 size={16} />}>WhatsApp</Button>
+              <Button variant="outlined" color="info" onClick={handleSaveQuote} disabled={savingQuote} startIcon={<Save size={16} />}>{savingQuote ? "Saving..." : "Save estimate"}</Button>
+              <Button variant="outlined" color="inherit" onClick={handleCopy} startIcon={copied ? <Check size={16} /> : <Copy size={16} />}>{copied ? "Copied" : "Copy to clipboard"}</Button>
             </Box>
+          </QuoteSummary>
+        )}
 
-            <Box>
-              <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "-0.02em", color: "primary.contrastText" }}>
-                Price Estimator
-              </Typography>
-              <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "rgba(26,20,16,0.6)" }}>
-                Multi-item quote builder · no sale logged
-              </Typography>
-            </Box>
-
-            <IconButton
-              onClick={refreshMaterials}
-              title="Refresh materials"
-              sx={{
-                ml: "auto",
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "primary.contrastText",
-                borderRadius: "10px",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                "&:active": { transform: "scale(0.97)" },
-              }}
-            >
-              <RefreshCw
-                size={16}
-                style={{
-                  animation: syncing ? "spin 1s linear infinite" : undefined,
-                }}
-              />
-            </IconButton>
-          </Stack>
-        </Box>
+        {hasAnyResult && allStockOk && (
+          <LinkCta onClick={handleLogSale} title="Ready to log as a sale?" note="Head to New Entry with these dimensions"><ChevronRight size={20} /></LinkCta>
+        )}
       </Box>
-
-      <Box sx={{ maxWidth: 672, mx: "auto", px: 2, py: 3 }}>
-        <Stack sx={{ gap: 2 }}>
-
-          {/* ── Client name ── */}
-          <Card sx={{ borderRadius: "16px", border: "1px solid", borderColor: "divider", p: 2 }}>
-            <Typography
-              sx={{
-                fontSize: "0.625rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                color: "text.secondary",
-                mb: 0.75,
-              }}
-            >
-              Client Name (optional)
-            </Typography>
-            <TextField
-              fullWidth
-              placeholder="e.g. John Doe — appears on the quote"
-              value={clientName}
-              onChange={e => setClientName(e.target.value)}
-              size="small"
-            />
-          </Card>
-
-          {/* ── Loading / empty states ── */}
-          {materials.length === 0 && syncing && (
-            <Card
-              sx={{
-                borderRadius: "16px",
-                border: "1px solid",
-                borderColor: "divider",
-                py: 5,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-              }}
-            >
-              <RefreshCw
-                size={24}
-                color="var(--mui-palette-primary-main, #F76808)"
-                style={{ animation: "spin 1s linear infinite", marginBottom: 8 }}
-              />
-              <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", fontWeight: 500 }}>
-                Loading materials…
-              </Typography>
-            </Card>
-          )}
-
-          {materials.length === 0 && !syncing && (
-            <Card
-              sx={{
-                borderRadius: "16px",
-                border: "1px solid",
-                borderColor: "divider",
-                py: 5,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-              }}
-            >
-              <Package size={32} color="var(--mui-palette-divider, #e0e0e0)" style={{ marginBottom: 8 }} />
-              <Typography sx={{ fontSize: "0.875rem", color: "text.secondary", fontWeight: 500 }}>
-                No materials available. Contact your manager.
-              </Typography>
-            </Card>
-          )}
-
-          {/* ── Quote items ── */}
-          {materials.length > 0 && items.map((item, idx) => (
-            <QuoteItemCard
-              key={item.id}
-              item={item}
-              index={idx}
-              materials={materials}
-              canRemove={items.length > 1}
-              onChange={patch => updateItem(item.id, patch)}
-              onRemove={() => removeItem(item.id)}
-            />
-          ))}
-
-          {/* ── Add item ── */}
-          {materials.length > 0 && (
-            <Box
-              component="button"
-              type="button"
-              onClick={addItem}
-              sx={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 1,
-                p: 1.75,
-                borderRadius: "16px",
-                border: "2px dashed",
-                borderColor: "rgba(247,104,8,0.35)",
-                bgcolor: "transparent",
-                color: "primary.main",
-                fontWeight: 700,
-                fontSize: "0.875rem",
-                cursor: "pointer",
-                transition: "border-color 0.15s ease, background-color 0.15s ease",
-                "&:hover": {
-                  borderColor: "primary.main",
-                  bgcolor: "rgba(247,104,8,0.06)",
-                },
-              }}
-            >
-              <Plus size={16} /> Add Another Item
-            </Box>
-          )}
-
-          {/* ── Grand total + actions ── */}
-          {hasAnyResult && (
-            <Card
-              sx={{
-                borderRadius: "16px",
-                border: "1px solid",
-                borderColor: "divider",
-                p: 2.5,
-              }}
-            >
-              <Stack sx={{ gap: 2 }}>
-                {/* Total row */}
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <Typography
-                    sx={{
-                      fontSize: "0.75rem",
-                      fontWeight: 900,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.12em",
-                      color: "text.primary",
-                    }}
-                  >
-                    {items.length > 1 ? "Grand Total" : "Total"}
-                  </Typography>
-                  <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, color: "primary.main" }}>
-                    {fmtMoney(grandTotal)}
-                  </Typography>
-                </Box>
-
-                {/* Per-item breakdown */}
-                {items.length > 1 && (
-                  <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-                    <Stack sx={{ gap: 0.75 }}>
-                      {items.map((item, idx) => {
-                        const mat = materials.find(m => m["Material ID"] === item.materialId) ?? null;
-                        const { totalCost } = calcItem(item, mat);
-                        if (!mat || totalCost === 0) return null;
-                        return (
-                          <Box
-                            key={item.id}
-                            sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
-                          >
-                            <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", fontWeight: 500 }}>
-                              {idx + 1}. {item.description || `Item ${idx + 1}`}
-                            </Typography>
-                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900 }}>
-                              {fmtMoney(totalCost)}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
-                    </Stack>
-                  </Box>
-                )}
-
-                {/* Action buttons — row */}
-                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                  <Button
-                    variant="contained"
-                    onClick={handleWhatsApp}
-                    startIcon={<Share2 size={16} />}
-                    sx={{
-                      bgcolor: "#10B981",
-                      color: "#fff",
-                      borderRadius: "10px",
-                      fontWeight: 900,
-                      "&:hover": { bgcolor: "#059669" },
-                    }}
-                  >
-                    WhatsApp
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={handleSaveQuote}
-                    disabled={savingQuote}
-                    startIcon={
-                      <Save
-                        size={16}
-                        style={{ animation: savingQuote ? "pulse 1s ease infinite" : undefined }}
-                      />
-                    }
-                    sx={{
-                      borderRadius: "10px",
-                      fontWeight: 900,
-                      color: "#2563EB",
-                      borderColor: "rgba(37,99,235,0.3)",
-                      "&:hover": { bgcolor: "rgba(37,99,235,0.06)", borderColor: "#2563EB" },
-                    }}
-                  >
-                    {savingQuote ? "Saving..." : "Save Estimate"}
-                  </Button>
-                </Box>
-
-                {/* Copy button — full width */}
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={handleCopy}
-                  startIcon={copied ? <Check size={16} /> : <Copy size={16} />}
-                  sx={{
-                    borderRadius: "10px",
-                    fontWeight: 900,
-                    color: copied ? "#10B981" : "text.primary",
-                    borderColor: copied ? "#10B981" : "divider",
-                  }}
-                >
-                  {copied ? "Copied!" : "Copy to Clipboard"}
-                </Button>
-              </Stack>
-            </Card>
-          )}
-
-          {/* ── Log sale CTA ── */}
-          {hasAnyResult && allStockOk && (
-            <Box
-              component="button"
-              type="button"
-              onClick={handleLogSale}
-              sx={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                p: 2,
-                bgcolor: "primary.main",
-                borderRadius: "16px",
-                border: "none",
-                cursor: "pointer",
-                color: "primary.contrastText",
-                boxShadow: "0 4px 16px rgba(247,104,8,0.3)",
-                transition: "background-color 0.15s ease",
-                textAlign: "left",
-                "&:hover": { bgcolor: "#D4912E" },
-              }}
-            >
-              <Box>
-                <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "primary.contrastText" }}>
-                  Ready to log as a sale?
-                </Typography>
-                <Typography sx={{ fontSize: "0.75rem", color: "rgba(26,20,16,0.6)", mt: 0.25 }}>
-                  Head to New Entry with these dimensions
-                </Typography>
-              </Box>
-              <ChevronRight size={20} color="rgba(26,20,16,0.5)" />
-            </Box>
-          )}
-
-        </Stack>
-      </Box>
-
-      {/* CSS for spin animation (used inline via style prop) */}
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-      `}</style>
     </Box>
   );
 }

@@ -2,7 +2,7 @@ import { isUUID, validBusinessDate } from './payment-contract';
 import { normalizePaymentMethod, type PaymentMethod } from './payment-methods';
 export type ExpenseItem = {businessDate:string;amountKobo:string;category:string;description:string;paidTo:string;status:'paid'|'unpaid';paymentMethod?:PaymentMethod;receiptId?:string};
 export type ExpenseRequest = {version:1;backend:'postgres';requestId:string;expectedStaffId:string} &
-  ({operation:'log';items:ExpenseItem[]}|{operation:'pay';expenseId:string;amountKobo:string;businessDate:string;paymentMethod:PaymentMethod});
+  ({operation:'log';items:ExpenseItem[];/** Why the cashier is spending more than the limit. Required by the database only when the owner has to approve it. */approvalReason?:string}|{operation:'pay';expenseId:string;amountKobo:string;businessDate:string;paymentMethod:PaymentMethod});
 const money=(value:unknown):value is string=>typeof value==='string'&&/^[1-9][0-9]{0,18}$/.test(value)&&BigInt(value)<=BigInt('9223372036854775807');
 export function expenseContract(value:unknown):ExpenseRequest {
   const e=value as ExpenseRequest;
@@ -11,6 +11,7 @@ export function expenseContract(value:unknown):ExpenseRequest {
     if(!isUUID(e.expenseId)||!money(e.amountKobo)||!validBusinessDate(e.businessDate)||!e.paymentMethod||normalizePaymentMethod(e.paymentMethod)!==e.paymentMethod)throw new Error('Check the expense, payment date and method.');
   } else if(e.operation==='log') {
     if(!Array.isArray(e.items)||!e.items.length||e.items.length>100)throw new Error('Add between one and 100 expenses.');
+    if(e.approvalReason!==undefined&&(typeof e.approvalReason!=='string'||e.approvalReason.length>500))throw new Error('Keep the reason under 500 characters.');
     for(const i of e.items) {
       if(!i||!validBusinessDate(i.businessDate)||!money(i.amountKobo)||typeof i.category!=='string'||!i.category.trim()||i.category.length>100
         ||typeof i.description!=='string'||!i.description.trim()||i.description.length>1000||typeof i.paidTo!=='string'||i.paidTo.length>200

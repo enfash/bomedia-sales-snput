@@ -13,7 +13,7 @@ export function ApprovalsWaitingCard({ onNavigate }: { onNavigate?: () => void }
   return <Box sx={styles.card}>
     <Box sx={styles.text}>
       <Typography sx={styles.title}>{count} waiting for your approval</Typography>
-      <Typography sx={styles.sub}>Held until you decide. Not counted in today’s sales yet.</Typography>
+      <Typography sx={styles.sub}>Held until you decide. Not counted in sales or expenses yet.</Typography>
     </Box>
     <Button variant="contained" component={NextLink} href="/bom03/approvals" onClick={onNavigate}>Review</Button>
   </Box>;

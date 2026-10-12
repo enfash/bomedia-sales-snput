@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useFloatingNotice } from '@/components/floating-notice';
 import { APPROVALS_CHANGED } from '@/components/approvals-inbox';
 import { setApprovalsCount } from '@/lib/approvals-count';
-import { koboNaira, rowTotalKobo, type ApprovalRow } from '@/lib/approvals-view';
+import { koboNaira, rowTitle, rowTotalKobo, type ApprovalRow } from '@/lib/approvals-view';
 
 const ANNOUNCED = 'bomedia-approvals-announced';
 const open = () => { window.location.assign('/bom03/approvals'); };
@@ -36,8 +36,8 @@ export function ApprovalsWatcher() {
         if (fresh.length) {
           const first = fresh[0];
           setText(fresh.length === 1
-            ? `${first.requested_by ?? 'A cashier'} needs your approval: ${first.summary?.client ?? 'a sale'}, ${koboNaira(rowTotalKobo(first))}.`
-            : `${fresh.length} sales need your approval.`);
+            ? `${first.requested_by ?? 'A cashier'} needs your approval: ${first.operation === 'screen_expense' ? 'expense, ' : first.operation === 'sale_correction' ? 'sale change, ' : ''}${rowTitle(first)}, ${koboNaira(rowTotalKobo(first))}.`
+            : `${fresh.length} entries need your approval.`);
           try { localStorage.setItem(ANNOUNCED, JSON.stringify([...announced, ...fresh.map((r) => r.id)].slice(-200))); } catch { /* Not remembered; fine. */ }
         }
       } catch { /* Offline: keep the last count. */ }

@@ -1,8 +1,12 @@
 import { confirmedExpense, expenseContract, type ExpenseRequest, type ExpenseConfirmation } from './expense-contract';
+import { heldOrder } from './order-contract';
 import { paymentContext, type OutboxStorage, type PaymentContext } from './payment-outbox';
 export const EXPENSE_PREFIX = 'bomedia-expense-v1:';
 export const EXPENSE_EVENT = 'bomedia-expense-outbox';
 export const EXPENSE_RECEIPT = 'bomedia-last-expense-confirmation';
+export const EXPENSE_HELD = 'bomedia-last-expense-held';
+/** The owner has to approve this expense first: the server holds it, so it leaves this device's queue. */
+export type HeldExpenseResult = { held: true; status: 'awaiting_approval' | 'declined' | 'expired'; approval_request_id: string; kinds: string[]; decision_note?: string | null };
 export type ExpenseEntry = { expense: ExpenseRequest; state: 'pending' | 'review' | 'auth'; error?: string };
 export function readExpenses(storage: OutboxStorage): ExpenseEntry[] {
   const result: ExpenseEntry[] = [];
@@ -33,7 +37,7 @@ export function persistExpense(storage: OutboxStorage, expense: ExpenseRequest):
   if(storage.getItem(key)!==text)throw new Error('Expense could not be stored on this device. Nothing was sent.');
   return entry;
 }
-export async function deliverExpense(storage: OutboxStorage, entry: ExpenseEntry, context: PaymentContext, send: typeof fetch): Promise<ExpenseConfirmation|null> {
+export async function deliverExpense(storage: OutboxStorage, entry: ExpenseEntry, context: PaymentContext, send: typeof fetch): Promise<ExpenseConfirmation|HeldExpenseResult|null> {
   expenseContract(entry.expense);
   const key=EXPENSE_PREFIX+entry.expense.requestId;
   const current=storage.getItem(key);
@@ -45,12 +49,14 @@ export async function deliverExpense(storage: OutboxStorage, entry: ExpenseEntry
     const response=await send('/api/accounting/expense-entries',{method:'POST',headers:{'Content-Type':'application/json','X-Bomedia-Backend':'postgres'},body:JSON.stringify(entry.expense)});
     const result=await response.json();
     if(!response.ok)return hold(response.status===401||response.status===403?'auth':response.status>=500||response.status===429?'pending':'review',result.error||'Expense needs review.');
+    const held=heldOrder(result);
+    if(held){storage.setItem(EXPENSE_HELD,JSON.stringify({staffId:entry.expense.expectedStaffId,...held}));storage.removeItem(key);return {...held,held:true};}
     if(!confirmedExpense(result,entry.expense))return hold('pending','Confirmation was incomplete. The original expense is kept for retry.');
     storage.setItem(EXPENSE_RECEIPT,JSON.stringify({staffId:entry.expense.expectedStaffId,...result}));
     storage.removeItem(key);return result;
   }catch{return hold('pending','Connection interrupted. The same expense is kept for retry.');}
 }
-export async function saveExpenseRequest(input: ({operation:'log';items:import('./expense-contract').ExpenseItem[]}|{operation:'pay';expenseId:string;amountKobo:string;businessDate:string;paymentMethod:import('./payment-methods').PaymentMethod})): Promise<ExpenseEntry> {
+export async function saveExpenseRequest(input: ({operation:'log';items:import('./expense-contract').ExpenseItem[];approvalReason?:string}|{operation:'pay';expenseId:string;amountKobo:string;businessDate:string;paymentMethod:import('./payment-methods').PaymentMethod})): Promise<ExpenseEntry> {
   const context=await paymentContext();
   if(context.backend!=='postgres')throw new Error('This expense requires the PostgreSQL sandbox.');
   if(!navigator.locks)throw new Error('Open the secure app in a browser that supports safe offline expenses.');

@@ -46,7 +46,7 @@ afterEach(async () => { await db.exec('rollback'); });
 
 it('starts with both rules off, so a backdated or re-priced cashier sale posts exactly as before', async () => {
   const rules = (await db.query<{ r: { kind: string; enabled: boolean }[] }>('select bomedia.api_approval_rules() as r')).rows[0].r;
-  expect(rules).toEqual([{ kind: 'date', enabled: false, params: { days: 0 } }, { kind: 'price', enabled: false, params: { percent: 0 } }]);
+  expect(rules).toEqual([{ kind: 'date', enabled: false, params: { days: 0 } }, { kind: 'edit_old', enabled: false, params: { days: 7 } }, { kind: 'expense_limit', enabled: false, params: { amount_kobo: 5000000 } }, { kind: 'price', enabled: false, params: { percent: 0 } }]);
   const result = await cashier('plain', { businessDate: await daysFromToday(-3), items: [print('12000')], totalKobo: '768000' }, null);
   expect(result.sales_id).toMatch(/^BOM-/);
   expect(await count('approval_requests')).toBe(0);
@@ -58,8 +58,7 @@ it('lets only a rule that exists be saved, with sensible limits, and records who
   await failure(() => rule('date', true, { days: 1.5 }));
   await failure(() => rule('price', true, { percent: 101 }));
   await failure(() => rule('nonsense', true, {}));
-  await failure(() => rule('expense_limit', true, { limit_kobo: '1' }));
-  expect((await owned("select action from bomedia.audit_events where action='approval_rule_saved'")).length).toBe(1);
+    expect((await owned("select action from bomedia.audit_events where action='approval_rule_saved'")).length).toBe(1);
   expect((await owned("select bomedia.audit_category('approval_requested') as c"))[0].c).toBe('approvals');
 });
 

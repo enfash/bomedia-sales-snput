@@ -11,8 +11,7 @@ import { RULE_INFO, ruleLimit, type ApprovalRuleRow } from '@/lib/approvals-view
 const ENDPOINT = '/api/accounting/approval-rules';
 const message = (error: unknown) => (error instanceof Error ? error.message : 'Approval rules could not be saved. Try again.');
 // Rules that do something today, then the ones that come in a later step.
-const ACTIVE = ['date', 'price'] as const;
-const LATER = ['expense_limit', 'edit_old'] as const;
+const ACTIVE = ['date', 'price', 'expense_limit', 'edit_old'] as const;
 
 export function ApprovalRulesSettings() {
   const [rules, setRules] = useState<ApprovalRuleRow[] | null>(null);
@@ -37,7 +36,7 @@ export function ApprovalRulesSettings() {
     if (busy) return;
     setBusy(kind); setError(''); setSaved('');
     try {
-      const params = kind === 'date' ? { days: limit } : { percent: limit };
+      const params = kind === 'date' || kind === 'edit_old' ? { days: limit } : kind === 'price' ? { percent: limit } : { amount_kobo: Math.round(limit * 100) };
       const response = await fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ requestId: crypto.randomUUID(), kind, enabled, params }) });
       const result = await response.json().catch(() => null);
@@ -53,7 +52,7 @@ export function ApprovalRulesSettings() {
     <BackLink href="/bom03/settings" label="Settings" />
     <Stack spacing={1} sx={settingsStyles.heading}>
       <Typography variant="h3" component="h1">Approvals</Typography>
-      <Typography color="text.secondary">Choose what staff must ask you about. A sale that matches a rule waits for your decision and is not recorded until you approve it. Anything you enter yourself is never held.</Typography>
+      <Typography color="text.secondary">Choose what staff must ask you about. An entry that matches a rule waits for your decision and is not recorded until you approve it. Anything you enter yourself is never held.</Typography>
     </Stack>
     <Stack spacing={2}>
       {error && <Alert severity="error">{error}</Alert>}
@@ -62,32 +61,25 @@ export function ApprovalRulesSettings() {
         {rules && ACTIVE.map((kind) => {
           const current = rule(kind), info = RULE_INFO[kind], limit = ruleLimit(current);
           const draft = drafts[kind] ?? String(limit), parsed = Number(draft);
-          const valid = draft.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= info.max;
+          const valid = draft.trim() !== '' && Number.isInteger(parsed) && parsed >= (kind === 'expense_limit' || kind === 'edit_old' ? 1 : 0) && parsed <= info.max;
           return <Paper key={kind} variant="outlined" sx={styles.row}>
             <Box sx={styles.grow}>
               <Typography variant="h6" component="h2">{info.title}</Typography>
               <Typography variant="body2" color="text.secondary">{info.description}</Typography>
             </Box>
             <Box sx={styles.limit}>
-              Allow
-              <TextField size="small" type="number" sx={styles.number} value={draft} disabled={busy === kind}
+              {info.lead}
+              <TextField size="small" type="number" sx={kind === 'expense_limit' ? styles.numberWide : styles.number} value={draft} disabled={busy === kind}
                 error={!valid} aria-label={info.fieldLabel}
                 onChange={(event) => setDrafts((d) => ({ ...d, [kind]: event.target.value }))}
                 onBlur={() => { if (valid && parsed !== limit) void save(kind, current?.enabled ?? false, parsed); }}
-                slotProps={{ htmlInput: { min: 0, max: info.max, step: 1, inputMode: 'numeric' } }} />
+                slotProps={{ htmlInput: { min: kind === 'expense_limit' || kind === 'edit_old' ? 1 : 0, max: info.max, step: 1, inputMode: 'numeric' } }} />
               {info.unit}
             </Box>
             <Switch checked={current?.enabled ?? false} disabled={busy === kind || !valid} aria-label={`${info.title}: ${current?.enabled ? 'on' : 'off'}`}
               onChange={(_, value) => void save(kind, value, valid ? parsed : limit)} />
           </Paper>;
         })}
-        {rules && LATER.map((kind) => <Paper key={kind} variant="outlined" sx={[styles.row, styles.rowLater]}>
-          <Box sx={styles.grow}>
-            <Typography variant="h6" component="h2">{RULE_INFO[kind].title}</Typography>
-            <Typography variant="body2" color="text.secondary">{RULE_INFO[kind].description}</Typography>
-          </Box>
-          <Box component="span" sx={styles.laterPill}>Coming next</Box>
-        </Paper>)}
       </Box>
       <Typography variant="body2" color="text.secondary">Changes are saved as you make them and recorded in the audit log.</Typography>
     </Stack>

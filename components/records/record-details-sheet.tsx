@@ -12,6 +12,14 @@ import { WhatsAppReminder } from '@/components/whatsapp-reminder';
 import { describeBalance } from '@/lib/balance-display';
 import { naira } from '@/lib/expense-list';
 import { groupStatus } from '@/lib/records-view';
+import { useState } from 'react';
+import { saleChangeStyles as changeStyles } from '@/app/theme';
+import { CancelSaleSheet } from '@/components/sale-corrections/cancel-sale-sheet';
+import { CorrectSaleSheet } from '@/components/sale-corrections/correct-sale-sheet';
+import { SaleHistory } from '@/components/sale-corrections/sale-history';
+import { useCorrectionAccess } from '@/components/sale-corrections/use-correction-access';
+import { lagosBusinessDate } from '@/lib/accounting-entry';
+import { canChangeSale } from '@/lib/sale-corrections-view';
 
 function Fact({ label, children, muted = false }: { label: string; children: string; muted?: boolean }) {
   return <Box>
@@ -33,6 +41,11 @@ export function RecordDetailsSheet({ record, onClose, onUpdate, onReceipt }: {
   const balance = record ? describeBalance(record.balance, false, exact(record)) : null;
   const owes = balance?.tone === 'debt';
   const refresh = () => { onUpdate(); onClose(); };
+  const access = useCorrectionAccess();
+  const [changing, setChanging] = useState<'correct' | 'cancel' | null>(null);
+  const [changes, setChanges] = useState(0);
+  const cancelled = record?.jobStatus === 'Cancelled';
+  const mayChange = !!record && sale && !record.isPending && !cancelled && !!record.raw?._jobId && canChangeSale(access, record.raw?.DATE, lagosBusinessDate());
   return <ResponsiveSheet open={!!record} onClose={onClose} title={record?.client || 'Record'} description={record ? `${record.date}${record.salesId ? ` · ${record.salesId}` : ''}` : undefined}
     footer={<Box sx={settingsStyles.footer}><Button color="inherit" onClick={onClose}>Close</Button></Box>}>
     {record && <Box sx={styles.sheetBody}>
@@ -74,7 +87,9 @@ export function RecordDetailsSheet({ record, onClose, onUpdate, onReceipt }: {
         <Typography>{record.description}</Typography>
       </Box>
 
-      {sale && !record.isPending && <Box sx={styles.actions}>
+      {sale && (cancelled ? <Box component="span" sx={changeStyles.cancelled}>Cancelled</Box> : changes > 0 && <Box component="span" sx={changeStyles.corrected}>Corrected {changes === 1 ? '1 time' : `${changes} times`}</Box>)}
+
+      {sale && !record.isPending && !cancelled && <Box sx={styles.actions}>
         <ManageSaleAction record={record} variant="button" onUpdate={refresh}
           trigger={(open) => <Button variant="contained" sx={styles.fullWidth} onClick={open}>Record a payment or update</Button>} />
         <Box sx={styles.actionPair}>
@@ -82,7 +97,14 @@ export function RecordDetailsSheet({ record, onClose, onUpdate, onReceipt }: {
           {owes && <Box sx={styles.whatsapp}><WhatsAppReminder clientName={record.client} contact={record.contact || ''} balance={record.balance || 0} jobDescription={record.description} variant="full" /></Box>}
         </Box>
       </Box>}
+      {mayChange && <Box sx={changeStyles.actionsRow}>
+        <Button variant="outlined" color="inherit" onClick={() => setChanging('correct')}>Correct this sale</Button>
+        <Button variant="outlined" color="error" onClick={() => setChanging('cancel')}>Cancel sale</Button>
+      </Box>}
+      {sale && record.salesId && <SaleHistory salesId={record.salesId} onLoaded={setChanges} />}
     </Box>}
+    {changing === 'correct' && record && <CorrectSaleSheet jobId={String(record.raw._jobId)} description={record.description} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); refresh(); }} />}
+    {changing === 'cancel' && record && <CancelSaleSheet salesId={record.salesId || ''} client={record.client} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); refresh(); }} />}
   </ResponsiveSheet>;
 }
 
@@ -99,6 +121,13 @@ export function BatchDetailsSheet({ items, salesId, onClose, onUpdate, onReceipt
   const balance = items ? items.reduce((sum, item) => sum + (item.balance || 0), 0) : 0;
   const owes = !!first && describeBalance(balance, false, exact(first)).tone === 'debt';
   const refresh = () => { onUpdate(); onClose(); };
+  const access = useCorrectionAccess();
+  const [changing, setChanging] = useState<{ mode: 'correct'; item: UnifiedRecord } | { mode: 'cancel' } | null>(null);
+  const [changes, setChanges] = useState(0);
+  const cancelled = !!first && first.jobStatus === 'Cancelled';
+  const today = lagosBusinessDate();
+  const mayChange = (item: UnifiedRecord) => !cancelled && !item.isPending && !!item.raw?._jobId && canChangeSale(access, item.raw?.DATE, today);
+  const mayCancel = !!items && items.length > 0 && items.every((item) => mayChange(item));
   return <ResponsiveSheet open={!!items} onClose={onClose} title={first?.client || 'Batch'} description={items && first ? `${first.date} · ${items.length} ${items.length === 1 ? 'item' : 'items'} · ${salesId}` : undefined}
     footer={<Box sx={settingsStyles.footer}><Button color="inherit" onClick={onClose}>Close</Button></Box>}>
     {items && first && <Box sx={styles.sheetBody}>
@@ -129,20 +158,26 @@ export function BatchDetailsSheet({ items, salesId, onClose, onUpdate, onReceipt
               <Box component="span" sx={styles.rowEnd}>
                 <Typography component="span" sx={styles.amount}>{naira(item.amount)}</Typography>
                 <StatusBadge status={item.status} />
+                {mayChange(item) && <Button size="small" color="inherit" variant="outlined" onClick={() => setChanging({ mode: 'correct', item })}>Correct</Button>}
               </Box>
             </Box>;
           })}
         </Box>
       </Box>
 
-      <Box sx={styles.actions}>
+      {cancelled ? <Box component="span" sx={changeStyles.cancelled}>Cancelled</Box> : changes > 0 && <Box component="span" sx={changeStyles.corrected}>Corrected {changes === 1 ? '1 time' : `${changes} times`}</Box>}
+      {!cancelled && <Box sx={styles.actions}>
         <ManageBatchAction records={items} salesId={salesId} variant="button" onUpdate={refresh}
           trigger={(open) => <Button variant="contained" sx={styles.fullWidth} onClick={open}>Pay the batch</Button>} />
         <Box sx={styles.actionPair}>
           <Button variant="outlined" color="primary" sx={styles.fullWidth} onClick={() => onReceipt(items, salesId)}>Print receipt</Button>
           {owes && <Box sx={styles.whatsapp}><WhatsAppReminder clientName={first.client} contact={first.contact || ''} balance={balance} jobDescription={`${items.length} ${items.length === 1 ? 'item' : 'items'}`} variant="full" /></Box>}
         </Box>
-      </Box>
+      </Box>}
+      {mayCancel && <Box sx={changeStyles.actionsRow}><Button variant="outlined" color="error" onClick={() => setChanging({ mode: 'cancel' })}>Cancel the whole sale</Button></Box>}
+      {salesId && <SaleHistory salesId={salesId} onLoaded={setChanges} />}
     </Box>}
+    {changing?.mode === 'correct' && <CorrectSaleSheet jobId={String(changing.item.raw._jobId)} description={changing.item.description} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); refresh(); }} />}
+    {changing?.mode === 'cancel' && first && <CancelSaleSheet salesId={salesId} client={first.client} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); refresh(); }} />}
   </ResponsiveSheet>;
 }

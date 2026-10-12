@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Alert, Box, Button, ButtonBase, IconButton, Paper, Skeleton, TextField, Typography } from '@mui/material';
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
@@ -90,7 +90,17 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
   const lastSyncTime = useSyncStore((s) => s.lastSyncTime);
 
   const owner = role === 'owner';
-  const salesData: Row[] = cachedSales;
+  // Cancelled sales stay out of every normal list; this page can show them on request, without putting them in the shared store.
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [cancelledRows, setCancelledRows] = useState<Row[]>([]);
+  const showCancelledRef = useRef(false);
+  const loadCancelled = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sales?cancelled=only'), result = await response.json();
+      if (response.ok && Array.isArray(result?.data)) setCancelledRows(result.data);
+    } catch { /* Offline: keep what was shown. */ }
+  }, []);
+  const salesData: Row[] = showCancelled ? [...cachedSales, ...cancelledRows] : cachedSales;
   const expensesData: Row[] = owner ? cachedExpenses : [];
   const [now, setNow] = useState(() => new Date());
   const [loading, setLoading] = useState(cachedSales.length === 0);
@@ -133,6 +143,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
         newExpenses = expensesJson.data ?? [];
       }
       store.setCachedData(newSales, newExpenses, store.cachedInventory, store.cachedPayments, store.cachedMaterials);
+      if (showCancelledRef.current) await loadCancelled();
     } catch {
       if (useSyncStore.getState().cachedSales.length > 0) console.warn('Currently offline. Using cached records.');
       else setError('Failed to load records.');
@@ -141,7 +152,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [owner]);
+  }, [owner, loadCancelled]);
 
   useEffect(() => {
     void Promise.resolve().then(fetchData);
@@ -160,10 +171,12 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
   const dateFiltered = filterByDate(role, records, range, { start: customStart, end: customEnd }, now);
   const sorted = sortRecords(role, filterRecords(role, dateFiltered, { search, tab, sortBy }), sortBy, sortOrder);
   const units = groupUnits(sorted);
-  const summary = summarise(dateFiltered);
+  // A cancelled sale is not a sale any more: it never counts in the totals.
+  const live = dateFiltered.filter((r) => r.jobStatus !== 'Cancelled');
+  const summary = summarise(live);
   // On the cashier's Today view the list also holds unpaid sales from earlier in the week; the Sales tile counts only today's.
   const todayOnly = !owner && range === 'today';
-  const salesSummary = todayOnly ? summarise(dateFiltered.filter((r) => recordDay(r) === today)) : summary;
+  const salesSummary = todayOnly ? summarise(live.filter((r) => recordDay(r) === today)) : summary;
   const waiting = records.filter((r) => r.isPending).length;
   const totalPages = Math.max(1, Math.ceil(units.length / itemsPerPage));
   const currentPage = Math.min(page, totalPages);
@@ -214,12 +227,12 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
 
     {!owner && <HeldSales />}
 
-    {loading && records.length === 0 ? <Box sx={styles.pair}>{[0, 1, 2, 3].slice(0, owner ? 4 : 2).map((i) => <Skeleton key={i} variant="rounded" height={84} />)}</Box> : records.length > 0 && <Box sx={styles.pair}>
+    {owner && (loading && records.length === 0 ? <Box sx={styles.pair}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={84} />)}</Box> : records.length > 0 && <Box sx={styles.pair}>
       <StatTile tone="primary" label={owner ? 'Total sales' : todayOnly ? 'Sales today' : 'Sales'} value={naira(salesSummary.sales)} caption={`${salesSummary.salesCount} sale${salesSummary.salesCount === 1 ? '' : 's'}`} />
       <StatTile tone={summary.owedCount ? 'error' : 'neutral'} label="Still owed" value={naira(summary.owed)} caption={`${summary.owedCount} unpaid job${summary.owedCount === 1 ? '' : 's'}`} />
       {owner && <StatTile label="Expenses" value={naira(summary.expenses)} caption={`${summary.expenseCount} expense${summary.expenseCount === 1 ? '' : 's'}`} />}
       {owner && <StatTile label="Net profit" value={naira(summary.net)} caption="sales less expenses" />}
-    </Box>}
+    </Box>)}
 
     <Box sx={styles.chips} role="group" aria-label="Period">
       {RANGES[role].map((r) => <Button key={r.id} variant={range === r.id ? 'contained' : 'outlined'} color="primary" sx={styles.chip} aria-pressed={range === r.id} onClick={() => { setRange(r.id); setPage(1); }}>{r.label}</Button>)}
@@ -237,6 +250,10 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
         {name === 'Pending' ? 'Waiting' : name} · {count(name)}
       </Button>)}
     </Box>}
+    <Box sx={styles.chips}>
+      <Button variant={showCancelled ? 'contained' : 'outlined'} color={showCancelled ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={showCancelled}
+        onClick={() => { const next = !showCancelled; showCancelledRef.current = next; setShowCancelled(next); setPage(1); if (next) void loadCancelled(); }}>Show cancelled sales</Button>
+    </Box>
 
     <Box sx={styles.sortRow}>
       <Typography variant="body2" sx={styles.sortNote}>Sorted by <strong>{SORT_LABEL[sortBy]}</strong>, {orderText(sortBy, sortOrder)}</Typography>

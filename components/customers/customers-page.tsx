@@ -85,11 +85,11 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
 
     {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void load()}>Try again</Button>}>{error}</Alert>}
 
-    {!stats ? <Box sx={styles.pair}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={84} />)}</Box> : <Box sx={styles.pair}>
+    {!stats ? <Box sx={styles.pair}>{[0, 1, 2, 3].slice(0, owner ? 4 : 2).map((i) => <Skeleton key={i} variant="rounded" height={84} />)}</Box> : <Box sx={styles.pair}>
       <StatTile label="Customers" value={stats.count} />
       <StatTile tone={stats.owedKobo ? 'error' : 'neutral'} label="Still owed" value={koboNaira(stats.owedKobo)} caption={`${stats.owingCount} debtor${stats.owingCount === 1 ? '' : 's'}`} />
-      <StatTile tone="primary" label="Top spender" value={stats.top ? stats.top.name : '—'} caption={stats.top ? `${koboNaira(stats.top.totalKobo)} in ${orderWord(stats.top.orders)}` : 'No sales yet'} />
-      <StatTile tone={stats.owingCount ? 'warning' : 'neutral'} label="Biggest debtor" value={stats.topDebtor ? stats.topDebtor.name : 'None'} caption={stats.topDebtor ? `Owes ${koboNaira(stats.topDebtor.owedKobo)}` : 'Everyone has paid'} />
+      {owner && <StatTile tone="primary" label="Top spender" value={stats.top ? stats.top.name : '—'} caption={stats.top ? `${koboNaira(stats.top.totalKobo)} in ${orderWord(stats.top.orders)}` : 'No sales yet'} />}
+      {owner && <StatTile tone={stats.owingCount ? 'warning' : 'neutral'} label="Biggest debtor" value={stats.topDebtor ? stats.topDebtor.name : 'None'} caption={stats.topDebtor ? `Owes ${koboNaira(stats.topDebtor.owedKobo)}` : 'Everyone has paid'} />}
     </Box>}
 
     <TextField type="search" label="Search" placeholder="Name, phone or customer ID" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />

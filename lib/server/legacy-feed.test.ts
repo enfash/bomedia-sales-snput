@@ -119,3 +119,10 @@ function describe_cashier() {
     expect((await(await legacyFeedResponse('inventory',vi.fn().mockResolvedValue([roll])))!.json()).data[0]).toEqual(roll);
   });
 }
+it('leaves cancelled sales out of the normal sales list and returns them only when asked',async()=>{
+ const rows=[{'Sales ID':'BOM-1','JOB STATUS':'Printing'},{'Sales ID':'BOM-2','JOB STATUS':'Cancelled'}];
+ mocks.session.mockResolvedValue({staff_id:id});
+ const call=vi.fn().mockResolvedValue(rows);
+ expect((await (await legacyFeedResponse('sales',call))!.json()).data.map((r:{'Sales ID':string})=>r['Sales ID'])).toEqual(['BOM-1']);
+ expect((await (await legacyFeedResponse('sales',call,{cancelled:'only'}))!.json()).data.map((r:{'Sales ID':string})=>r['Sales ID'])).toEqual(['BOM-2']);
+});

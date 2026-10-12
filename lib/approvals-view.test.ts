@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { changeText, entryChanges, type ApprovalRuleRow } from './approvals-view';
+import { changeText, entryChanges, expenseChanges, rowKind, rowTitle, ruleLimit, type ApprovalRuleRow } from './approvals-view';
 
 const rules = (days: number | null, percent: number | null): ApprovalRuleRow[] => [
   { kind: 'date', enabled: days !== null, params: { days: days ?? 0 } }, { kind: 'price', enabled: percent !== null, params: { percent: percent ?? 0 } }];
@@ -32,6 +32,19 @@ describe('entryChanges', () => {
 });
 
 import { rowChange, rowItems, rowTotalKobo, type ApprovalRow } from './approvals-view';
+describe('expense limit', () => {
+  const rules = (limit: number | null): ApprovalRuleRow[] => [{ kind: 'expense_limit', enabled: limit !== null, params: { amount_kobo: limit ?? 0 } }];
+  const items = [{ amountKobo: '6000000', category: 'Transport', description: 'Delivery van', paidTo: 'Fast Movers' }, { amountKobo: '5000000', category: 'Ink', description: '', paidTo: '' }];
+  it('flags only an expense above the limit, never one at it, and nothing when the rule is off', () => {
+    expect(expenseChanges(items, rules(5000000))).toEqual([{ kind: 'expense_limit', category: 'Transport', description: 'Delivery van', paidTo: 'Fast Movers', amountKobo: 6000000, limitKobo: 5000000 }]);
+    expect(expenseChanges(items, rules(null))).toEqual([]);
+  });
+  it('says it in plain words and shows the limit in naira in the rule box', () => {
+    expect(changeText(expenseChanges(items, rules(5000000))[0])).toBe('Transport: Delivery van, ₦60,000 to Fast Movers (the limit is ₦50,000)');
+    expect(ruleLimit(rules(5000000)[0])).toBe(50000);
+  });
+});
+
 describe('rows from the database', () => {
   it('reads a date and a price change into the same words the cashier saw', () => {
     expect(changeText(rowChange({ kind: 'date', normal: '2026-10-12', asked: '2026-10-09', days_off: -3 }))).toBe('Friday 9 October, not today (3 days back)');
@@ -42,5 +55,18 @@ describe('rows from the database', () => {
     expect(rowTotalKobo(row)).toBe(4200000);
     expect(rowItems(row)).toBe('Flex print, Banner');
     expect(rowTotalKobo({ summary: {} } as unknown as ApprovalRow)).toBe(0);
+  });
+});
+
+describe('sale correction requests', () => {
+  const row = (kinds: string[]) => ({ operation: 'sale_correction', kinds, summary: { sales_id: 'BOM-20261012-0015', client: 'Phone Rule Check' }, changes: [{ before: { description: 'SAV print job' } }] }) as unknown as ApprovalRow;
+  it('names a correction and a cancellation, and says which sale', () => {
+    expect(rowKind(row(['correction']))).toBe('Correction');
+    expect(rowKind(row(['cancellation']))).toBe('Cancellation');
+    expect(rowTitle(row(['correction']))).toBe('Phone Rule Check');
+    expect(rowItems(row(['correction']))).toBe('BOM-20261012-0015 · SAV print job');
+  });
+  it('reads the days a sale can still be changed from the rule', () => {
+    expect(ruleLimit({ kind: 'edit_old', enabled: true, params: { days: 7 } })).toBe(7);
   });
 });

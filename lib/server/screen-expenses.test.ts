@@ -32,3 +32,11 @@ it('says in plain words when staff were not given the expense category',async()=
  expect(response.status).toBe(409);
  expect((await response.json()).error).toBe('You do not have access to that expense category. Ask the owner to add you.');
 });
+const bigLog={version:1,backend:'postgres',requestId:id,expectedStaffId:id,operation:'log',items:[{businessDate:'2026-10-09',amountKobo:'6000000',category:'Transport',description:'Van',paidTo:'Fast Movers',status:'paid',paymentMethod:'transfer'}]};
+it('passes the cashier’s reason through, and never lets the browser claim to be the owner',async()=>{
+ const call=vi.fn().mockResolvedValue({ok:true});
+ await recordScreenExpense(req({...bigLog,approvalReason:'Van hire for a job',byOwner:'true'}),call);
+ expect(call.mock.calls[0][2]).toMatchObject({approvalReason:'Van hire for a job'});
+ expect(call.mock.calls[0][2]).not.toHaveProperty('byOwner');
+ expect((await recordScreenExpense(req({...bigLog,approvalReason:'x'.repeat(501)}),call)).status).toBe(400);
+});

@@ -1,5 +1,5 @@
 import { expect,it,vi } from 'vitest';
-import { persistExpense,deliverExpense,readExpenses,EXPENSE_PREFIX } from './expense-outbox';
+import { persistExpense,deliverExpense,readExpenses,EXPENSE_HELD,EXPENSE_PREFIX } from './expense-outbox';
 import { expenseContract,type ExpenseRequest } from './expense-contract';
 class Store {
  data=new Map<string,string>();get length(){return this.data.size;}key(i:number){return [...this.data.keys()][i]??null;}getItem(k:string){return this.data.get(k)??null;}setItem(k:string,v:string){this.data.set(k,v);}removeItem(k:string){this.data.delete(k);}
@@ -34,4 +34,16 @@ it('blocks corrupt/full storage and conflicting payments without deleting entrie
 it('rejects ambiguous amounts, dates and unpaid methods before sending',()=>{
  const r=request();if(r.operation!=='log')throw new Error();
  for(const patch of [{amountKobo:'0'},{amountKobo:'1.5'},{businessDate:'2026-02-30'},{status:'unpaid',paymentMethod:'cash'},{status:'paid',paymentMethod:undefined},{receiptId:'legacy-url'}])expect(()=>expenseContract({...r,items:[{...r.items[0],...patch}]})).toThrow();
+});
+it('hands a held expense to the server, clears the device queue and keeps a note of what happened',async()=>{
+ const s=new Store(),entry=persistExpense(s,request());
+ const held={status:'awaiting_approval',approval_request_id:id,kinds:['expense_limit'],request_id:id};
+ const out=await deliverExpense(s,entry,context,vi.fn().mockResolvedValue(Response.json(held)));
+ expect(out).toMatchObject({held:true,status:'awaiting_approval'});
+ expect(readExpenses(s)).toEqual([]);
+ expect(JSON.parse(s.getItem(EXPENSE_HELD)!)).toMatchObject({staffId:id,status:'awaiting_approval',kinds:['expense_limit']});
+});
+it('accepts a reason up to 500 characters on a logged expense and no more',()=>{
+ expect((expenseContract({...request(),approvalReason:'Van hire'}) as {approvalReason?:string}).approvalReason).toBe('Van hire');
+ expect(()=>expenseContract({...request(),approvalReason:'x'.repeat(501)})).toThrow(/500/);
 });

@@ -59,7 +59,7 @@ export const chartCountBadgeStyles = {
 } as const;
 
 export const settingsStyles = {
-  page: {p:{xs:2,md:4},pb:{xs:3,md:12},maxWidth:900,mx:'auto',minWidth:0},
+  page: {p:{xs:2,md:4},pb:{xs:3,md:12},minWidth:0},
   heading: {mt:2,mb:3},
   sections: {overflow:'hidden'},
   sectionLink: {display:'flex',alignItems:'center',gap:2,p:{xs:2,sm:3},textDecoration:'none',color:'text.primary',borderBottom:'1px solid',borderColor:'divider',
@@ -123,6 +123,7 @@ export const approvalRuleStyles = {
   grow: { flex: 1, minWidth: 0 },
   limit: { display: "flex", alignItems: "center", gap: 1, color: "text.secondary", fontSize: "0.875rem", flexWrap: "wrap" },
   number: { width: 88 },
+  numberWide: { width: 150 },
   laterPill: { alignSelf: { xs: "flex-start", md: "center" }, flexShrink: 0, fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100, bgcolor: "action.selected", color: "text.secondary" },
 } as const;
 
@@ -1069,7 +1070,7 @@ const expenseHeaderStart = { display: "flex", alignItems: "center", gap: 1.5 } a
 const expenseAmountBox = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, p: 2, borderRadius: "16px", border: "1px solid" } as const;
 export const expenseStyles = {
   // Cashier entry page.
-  page: { p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, maxWidth: 768, minHeight: "100vh" },
+  page: { p: { xs: 3, md: 4 }, pb: { xs: 3, md: 4 }, minHeight: "100vh" },
   header: { mb: 2.5 },
   headerStart: expenseHeaderStart,
   headerSolo: { ...expenseHeaderStart, mb: 0.5 },
@@ -1079,10 +1080,10 @@ export const expenseStyles = {
   title: { fontWeight: 800 },
   subtitle: { color: "text.secondary" },
   // Owner list.
-  screen: { p: { xs: 2, md: 4 }, pb: { xs: 3, md: 12 }, maxWidth: 900, mx: "auto", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 },
+  screen: { p: { xs: 2, md: 4 }, pb: { xs: 3, md: 12 }, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 },
   heading: { display: "flex", flexDirection: "column", gap: 0.75 },
   summary: { display: "flex", flexDirection: "column", gap: 1 },
-  pair: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
+  pair: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", lg: "repeat(auto-fit, minmax(200px, 1fr))" }, gap: 1 },
   chips: { display: "flex", gap: 1, flexWrap: "wrap" },
   chip: { borderRadius: 100, minHeight: 40, px: 2, fontWeight: 700 },
   day: { display: "flex", flexDirection: "column", gap: 1 },
@@ -1123,7 +1124,7 @@ export const expenseStyles = {
   receiptView: { fontWeight: 700, color: accent },
   hint: { color: "text.secondary", textAlign: "center" },
   // Expense entry form (components/expense-entry.tsx), shown on the cashier page and inside the New expense sheet.
-  entryWrap: { width: "100%", maxWidth: 672, mx: "auto", p: { xs: 1, md: 2 } },
+  entryWrap: { width: "100%", p: { xs: 1, md: 2 } },
   entryWrapSheet: { width: "100%", p: 0 },
   entryCardSheet: { border: 0, boxShadow: "none", bgcolor: "transparent", backgroundImage: "none" },
   sessionIcon: { display: "flex", color: "text.secondary" },
@@ -1343,12 +1344,17 @@ export const syncFailureStyles = {
 
 // Owner's Approvals inbox: one card per held sale. Pills and the change rows come from the shared tones.
 export const approvalInboxStyles = {
-  page: { p: { xs: 2, md: 4 }, pb: { xs: 12, md: 12 }, maxWidth: 900, mx: "auto", minWidth: 0 },
+  page: { p: { xs: 2, md: 4 }, pb: { xs: 12, md: 12 }, minWidth: 0 },
   tabs: { display: "flex", gap: 1, mb: 2, flexWrap: "wrap" },
   list: { display: "flex", flexDirection: "column", gap: 1.5 },
   card: { p: { xs: 2, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 1.5 },
   top: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 },
   amount: { fontWeight: 700, fontFamily: "monospace", flexShrink: 0 },
+  amountOut: { color: toneText("error") },
+  titleRow: { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" },
+  kindSale: { ...toneNeutralPill, fontSize: "0.6875rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  kindChange: { ...tonePill("warning"), fontSize: "0.6875rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  kindExpense: { ...tonePill("info"), fontSize: "0.6875rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
   sub: { color: "text.secondary", fontSize: "0.8125rem", mt: 0.25, overflowWrap: "anywhere" },
   changes: { display: "flex", flexDirection: "column", gap: 1 },
   reason: { px: 1.5, py: 1.25, borderRadius: 1, borderLeft: "3px solid", borderColor: "divider", bgcolor: "action.hover", fontSize: "0.875rem" },
@@ -1385,7 +1391,7 @@ export const heldSalesStyles = {
 
 // New Sale (cashier and owner share one page): cards, the order list, the floating total and the review sheet.
 export const newSaleStyles = {
-  screen: { p: { xs: 2, md: 4 }, pb: { xs: 24, lg: 12 }, maxWidth: 1200, mx: "auto", minWidth: 0 },
+  screen: { p: { xs: 2, md: 4 }, pb: { xs: 24, lg: 12 }, minWidth: 0 },
   heading: { mt: 2, mb: 3 },
   page: { minWidth: 0 },
   tabs: { display: "flex", gap: 1, mb: 2, flexWrap: "wrap" },
@@ -1486,4 +1492,123 @@ export const customerStyles = {
   note: { p: 1.5, borderRadius: 2, bgcolor: "action.hover", color: "text.secondary" },
   formBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
   formFooter: { p: 2, display: "flex", flexDirection: "column", gap: 1 },
+} as const;
+
+// Correct and cancel a sale: the "what this will do" box, the form body and the cancel warning.
+export const saleChangeStyles = {
+  body: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
+  row3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5 },
+  row2: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 },
+  effect: { p: 1.75, borderRadius: "16px", border: "1px solid", borderColor: tint("warning", 0.5), bgcolor: tint("warning", 0.12), display: "flex", flexDirection: "column", gap: 1 },
+  effectCancel: { borderColor: tint("error", 0.4), bgcolor: tint("error", 0.08) },
+  effectLine: { display: "flex", justifyContent: "space-between", gap: 2, alignItems: "baseline", fontSize: "0.875rem" },
+  effectValue: { fontWeight: 700, textAlign: "right", overflowWrap: "anywhere" },
+  was: { color: toneText("error"), textDecoration: "line-through", mr: 0.75, fontWeight: 400 },
+  footer: { p: 2, display: "flex", flexDirection: "column", gap: 1 },
+  actionsRow: { display: "flex", gap: 1, flexWrap: "wrap" },
+  historyHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
+  corrected: { ...tonePill("warning"), alignSelf: "flex-start", fontSize: "0.75rem", fontWeight: 700, px: 1.5, py: 0.5, borderRadius: 100 },
+  cancelled: { ...toneNeutralPill, alignSelf: "flex-start", fontSize: "0.75rem", fontWeight: 700, px: 1.5, py: 0.5, borderRadius: 100 },
+} as const;
+
+// Price Estimator (owner and cashier): item cards, size controls, result tiles and the quote summary.
+const estimatorNote = (tone: StatusTone) => ({
+  display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, border: "1px solid", borderColor: tint(tone, 0.3),
+  bgcolor: tint(tone, 0.1), color: toneText(tone), fontSize: "0.8125rem", fontWeight: 600,
+}) as const;
+export const estimatorStyles = {
+  page: { p: { xs: 2, md: 4 }, pb: { xs: 3, md: 12 }, minWidth: 0 },
+  heading: { mt: 2, mb: 3, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2 },
+  refresh: { flexShrink: 0 },
+  iconBox: { display: "flex" },
+  itemText: { flex: 1, minWidth: 0 },
+  labelFlush: { display: "flex", alignItems: "center", gap: 0.75, fontSize: "0.75rem", fontWeight: 700, color: "text.secondary" },
+  spinning: { display: "flex", animation: `${spin} 1s linear infinite` },
+  stack: { display: "flex", flexDirection: "column", gap: 2 },
+  card: { p: 2 },
+  empty: { p: 5, display: "flex", flexDirection: "column", alignItems: "center", gap: 1, textAlign: "center", color: "text.secondary" },
+  label: { display: "flex", alignItems: "center", gap: 0.75, mb: 0.75, fontSize: "0.75rem", fontWeight: 700, color: "text.secondary" },
+  labelRow: { display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 },
+  itemCard: { overflow: "hidden" },
+  itemHead: { display: "flex", alignItems: "center", gap: 1.5, p: 2, cursor: "pointer", userSelect: "none", "&:hover": { bgcolor: "action.hover" } },
+  itemBadge: { width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, bgcolor: tint("primary", 0.14), color: "primary.main", fontSize: "0.8125rem", fontWeight: 700 },
+  strong: { fontWeight: 700 },
+  itemTitle: { fontWeight: 700 },
+  itemSummary: { color: "text.secondary" },
+  itemSummaryValue: { color: "primary.main", fontWeight: 700 },
+  itemMoney: { color: "primary.main", fontWeight: 700 },
+  itemChevron: { display: "flex", color: "text.disabled" },
+  removeButton: { color: "text.disabled", "&:hover": { color: "error.main", bgcolor: tint("error", 0.1) } },
+  itemBody: { p: 2, borderTop: "1px solid", borderColor: "divider", display: "flex", flexDirection: "column", gap: 3 },
+  unitToggle: { display: "flex", bgcolor: "action.hover", borderRadius: 2, p: 0.25 },
+  unitButton: { minWidth: 0, px: 1.5, py: 0.25, borderRadius: 1.5, fontWeight: 700, color: "text.secondary" },
+  unitButtonOn: { minWidth: 0, px: 1.5, py: 0.25, borderRadius: 1.5, fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText", "&:hover": { bgcolor: "primary.dark" } },
+  shortcuts: { display: "flex", flexWrap: "wrap", gap: 0.75, mb: 1.5 },
+  shortcut: { borderRadius: 2, minWidth: 0, px: 1.25, py: 0.25, fontWeight: 700, color: "text.secondary", borderColor: "divider", "&:hover": { borderColor: "primary.main", color: "primary.main", bgcolor: tint("primary", 0.06) } },
+  fields3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  fields4: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, gap: 1 },
+  fieldNumber: { "& input": { fontWeight: 700 } },
+  noteWarning: estimatorNote("warning"),
+  noteError: estimatorNote("error"),
+  noteSuccess: estimatorNote("success"),
+  noteIcon: { display: "flex", flexShrink: 0 },
+  noteSpace: { mt: 1.5 },
+  tiles3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  tiles4: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, gap: 1 },
+  tile: { p: 1.5, textAlign: "center", bgcolor: "background.default" },
+  tileAccent: { p: 1.5, textAlign: "center", bgcolor: "primary.main", borderColor: "primary.main", color: "primary.contrastText" },
+  tileLabel: { fontSize: "0.75rem", fontWeight: 600, color: "text.secondary", mb: 0.5 },
+  tileLabelAccent: { fontSize: "0.75rem", fontWeight: 600, color: "primary.contrastText", opacity: 0.85, mb: 0.5 },
+  tileValue: { fontWeight: 700 },
+  profit: { flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
+  dotOut: { bgcolor: "error.main" },
+  dotLow: { bgcolor: "warning.main" },
+  dotOk: { bgcolor: "success.main" },
+  rolls: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))" }, gap: 1 },
+  rollGroup: { display: "flex", flexDirection: "column", gap: 1 },
+  roll: { p: 1.5, textAlign: "left", cursor: "pointer", bgcolor: "background.paper", transition: "border-color 0.15s", "&:hover": { borderColor: "primary.main" }, "&:disabled": { cursor: "not-allowed", opacity: 0.5 } },
+  rollOn: { borderColor: "primary.main", bgcolor: tint("primary", 0.08) },
+  rollStatus: { display: "flex", alignItems: "center", gap: 0.5, mt: 1 },
+  dot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
+  addItem: { py: 1.5, borderStyle: "dashed", borderWidth: 2, "&:hover": { borderWidth: 2, bgcolor: tint("primary", 0.06) } },
+  summary: { p: 2.5, display: "flex", flexDirection: "column", gap: 2 },
+  summaryTotal: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 },
+  summaryAmount: { color: "primary.main", fontWeight: 700 },
+  breakdown: { display: "flex", flexDirection: "column", gap: 1, pt: 1.5, borderTop: "1px solid", borderColor: "divider" },
+  breakdownRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 },
+  actions: { display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" }, gap: 1 },
+  actionsTwo: { display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" }, gap: 1 },
+  cta: { p: 2, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, width: "100%", textAlign: "left", bgcolor: "primary.main", color: "primary.contrastText", border: 0, cursor: "pointer", "&:hover": { bgcolor: "primary.dark" } },
+  ctaNote: { opacity: 0.85 },
+} as const;
+
+// Quick-Check (owner and cashier): does this roll cover a print job.
+const quickResult = (tone: StatusTone) => ({ p: 3, display: "flex", flexDirection: { xs: "column", md: "row" }, alignItems: { xs: "flex-start", md: "center" }, justifyContent: "space-between", gap: 3, border: "1px solid", borderColor: tint(tone, 0.3), bgcolor: tint(tone, 0.1), color: toneText(tone) }) as const;
+export const quickCheckStyles = {
+  page: { p: { xs: 2, md: 4 }, pb: { xs: 3, md: 12 }, minWidth: 0 },
+  heading: { mt: 2, mb: 3, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2 },
+  stack: { display: "flex", flexDirection: "column", gap: 2 },
+  form: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 3 },
+  pair: { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" }, gap: 2 },
+  lengthRow: { display: "flex", gap: 1 },
+  grow: { flex: 1 },
+  unitButton: { minWidth: 56, fontWeight: 700 },
+  resultOk: quickResult("success"),
+  resultTight: quickResult("warning"),
+  resultNo: quickResult("error"),
+  resultMain: { display: "flex", alignItems: "center", gap: 2 },
+  resultIcon: { display: "flex", flexShrink: 0 },
+  resultTitle: { fontWeight: 700 },
+  resultNeed: { textAlign: "center", p: 2, minWidth: 160, flexShrink: 0, border: "1px solid", borderColor: "divider", bgcolor: "background.paper", color: "text.primary" },
+  resultNeedValue: { fontWeight: 700 },
+  sectionTitle: { display: "flex", alignItems: "center", gap: 1, mb: 1.5, px: 0.5 },
+  sectionIcon: { display: "flex", color: "primary.main" },
+  alternatives: { display: "flex", flexDirection: "column", gap: 1 },
+  alternative: { p: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 },
+  alternativeMain: { display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 },
+  alternativeIcon: { display: "flex", p: 1, borderRadius: 2, bgcolor: tint("primary", 0.1), color: "primary.main" },
+  stockPill: { ...tonePill("success"), fontWeight: 700 },
+  loading: { minHeight: "50vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, color: "text.secondary" },
+  spinning: { display: "flex", animation: `${spin} 1s linear infinite` },
+  iconBox: { display: "flex" },
 } as const;

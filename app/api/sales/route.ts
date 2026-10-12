@@ -37,8 +37,8 @@ const INVENTORY_HEADERS = [
   'Status', 'Date Added', 'Material ID',
 ];
 
-export async function GET() {
-  const fromPostgres = await legacyFeedResponse('sales');
+export async function GET(request: Request) {
+  const fromPostgres = await legacyFeedResponse('sales', undefined, { cancelled: new URL(request.url).searchParams.get('cancelled') === 'only' ? 'only' : undefined });
   if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();

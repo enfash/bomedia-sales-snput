@@ -11,6 +11,7 @@ const retryExpenses=()=>window.dispatchEvent(new CustomEvent(EXPENSE_EVENT,{deta
 export function ExpenseSync() {
   const [message,setMessage]=useState('');
   const [reference,setReference]=useState('');
+  const [held,setHeld]=useState('');
   const pathname=usePathname(),router=useRouter();
   useEffect(()=>{
     if(pathname.includes('/login'))return;
@@ -28,6 +29,11 @@ export function ExpenseSync() {
           for(const entry of readExpenses(localStorage)) {
             if(entry.state!=='pending'&&!retry)continue;
             const result=await deliverExpense(localStorage,entry,context,fetch);
+            if(result&&'held' in result){
+              const text=result.status==='awaiting_approval'?'Sent to the owner for approval. The expense is recorded once approved.':result.status==='declined'?`The owner declined this expense.${result.decision_note?` ${result.decision_note}`:''}`:'This approval request expired. Enter the expense again.';
+              if(active)setHeld(text);
+              window.dispatchEvent(new Event('bomedia-data-changed'));continue;
+            }
             if(result){
               if(active){const shown=result.expenses.map(e=>e.reference).join(', ');setReference(shown);localStorage.setItem(SEEN,shown);}
               window.dispatchEvent(new CustomEvent('bomedia-expense-confirmed',{detail:result}));
@@ -64,5 +70,6 @@ export function ExpenseSync() {
   },[pathname,router]);
   useFloatingNotice('expense-pending',message?{tone:'warning',text:message,action:{label:'Retry saved expenses',run:retryExpenses}}:null);
   useFloatingNotice('expense-confirmed',reference?{tone:'success',text:`Saved and confirmed: ${reference}`}:null);
+  useFloatingNotice('expense-held',held?{tone:'warning',text:held}:null);
   return null;
 }

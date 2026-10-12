@@ -75,6 +75,12 @@ it('describes material changes in plain words', () => {
   expect(text('approval_requested', { kinds: ['date', 'price'] })).toBe('asked for approval of a sale (a different date and a different price)');
   expect(text('approval_declined', { kinds: ['date'] })).toBe('declined a sale (a different date)');
   expect(text('approval_approved', {})).toBe('approved a sale (needs the owner)');
+  expect(text('sale_corrected', { sales_id: 'BOM-20261012-0001', client: 'Grace Chapel' })).toBe('corrected the sale BOM-20261012-0001 for Grace Chapel');
+  expect(text('sale_cancelled', { sales_id: 'BOM-20261012-0001', client: 'Grace Chapel', approved_by: 'x' })).toBe('cancelled the sale BOM-20261012-0001 for Grace Chapel (approved)');
+  expect(text('approval_requested', { kinds: ['cancellation'], operation: 'sale_correction' })).toBe('asked for approval of a sale change (a cancellation)');
+  expect(text('approval_approved', { kinds: ['expense_limit'], operation: 'screen_expense' })).toBe('approved an expense (a large expense)');
+  expect(text('approval_requested', { kinds: ['expense_limit'], operation: 'screen_expense' })).toBe('asked for approval of an expense (a large expense)');
+  expect(text('approval_rule_saved', { kind: 'expense_limit', enabled: true })).toBe('turned on approval for a large expense');
   expect(text('approval_rule_saved', { kind: 'price', enabled: true })).toBe('turned on approval for a different price');
   expect(text('approval_rule_saved', { kind: 'date', enabled: false })).toBe('turned off approval for a different date');
 });

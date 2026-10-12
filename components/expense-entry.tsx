@@ -8,6 +8,8 @@ import Alert from '@mui/material/Alert';
 import { paymentContext, type PaymentContext } from '@/lib/payment-outbox';
 import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
 import { expenseContract, type ExpenseItem } from '@/lib/expense-contract';
+import { expenseChanges, type ApprovalRuleRow, type EntryChange } from '@/lib/approvals-view';
+import { ApprovalReasonSheet } from '@/components/approval-reason-sheet';
 import { saveExpenseRequest } from '@/lib/expense-outbox';
 import { normalizePaymentMethod } from '@/lib/payment-methods';
 import { parseAmount } from "@/lib/financial-utils";
@@ -55,6 +57,9 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
   const [loadError,setLoadError]=useState('');
   const [receiptSize,setReceiptSize]=useState('');
   const [receiptError,setReceiptError]=useState('');
+  // The owner's approval rules, so a cashier is asked for a reason before sending an expense above the limit.
+  const [approvalRules,setApprovalRules]=useState<{rules:ApprovalRuleRow[];isOwner:boolean}|null>(null);
+  const [askReason,setAskReason]=useState<EntryChange[]|null>(null);
   const saving=useRef(false);
   const uploadRequest=useRef<{file:File;id:string}|null>(null);
   const postgres=context?.backend==='postgres';
@@ -63,6 +68,13 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
     void paymentContext().then(async value=>{
       if(!active)return;setContext(value);
       if(value.backend==='postgres') {
+        try {
+          const rulesResponse=await fetch('/api/accounting/approval-rules?for=entry',{cache:'no-store'}),rules=await rulesResponse.json();
+          if(rulesResponse.ok&&Array.isArray(rules.rules)){if(active)setApprovalRules(rules);localStorage.setItem('bomedia-approval-rules',JSON.stringify(rules));}
+          else throw new Error();
+        }catch{
+          try {const saved=JSON.parse(localStorage.getItem('bomedia-approval-rules')||'null');if(active&&saved)setApprovalRules(saved);}catch{/* The server still decides. */}
+        }
         const cacheKey=`bomedia-expense-categories:${value.staffId}`;
         try {const r=await fetch('/api/accounting/records?resource=expense_categories',{cache:'no-store'}),body=await r.json();
           if(!r.ok||!Array.isArray(body.data))throw new Error(body.error||'Categories unavailable.');
@@ -263,16 +275,20 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
     }
   };
 
-  async function savePostgres(rows:Record<string,string>[]) {
+  async function savePostgres(rows:Record<string,string>[],reason?:string) {
     if(saving.current||isUploading||receiptError)return;
     saving.current=true;setIsSaving(true);
     try {
       const items=rows.map(postgresItem);
       if(context?.backend!=='postgres')throw new Error('Account not ready.');
       expenseContract({version:1,backend:'postgres',requestId:crypto.randomUUID(),expectedStaffId:context.staffId,operation:'log',items});
-      await saveExpenseRequest({operation:'log',items});
-      toast.info('Expenses saved on this device. Wait for the confirmed EXP reference.');
-      setBatchItems([]);setRecentExpenses([]);setShowConfirmModal(false);
+      if(!reason&&approvalRules&&!approvalRules.isOwner){
+        const changes=expenseChanges(items,approvalRules.rules);
+        if(changes.length){setAskReason(changes);return;}
+      }
+      await saveExpenseRequest({operation:'log',items,...(reason?{approvalReason:reason}:{})});
+      toast.info(reason?'Sent to the owner for approval. It is recorded once approved.':'Expenses saved on this device. Wait for the confirmed EXP reference.');
+      setBatchItems([]);setRecentExpenses([]);setShowConfirmModal(false);setAskReason(null);
       setFormData({date:lagosBusinessDate(),amount:'',category:'',description:'',paidTo:'',paymentMethod:'',receiptUrl:'',status:'Unpaid'});
       onSaved?.();
     }catch(e){toast.error(e instanceof Error?e.message:'Could not save. Your form is unchanged.');}
@@ -627,7 +643,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
       </Box>
 
       {recentExpenses.length > 0 && (
-        <Box sx={{ width: "100%", maxWidth: 672, mx: "auto", px: { xs: 1, md: 2 }, pb: 4 }}>
+        <Box sx={{ width: "100%", px: { xs: 1, md: 2 }, pb: 4 }}>
           <Card>
             <Box
               sx={{
@@ -682,6 +698,9 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
           </Card>
         </Box>
       )}
+
+      <ApprovalReasonSheet open={askReason!==null} changes={askReason??[]} busy={isSaving} description="This expense is above the owner’s limit. It will not be recorded and no money counts as paid out until the owner approves it." backLabel="Change the amount"
+        onSend={(reason)=>{void savePostgres(batchItems.length?batchItems:[currentRow()],reason);}} onClose={()=>setAskReason(null)} />
 
       <Dialog
         open={showConfirmModal}

@@ -26,9 +26,12 @@ const target = (entry: AuditEntryView, fallback: string) => (typeof entry.detail
 
 // "a different date and a different price" from the list the database kept on the request.
 const approvalWhy = (kinds: unknown) => {
-  const names = (Array.isArray(kinds) ? kinds : []).map((k) => (k === 'date' ? 'a different date' : k === 'price' ? 'a different price' : k === 'expense_limit' ? 'a large expense' : k === 'edit_old' ? 'an older record' : '')).filter(Boolean);
+  const names = (Array.isArray(kinds) ? kinds : []).map((k) => (k === 'date' ? 'a different date' : k === 'price' ? 'a different price' : k === 'expense_limit' ? 'a large expense' : k === 'edit_old' ? 'an older record' : k === 'correction' ? 'a correction' : k === 'cancellation' ? 'a cancellation' : '')).filter(Boolean);
   return names.length ? names.join(' and ') : 'needs the owner';
 };
+
+// Older approval entries have no kind of entry saved: they were all sales.
+const entryNoun = (entry: AuditEntryView) => (entry.details.operation === 'screen_expense' ? 'an expense' : entry.details.operation === 'sale_correction' ? 'a sale change' : 'a sale');
 
 const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   staff_login: 'signed in', staff_logout: 'signed out',
@@ -40,14 +43,16 @@ const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   material_renamed: (e) => `renamed the material ${asText(e.details.from) || 'a material'} to ${asText(e.details.to) || 'a new name'}`,
   material_added: (e) => `added the material ${asText(e.details.name) || ''}${koboLabel(e.details.to) ? ` at ${koboLabel(e.details.to)} per sq ft` : ''}`.trim(),
   material_size_added: (e) => `added the size ${asText(e.details.name) || 'a size'}`,
+  sale_corrected: (e) => `corrected the sale ${asText(e.details.sales_id) || ''}${asText(e.details.client) ? ` for ${asText(e.details.client)}` : ''}${e.details.approved_by ? ' (approved)' : ''}`.replace(/\s+/g, ' ').trim(),
+  sale_cancelled: (e) => `cancelled the sale ${asText(e.details.sales_id) || ''}${asText(e.details.client) ? ` for ${asText(e.details.client)}` : ''}${e.details.approved_by ? ' (approved)' : ''}`.replace(/\s+/g, ' ').trim(),
   customer_updated: (e) => {
     const names = (Array.isArray(e.details.fields) ? e.details.fields : []).map((f) => (f === 'contact' ? 'phone number' : f === 'notes' ? 'notes' : f === 'name' ? 'name' : '')).filter(Boolean);
     return `changed the ${names.length ? names.join(' and ') : 'details'} of ${asText(e.details.name) || 'a customer'}${asText(e.details.customer) ? ` (${asText(e.details.customer)})` : ''}`;
   },
-  approval_requested: (e) => `asked for approval of a sale (${approvalWhy(e.details.kinds)})`,
-  approval_approved: (e) => `approved a sale (${approvalWhy(e.details.kinds)})`,
-  approval_declined: (e) => `declined a sale (${approvalWhy(e.details.kinds)})`,
-  approval_failed: (e) => `tried to approve a sale but it could not be recorded (${approvalWhy(e.details.kinds)})`,
+  approval_requested: (e) => `asked for approval of ${entryNoun(e)} (${approvalWhy(e.details.kinds)})`,
+  approval_approved: (e) => `approved ${entryNoun(e)} (${approvalWhy(e.details.kinds)})`,
+  approval_declined: (e) => `declined ${entryNoun(e)} (${approvalWhy(e.details.kinds)})`,
+  approval_failed: (e) => `tried to approve ${entryNoun(e)} but it could not be recorded (${approvalWhy(e.details.kinds)})`,
   approval_rule_saved: (e) => {
     const rule = e.details.kind === 'date' ? 'a different date' : e.details.kind === 'price' ? 'a different price' : e.details.kind === 'expense_limit' ? 'a large expense' : e.details.kind === 'edit_old' ? 'editing an older record' : 'an approval';
     return e.details.enabled === true ? `turned on approval for ${rule}` : `turned off approval for ${rule}`;

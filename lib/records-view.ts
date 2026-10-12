@@ -7,7 +7,7 @@ import { dayFromText } from '@/lib/expense-list';
 import { parseAmount } from '@/lib/financial-utils';
 import type { UnifiedRecord } from '@/components/manage-sale-action';
 
-export type RecordStatus = 'Settled' | 'Part-payment' | 'In Progress' | 'Syncing';
+export type RecordStatus = 'Settled' | 'Part-payment' | 'In Progress' | 'Syncing' | 'Cancelled';
 export type RecordsRole = 'owner' | 'cashier';
 export type Row = Record<string, string>;
 export type DateRange = 'all' | 'today' | '7d' | '30d' | 'custom';
@@ -33,6 +33,8 @@ export const mapSale = (r: Row, isPending: boolean, timestamp?: number): Unified
   else if (rawStatus === 'Part-payment') status = 'Part-payment';
   else if (rawStatus === 'Unpaid') status = 'In Progress';
   if (isPending) status = 'Syncing';
+  // A cancelled sale keeps its record (and its history) but is no longer owed or paid.
+  if ((r['JOB STATUS'] || r['Job Status']) === 'Cancelled') status = 'Cancelled';
   return {
     id: `sale-${r.DATE}-${r['CLIENT NAME']}-${Math.random()}`,
     date: parseSheetDate(r.DATE || r.Date),
@@ -232,6 +234,7 @@ export function groupUnits(sorted: UnifiedRecord[]): DisplayUnit[] {
 
 export const groupStatus = (items: UnifiedRecord[]): RecordStatus => {
   if (items.some((r) => r.status === 'Syncing')) return 'Syncing';
+  if (items.length && items.every((r) => r.status === 'Cancelled')) return 'Cancelled';
   if (items.every((r) => r.status === 'Settled')) return 'Settled';
   if (items.some((r) => r.status === 'Part-payment')) return 'Part-payment';
   return 'In Progress';
