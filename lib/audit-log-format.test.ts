@@ -71,4 +71,9 @@ it('describes material changes in plain words', () => {
   expect(text('material_size_saved', { name: 'Flex 10 ft', enabled: false })).toBe('turned off Flex 10 ft');
   expect(text('material_size_saved', { name: 'Flex 10 ft', enabled: true })).toBe('turned on Flex 10 ft');
   expect(text('material_size_saved', { name: 'Flex 10 ft', changed: ['notes'] })).toBe('changed the settings of Flex 10 ft');
+  expect(text('approval_requested', { kinds: ['date', 'price'] })).toBe('asked for approval of a sale (a different date and a different price)');
+  expect(text('approval_declined', { kinds: ['date'] })).toBe('declined a sale (a different date)');
+  expect(text('approval_approved', {})).toBe('approved a sale (needs the owner)');
+  expect(text('approval_rule_saved', { kind: 'price', enabled: true })).toBe('turned on approval for a different price');
+  expect(text('approval_rule_saved', { kind: 'date', enabled: false })).toBe('turned off approval for a different date');
 });

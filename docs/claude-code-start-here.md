@@ -20,7 +20,7 @@ Owner: Elijah (BOMedia, Lagos large-format printing). Project: Next.js 16 App Ro
 - Logic never lives in a page file: the Records and Job board logic is in `lib/records-view.ts` and `lib/job-board.ts` with tests that pin today's behaviour. Move logic first, with tests, then rebuild the view.
 - A production build is checked in an env-free copy of the project (rsync without `.env*`, `cp -Rc node_modules`) so it never reads secrets or overwrites the running preview's `.next`.
 - Lagos has no daylight saving; "today" means the Lagos date.
-- Migrations are append-only; never edit one that has been applied. Next number is `202610110037`. Adding a migration also means updating `lib/schema-version.ts` (a test fails until it matches the folder).
+- Migrations are append-only; never edit one that has been applied. Next number is `202610120038` (037 is the owner approvals migration, applied only to PGlite tests so far, not yet to the sandbox database). Adding a migration also means updating `lib/schema-version.ts` (a test fails until it matches the folder).
 
 ## What exists (Settings area, owner only)
 Applied to the sandbox through migration 036 (no new migration for the Inventory redesign) and passing `npm test` (see the handoff for the latest count):
@@ -38,6 +38,16 @@ Applied to the sandbox through migration 036 (no new migration for the Inventory
 
 ## UI migration status (shared components, theme only)
 Done and checked in the sandbox (phone and desktop, dark and light): Settings screens, owner Inventory, cashier Stock check, **Expenses** (owner; the cashier page is still the entry form only), **Records** (one shared page for both roles), **Job board** (both roles), back links on every page (`BackLink`, `HomeBackLink`), the dashboard's dark-mode colours, the shell (sidebar, drawer, bottom nav). Not yet redesigned: **Customers** (hard-coded colours, low-contrast avatars), **Estimator**, **New entry** (the sale form), **Quick-Check**, **Waste**, the cashier Expenses page, the dashboard itself, and `components/inventory/legacy-inventory-page.tsx` (delete at cutover). Tailwind removal waits until all of these are done. A production build passed on 11 October (29 static pages).
+
+## Owner approvals (12 Oct, Stages 1 and 2 built; uncommitted)
+The owner wants to hold anything unusual until he approves it. Plan the owner approved: **Stage 1** database + API + tests; **Stage 2** screens (canvas approved); **Stage 3** expense-limit and edit/delete-older-record triggers (not built); **Stage 4** phone push (not built). Rules are all off by default; the owner switches them on at Settings > Approvals.
+- Database: migration 037 (rules, requests, the gate on `api_screen_order`). The server, not the browser, sets `by_owner`; anything the browser sends under that name is dropped (tested).
+- API: `/api/accounting/approvals` (owner list, `?mine=1` for a cashier, POST decision) and `/api/accounting/approval-rules` (owner edits; `?for=entry` lets any signed-in staff read the rules plus whether they are the owner).
+- Screens: Settings > Approvals (`components/approval-rules-settings.tsx`); owner inbox `/bom03/approvals` (`approvals-inbox.tsx`); cashier reason sheet on New Sale (`approval-reason-sheet.tsx`, wired in `sales-entry.tsx handleSave`, change detection in `lib/approvals-view.ts entryChanges`, mirroring the database); held and declined sales at the top of the cashier's Records (`records/held-sales.tsx`); bell count, dashboard card and sidebar link for the owner (`approvals-watcher.tsx` polls every 30 s, `approvals-waiting-card.tsx`, `lib/approvals-count.ts`).
+- A held sale returns `{status:'awaiting_approval'|'declined'|'expired', ...}`. The order outbox removes it from the device queue and `order-sync.tsx` floats a notice.
+- Not seen running: the cashier reason sheet on a phone (the browser pane is signed in as the owner, and the material picker did not open under a borrowed cashier cookie). Its logic is unit tested and the API behind it was exercised end to end as the test cashier.
+- Differences from the canvas: Records shows "Dismiss" only (no "Enter again" prefill yet); the owner sees the full list through the bell, the dashboard card and the sidebar link, not a separate toast per request after the first.
+- Only sales are checked, and only for date and print price. Service price mismatches still follow the existing list-price / approved-quote rule.
 
 ## Still to do, in this order of preference
 - Item 4: Approved devices (blocked: phones cannot be identified yet; needs a decision between pairing-code devices and admin-screens-only). Opening balances: guided flow, owner decisions needed.

@@ -1,8 +1,9 @@
-import { confirmedOrder, orderContract, type ScreenOrder } from './order-contract';
+import { confirmedOrder, heldOrder, orderContract, type ScreenOrder } from './order-contract';
 import { paymentContext, type OutboxStorage, type PaymentContext } from './payment-outbox';
 export const ORDER_PREFIX = 'bomedia-order-v3:';
 export const ORDER_EVENT = 'bomedia-order-outbox';
 export const ORDER_RECEIPT = 'bomedia-last-order-confirmation';
+export const ORDER_HELD = 'bomedia-last-order-held';
 export type OrderEntry = { order: ScreenOrder; state: 'pending' | 'review' | 'auth'; error?: string };
 export function readOrders(storage: OutboxStorage): OrderEntry[] {
   const result: OrderEntry[] = [];
@@ -45,6 +46,9 @@ export async function deliverOrder(storage: OutboxStorage, entry: OrderEntry, co
     const response=await send('/api/accounting/orders',{method:'POST',headers:{'Content-Type':'application/json','X-Bomedia-Backend':'postgres'},body:JSON.stringify(entry.order)});
     const result=await response.json();
     if(!response.ok)return hold(response.status===401||response.status===403?'auth':response.status>=500||response.status===429?'pending':'review',result.error||'Order needs review.');
+    // The owner has to approve this one first. The server now holds it, so it leaves this device's queue.
+    const held=heldOrder(result);
+    if(held){storage.setItem(ORDER_HELD,JSON.stringify({staffId:entry.order.expectedStaffId,...held}));storage.removeItem(key);return {...result,held:true};}
     if(!confirmedOrder(result,entry.order))return hold('pending','Confirmation was incomplete. The original order is kept for retry.');
     storage.setItem(ORDER_RECEIPT,JSON.stringify({staffId:entry.order.expectedStaffId,...result}));
     storage.removeItem(key);return result;

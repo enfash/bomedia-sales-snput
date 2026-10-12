@@ -11,6 +11,7 @@ const retryOrders=()=>window.dispatchEvent(new CustomEvent(ORDER_EVENT,{detail:{
 export function OrderSync() {
   const [message,setMessage]=useState('');
   const [reference,setReference]=useState('');
+  const [held,setHeld]=useState('');
   const pathname=usePathname(),router=useRouter();
   useEffect(()=>{
     if(pathname.includes('/login'))return;
@@ -28,6 +29,11 @@ export function OrderSync() {
           for(const entry of readOrders(localStorage)) {
             if(entry.state!=='pending'&&!retry)continue;
             const result=await deliverOrder(localStorage,entry,context,fetch);
+            if(result?.held){
+              const status=String(result.status);
+              if(active)setHeld(status==='awaiting_approval'?'Sent to the owner for approval. It will be recorded once approved.':status==='declined'?`The owner declined this sale.${result.decision_note?` ${result.decision_note}`:''}`:'This approval request expired. Enter the sale again.');
+              window.dispatchEvent(new Event('bomedia-data-changed'));continue;
+            }
             if(result){
               if(active){const shown=String(result.quote_number||result.sales_id);setReference(shown);localStorage.setItem(SEEN,shown);}
               window.dispatchEvent(new CustomEvent('bomedia-order-confirmed',{detail:result}));
@@ -64,5 +70,6 @@ export function OrderSync() {
   },[pathname,router]);
   useFloatingNotice('order-pending',message?{tone:'warning',text:message,action:{label:'Retry saved orders',run:retryOrders}}:null);
   useFloatingNotice('order-confirmed',reference?{tone:'success',text:`Saved and confirmed: ${reference}`}:null);
+  useFloatingNotice('order-held',held?{tone:'warning',text:held}:null);
   return null;
 }

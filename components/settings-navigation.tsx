@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, Users, BriefcaseBusiness, Landmark, Wallet, ScrollText, Receipt, Activity, CalendarCheck, Layers } from 'lucide-react';
+import { Settings, Users, BriefcaseBusiness, Landmark, Wallet, ScrollText, Receipt, Activity, CalendarCheck, Layers, ShieldCheck } from 'lucide-react';
 
 export const ownerSettingsNav = {href:'/bom03/settings',label:'Settings',icon:Settings,primary:false};
 // One registry drives the settings hub; future sections can be added here.
@@ -12,6 +12,7 @@ export const settingsSections = [
   {href:'/bom03/settings/expense-categories',title:'Expense categories',description:'Add the headings staff pick for expenses, or turn one off.',icon:Receipt},
   {href:'/bom03/settings/audit-log',title:'Audit log',description:'See who did what, and when. Read-only.',icon:ScrollText},
   {href:'/bom03/settings/bookkeeping-period',title:'Bookkeeping period',description:'Close finished months so their figures can never change.',icon:CalendarCheck},
+  {href:'/bom03/settings/approvals',title:'Approvals',description:'Choose which sales wait for your approval: a different date or price.',icon:ShieldCheck},
   {href:'/bom03/settings/system-status',title:'System status',description:'Check the database, recent activity and entries waiting on this phone.',icon:Activity},
   {href:'/bom03/settings/staff',title:'Staff Manager',description:'Manage staff accounts, access and performance.',icon:Users},
 ] as const;

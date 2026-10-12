@@ -14,6 +14,8 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import { activityStyles as styles } from "@/app/theme";
 import { SidePanel } from "@/components/side-panel";
+import { useApprovalsCount } from "@/lib/approvals-count";
+import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
 
 type ActivityType = "sale" | "expense" | "inventory";
 
@@ -40,6 +42,7 @@ export function ActivityFeed() {
   const [isRestocking, setIsRestocking] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+  const waitingApprovals = useApprovalsCount();
 
   const activityItems = useMemo(() => {
     const parseVal = (val: any) => {
@@ -179,10 +182,13 @@ export function ActivityFeed() {
     <>
       <IconButton aria-label="Notifications" onClick={() => setDrawerOpen(true)} sx={styles.bell}>
         <Bell size={20} />
-        {alerts.totalCount > 0 && <Box component="span" sx={styles.bellDot} />}
+        {waitingApprovals > 0
+          ? <Box component="span" sx={styles.bellCount}>{waitingApprovals}</Box>
+          : alerts.totalCount > 0 && <Box component="span" sx={styles.bellDot} />}
       </IconButton>
 
       <SidePanel open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Activity & System Alerts" subtitle="Recent updates & warnings" icon={<Clock size={20} />}>
+        <Box sx={{ px: 2, pt: 2 }}><ApprovalsWaitingCard onNavigate={() => setDrawerOpen(false)} /></Box>
         <Box sx={styles.tabsWrap}>
           <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} variant="fullWidth" sx={styles.tabs}>
             <Tab label={<Box sx={styles.tabLabel}><Clock size={14} /><span>Updates ({activityItems.length})</span></Box>} />

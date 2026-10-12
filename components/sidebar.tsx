@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import {
   LayoutDashboard, PlusCircle, Receipt, BarChart3,
   Cloud, CloudOff, LogOut, Users, KanbanSquare,
-  Ruler, Package, Calculator, ArrowLeftRight, Menu, ChevronLeft
+  Ruler, Package, Calculator, ArrowLeftRight, Menu, ChevronLeft, ShieldCheck
 } from "lucide-react";
 import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
@@ -99,6 +99,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         { href: "/bom03/quick-check", label: "Quick-Check",  icon: Ruler },
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
+        { href: "/bom03/approvals", label: "Approvals",    icon: ShieldCheck },
         ownerSettingsNav,
       ];
 

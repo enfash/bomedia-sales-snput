@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, LayoutDashboard, PlusCircle, Receipt, BarChart3,
   Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare,
-  Package, Volume2, VolumeX, Ruler, ArrowLeftRight, Calculator,
+  Package, Volume2, VolumeX, Ruler, ArrowLeftRight, Calculator, ShieldCheck,
 } from "lucide-react";
 import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
@@ -107,6 +107,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
         { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
         { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
         { href: "/bom03/inventory", label: "Inventory",    icon: Package },
+        { href: "/bom03/approvals", label: "Approvals",    icon: ShieldCheck },
         ownerSettingsNav,
       ];
 

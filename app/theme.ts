@@ -114,6 +114,17 @@ export const paymentMethodStyles = {
   form: { p: { xs: 2, sm: 3 } },
 } as const;
 
+// Settings > Approvals: one row per rule, a switch and (for date and price) a small number box.
+export const approvalRuleStyles = {
+  list: { display: "flex", flexDirection: "column", gap: 1.5 },
+  row: { p: 2.5, display: "flex", flexDirection: { xs: "column", md: "row" }, alignItems: { xs: "stretch", md: "center" }, gap: 2 },
+  rowLater: { bgcolor: "action.hover", borderStyle: "dashed" },
+  grow: { flex: 1, minWidth: 0 },
+  limit: { display: "flex", alignItems: "center", gap: 1, color: "text.secondary", fontSize: "0.875rem", flexWrap: "wrap" },
+  number: { width: 88 },
+  laterPill: { alignSelf: { xs: "flex-start", md: "center" }, flexShrink: 0, fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100, bgcolor: "action.selected", color: "text.secondary" },
+} as const;
+
 const spin = keyframes`
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -121,6 +132,15 @@ const spin = keyframes`
 type Tone = "primary" | "success" | "info" | "warning" | "error";
 const tint = (tone: Tone, opacity: number) => (theme: Theme) => alpha(theme.palette[tone].main, opacity);
 const toneBox = (tone: Tone) => ({ bgcolor: tint(tone, 0.1), color: `${tone}.main` });
+
+// The cashier's "needs the owner's approval" sheet.
+export const approvalPromptStyles = {
+  body: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
+  changes: { display: "flex", flexDirection: "column", gap: 1 },
+  change: { px: 1.5, py: 1.25, borderRadius: 2, border: "1px solid", borderColor: tint("warning", 0.5), bgcolor: tint("warning", 0.12), fontSize: "0.875rem" },
+  changeTitle: { fontWeight: 700, mr: 1 },
+  footer: { p: 2, display: "flex", flexDirection: "column", gap: 1 },
+} as const;
 
 // Staff Manager (Settings > Staff). Colours come from palette tokens only, so the
 // admin/cashier themes and dark mode all stay consistent.
@@ -979,6 +999,7 @@ export const auditLogStyles = {
   tagExpenses: auditTag("warning"),
   tagStock: auditTag("info"),
   tagSettings: auditTag("secondary"),
+  tagApprovals: auditTag("warning"),
   tagOther: { bgcolor: "action.hover", color: "text.secondary" },
   toggle: { minWidth: 44, minHeight: 44, color: "text.secondary" },
   togglePlaceholder: { width: 44, flexShrink: 0, display: { xs: "none", sm: "block" } },
@@ -1231,6 +1252,7 @@ export const activityStyles = {
     position: "relative", width: 40, height: 40, borderRadius: "50%", color: "text.secondary",
     "&:hover": { color: accent, bgcolor: tint("primary", 0.1) }, transition: "background-color 0.2s, color 0.2s, transform 0.2s", "&:active": { transform: "scale(0.97)" },
   },
+  bellCount: { position: "absolute", top: 2, right: 2, minWidth: 18, height: 18, px: 0.5, borderRadius: 9, bgcolor: "warning.main", color: "warning.contrastText", fontSize: "0.6875rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid", borderColor: "background.paper", boxSizing: "content-box" },
   bellDot: { position: "absolute", top: 8, right: 8, width: 10, height: 10, borderRadius: "50%", bgcolor: "error.main", border: "2px solid", borderColor: "background.paper", animation: "bounce 1s infinite" },
   tabsWrap: { px: 2, pt: 2, flexShrink: 0 },
   tabs: {
@@ -1304,4 +1326,46 @@ export const syncFailureStyles = {
     letterSpacing: 1, "&:hover": { bgcolor: whiteTint(0.9) },
   },
   dismiss: { color: "common.white", flexShrink: 0, "&:hover": { bgcolor: whiteTint(0.2) } },
+} as const;
+
+// Owner's Approvals inbox: one card per held sale. Pills and the change rows come from the shared tones.
+export const approvalInboxStyles = {
+  page: { p: { xs: 2, md: 4 }, pb: { xs: 12, md: 12 }, maxWidth: 900, mx: "auto", minWidth: 0 },
+  tabs: { display: "flex", gap: 1, mb: 2, flexWrap: "wrap" },
+  list: { display: "flex", flexDirection: "column", gap: 1.5 },
+  card: { p: { xs: 2, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 1.5 },
+  top: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 },
+  amount: { fontWeight: 700, fontFamily: "monospace", flexShrink: 0 },
+  sub: { color: "text.secondary", fontSize: "0.8125rem", mt: 0.25, overflowWrap: "anywhere" },
+  changes: { display: "flex", flexDirection: "column", gap: 1 },
+  reason: { px: 1.5, py: 1.25, borderRadius: 1, borderLeft: "3px solid", borderColor: "divider", bgcolor: "action.hover", fontSize: "0.875rem" },
+  actions: { display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: { sm: "center" } },
+  note: { flex: 1 },
+  pillApproved: { ...tonePill("success"), fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  pillDeclined: { ...tonePill("error"), fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  pillWaiting: { ...tonePill("warning"), fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  pillExpired: { ...toneNeutralPill, fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  pillRow: { display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" },
+} as const;
+
+// The "waiting for your approval" card on the dashboard and at the top of the notification drawer.
+export const approvalsWaitingStyles = {
+  card: { display: "flex", alignItems: "center", gap: 2, px: 2, py: 1.5, mb: 2, borderRadius: 3, border: "1px solid", borderColor: tint("warning", 0.5), bgcolor: tint("warning", 0.12) },
+  text: { flex: 1, minWidth: 0 },
+  title: { fontWeight: 700, fontSize: "0.9375rem" },
+  sub: { color: "text.secondary", fontSize: "0.8125rem" },
+} as const;
+
+// The cashier's held sales at the top of Records.
+export const heldSalesStyles = {
+  list: { display: "flex", flexDirection: "column", gap: 1.5 },
+  card: { p: 2, borderRadius: 3, border: "1px solid", display: "flex", flexDirection: "column", gap: 1, bgcolor: "background.paper" },
+  cardWaiting: { borderColor: tint("warning", 0.5) },
+  cardDeclined: { borderColor: tint("error", 0.4) },
+  top: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 },
+  client: { fontWeight: 700 },
+  sub: { color: "text.secondary", fontSize: "0.8125rem", overflowWrap: "anywhere" },
+  amount: { fontWeight: 700, fontFamily: "monospace", flexShrink: 0, color: "text.secondary" },
+  note: { px: 1.5, py: 1, borderRadius: 1, borderLeft: "3px solid", borderColor: "error.main", bgcolor: "action.hover", fontSize: "0.875rem" },
+  dismiss: { alignSelf: "flex-start" },
 } as const;

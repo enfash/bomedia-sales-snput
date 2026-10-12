@@ -1,7 +1,7 @@
 import { callFinancial,type FinancialCall } from './financial-db';
 import { FinancialError,validUUID } from './financial-service';
 
-export const AUDIT_CATEGORIES=['signins','staff','sales','expenses','stock','settings','other'] as const;
+export const AUDIT_CATEGORIES=['signins','staff','sales','expenses','stock','settings','approvals','other'] as const;
 export const AUDIT_RANGES=['today','7d','30d','all'] as const;
 export type AuditCategory=typeof AUDIT_CATEGORIES[number];
 export type AuditRange=typeof AUDIT_RANGES[number];

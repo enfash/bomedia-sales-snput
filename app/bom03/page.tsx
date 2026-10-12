@@ -28,6 +28,7 @@ import { RecentPaymentsPulse } from "@/components/recent-payments-pulse";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
 import { TodayBanner } from "@/components/today-banner";
+import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
 import { ShiftReportModal } from "@/components/shift-report-modal";
 import { ProfitabilityWidget } from "@/components/profitability-widget";
 
@@ -324,6 +325,8 @@ export default function DashboardPage() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", bgcolor: "background.default", pb: { xs: 3, md: 12 } }}>
+
+      <ApprovalsWaitingCard />
 
       {/* Today Banner */}
       <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">

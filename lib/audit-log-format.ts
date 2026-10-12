@@ -1,11 +1,11 @@
 // Turns raw audit entries into plain sentences for the owner. Pure helpers, no styling or data access.
 import { nairaLabel } from './materials-format';
-export type AuditCategory = 'signins' | 'staff' | 'sales' | 'expenses' | 'stock' | 'settings' | 'other';
+export type AuditCategory = 'signins' | 'staff' | 'sales' | 'expenses' | 'stock' | 'settings' | 'approvals' | 'other';
 export type AuditEntryView = { id: string; at: string; action: string; category: AuditCategory; actor_name: string | null;
   details: Record<string, unknown> };
 
 export const CATEGORY_LABEL: Record<AuditCategory, string> = {
-  signins: 'Sign-ins', staff: 'Staff', sales: 'Sales and payments', expenses: 'Expenses', stock: 'Stock', settings: 'Settings', other: 'Other',
+  signins: 'Sign-ins', staff: 'Staff', sales: 'Sales and payments', expenses: 'Expenses', stock: 'Stock', settings: 'Settings', approvals: 'Approvals', other: 'Other',
 };
 const TIME_ZONE = 'Africa/Lagos';
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: kobo % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
@@ -24,6 +24,12 @@ const asText = (value: unknown) => (typeof value === 'string' || typeof value ==
 // Staff entries name the cashier they were about; older entries do not, so fall back to a plain phrase.
 const target = (entry: AuditEntryView, fallback: string) => (typeof entry.details.name === 'string' && entry.details.name ? entry.details.name : fallback);
 
+// "a different date and a different price" from the list the database kept on the request.
+const approvalWhy = (kinds: unknown) => {
+  const names = (Array.isArray(kinds) ? kinds : []).map((k) => (k === 'date' ? 'a different date' : k === 'price' ? 'a different price' : k === 'expense_limit' ? 'a large expense' : k === 'edit_old' ? 'an older record' : '')).filter(Boolean);
+  return names.length ? names.join(' and ') : 'needs the owner';
+};
+
 const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   staff_login: 'signed in', staff_logout: 'signed out',
   staff_create: (e) => `added ${target(e, 'a cashier')}`,
@@ -34,6 +40,14 @@ const ACTIONS: Record<string, string | ((entry: AuditEntryView) => string)> = {
   material_renamed: (e) => `renamed the material ${asText(e.details.from) || 'a material'} to ${asText(e.details.to) || 'a new name'}`,
   material_added: (e) => `added the material ${asText(e.details.name) || ''}${koboLabel(e.details.to) ? ` at ${koboLabel(e.details.to)} per sq ft` : ''}`.trim(),
   material_size_added: (e) => `added the size ${asText(e.details.name) || 'a size'}`,
+  approval_requested: (e) => `asked for approval of a sale (${approvalWhy(e.details.kinds)})`,
+  approval_approved: (e) => `approved a sale (${approvalWhy(e.details.kinds)})`,
+  approval_declined: (e) => `declined a sale (${approvalWhy(e.details.kinds)})`,
+  approval_failed: (e) => `tried to approve a sale but it could not be recorded (${approvalWhy(e.details.kinds)})`,
+  approval_rule_saved: (e) => {
+    const rule = e.details.kind === 'date' ? 'a different date' : e.details.kind === 'price' ? 'a different price' : e.details.kind === 'expense_limit' ? 'a large expense' : e.details.kind === 'edit_old' ? 'editing an older record' : 'an approval';
+    return e.details.enabled === true ? `turned on approval for ${rule}` : `turned off approval for ${rule}`;
+  },
   material_size_saved: (e) => e.details.enabled === true ? `turned on ${asText(e.details.name) || 'a size'}` : e.details.enabled === false ? `turned off ${asText(e.details.name) || 'a size'}` : `changed the settings of ${asText(e.details.name) || 'a size'}`,
   books_closed: (e) => `closed the books through ${dateLabel(e.details.to)}`,
   staff_hidden: (e) => `hid ${target(e, 'a cashier')} from the staff lists`,

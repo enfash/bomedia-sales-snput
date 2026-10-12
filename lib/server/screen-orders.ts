@@ -2,6 +2,7 @@ import { orderContract } from '../order-contract';
 import { callFinancial, type FinancialCall } from './financial-db';
 import { financialHandler, financialIdentity } from './financial-routes';
 import { FinancialError } from './financial-service';
+import { verifiedAdminIdentity } from './postgres-auth-routes';
 export function recordScreenOrder(request: Request, call: FinancialCall = callFinancial) {
   return financialHandler(async () => {
     const actor = await financialIdentity(true);
@@ -9,8 +10,10 @@ export function recordScreenOrder(request: Request, call: FinancialCall = callFi
     try { order = orderContract(await request.json()); }
     catch (e) { throw new FinancialError(e instanceof Error ? e.message : 'Invalid order.',400,'INVALID_ORDER'); }
     if (!actor || actor.staffId.toLowerCase() !== order.expectedStaffId) throw new FinancialError('Sign in as the staff member who saved this order.',403,'ACTOR_CHANGED');
-    const { requestId, expectedStaffId, version: _version, backend: _backend, ...fields } = order;
-    try { return await call('api_screen_order',requestId,{...fields,actor_id:expectedStaffId}); }
+    const { requestId, expectedStaffId, version: _version, backend: _backend, ...rest } = order;
+    // Only this server decides who is the owner; anything the browser sent under that name is dropped.
+    const { by_owner: _claimed, ...fields } = rest as typeof rest & { by_owner?: unknown };
+    try { return await call('api_screen_order',requestId,{...fields,actor_id:expectedStaffId,...(await verifiedAdminIdentity() ? { by_owner: true } : {})}); }
     catch (e) {
       const code = (e as {code?:string}).code;
       if (['22023','22P02','P0002','23514','23505'].includes(code ?? '')) throw new FinancialError(

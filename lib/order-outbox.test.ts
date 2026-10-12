@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
-import { deliverOrder, persistOrder, readOrders, ORDER_PREFIX } from './order-outbox';
-import { confirmedOrder, orderContract, orderItemTotal, type ScreenOrder } from './order-contract';
+import { deliverOrder, persistOrder, readOrders, ORDER_HELD, ORDER_PREFIX } from './order-outbox';
+import { confirmedOrder, heldOrder, orderContract, orderItemTotal, type ScreenOrder } from './order-contract';
 import type { OutboxStorage } from './payment-outbox';
 class MemoryStorage implements OutboxStorage {
   data=new Map<string,string>();
@@ -60,4 +60,14 @@ it('confirms a free service with a business record and no payment or journal, an
  expect(confirmedOrder({...result(),total_kobo:'0',initial_payment_kobo:'0',initial_payment:null,journal_entry_ids:[]},free)).toBe(true);
  expect(()=>orderContract({...free,initialPaymentKobo:'1'})).toThrow();
  expect(()=>orderContract({...free,items:[{kind:'print',ref:'Flex',description:'Not free',quantity:'1',width:'2',height:'3',unit:'ft',priceKobo:'0'}]})).toThrow();
+});
+it('hands a held sale to the server, clears the device queue and keeps a note of what happened',async()=>{
+ const storage=new MemoryStorage(),saved=persistOrder(storage,order());
+ const held={status:'awaiting_approval',approval_request_id:id,kinds:['date'],request_id:id};
+ const out=await deliverOrder(storage,saved,context,vi.fn<typeof fetch>().mockResolvedValue(Response.json(held)));
+ expect(out).toMatchObject({held:true,status:'awaiting_approval'});
+ expect(readOrders(storage)).toEqual([]);
+ expect(JSON.parse(storage.getItem(ORDER_HELD)!)).toMatchObject({staffId:id,status:'awaiting_approval',kinds:['date']});
+ expect(heldOrder({status:'posted'})).toBeNull();
+ expect(heldOrder({status:'declined',approval_request_id:id,decision_note:'No'})).toMatchObject({status:'declined',decision_note:'No'});
 });

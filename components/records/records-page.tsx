@@ -5,6 +5,7 @@ import { Alert, Box, Button, ButtonBase, IconButton, Paper, Skeleton, TextField,
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { recordsStyles as styles } from '@/app/theme';
 import { HomeBackLink } from '@/components/back-link';
+import { HeldSales } from '@/components/records/held-sales';
 import { useFloatingNotice } from '@/components/floating-notice';
 import type { UnifiedRecord } from '@/components/manage-sale-action';
 import { BatchDetailsSheet, RecordDetailsSheet } from '@/components/records/record-details-sheet';
@@ -200,6 +201,8 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
     {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void fetchData()}>Try again</Button>}>
       {error} Sales waiting on this phone are safe and will send later.
     </Alert>}
+
+    {!owner && <HeldSales />}
 
     {loading && records.length === 0 ? <Box sx={styles.pair}>{[0, 1, 2, 3].slice(0, owner ? 4 : 2).map((i) => <Skeleton key={i} variant="rounded" height={84} />)}</Box> : records.length > 0 && <Box sx={styles.pair}>
       <StatTile tone="primary" label={owner ? 'Total sales' : todayOnly ? 'Sales today' : 'Sales'} value={naira(salesSummary.sales)} caption={`${salesSummary.salesCount} sale${salesSummary.salesCount === 1 ? '' : 's'}`} />

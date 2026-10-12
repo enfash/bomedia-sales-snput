@@ -5,6 +5,7 @@ import { useSyncStore } from "@/lib/store";
 import { PaymentSync } from './payment-sync';
 import { ExpenseSync } from './expense-sync';
 import { OrderSync } from './order-sync';
+import { ApprovalsWatcher } from './approvals-watcher';
 import { paymentContext, legacyQueueHold } from '@/lib/payment-outbox';
 import { toast } from "sonner";
 import { syncFailureStyles as styles } from "@/app/theme";
@@ -332,7 +333,7 @@ export function SyncManager() {
 
   if (exhaustedItems.length > 0 && !bannerDismissed) {
     return (<>
-      <PaymentSync /><OrderSync /><ExpenseSync />
+      <PaymentSync /><OrderSync /><ExpenseSync /><ApprovalsWatcher />
       <Box role="alert" sx={styles.card}>
         <Box sx={styles.row}>
           <Box sx={styles.icon}><CloudOff size={20} /></Box>
@@ -358,5 +359,5 @@ export function SyncManager() {
     </>);
   }
 
-  return <><PaymentSync /><OrderSync /><ExpenseSync /></>;
+  return <><PaymentSync /><OrderSync /><ExpenseSync /><ApprovalsWatcher /></>;
 }

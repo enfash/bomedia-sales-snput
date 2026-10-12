@@ -23,3 +23,17 @@ it('distinguishes business review from retryable database outages',async()=>{
  expect((await recordScreenOrder(request(),refused)).status).toBe(409);
  expect((await recordScreenOrder(request(),vi.fn().mockRejectedValue(new Error('offline')))).status).toBe(503);
 });
+it('marks an owner entry as the owner and never lets a cashier claim it',async()=>{
+ const call=vi.fn().mockResolvedValue({saved:true});
+ await recordScreenOrder(request({by_owner:true}),call);
+ expect(call.mock.calls[0][2].by_owner).toBeUndefined();
+ mocks.admin.mockResolvedValue('owner@example.test');vi.stubEnv('SUPABASE_ADMIN_STAFF_ID',id);
+ await recordScreenOrder(request(),call);
+ expect(call.mock.calls[1][2].by_owner).toBe(true);
+});
+it('passes the cashier’s reason through and refuses an over-long one',async()=>{
+ const call=vi.fn().mockResolvedValue({saved:true});
+ await recordScreenOrder(request({approvalReason:'Customer paid last week'}),call);
+ expect(call.mock.calls[0][2].approvalReason).toBe('Customer paid last week');
+ expect((await recordScreenOrder(request({approvalReason:'x'.repeat(501)}),call)).status).toBe(400);
+});

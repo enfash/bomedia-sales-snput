@@ -12,7 +12,7 @@ type Page = { data: AuditEntryView[]; next_before: Cursor | null; people: { id: 
 const ENDPOINT = '/api/accounting/audit-log';
 const CATEGORIES = Object.keys(CATEGORY_LABEL).filter((key) => key !== 'other') as AuditCategory[];
 const TAG_STYLE = { signins: styles.tagSignins, staff: styles.tagStaff, sales: styles.tagSales, expenses: styles.tagExpenses,
-  stock: styles.tagStock, settings: styles.tagSettings, other: styles.tagOther } as const;
+  stock: styles.tagStock, settings: styles.tagSettings, approvals: styles.tagApprovals, other: styles.tagOther } as const;
 const RANGES = [['today', 'Today'], ['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['all', 'All time']] as const;
 const message = (error: unknown) => (error instanceof Error ? error.message : 'The audit log could not be loaded. Try again.');
 

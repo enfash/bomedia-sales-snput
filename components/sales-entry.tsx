@@ -40,6 +40,8 @@ import type { PaymentMethod } from "@/lib/payment-methods";
 import { paymentContext, cachedPaymentContext } from '@/lib/payment-outbox';
 import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
 import { saveScreenOrder } from '@/lib/order-outbox';
+import { entryChanges, type ApprovalRuleRow, type EntryChange } from '@/lib/approvals-view';
+import { ApprovalReasonSheet } from '@/components/approval-reason-sheet';
 import { orderItemTotal, orderTotal, type OrderCatalog } from '@/lib/order-contract';
 import { cartOrderItem, quoteCart, type OrderCartRow, type ScreenQuote } from '@/lib/order-cart';
 import { ServiceOrderEntry } from '@/components/service-order-entry';
@@ -321,6 +323,9 @@ export function SalesEntry() {
   const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
   const savingRef = useRef(false);
   const [catalog, setCatalog] = useState<OrderCatalog | null>(null);
+  // The owner's approval rules, so the cashier is asked for a reason before sending a sale the owner must approve.
+  const [approvalRules, setApprovalRules] = useState<{ rules: ApprovalRuleRow[]; isOwner: boolean } | null>(null);
+  const [askReason, setAskReason] = useState<EntryChange[] | null>(null);
   const [postgres, setPostgres] = useState(false);
   const [backendReady,setBackendReady]=useState(false);
   const [customerId, setCustomerId] = useState<string | undefined>();
@@ -337,10 +342,15 @@ export function SalesEntry() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Customer and service list unavailable.');
       if (active) { setCatalog(result); localStorage.setItem('bomedia-order-catalog',JSON.stringify(result)); }
+      try {
+        const rulesResponse = await fetch('/api/accounting/approval-rules?for=entry', {cache:'no-store'}), rules = await rulesResponse.json();
+        if (rulesResponse.ok && Array.isArray(rules.rules) && active) { setApprovalRules(rules); localStorage.setItem('bomedia-approval-rules',JSON.stringify(rules)); }
+      } catch { /* The server still decides; without the rules the sale is simply sent and answered there. */ }
     }).catch(() => {
       if (active && cachedPaymentContext(localStorage)?.backend === 'postgres') {
         setPostgres(true);setBackendReady(true);
         try { setCatalog(JSON.parse(localStorage.getItem('bomedia-order-catalog') || 'null')); } catch { /* Keep entered items. */ }
+        try { setApprovalRules(JSON.parse(localStorage.getItem('bomedia-approval-rules') || 'null')); } catch { /* Same: the server decides. */ }
       }
     });
     return () => { active = false; };
@@ -662,7 +672,7 @@ export function SalesEntry() {
     setShowConfirm(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (reason?: string) => {
     if (savingRef.current) return;
     savingRef.current = true; setSaving(true);
     try {
@@ -671,11 +681,15 @@ export function SalesEntry() {
         const items = cart.map(i=>cartOrderItem(i,catalog));
         const paid = nairaToKobo(meta.initialPayment || '0');
         if (paid === null) throw new Error('Enter the initial payment to the nearest kobo.');
+        if (!reason && approvalRules && !approvalRules.isOwner && catalog) {
+          const changes = entryChanges({ businessDate: meta.date, today: lagosBusinessDate(), items, materials: catalog.materials }, approvalRules.rules);
+          if (changes.length) { setAskReason(changes); return; }
+        }
         await saveScreenOrder({operation:'sale',businessDate:meta.date,clientName:meta.clientName.trim(),contact:meta.contact,
           ...(customerId ? {customerId} : {}), ...(loadedQuote ? {quoteId:loadedQuote.id} : {}), jobStatus:meta.jobStatus,
-          initialPaymentKobo:paid,...(paid!=='0'&&paidBy ? {paymentMethod:paidBy} : {}),totalKobo:orderTotal(items),items});
-        toast.success('Order saved on this device. Its reference appears after confirmation.');
-        setShowConfirm(false);setCart([]);setLoadedQuote(null);setCustomerId(undefined);setPaidBy('');
+          initialPaymentKobo:paid,...(paid!=='0'&&paidBy ? {paymentMethod:paidBy} : {}),totalKobo:orderTotal(items),items,...(reason ? {approvalReason:reason} : {})});
+        toast.success(reason ? 'Sent to the owner for approval. It is recorded once approved.' : 'Order saved on this device. Its reference appears after confirmation.');
+        setShowConfirm(false);setAskReason(null);setCart([]);setLoadedQuote(null);setCustomerId(undefined);setPaidBy('');
         setMeta({date:lagosBusinessDate(),clientName:'',contact:'',jobStatus:JOB_STATUSES[0],initialPayment:'0'});
         return;
       }
@@ -1320,6 +1334,8 @@ export function SalesEntry() {
         disabled={cart.length === 0 || !meta.clientName.trim()}
       />
 
+      <ApprovalReasonSheet open={askReason !== null} changes={askReason ?? []} busy={saving} onSend={(reason) => void handleSave(reason)} onClose={() => setAskReason(null)} />
+
       {/* ── Confirm dialog ────────────────────────────────────────────────── */}
       <Dialog
         open={showConfirm}
@@ -1403,7 +1419,7 @@ export function SalesEntry() {
           <Button
             variant="contained"
             fullWidth
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             startIcon={saving ? <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
             sx={{ height: 48, borderRadius: 2, fontWeight: 800 }}

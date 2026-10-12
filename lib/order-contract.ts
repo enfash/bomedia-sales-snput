@@ -4,7 +4,9 @@ export type OrderItem = { kind: 'print' | 'service'; ref: string; description: s
   width?: string; height?: string; unit?: 'ft' | 'in'; priceKobo: string; priceRequestId?: string; approvedUnitKobo?: string };
 export type ScreenOrder = { version: 3; backend: 'postgres'; operation: 'sale' | 'quote'; requestId: string;
   expectedStaffId: string; businessDate: string; clientName: string; contact: string; customerId?: string; quoteId?: string;
-  jobStatus: string; initialPaymentKobo: string; paymentMethod?: PaymentMethod; totalKobo: string; items: OrderItem[] };
+  jobStatus: string; initialPaymentKobo: string; paymentMethod?: PaymentMethod; totalKobo: string; items: OrderItem[];
+  /** Why the cashier chose a different date or price. Required by the database only when the owner has to approve the sale. */
+  approvalReason?: string };
 export type OrderCatalog = { customers: { id: string; name: string; contact: string | null }[];
   materials: { id: string; ref: string; name: string; width: string; priceKobo: string }[];
   services: { id: string; name: string; pricing: 'fixed' | 'per_job'; priceKobo: string | null }[] };
@@ -21,6 +23,7 @@ export function orderContract(value: unknown): ScreenOrder {
     || (o.initialPaymentKobo !== '0' && normalizePaymentMethod(o.paymentMethod) !== o.paymentMethod)
     || (o.initialPaymentKobo !== '0' && !o.paymentMethod)
     || (o.customerId !== undefined && !isUUID(o.customerId)) || (o.quoteId !== undefined && !isUUID(o.quoteId))
+    || (o.approvalReason !== undefined && (typeof o.approvalReason !== 'string' || o.approvalReason.length > 500))
     || !Array.isArray(o.items) || o.items.length < 1 || o.items.length > 100) throw new Error('Check the order, date, payment and customer before saving.');
   for (const i of o.items) {
     if (!i || !['print','service'].includes(i.kind) || typeof i.ref !== 'string' || !i.ref || i.ref.length > 200
@@ -58,4 +61,13 @@ export function confirmedOrder(value: unknown, order: ScreenOrder): boolean {
     || !Array.isArray(r.journal_entry_ids) || r.journal_entry_ids.length !== order.items.filter(i=>orderItemTotal(i)!=='0').length || !r.journal_entry_ids.every(isUUID)) return false;
   const receipt = r.initial_payment as Record<string, unknown> | null;
   return order.initialPaymentKobo === '0' || !!receipt && isUUID(receipt.payment_id) && isUUID(receipt.journal_entry_id);
+}
+
+/** A sale the owner has to approve first: the server kept it instead of posting it. */
+export type HeldOrder = { status: 'awaiting_approval' | 'declined' | 'expired'; approval_request_id: string; kinds: string[]; decision_note?: string | null };
+export function heldOrder(value: unknown): HeldOrder | null {
+  const r = value as Record<string, unknown> | null;
+  if (!r || !['awaiting_approval', 'declined', 'expired'].includes(String(r.status)) || !isUUID(r.approval_request_id)) return null;
+  return { status: r.status as HeldOrder['status'], approval_request_id: r.approval_request_id as string,
+    kinds: Array.isArray(r.kinds) ? r.kinds.filter((k): k is string => typeof k === 'string') : [], decision_note: typeof r.decision_note === 'string' ? r.decision_note : null };
 }
