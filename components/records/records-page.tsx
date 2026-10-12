@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Alert, Box, Button, ButtonBase, IconButton, Paper, Skeleton, TextField, Typography } from '@mui/material';
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { recordsStyles as styles } from '@/app/theme';
@@ -95,7 +96,12 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
   const [loading, setLoading] = useState(cachedSales.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  // Arriving from the notification drawer: ?open=<sales reference> shows that sale, ?q=<words> starts with a search.
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const openRef = params.get('open') ?? '';
+  const [search, setSearch] = useState(params.get('q') ?? '');
   const [tab, setTab] = useState<RecordTab>('All');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -105,9 +111,11 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
   const [page, setPage] = useState(1);
   const [sorting, setSorting] = useState(false);
   const [viewing, setViewing] = useState<UnifiedRecord | null>(null);
+  const [closedRef, setClosedRef] = useState('');
   const [viewingBatch, setViewingBatch] = useState<{ items: UnifiedRecord[]; salesId: string } | null>(null);
   const [receipt, setReceipt] = useState<{ records: UnifiedRecord[]; salesId: string } | null>(null);
   const itemsPerPage = SYSTEM_DEFAULTS.PAGINATION_ITEMS_PER_PAGE;
+  const closeLinked = () => { if (!openRef) return; setClosedRef(openRef); router.replace(pathname); };
 
   const fetchData = useCallback(async () => {
     // Read the store at call time: this callback must not change identity whenever the cached lists are replaced.
@@ -147,6 +155,8 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
 
   const today = lagosBusinessDate(now);
   const records = useMemo(() => buildRecords(role, { sales: salesData, expenses: expensesData, queue: pendingQueue }), [role, salesData, expensesData, pendingQueue]);
+  // The sale named in the link, found among every record so the page's filters cannot hide it. Shown until it is closed once.
+  const linked = openRef && openRef !== closedRef ? records.filter((r) => r.type === 'Sale' && r.salesId === openRef) : null;
   const dateFiltered = filterByDate(role, records, range, { start: customStart, end: customEnd }, now);
   const sorted = sortRecords(role, filterRecords(role, dateFiltered, { search, tab, sortBy }), sortBy, sortOrder);
   const units = groupUnits(sorted);
@@ -275,8 +285,8 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
       </Box>
     </ResponsiveSheet>
 
-    <RecordDetailsSheet record={viewing} onClose={() => setViewing(null)} onUpdate={() => void fetchData()} onReceipt={openReceipt} />
-    <BatchDetailsSheet items={viewingBatch?.items ?? null} salesId={viewingBatch?.salesId ?? ''} onClose={() => setViewingBatch(null)} onUpdate={() => void fetchData()} onReceipt={openReceipt} />
+    <RecordDetailsSheet record={viewing ?? (linked && linked.length === 1 ? linked[0] : null)} onClose={() => { setViewing(null); closeLinked(); }} onUpdate={() => void fetchData()} onReceipt={openReceipt} />
+    <BatchDetailsSheet items={viewingBatch?.items ?? (linked && linked.length > 1 ? linked : null)} salesId={viewingBatch?.salesId ?? openRef} onClose={() => { setViewingBatch(null); closeLinked(); }} onUpdate={() => void fetchData()} onReceipt={openReceipt} />
     <ReceiptModal isOpen={!!receipt} onClose={() => setReceipt(null)} records={receipt?.records ?? []} salesId={receipt?.records[0]?.salesId} />
   </Box>;
 }

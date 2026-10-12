@@ -243,11 +243,7 @@ function ShiftHero({
 const actionsList = [
   { label: "New Sale", sub: "Log a job", href: "/cashier/new-entry", icon: Plus, primary: true },
   { label: "Quick Check", sub: "Test a roll", href: "/cashier/quick-check", icon: Ruler },
-  { label: "Log Waste", sub: "Record loss", href: "/cashier/waste", icon: Scissors },
-  { label: "Records", sub: "Today's jobs", href: "/cashier/records", icon: BarChart3 },
   { label: "Log Expense", sub: "Record payout", href: "/cashier/expenses", icon: Receipt },
-  { label: "Estimator", sub: "Price a job", href: "/cashier/estimator", icon: Zap },
-  { label: "Customers", sub: "View profiles", href: "/cashier/customers", icon: Users },
 ];
 
 function ActionGrid() {

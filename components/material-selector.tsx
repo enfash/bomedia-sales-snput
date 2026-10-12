@@ -1,12 +1,13 @@
 "use client";
 
 import { ResponsiveSheet } from "@/components/responsive-sheet";
+import { materialPickerStyles as styles } from "@/app/theme";
 
 import { useState, useMemo } from "react";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import { Package, Layers, ChevronDown } from "lucide-react";
+import { Package, ChevronDown } from "lucide-react";
 
 const parseNum = (v: string | number | undefined) =>
   parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
@@ -47,209 +48,66 @@ export function MaterialSelector({
   const selected = materials.find((m) => m["Material ID"] === selectedMaterialId);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-      <Typography
-        component="label"
-        sx={{
-          fontSize: "0.625rem",
-          textTransform: "uppercase",
-          fontWeight: 900,
-          color: "text.secondary",
-          letterSpacing: "0.08em",
-          display: "flex",
-          alignItems: "center",
-          gap: 0.75,
-        }}
-      >
-        <Package style={{ width: 12, height: 12 }} />
-        Select Material *
-      </Typography>
-
-      <Box
-        component="button"
-        type="button"
-        onClick={() => setOpen(true)}
-        sx={{
-          width: "100%",
-          height: 56,
-          borderRadius: 3,
-          border: "2px solid",
-          borderColor: selectedMaterialId ? "primary.main" : "grey.300",
-          bgcolor: selectedMaterialId ? "primary.main" : "background.paper",
-          px: 2,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          cursor: "pointer",
-          transition: "border-color 0.15s ease, background-color 0.15s ease",
-          textAlign: "left",
-          "&:hover": {
-            borderColor: selectedMaterialId ? "primary.dark" : "primary.main",
-          },
-        }}
-      >
-        {selected ? (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
-            <Box
-              sx={{
-                width: 32,
-                height: 32,
-                borderRadius: 2,
-                bgcolor: "primary.dark",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Layers style={{ width: 16, height: 16, color: "#fff" }} />
-            </Box>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                sx={{
-                  fontSize: "0.875rem",
-                  fontWeight: 900,
-                  color: "primary.contrastText",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {selected["Material ID"]}
+    <Box>
+      <Box component="button" type="button" onClick={() => setOpen(true)} sx={styles.trigger} aria-haspopup="dialog">
+        <Box sx={styles.triggerText}>
+          <Typography component="span" sx={styles.triggerLabel}>Material *</Typography>
+          {selected ? (
+            <>
+              <Typography component="span" sx={styles.triggerValue}>{selected["Material ID"]}</Typography>
+              <Typography component="span" sx={styles.triggerSub}>
+                {parseNum(selected["Width (ft)"])} ft wide · ₦{parseNum(selected["Selling Price"]).toLocaleString()} per sq ft
               </Typography>
-              <Typography sx={{ fontSize: "0.625rem", color: "primary.contrastText", opacity: 0.8, fontWeight: 500 }}>
-                {parseNum(selected["Width (ft)"])}ft wide · ₦{parseNum(selected["Selling Price"]).toLocaleString()}/sqft
-              </Typography>
-            </Box>
-          </Box>
-        ) : (
-          <Typography sx={{ fontSize: "0.875rem", fontWeight: 500, color: "text.secondary" }}>
-            {loading ? "Loading materials…" : "Tap to choose material…"}
-          </Typography>
-        )}
-        <ChevronDown style={{ width: 16, height: 16, flexShrink: 0, marginLeft: 8, color: selectedMaterialId ? "#fff" : undefined }} />
+            </>
+          ) : (
+            <Typography component="span" sx={styles.triggerPlaceholder}>{loading ? "Loading materials…" : "Tap to choose a material"}</Typography>
+          )}
+        </Box>
+        <ChevronDown size={18} />
       </Box>
 
-      <ResponsiveSheet open={open} onClose={() => setOpen(false)} title="Choose a Material">
-        <Box sx={{ px: 3, pt: 2, pb: 2, borderBottom: "1px solid", borderColor: "divider" }}>
-              <TextField
-                placeholder="Search materials…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                fullWidth
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2.5 } }}
-              />
-            </Box>
-
-            <Box sx={{ overflowY: "auto", flex: 1, p: 2, display: "flex", flexDirection: "column", gap: 2.5 }}>
-              {Object.entries(grouped).map(([materialName, options]) => (
-                <Box key={materialName}>
-                  <Typography
-                    sx={{
-                      fontSize: "0.625rem",
-                      fontWeight: 900,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.12em",
-                      color: "text.secondary",
-                      mb: 1,
-                      px: 0.5,
-                    }}
-                  >
-                    {materialName}
-                  </Typography>
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    {options.map((mat) => {
-                      const remaining = parseNum(mat["Total Remaining (ft)"]);
-                      const capacity = parseNum(mat["Total Capacity (ft)"]);
-                      const pct = capacity > 0 ? Math.min(100, (remaining / capacity) * 100) : 0;
-                      const isOut = remaining <= 0 || mat.Status === "Out of Stock";
-                      const isSelected = mat["Material ID"] === selectedMaterialId;
-                      const isLowStock = mat.Status === "Low Stock";
-
-                      return (
-                        <Box
-                          key={mat["Material ID"]}
-                          component="button"
-                          type="button"
-                          disabled={isOut}
-                          onClick={() => {
-                            onSelect(mat);
-                            setOpen(false);
-                            setSearch("");
-                          }}
-                          sx={{
-                            width: "100%",
-                            p: 2,
-                            borderRadius: 3,
-                            border: "2px solid",
-                            borderColor: isSelected ? "primary.main" : isOut ? "grey.200" : "grey.200",
-                            bgcolor: isSelected ? "primary.light" : isOut ? "transparent" : "background.paper",
-                            opacity: isOut ? 0.4 : 1,
-                            cursor: isOut ? "not-allowed" : "pointer",
-                            textAlign: "left",
-                            transition: "border-color 0.15s ease, background-color 0.15s ease",
-                            "&:hover:not(:disabled)": {
-                              borderColor: "primary.main",
-                            },
-                          }}
-                        >
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-                            <Box>
-                              <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
-                                {mat["Material ID"]}
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, mt: 0.5 }}>
-                                {parseNum(mat["Width (ft)"])}ft wide · ₦{parseNum(mat["Selling Price"]).toLocaleString()}/sqft
-                              </Typography>
-                            </Box>
-                            <Box
-                              sx={{
-                                fontSize: "0.5625rem",
-                                fontWeight: 900,
-                                textTransform: "uppercase",
-                                px: 0.75,
-                                py: 0.25,
-                                borderRadius: 1,
-                                bgcolor: isLowStock ? "warning.light" : isOut ? "error.light" : "success.light",
-                                color: isLowStock ? "warning.dark" : isOut ? "error.dark" : "success.dark",
-                              }}
-                            >
-                              {remaining.toFixed(0)}ft left
-                            </Box>
-                          </Box>
-                          <Box
-                            sx={{
-                              width: "100%",
-                              height: 6,
-                              borderRadius: 99,
-                              bgcolor: "grey.200",
-                              overflow: "hidden",
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                height: "100%",
-                                borderRadius: 99,
-                                width: `${pct}%`,
-                                bgcolor: isLowStock ? "warning.main" : isOut ? "error.main" : "success.main",
-                                transition: "width 300ms ease-out",
-                              }}
-                            />
-                          </Box>
+      <ResponsiveSheet open={open} onClose={() => setOpen(false)} title="Choose a material">
+        <Box sx={styles.search}>
+          <TextField placeholder="Search materials" value={search} onChange={(e) => setSearch(e.target.value)} fullWidth type="search" />
+        </Box>
+        <Box sx={styles.list}>
+          {Object.entries(grouped).map(([materialName, options]) => (
+            <Box key={materialName}>
+              <Typography sx={styles.group}>{materialName}</Typography>
+              <Box sx={styles.options}>
+                {options.map((mat) => {
+                  const remaining = parseNum(mat["Total Remaining (ft)"]);
+                  const capacity = parseNum(mat["Total Capacity (ft)"]);
+                  const pct = capacity > 0 ? Math.min(100, (remaining / capacity) * 100) : 0;
+                  const isOut = remaining <= 0 || mat.Status === "Out of Stock";
+                  const isLow = mat.Status === "Low Stock";
+                  const tone = isOut ? "error" : isLow ? "warning" : "success";
+                  return (
+                    <Box key={mat["Material ID"]} component="button" type="button" disabled={isOut}
+                      aria-pressed={mat["Material ID"] === selectedMaterialId}
+                      onClick={() => { onSelect(mat); setOpen(false); setSearch(""); }}
+                      sx={[styles.option, ...(mat["Material ID"] === selectedMaterialId ? [styles.optionSelected] : [])]}>
+                      <Box sx={styles.optionTop}>
+                        <Box>
+                          <Typography sx={styles.optionName}>{mat["Material ID"]}</Typography>
+                          <Typography sx={styles.optionSub}>{parseNum(mat["Width (ft)"])} ft wide · ₦{parseNum(mat["Selling Price"]).toLocaleString()} per sq ft</Typography>
                         </Box>
-                      );
-                    })}
-                  </Box>
-                </Box>
-              ))}
-
-              {filtered.length === 0 && (
-                <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}>
-                  <Package style={{ width: 32, height: 32, margin: "0 auto 8px", opacity: 0.4 }} />
-                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 500 }}>No materials found</Typography>
-                </Box>
-              )}
+                        <Box component="span" sx={[styles.stock, styles[`stock_${tone}`]]}>{isOut ? "Out of stock" : `${remaining.toFixed(0)} ft left`}</Box>
+                      </Box>
+                      <Box sx={styles.meter}><Box sx={[styles.meterFill, styles[`fill_${tone}`], { width: `${pct}%` }]} /></Box>
+                    </Box>
+                  );
+                })}
+              </Box>
             </Box>
+          ))}
+          {filtered.length === 0 && (
+            <Box sx={styles.empty}>
+              <Package size={32} />
+              <Typography>No materials found</Typography>
+            </Box>
+          )}
+        </Box>
       </ResponsiveSheet>
     </Box>
   );

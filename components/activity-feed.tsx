@@ -3,8 +3,8 @@
 import { useSyncStore } from "@/lib/store";
 import { Bell, Clock, AlertTriangle, User, TrendingUp, TrendingDown, CheckCircle2, WifiOff, AlertCircle } from "lucide-react";
 import { useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { format, isToday, isYesterday } from "date-fns";
-import { toast } from "sonner";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -33,13 +33,16 @@ interface ActivityItem {
   balance?: number;
   status?: string;
   stock?: number;
+  salesId?: string;
   itemName?: string;
   rowIndex?: number;
 }
 
 export function ActivityFeed() {
   const { cachedSales, cachedExpenses, cachedInventory, cachedMaterials, pendingQueue } = useSyncStore();
-  const [isRestocking, setIsRestocking] = useState<number | null>(null);
+  const router = useRouter();
+  const cashier = usePathname().startsWith("/cashier");
+  const base = cashier ? "/cashier" : "/bom03";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const waitingApprovals = useApprovalsCount();
@@ -57,6 +60,7 @@ export function ActivityFeed() {
       timestamp: s["TIMESTAMP"] || s["Timestamp"] || s["DATE"] || s["Date"],
       user: s["LOGGED BY"] || s["Logged By"] || "Staff",
       client: s["CLIENT NAME"] || s["Client Name"] || "Walking Customer",
+      salesId: ((s["SALES ID"] || s["Sales ID"] || "") as string).trim(),
       description: s["JOB DESCRIPTION"] || s["Job Description"] || "General Printing",
       material: s["MATERIAL"] || s["Material"] || "General",
       amount: parseVal(s["TOTAL"] || s["Total"]),
@@ -149,25 +153,13 @@ export function ActivityFeed() {
     return groups;
   }, [activityItems]);
 
-  const handleRestock = async (rowIndex: number, itemName: string) => {
-    setIsRestocking(rowIndex);
-    try {
-      const res = await fetch("/api/inventory", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowIndex, adjustment: 164 })
-      });
-      if (res.ok) {
-        toast.success(`Restocked 164ft of ${itemName}!`);
-      } else {
-        toast.error("Restock failed");
-      }
-    } catch {
-      toast.error("Network error");
-    } finally {
-      setIsRestocking(null);
-    }
+  // Where tapping an update goes: the sale's own details on Records, or Records searched for it when it has no reference.
+  const openItem = (item: ActivityItem) => {
+    setDrawerOpen(false);
+    if (item.type === "sale") router.push(`${base}/records?${item.salesId ? `open=${encodeURIComponent(item.salesId)}` : `q=${encodeURIComponent(item.client || "")}`}`);
+    else router.push(cashier ? "/cashier/expenses" : `/bom03/records?q=${encodeURIComponent(item.description)}`);
   };
+  const openInventory = () => { setDrawerOpen(false); router.push(`${base}/inventory`); };
 
   const formatTime = (isoString: string) => {
     try {
@@ -221,7 +213,8 @@ export function ActivityFeed() {
 
                   <Box sx={styles.list}>
                     {items.map((item) => (
-                      <Box key={item.id} sx={styles.item}>
+                      <Box key={item.id} component="button" type="button" sx={[styles.item, styles.itemTap]} onClick={() => openItem(item)}
+                        aria-label={item.type === "sale" ? `Open the sale for ${item.client}` : `Open the expense ${item.category}`}>
                         <Box sx={[styles.itemIcon, item.type === "sale" ? styles.itemIconSale : styles.itemIconExpense]}>
                           {item.type === "sale" ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                         </Box>
@@ -296,7 +289,7 @@ export function ActivityFeed() {
                       {alerts.inventory.map((item) => {
                         const look = styles.stock[item.critical ? "critical" : "low"];
                         return (
-                          <Box key={item.id} sx={look.card}>
+                          <Box key={item.id} component="button" type="button" sx={[look.card, styles.itemTap]} onClick={openInventory} aria-label={`Open Inventory for ${item.itemName}`}>
                             <Box sx={styles.stockRow}>
                               <Box>
                                 <Box sx={styles.stockName}>
@@ -307,9 +300,7 @@ export function ActivityFeed() {
                                 <Box sx={look.tag}>Stock: {item.stock.toFixed(1)} ft remaining</Box>
                               </Box>
 
-                              <Button size="small" variant="outlined" disabled={isRestocking === item.rowIndex} onClick={() => handleRestock(item.rowIndex!, item.itemName!)} sx={look.button}>
-                                {isRestocking === item.rowIndex ? "Restocking..." : "Restock Roll"}
-                              </Button>
+                              <Typography variant="caption" sx={styles.openLink}>Open Inventory</Typography>
                             </Box>
                           </Box>
                         );

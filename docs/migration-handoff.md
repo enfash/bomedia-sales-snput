@@ -330,3 +330,8 @@ Verified against the real sandbox before committing Materials. Two collisions we
 - Checked in the sandbox: owner turned the date rule on from the screen; the test cashier sent a sale dated 9 Oct (held, no stock or sale created); the owner approved it from the inbox and it was recorded as BOM-20261012-0012; a second was declined with a note; the cashier's list showed waiting and declined cards; bell and dashboard showed the count. A cashier sending a changed date without a reason gets "Add a reason for the owner".
 - The date rule was left ON (0 days) in the sandbox, and two test requests (Approval Test, Mrs Bello, Zed Events) exist there.
 - Tests: `npm test` 93 files / 663; `npm run test:db` 36 files / 317; tsc clean.
+
+## New Sale redesign (12 Oct, uncommitted)
+- Shared page for both roles; cards, order list, floating total (phone) and review sheet on the theme; Print/Service chips; "Why?" box for approvals now lives in the review sheet. Business logic untouched. `approval-reason-sheet.tsx` removed.
+- Checked in the sandbox as the owner: picked a material, entered a size, added it to the order, reviewed and saved (sale recorded, stock 326 to 324 ft); with the rules faked as non-owner the review sheet showed the date and price changes and a required reason, and Send for approval stayed disabled until a reason was typed. Desktop and dark mode looked right. `npm test` 93 files / 663 passed, tsc clean.
+- A test sale "Layout Test" (6 x 2 ft Flex) now exists in the sandbox.

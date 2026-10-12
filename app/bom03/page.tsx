@@ -550,22 +550,21 @@ export default function DashboardPage() {
           })()}
 
           {/* Quick Action Shortcuts */}
-          <Stack sx={{ gap: 1.5 }}>
+          <Box sx={styles.quickRow}>
             {[
-              { href: "/bom03/inventory", label: "Inventory Control", title: "Full Stock Sheet", desc: "Add materials & logs", icon: <Package size={24} /> },
-              { href: "/bom03/quick-check", label: "Verification", title: "Material Quick-Check", desc: "Test viability before job", icon: <Zap size={24} /> },
-              { href: "/bom03/settings", label: "Admin Only", title: "Settings", desc: "Services & staff management", icon: <Users size={24} /> },
-            ].map(({ href, label, title, desc, icon }) => (
+              { href: "/bom03/inventory", label: "Inventory Control", title: "Stock", desc: "Materials & logs", icon: <Package size={24} /> },
+              { href: "/bom03/quick-check", label: "Verification", title: "Quick-Check", desc: "Test a roll", icon: <Zap size={24} /> },
+              { href: "/bom03/settings", label: "Admin Only", title: "Settings", desc: "Services & staff", icon: <Users size={24} /> },
+            ].map(({ href, title, desc, icon }) => (
               <Paper key={href} component={Link} href={href} variant="outlined" sx={styles.quickCard}>
-                <Box sx={styles.quickIcon}>{icon}</Box>
-                <Box>
-                  <Typography variant="overline" sx={styles.quickLabel}>{label}</Typography>
-                  <Typography variant="h6" component="p">{title}</Typography>
-                  <Typography variant="caption" color="text.secondary">{desc}</Typography>
+                <Box sx={styles.quickHead}>
+                  <Box sx={styles.quickIcon}>{icon}</Box>
+                  <Typography component="p" noWrap sx={styles.quickTitle}>{title}</Typography>
                 </Box>
+                <Typography variant="caption" color="text.secondary" noWrap sx={styles.quickDesc}>{desc}</Typography>
               </Paper>
             ))}
-          </Stack>
+          </Box>
         </Box>
       </motion.div>
 
