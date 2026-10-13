@@ -143,7 +143,9 @@ export function NotificationManager() {
       }
 
     } catch (error) {
-      console.error("NotificationManager Sync Error:", error);
+      // A dropped connection (offline, phone asleep, dev server restarting) is normal for a background poll: skip it, the next poll retries.
+      if (error instanceof TypeError || (typeof navigator !== "undefined" && !navigator.onLine)) console.warn("NotificationManager: server not reachable, skipping poll.");
+      else console.error("NotificationManager Sync Error:", error);
     } finally {
       isFetching.current = false;
     }

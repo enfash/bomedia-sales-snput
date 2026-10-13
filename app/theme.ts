@@ -258,6 +258,7 @@ export const dashboardStyles = {
   materialRow: { p: 1.5, borderRadius: 2, bgcolor: "action.hover", "&:hover": { bgcolor: "action.selected" }, transition: "background-color .15s" },
   restock: { ml: 1.5, flexShrink: 0 },
   stockBar: { height: 6, borderRadius: 3, bgcolor: "grey.200" },
+  alertsAndShortcuts: { display: "flex", flexDirection: "column", gap: 2, mt: 2 },
   quickRow: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5 },
   quickCard: {
     p: 1.5, borderRadius: "16px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, minWidth: 0, color: "text.primary", textDecoration: "none",

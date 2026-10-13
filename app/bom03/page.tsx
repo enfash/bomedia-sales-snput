@@ -424,7 +424,7 @@ export default function DashboardPage() {
 
       {/* Inventory Alerts + Quick Actions */}
       <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, gap: 2, mt: 2 }}>
+        <Box sx={styles.alertsAndShortcuts}>
 
           {/* Inventory Alerts Widget */}
           {(() => {
