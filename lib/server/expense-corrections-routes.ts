@@ -22,3 +22,13 @@ export function changeExpense(request: Request) {
     return { success: true, owner, ...await expenseCorrections.request(actor, owner, body) };
   });
 }
+
+// Only the owner records money coming back from a payee.
+export function recoverExpense(request: Request) {
+  return financialHandler(async () => {
+    if (!await verifiedAdminIdentity()) throw new FinancialError('Owner access is required.', 403, 'OWNER_REQUIRED');
+    const actor = await financialIdentity(true);
+    if (!actor) throw new FinancialError('Accounting identity required.', 403, 'ACTOR_REQUIRED');
+    return { success: true, ...await expenseCorrections.recover(actor, await bodyOf(request)) };
+  });
+}

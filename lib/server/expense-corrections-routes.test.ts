@@ -4,7 +4,7 @@ vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 's
 vi.mock('./postgres-auth-routes', () => ({ verifiedAdminIdentity: mocks.admin }));
 vi.mock('./postgres-auth', () => ({ postgresAuth: { session: mocks.session } }));
 vi.mock('./financial-db', async (original) => ({ ...(await original<object>()), callFinancial: mocks.call, financialApiEnabled: () => true }));
-import { changeExpense, readExpenseHistory } from './expense-corrections-routes';
+import { changeExpense, readExpenseHistory, recoverExpense } from './expense-corrections-routes';
 
 const owner = '00000000-0000-4000-8000-000000000001';
 const cashier = '00000000-0000-4000-8000-000000000002';
@@ -53,4 +53,15 @@ it('turns a refusal into a plain message and reads an expense’s history for an
   const history = await readExpenseHistory(new Request('https://app.example.test/api/accounting/expense-corrections?reference=EXP-20261012-0007'));
   expect(await history.json()).toEqual({ data: [{ kind: 'correction' }] });
   expect(mocks.call).toHaveBeenLastCalledWith('api_expense_history', 'EXP-20261012-0007', {});
+});
+
+it('lets only the owner record money coming back, under the owner identity', async () => {
+  const input = { requestId: 'r9', reference: 'EXP-20261012-0007', amountKobo: '500000', paymentMethod: 'Cash', businessDate: '2026-10-13' };
+  expect((await recoverExpense(post(input))).status).toBe(403);
+  expect(mocks.call).not.toHaveBeenCalled();
+  mocks.admin.mockResolvedValue('owner@example.test');
+  expect((await recoverExpense(post({ ...input, amountKobo: '5.5' }))).status).toBe(400);
+  expect((await recoverExpense(post({ ...input, extra: 1 }))).status).toBe(400);
+  expect((await recoverExpense(post(input))).status).toBe(200);
+  expect(mocks.call).toHaveBeenCalledWith('api_expense_recovery', 'r9', { actor_id: owner, reference: 'EXP-20261012-0007', amountKobo: '500000', paymentMethod: 'Cash', businessDate: '2026-10-13' });
 });

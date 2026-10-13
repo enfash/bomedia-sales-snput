@@ -6,6 +6,7 @@ import { Receipt } from 'lucide-react';
 
 import { expenseStyles as styles } from '@/app/theme';
 import { ExpenseDetailsSheet } from '@/components/expenses/expense-details-sheet';
+import { CorrectedTag } from '@/components/corrected-tag';
 import { StatusBadge } from '@/components/status-badge';
 import { expenseAmount, naira, type Expense } from '@/lib/expense-list';
 
@@ -20,7 +21,14 @@ export function MyExpenses({ refreshKey = 0 }: { refreshKey?: number }) {
       setExpenses([...(result.data as Expense[])].reverse());
     } catch { setExpenses((current) => current ?? []); }
   }, []);
-  useEffect(() => { void Promise.resolve().then(load); }, [load, refreshKey]);
+  // Reload when the page saves one, and again when the saved entry is confirmed by the server (it arrives a moment after).
+  useEffect(() => {
+    void Promise.resolve().then(load);
+    const reload = () => void load();
+    window.addEventListener('bomedia-data-changed', reload);
+    window.addEventListener('bomedia-expense-confirmed', reload);
+    return () => { window.removeEventListener('bomedia-data-changed', reload); window.removeEventListener('bomedia-expense-confirmed', reload); };
+  }, [load, refreshKey]);
 
   if (!expenses) return <Skeleton variant="rounded" height={96} />;
   if (!expenses.length) return null;
@@ -37,6 +45,7 @@ export function MyExpenses({ refreshKey = 0 }: { refreshKey?: number }) {
           <Box component="span" sx={styles.rowEnd}>
             <Typography component="span" sx={styles.amount}>{naira(expenseAmount(expense))}</Typography>
             <StatusBadge variant="expenses" status={expense.STATUS || 'Unpaid'} />
+            {expense.STATUS !== 'Cancelled' && <CorrectedTag revisions={expense._revisions} />}
           </Box>
         </ButtonBase>
       </Box>)}

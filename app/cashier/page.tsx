@@ -252,13 +252,20 @@ export default function CashierDashboardPage() {
           </Box>
         </Box>
 
+        <Box sx={styles.heroButtons}>
+          {ACTIONS.map(({ label, href, icon: Icon, primary }) => (
+            <Button key={href} component={Link} href={href} variant="outlined" startIcon={<Icon size={18} />} sx={primary ? [styles.heroButton, styles.heroButtonMain] : styles.heroButton}>{label}</Button>
+          ))}
+        </Box>
+
         <Box sx={styles.heroTiles}>
           {[
             { label: "Jobs today", value: String(todaySales.length) },
             { label: "Still in progress", value: String(inProgressJobs.length) },
             { label: "Sold today", value: money(todayRevenue) },
             { label: "Collected", value: money(todayCollected) },
-          ].map((tile) => <Box key={tile.label} sx={styles.heroTile}>
+            { label: "Owed to the shop", value: money(weeklyDebt), wide: true },
+          ].map((tile) => <Box key={tile.label} sx={[styles.heroTile, ...(tile.wide ? [styles.heroTileWide] : [])]}>
             <Typography variant="body2" sx={styles.heroSoft}>{tile.label}</Typography>
             <Typography variant="h5" component="p" sx={styles.heroTileValue}>{tile.value}</Typography>
           </Box>)}
@@ -274,7 +281,7 @@ export default function CashierDashboardPage() {
         </Box>
       </Box>
 
-      <Box sx={styles.actions}>
+      <Box sx={styles.actionsPhone}>
         {ACTIONS.map(({ label, href, icon: Icon, primary }) => (
           <Paper key={href} component={Link} href={href} variant="outlined" sx={primary ? styles.actionPrimary : styles.action}>
             <Box component="span" sx={primary ? styles.actionIconPrimary : styles.actionIcon}><Icon size={22} /></Box>

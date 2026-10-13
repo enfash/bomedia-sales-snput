@@ -190,3 +190,56 @@ it('turns away a cashier for an old expense, and a declined request changes noth
   expect((await row(fresh.reference)).status).toBe('Unpaid');
   expect(await net('2010')).toBe(-12000000);
 });
+
+it('tells the expenses feed how many times an expense was corrected', async () => {
+  const e = await log('e17');
+  const feed = async () => (await db.query<{ r: Record<string, string>[] }>("select bomedia.api_legacy_feed('expenses') as r")).rows[0].r.find((row) => row['EXPENSE ID'] === e.reference)!;
+  expect((await feed())._revisions).toBe('0');
+  await change('c17', mine(e.reference, { amountKobo: '100000' }));
+  expect((await feed())._revisions).toBe('1');
+});
+
+const recover = async (key: string, reference: string, over: Record<string, unknown> = {}) => (await db.query<{ r: Record<string, any> }>(
+  'select bomedia.api_expense_recovery($1,$2::jsonb) as r', [key, JSON.stringify({ actor_id: owner, reference, amountKobo: '1000000', paymentMethod: 'Cash', businessDate: today, ...over })])).rows[0].r;
+const toRecover = async (reference: string) => Number((await owned("select (bomedia.expense_to_recover(id))::text as n from bomedia.expenses where reference=$1", [reference]))[0].n);
+
+it('records money coming back on a lowered paid expense: cash up, the held amount down, and the feed says what is left', async () => {
+  const e = await log('e18', { status: 'paid', paymentMethod: 'Cash' });
+  await failure(() => recover('r18none', e.reference));
+  await change('c18', mine(e.reference, { amountKobo: '600000' }));
+  expect(await toRecover(e.reference)).toBe(5400000);
+  expect(await net('1000')).toBe(-6000000);
+  const result = await recover('r18', e.reference, { amountKobo: '2000000' });
+  expect(result).toMatchObject({ reference: e.reference, recovered_kobo: '2000000', still_to_recover_kobo: '3400000' });
+  expect(await net('1000')).toBe(-4000000);
+  expect(await net('1300')).toBe(3400000);
+  expect(await recover('r18', e.reference, { amountKobo: '2000000' })).toEqual(result);
+  expect(await net('1300')).toBe(3400000);
+  await failure(() => recover('r18big', e.reference, { amountKobo: '9000000' }));
+  await failure(() => recover('r18zero', e.reference, { amountKobo: '0' }));
+  const feed = (await db.query<{ r: Record<string, string>[] }>("select bomedia.api_legacy_feed('expenses') as r")).rows[0].r.find((row) => row['EXPENSE ID'] === e.reference)!;
+  expect(feed._toRecover).toBe('3400000');
+});
+
+it('keeps the recovered money when the expense is corrected again, and recovers a cancelled paid expense in full', async () => {
+  const e = await log('e19', { status: 'paid', paymentMethod: 'Cash' });
+  await change('c19a', mine(e.reference, { amountKobo: '3000000' }));
+  await recover('r19', e.reference, { amountKobo: '1000000' });
+  expect(await toRecover(e.reference)).toBe(2000000);
+  await change('c19b', cancel(e.reference));
+  expect(await toRecover(e.reference)).toBe(5000000);
+  await recover('r19b', e.reference, { amountKobo: '5000000', paymentMethod: 'Transfer' });
+  expect(await toRecover(e.reference)).toBe(0);
+  expect(await net('1300')).toBe(0);
+});
+
+it('remembers the cash that really left when a paid expense is corrected twice', async () => {
+  const e = await log('e20', { status: 'paid', paymentMethod: 'Cash' });
+  await change('c20a', mine(e.reference, { amountKobo: '3000000' }));
+  const { plan } = (await db.query<{ r: Record<string, any> }>('select bomedia.api_expense_correction_preview($1::jsonb) as r', [JSON.stringify({ reference: e.reference, mode: 'correct', changes: { amountKobo: '1000000' } })])).rows[0].r;
+  expect(plan).toMatchObject({ paid_out_kobo: '6000000', excess_kobo: '5000000' });
+  await change('c20b', mine(e.reference, { amountKobo: '1000000' }, 'Still too high'));
+  expect(await net('1000')).toBe(-6000000);
+  expect(await net('6000')).toBe(1000000);
+  expect(await net('1300')).toBe(5000000);
+});

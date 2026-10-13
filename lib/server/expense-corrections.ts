@@ -4,7 +4,7 @@ import { FinancialError, validUUID, type FinancialActor } from './financial-serv
 export type ExpenseChanges = { amountKobo?: string; category?: string; description?: string; paidTo?: string; businessDate?: string };
 export type ExpensePlan = {
   mode: 'correct' | 'cancel'; expense_id: string; reference: string; before: Record<string, unknown>; after: Record<string, unknown>;
-  old_amount_kobo: string; new_amount_kobo: string; paid: boolean; excess_kobo: string;
+  old_amount_kobo: string; new_amount_kobo: string; paid: boolean; paid_out_kobo: string; excess_kobo: string;
 };
 export type ExpenseHistoryEntry = {
   at: string; kind: 'correction' | 'cancellation'; revision: number; reason: string; by: string | null; approved_by: string | null;
@@ -50,6 +50,23 @@ export function createExpenseCorrections(call: FinancialCall = callFinancial) {
       try {
         return await call<Record<string, unknown>>('api_expense_correction', body.requestId.trim(), {
           actor_id: actor.staffId.toLowerCase(), mode: body.mode, reference, changes, reason: String(body.reason).trim(), ...(isOwner ? { byOwner: 'true' } : {}),
+        });
+      } catch (error) { return mapError(error); }
+    },
+    /** The owner records money coming back on a lowered or cancelled paid expense. */
+    async recover(actor: FinancialActor, input: unknown) {
+      if (!input || typeof input !== 'object' || Array.isArray(input)) throw invalid('Choose what was received.');
+      const body = input as Record<string, unknown>;
+      if (Object.keys(body).some((key) => !['requestId', 'reference', 'amountKobo', 'paymentMethod', 'businessDate'].includes(key))) throw invalid('Use the supported recovery fields.');
+      if (!validUUID(actor.staffId)) throw new FinancialError('An enabled accounting identity is required.', 403, 'ACTOR_REQUIRED');
+      if (typeof body.requestId !== 'string' || !body.requestId.trim() || body.requestId.length > 200) throw invalid('Request ID is required.');
+      if (typeof body.reference !== 'string' || !REFERENCE.test(body.reference.trim())) throw invalid('Choose the expense.');
+      if (typeof body.amountKobo !== 'string' || !/^[0-9]{1,15}$/.test(body.amountKobo)) throw invalid('Enter the amount received.');
+      if (typeof body.paymentMethod !== 'string' || !body.paymentMethod.trim()) throw invalid('Choose how it was received.');
+      if (typeof body.businessDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.businessDate)) throw invalid('Choose the date it was received.');
+      try {
+        return await call<Record<string, unknown>>('api_expense_recovery', body.requestId.trim(), {
+          actor_id: actor.staffId.toLowerCase(), reference: body.reference.trim(), amountKobo: body.amountKobo, paymentMethod: body.paymentMethod.trim(), businessDate: body.businessDate,
         });
       } catch (error) { return mapError(error); }
     },

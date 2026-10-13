@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import { dashboardStyles as styles } from "@/app/theme";
+import { dashboardDebtStyles as debtStyles, dashboardStyles as styles } from "@/app/theme";
 import Paper from "@mui/material/Paper";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -27,6 +27,8 @@ import { SalesExpenseChart, OutstandingDebtChart, PaymentStatusWidget, TopClient
 import { RecentPaymentsPulse } from "@/components/recent-payments-pulse";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
+import { debtWindows } from "@/lib/debt-windows";
+import { StatTile } from "@/components/stat-tile";
 import { TodayBanner } from "@/components/today-banner";
 import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
 import { ShiftReportModal } from "@/components/shift-report-modal";
@@ -250,6 +252,7 @@ export default function DashboardPage() {
   });
 
   // ── Outstanding debt ───────────────────────────────────────────────────────
+  const debtNow = debtWindows(allSales);
   const { chartData: outstandingDebtChart, totalDebt: outstandingDebtTotal, count: unpaidCount } = processDebtData(allSales);
 
   // ── Summary sentence ───────────────────────────────────────────────────────
@@ -420,6 +423,10 @@ export default function DashboardPage() {
           prevGrossMarginPct={prevGrossMarginPct}
           sparkData={chartData.slice(-7).map(d => d.sales)}
         />
+        <Box sx={debtStyles.tiles}>
+          <StatTile tone={debtNow.today > 0 ? "warning" : "neutral"} label="Owed from today's jobs" value={`₦${debtNow.today.toLocaleString()}`} caption={`${debtNow.todayCount} customer${debtNow.todayCount === 1 ? "" : "s"}`} />
+          <StatTile tone={debtNow.week > 0 ? "error" : "neutral"} label="Owed from the last 7 days" value={`₦${debtNow.week.toLocaleString()}`} caption={`${debtNow.weekCount} customer${debtNow.weekCount === 1 ? "" : "s"}`} />
+        </Box>
       </motion.div>
 
       {/* Inventory Alerts + Quick Actions */}

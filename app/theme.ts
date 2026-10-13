@@ -1499,6 +1499,7 @@ export const customerStyles = {
 // Correct and cancel a sale: the "what this will do" box, the form body and the cancel warning.
 export const saleChangeStyles = {
   strong: { fontWeight: 700 },
+  recover: { p: 1.5, border: "1px solid", borderColor: tint("warning", 0.4), bgcolor: tint("warning", 0.08), borderRadius: 3, display: "flex", flexDirection: "column", gap: 1, alignItems: "flex-start" },
   historyList: { display: "flex", flexDirection: "column", gap: 1.25 },
   body: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
   row3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5 },
@@ -1511,6 +1512,7 @@ export const saleChangeStyles = {
   footer: { p: 2, display: "flex", flexDirection: "column", gap: 1 },
   actionsRow: { display: "flex", gap: 1, flexWrap: "wrap" },
   historyHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
+  correctedSmall: { ...tonePill("warning"), fontSize: "0.6875rem", fontWeight: 700, px: 1, py: 0.125, borderRadius: 100 },
   corrected: { ...tonePill("warning"), alignSelf: "flex-start", fontSize: "0.75rem", fontWeight: 700, px: 1.5, py: 0.5, borderRadius: 100 },
   cancelled: { ...toneNeutralPill, alignSelf: "flex-start", fontSize: "0.75rem", fontWeight: 700, px: 1.5, py: 0.5, borderRadius: 100 },
 } as const;
@@ -1651,7 +1653,12 @@ export const cashierHomeStyles = {
   heroSoft: { opacity: 0.85 },
   heroRefresh: { color: "primary.contrastText", bgcolor: onOrange(0.16), "&:hover": { bgcolor: onOrange(0.26) } },
   heroPill: { fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.5, borderRadius: 100, bgcolor: onOrange(0.2), border: "1px solid", borderColor: onOrange(0.3) },
-  heroTiles: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 },
+  heroTiles: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }, gap: 1.5 },
+  heroTileWide: { display: { xs: "none", md: "block" } },
+  heroButtons: { display: { xs: "none", md: "flex" }, gap: 1, flexWrap: "wrap" },
+  heroButton: { color: "primary.contrastText", borderColor: onOrange(0.4), bgcolor: onOrange(0.15), "&:hover": { bgcolor: onOrange(0.25), borderColor: onOrange(0.6) } },
+  heroButtonMain: { bgcolor: "primary.contrastText", color: "primary.dark", "&:hover": { bgcolor: onOrange(0.9) } },
+  actionsPhone: { display: { xs: "grid", md: "none" }, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5 },
   heroTile: { p: 1.5, textAlign: "center", borderRadius: 3, bgcolor: onOrange(0.18), border: "1px solid", borderColor: onOrange(0.25) },
   heroTileValue: { fontWeight: 700 },
   heroTrack: { height: 8, borderRadius: 100, bgcolor: onOrange(0.28), "& .MuiLinearProgress-bar": { bgcolor: "primary.contrastText" } },
@@ -1722,4 +1729,9 @@ export const loginStyles = {
   spinner: { display: "flex", animation: `${spin} 1s linear infinite`, color: "primary.main" },
   footer: { pt: 2, borderTop: "1px solid", borderColor: "divider", display: "flex", justifyContent: "space-between", gap: 2 },
   footerLink: { fontWeight: 600, color: "text.secondary", textDecoration: "none", "&:hover": { color: "primary.main" } },
+} as const;
+
+// The two debt tiles under the owner dashboard's numbers.
+export const dashboardDebtStyles = {
+  tiles: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5, mt: 2 },
 } as const;

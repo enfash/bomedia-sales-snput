@@ -1,7 +1,7 @@
 import { parseAmount } from '@/lib/financial-utils';
 
 export type Expense = {
-  _expenseId?: string; _amountKobo?: string; _payable?: boolean; _backend?: string;
+  _expenseId?: string; _amountKobo?: string; _revisions?: string; _toRecover?: string; _payable?: boolean; _backend?: string;
   "EXPENSE ID"?: string;
   _rowIndex?: number;
   DATE: string; AMOUNT: string; CATEGORY: string; DESCRIPTION: string;

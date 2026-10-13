@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { expenseChangeable, expenseDateOf, expenseEffectOf } from './expense-corrections-view';
 import type { ExpensePlan } from './server/expense-corrections';
 
-const plan = (over: Partial<ExpensePlan>): ExpensePlan => ({ mode: 'correct', expense_id: 'x', reference: 'EXP-1', before: {}, after: {}, old_amount_kobo: '6000000', new_amount_kobo: '600000', paid: true, excess_kobo: '5400000', ...over });
+const plan = (over: Partial<ExpensePlan>): ExpensePlan => ({ mode: 'correct', expense_id: 'x', reference: 'EXP-1', before: {}, after: {}, old_amount_kobo: '6000000', new_amount_kobo: '600000', paid: true, paid_out_kobo: '6000000', excess_kobo: '5400000', ...over });
 
 describe('expense correction helpers', () => {
   it('says what a paid correction does to the money', () => {

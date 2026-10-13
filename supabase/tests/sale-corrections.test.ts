@@ -222,3 +222,12 @@ it('previews a change without making it, and lists a sale\u2019s history newest 
   expect(history.map((h) => h.reason)).toEqual(['Second fix', 'First fix']);
   expect(history[1]).toMatchObject({ by: 'Owner', approved_by: null, kind: 'correction', job: 'Banner' });
 });
+
+it('tells the sales feed how many times a sale was corrected', async () => {
+  const sale = await sell('s-feed');
+  const [job] = await jobOf(sale.sales_id);
+  const feed = async () => (await db.query<{ r: Record<string, string>[] }>("select bomedia.api_legacy_feed('sales') as r")).rows[0].r.find((row) => row['Sales ID'] === sale.sales_id)!;
+  expect((await feed())._revisions).toBe('0');
+  await correct('c-feed', mine(job.id, { quantity: '1' }));
+  expect((await feed())._revisions).toBe('1');
+});

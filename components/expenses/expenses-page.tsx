@@ -11,6 +11,7 @@ import { ExpensePaymentSheet } from '@/components/expense-payment-sheet';
 import { ExpenseDetailsSheet, canMarkPaid } from '@/components/expenses/expense-details-sheet';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { StatTile } from '@/components/stat-tile';
+import { CorrectedTag } from '@/components/corrected-tag';
 import { StatusBadge } from '@/components/status-badge';
 import { lagosBusinessDate } from '@/lib/accounting-entry';
 import { expenseAmount, filterExpenses, groupByDay, isPaidExpense, naira, sinceLabel, summarise, type Expense, type StatusFilter } from '@/lib/expense-list';
@@ -32,6 +33,7 @@ function ExpenseRow({ expense, onOpen, onPay }: { expense: Expense; onOpen: (exp
       <Box component="span" sx={styles.rowEnd}>
         <Typography component="span" sx={styles.amount}>{naira(expenseAmount(expense))}</Typography>
         <StatusBadge variant="expenses" status={expense.STATUS || 'Unpaid'} />
+        {!cancelled && <CorrectedTag revisions={expense._revisions} />}
       </Box>
     </ButtonBase>
     {canMarkPaid(expense) && <Button variant="outlined" color="primary" sx={styles.payButton} onClick={() => onPay(expense)}>Mark as paid</Button>}

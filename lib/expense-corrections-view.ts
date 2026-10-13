@@ -5,7 +5,7 @@ import type { ExpensePlan } from './server/expense-corrections';
 /** What a plan does, in plain figures: the amount, what was already paid out, and what is held to recover. */
 export function expenseEffectOf(plan: ExpensePlan) {
   const oldKobo = Number(plan.old_amount_kobo), newKobo = Number(plan.new_amount_kobo), excess = Number(plan.excess_kobo);
-  return { paid: plan.paid, oldText: koboNaira(oldKobo), newText: koboNaira(newKobo), paidText: koboNaira(oldKobo), excess, excessText: koboNaira(excess), owedText: newKobo > 0 ? koboNaira(newKobo) : 'Nothing' };
+  return { paid: plan.paid, oldText: koboNaira(oldKobo), newText: koboNaira(newKobo), paidText: koboNaira(Number(plan.paid_out_kobo) || oldKobo), excess, excessText: koboNaira(excess), owedText: newKobo > 0 ? koboNaira(newKobo) : 'Nothing' };
 }
 
 /** The day an expense counts for, from the feed's date text. */

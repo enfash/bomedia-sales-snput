@@ -13,6 +13,7 @@ import { BatchDetailsSheet, RecordDetailsSheet } from '@/components/records/reco
 import { ReceiptModal } from '@/components/receipt-modal';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { StatTile } from '@/components/stat-tile';
+import { CorrectedTag } from '@/components/corrected-tag';
 import { StatusBadge } from '@/components/status-badge';
 import { SYSTEM_DEFAULTS } from '@/lib/constants';
 import { describeBalance } from '@/lib/balance-display';
@@ -56,6 +57,7 @@ function RecordRow({ record, onOpen }: { record: UnifiedRecord; onOpen: (record:
       <Box component="span" sx={styles.rowEnd}>
         <Typography component="span" sx={sale ? styles.amount : styles.expenseAmount}>{sale ? naira(record.amount) : `−${naira(record.amount)}`}</Typography>
         <StatusBadge status={record.status} />
+        {record.status !== 'Cancelled' && <CorrectedTag revisions={record.raw?._revisions} />}
       </Box>
     </ButtonBase>
   </Box>;
@@ -77,6 +79,7 @@ function BatchRow({ items, salesId, onOpen }: { items: UnifiedRecord[]; salesId:
       <Box component="span" sx={styles.rowEnd}>
         <Typography component="span" sx={styles.amount}>{naira(total)}</Typography>
         <StatusBadge status={groupStatus(items)} />
+        {groupStatus(items) !== 'Cancelled' && <CorrectedTag revisions={items.reduce((n, item) => n + Number(item.raw?._revisions || 0), 0)} />}
       </Box>
     </ButtonBase>
   </Box>;
