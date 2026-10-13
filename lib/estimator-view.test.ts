@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { SIZE_SHORTCUTS, fmtMoney, marginTone, parseNum, shortcutLabel, shortcutSize, toFt } from './estimator-view';
+import { SIZE_SHORTCUTS, fmtMoney, marginTone, parseNum, rollAreaSqft, shortcutLabel, shortcutSize, toFt } from './estimator-view';
 
 describe('estimator helpers', () => {
   it('turns a shortcut into field values in feet or inches', () => {
@@ -19,5 +19,10 @@ describe('estimator helpers', () => {
     expect(marginTone(45)).toBe('success');
     expect(marginTone(25)).toBe('warning');
     expect(marginTone(5)).toBe('error');
+  });
+  it('works out the square feet left on a roll', () => {
+    expect(rollAreaSqft({ 'Remaining Length (ft)': '150', 'Width (ft)': '10' })).toBe(1500);
+    expect(rollAreaSqft({ Stock: '320', 'Remaining Length (ft)': '150', 'Width (ft)': '10' })).toBe(320);
+    expect(rollAreaSqft({})).toBe(0);
   });
 });

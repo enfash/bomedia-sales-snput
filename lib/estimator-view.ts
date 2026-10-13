@@ -19,3 +19,9 @@ export const newItemId = () => Math.random().toString(36).slice(2, 8);
 
 /** Which tone a profit margin reads in: healthy, thin, or poor. */
 export const marginTone = (percent: number): 'success' | 'warning' | 'error' => (percent >= 40 ? 'success' : percent >= 20 ? 'warning' : 'error');
+
+/** Square feet left on a roll: its Stock column if the sheet has one, otherwise the length left times the roll width. */
+export const rollAreaSqft = (roll: Record<string, unknown>) => {
+  const stock = parseNum(roll['Stock']);
+  return stock > 0 ? stock : parseNum(roll['Remaining Length (ft)']) * parseNum(roll['Width (ft)']);
+};

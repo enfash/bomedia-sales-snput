@@ -16,15 +16,15 @@ import Chip from "@mui/material/Chip";
 
 import { quickCheckStyles as styles } from "@/app/theme";
 import { HomeBackLink } from "@/components/back-link";
-import { FieldLabel } from "@/components/estimator/estimator-parts";
+import { rollAreaSqft } from "@/lib/estimator-view";
 
 type InventoryItem = {
   "Item Name": string;
   "Width (ft)": string | number;
-  "Length": string | number;
+  "Remaining Length (ft)"?: string | number;
   "Unit": string;
   "Price": string | number;
-  "Stock": string | number;
+  "Stock"?: string | number;
   _rowIndex: number;
 };
 
@@ -76,7 +76,7 @@ export default function QuickCheckPage() {
   const totalRequiredArea = requestedArea + wasteArea;
 
   const rollWidth  = parseFloat(selectedItem?.["Width (ft)"]?.toString() || "0") || 0;
-  const rollStock  = parseFloat(selectedItem?.["Stock"]?.toString() || "0") || 0;
+  const rollStock  = selectedItem ? rollAreaSqft(selectedItem) : 0;
 
   const widthOk      = rollWidth >= parsedWidth;
   const stockOk      = rollStock >= totalRequiredArea;
@@ -86,7 +86,7 @@ export default function QuickCheckPage() {
 
   const alternativeFulfillments = items.filter(item => {
     const rWidth = parseFloat(item["Width (ft)"]?.toString() || "0") || 0;
-    const rStock = parseFloat(item["Stock"]?.toString() || "0") || 0;
+    const rStock = rollAreaSqft(item);
     return rWidth >= parsedWidth && rStock >= totalRequiredArea && item._rowIndex !== selectedItem?._rowIndex;
   });
 
@@ -119,7 +119,7 @@ export default function QuickCheckPage() {
           <TextField select fullWidth label="Roll to check" value={selectedItem?._rowIndex.toString() || ""} onChange={e => handleSelectMaterial(e.target.value)}>
             {items.map(item => (
               <MenuItem key={item._rowIndex} value={item._rowIndex.toString()}>
-                {item["Item Name"]} | {parseFloat(item["Width (ft)"]?.toString() || "0").toFixed(1)}ft wide ({parseFloat(item["Stock"]?.toString() || "0").toFixed(0)} sqft)
+                {item["Item Name"]} | {parseFloat(item["Width (ft)"]?.toString() || "0").toFixed(1)}ft wide ({rollAreaSqft(item).toFixed(0)} sqft)
               </MenuItem>
             ))}
           </TextField>
@@ -180,7 +180,7 @@ export default function QuickCheckPage() {
                       <Typography variant="body2" color="text.secondary">{parseFloat(alt["Width (ft)"].toString()).toFixed(1)}ft wide</Typography>
                     </Box>
                   </Box>
-                  <Chip label={`${parseFloat(alt["Stock"].toString()).toFixed(0)} sqft`} size="small" sx={styles.stockPill} />
+                  <Chip label={`${rollAreaSqft(alt).toFixed(0)} sqft`} size="small" sx={styles.stockPill} />
                 </Paper>
               ))}
             </Box>
