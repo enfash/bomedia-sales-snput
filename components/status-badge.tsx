@@ -21,6 +21,9 @@ const SALE_TONE: Record<string, keyof typeof styles.tone> = {
 };
 
 export function StatusBadge({ status, variant = "sales" }: StatusBadgeProps) {
+  if (variant === "expenses" && status === "Cancelled") {
+    return <Chip label="Cancelled" size="small" sx={[styles.expense, toneNeutralPill]} />;
+  }
   if (variant === "expenses") {
     const isPaid = status === RECORD_STATUSES.PAID;
     return (

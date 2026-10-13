@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, Package, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,9 +14,10 @@ import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
 
-import { quickCheckStyles as styles } from "@/app/theme";
+import { quickCheckStyles as styles, stockBarStyles } from "@/app/theme";
 import { HomeBackLink } from "@/components/back-link";
-import { rollAreaSqft } from "@/lib/estimator-view";
+import { StockBar } from "@/components/stock-bar";
+import { groupRolls } from "@/lib/estimator-view";
 
 type InventoryItem = {
   "Item Name": string;
@@ -33,7 +34,7 @@ export default function QuickCheckPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [selectedKey, setSelectedKey] = useState("");
   const [width, setWidth] = useState("");
   const [length, setLength] = useState("");
   const [lengthUnit, setLengthUnit] = useState<"m" | "ft">("ft");
@@ -47,7 +48,8 @@ export default function QuickCheckPage() {
       if (res.ok) {
         const data = json.data || [];
         setItems(data);
-        if (data.length > 0 && !selectedItem) setSelectedItem(data[0]);
+        const first = groupRolls(data)[0];
+        if (first) setSelectedKey((key) => key || first.key);
       } else {
         toast.error("Failed to load materials");
       }
@@ -61,10 +63,8 @@ export default function QuickCheckPage() {
 
   useEffect(() => { void Promise.resolve().then(fetchInventory); }, []);
 
-  const handleSelectMaterial = (rowIndexStr: string) => {
-    const item = items.find(i => i._rowIndex.toString() === rowIndexStr) || null;
-    setSelectedItem(item);
-  };
+  const groups = useMemo(() => groupRolls(items), [items]);
+  const selectedGroup = groups.find(g => g.key === selectedKey) ?? null;
 
   const parsedWidth  = parseFloat(width) || 0;
   const parsedLength = parseFloat(length) || 0;
@@ -75,8 +75,8 @@ export default function QuickCheckPage() {
   const wasteArea         = requestedArea * (parsedWaste / 100);
   const totalRequiredArea = requestedArea + wasteArea;
 
-  const rollWidth  = parseFloat(selectedItem?.["Width (ft)"]?.toString() || "0") || 0;
-  const rollStock  = selectedItem ? rollAreaSqft(selectedItem) : 0;
+  const rollWidth  = selectedGroup?.widthFt ?? 0;
+  const rollStock  = selectedGroup?.areaSqft ?? 0;
 
   const widthOk      = rollWidth >= parsedWidth;
   const stockOk      = rollStock >= totalRequiredArea;
@@ -84,11 +84,7 @@ export default function QuickCheckPage() {
   const isFulfilled  = widthOk && stockOk;
   const canFulfillNet = widthOk && netStockOk;
 
-  const alternativeFulfillments = items.filter(item => {
-    const rWidth = parseFloat(item["Width (ft)"]?.toString() || "0") || 0;
-    const rStock = rollAreaSqft(item);
-    return rWidth >= parsedWidth && rStock >= totalRequiredArea && item._rowIndex !== selectedItem?._rowIndex;
-  });
+  const alternativeFulfillments = groups.filter(g => g.widthFt >= parsedWidth && g.areaSqft >= totalRequiredArea && g.key !== selectedGroup?.key);
 
   const resultStyle = isFulfilled ? styles.resultOk : canFulfillNet ? styles.resultTight : styles.resultNo;
 
@@ -116,14 +112,15 @@ export default function QuickCheckPage() {
 
       <Box sx={styles.stack}>
         <Paper variant="outlined" sx={styles.form}>
-          <TextField select fullWidth label="Roll to check" value={selectedItem?._rowIndex.toString() || ""} onChange={e => handleSelectMaterial(e.target.value)}>
-            {items.map(item => (
-              <MenuItem key={item._rowIndex} value={item._rowIndex.toString()}>
-                {item["Item Name"]} | {parseFloat(item["Width (ft)"]?.toString() || "0").toFixed(1)}ft wide ({rollAreaSqft(item).toFixed(0)} sqft)
-              </MenuItem>
-            ))}
+          <TextField select fullWidth label="Material to check" value={selectedKey} onChange={e => setSelectedKey(e.target.value)}
+            slotProps={{ select: { renderValue: (key) => { const g = groups.find(x => x.key === key); return g ? `${g.label} · ${g.areaSqft.toFixed(0)} sqft left` : ''; } } }}>
+            {groups.map(group => <MenuItem key={group.key} value={group.key} sx={stockBarStyles.menuItem}>
+              <Box sx={stockBarStyles.menuTop}><span>{group.label}</span><Typography component="span" variant="body2" sx={stockBarStyles.menuSub}>{group.areaSqft.toFixed(0)} sqft left</Typography></Box>
+              <StockBar compact remaining={group.areaSqft} capacity={group.capacitySqft} />
+            </MenuItem>)}
           </TextField>
 
+          {selectedGroup && <StockBar remaining={selectedGroup.areaSqft} capacity={selectedGroup.capacitySqft} label={`${selectedGroup.label}: how much is left`} />}
           <Box sx={styles.pair}>
             <TextField fullWidth type="number" label="Job width (ft)" placeholder="e.g. 4" value={width} onChange={e => setWidth(e.target.value)}
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><Ruler size={16} /></InputAdornment> } }} />
@@ -136,22 +133,22 @@ export default function QuickCheckPage() {
           <TextField fullWidth type="number" label="Waste buffer (%)" value={wasteFactor} onChange={e => setWasteFactor(e.target.value)} />
         </Paper>
 
-        {parsedWidth > 0 && parsedLength > 0 && selectedItem && (
+        {parsedWidth > 0 && parsedLength > 0 && selectedGroup && (
           <Paper variant="outlined" sx={resultStyle} role="status">
             <Box sx={styles.resultMain}>
               <Box component="span" sx={styles.resultIcon}>{isFulfilled ? <CheckCircle2 size={36} /> : canFulfillNet ? <AlertTriangle size={36} /> : <XCircle size={36} />}</Box>
               <Box>
                 <Typography variant="h5" component="p" sx={styles.resultTitle}>
-                  {isFulfilled ? "This roll covers it"
+                  {isFulfilled ? "This material covers it"
                     : canFulfillNet ? "Width fits, margin is tight"
-                    : !widthOk ? "Roll too narrow"
+                    : !widthOk ? "Roll is too narrow"
                     : "Not enough material"}
                 </Typography>
                 <Typography variant="body2">
                   {!widthOk
                     ? `The job needs ${parsedWidth}ft but the roll is only ${rollWidth}ft wide.`
                     : isFulfilled
-                    ? "The roll covers the print size and the waste buffer."
+                    ? "It covers the print size and the waste buffer."
                     : "It covers the job itself but not the waste buffer."}
                 </Typography>
               </Box>
@@ -168,19 +165,18 @@ export default function QuickCheckPage() {
           <Box>
             <Box sx={styles.sectionTitle}>
               <Box component="span" sx={styles.sectionIcon}><Sparkles size={16} /></Box>
-              <Typography variant="overline" color="text.secondary">Other rolls that would cover it</Typography>
+              <Typography variant="overline" color="text.secondary">Other materials that would cover it</Typography>
             </Box>
             <Box sx={styles.alternatives}>
               {alternativeFulfillments.map(alt => (
-                <Paper key={alt._rowIndex} variant="outlined" sx={styles.alternative}>
+                <Paper key={alt.key} variant="outlined" sx={styles.alternative}>
                   <Box sx={styles.alternativeMain}>
                     <Box component="span" sx={styles.alternativeIcon}><Package size={20} /></Box>
                     <Box>
-                      <Typography sx={styles.resultTitle}>{alt["Item Name"]}</Typography>
-                      <Typography variant="body2" color="text.secondary">{parseFloat(alt["Width (ft)"].toString()).toFixed(1)}ft wide</Typography>
+                      <Typography sx={styles.resultTitle}>{alt.label}</Typography>
                     </Box>
                   </Box>
-                  <Chip label={`${rollAreaSqft(alt).toFixed(0)} sqft`} size="small" sx={styles.stockPill} />
+                  <Chip label={`${alt.areaSqft.toFixed(0)} sqft`} size="small" sx={styles.stockPill} />
                 </Paper>
               ))}
             </Box>

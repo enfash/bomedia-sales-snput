@@ -4,8 +4,9 @@ import { useState } from 'react';
 import NextLink from 'next/link';
 import { Alert, Box, Button, Link, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { PaidBy } from '@/components/paid-by';
+import { StockBar } from '@/components/stock-bar';
 import { RollLengthPicker } from '@/components/roll-length-picker';
-import { stockFormStyles as styles } from '@/app/theme';
+import { stockBarStyles, stockFormStyles as styles } from '@/app/theme';
 import { formatKobo } from '@/lib/accounting-money';
 import { lagosBusinessDate } from '@/lib/accounting-entry';
 import { WASTE_REASONS } from '@/lib/constants';
@@ -78,8 +79,12 @@ export function RestockForm({ stock, materialId = '', onSaved, onCancel }: FormP
 }
 
 function RollSelect({ stock, value, onChange, label, choices }: { stock: StockEntryState; value: string; onChange: (id: string) => void; label: string; choices: typeof stock.rolls }) {
-  return <TextField select label={label} value={value} required disabled={!stock.ready || stock.locked} onChange={(event) => onChange(event.target.value)}>
-    {choices.map((roll) => <MenuItem key={roll.id} value={roll.id}>{rollName(roll)} · {ft(roll.remaining_length_ft)} left</MenuItem>)}
+  return <TextField select label={label} value={value} required disabled={!stock.ready || stock.locked} onChange={(event) => onChange(event.target.value)}
+    slotProps={{ select: { renderValue: (id) => { const roll = choices.find((r) => r.id === id); return roll ? `${rollName(roll)} · ${ft(roll.remaining_length_ft)} left` : ''; } } }}>
+    {choices.map((roll) => <MenuItem key={roll.id} value={roll.id} sx={stockBarStyles.menuItem}>
+      <Box sx={stockBarStyles.menuTop}><span>{rollName(roll)}</span><Typography component="span" variant="body2" sx={stockBarStyles.menuSub}>{ft(roll.remaining_length_ft)} left</Typography></Box>
+      <StockBar compact remaining={Number(roll.remaining_length_ft)} capacity={Number(roll.total_length_ft)} status={roll.status} />
+    </MenuItem>)}
   </TextField>;
 }
 

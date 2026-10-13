@@ -50,15 +50,15 @@ export async function materialsForViewer(rows: LegacyRow[], includeUnavailable: 
 }
 
 /** GET handler body: null when Sheets is still authoritative. */
-/** Cancelled sales are left out of every normal list; Records asks for them on their own with `cancelled: 'only'`. */
-export const salesByCancellation = (rows: LegacyRow[], mode: 'exclude' | 'only') => rows.filter((row) => (row['JOB STATUS'] === 'Cancelled') === (mode === 'only'));
+/** Cancelled sales and expenses are left out of every normal list; Records asks for them on their own with `cancelled: 'only'`. */
+export const salesByCancellation = (rows: LegacyRow[], mode: 'exclude' | 'only') => rows.filter(((row) => (row['JOB STATUS'] === 'Cancelled' || row['STATUS'] === 'Cancelled') === (mode === 'only')));
 
 export async function legacyFeedResponse(resource: LegacyResource, call: FinancialCall = callFinancial, options: { includeUnavailable?: boolean; cancelled?: 'only' } = {}): Promise<Response | null> {
   if (!legacyFeedEnabled()) return null;
   try {
     const identity = await financialIdentity(false);
     const rows = await legacyRows(resource, call);
-    const data = resource === 'expenses' ? expensesForViewer(rows, identity ? identity.staffId : null)
+    const data = resource === 'expenses' ? salesByCancellation(expensesForViewer(rows, identity ? identity.staffId : null), options.cancelled === 'only' ? 'only' : 'exclude')
       : resource === 'materials' ? await materialsForViewer(rows, Boolean(options.includeUnavailable), call, !identity)
       : resource === 'inventory' && identity ? withoutFields(rows, OWNER_ONLY_ROLL_FEED)
       : resource === 'sales' ? salesByCancellation(rows, options.cancelled === 'only' ? 'only' : 'exclude') : rows;

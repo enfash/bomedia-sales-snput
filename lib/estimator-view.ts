@@ -25,3 +25,17 @@ export const rollAreaSqft = (roll: Record<string, unknown>) => {
   const stock = parseNum(roll['Stock']);
   return stock > 0 ? stock : parseNum(roll['Remaining Length (ft)']) * parseNum(roll['Width (ft)']);
 };
+
+export type RollGroup = { key: string; label: string; widthFt: number; areaSqft: number; capacitySqft: number };
+/** One entry per material and roll width ("Flex 10ft", "SAV 4ft"), adding up the area left on every roll of it. */
+export const groupRolls = (rolls: Record<string, unknown>[]): RollGroup[] => {
+  const groups = new Map<string, RollGroup>();
+  for (const roll of rolls) {
+    const name = String(roll['Item Name'] ?? '').trim() || 'Other', widthFt = parseNum(roll['Width (ft)']);
+    const key = `${name}|${widthFt}`, group = groups.get(key) ?? { key, label: `${name} ${widthFt}ft`, widthFt, areaSqft: 0, capacitySqft: 0 };
+    group.areaSqft += rollAreaSqft(roll);
+    group.capacitySqft += parseNum(roll['Total Length (ft)']) * widthFt;
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+};

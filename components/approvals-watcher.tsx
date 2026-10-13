@@ -36,7 +36,7 @@ export function ApprovalsWatcher() {
         if (fresh.length) {
           const first = fresh[0];
           setText(fresh.length === 1
-            ? `${first.requested_by ?? 'A cashier'} needs your approval: ${first.operation === 'screen_expense' ? 'expense, ' : first.operation === 'sale_correction' ? 'sale change, ' : ''}${rowTitle(first)}, ${koboNaira(rowTotalKobo(first))}.`
+            ? `${first.requested_by ?? 'A cashier'} needs your approval: ${first.operation === 'screen_expense' ? 'expense, ' : first.operation === 'expense_correction' ? 'expense change, ' : first.operation === 'sale_correction' ? 'sale change, ' : ''}${rowTitle(first)}, ${koboNaira(rowTotalKobo(first))}.`
             : `${fresh.length} entries need your approval.`);
           try { localStorage.setItem(ANNOUNCED, JSON.stringify([...announced, ...fresh.map((r) => r.id)].slice(-200))); } catch { /* Not remembered; fine. */ }
         }

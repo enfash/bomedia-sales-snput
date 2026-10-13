@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 
 import { heldSalesStyles as styles, approvalInboxStyles as pills } from '@/app/theme';
-import { STATUS_LABEL, koboNaira, rowItems, rowKind, rowTitle, rowTotalKobo, type ApprovalRow } from '@/lib/approvals-view';
+import { STATUS_LABEL, koboNaira, isChangeRequest, rowItems, rowKind, rowTitle, rowTotalKobo, type ApprovalRow } from '@/lib/approvals-view';
 
 const DISMISSED = 'bomedia-held-dismissed';
 const readDismissed = (): string[] => { try { return JSON.parse(localStorage.getItem(DISMISSED) || '[]'); } catch { return []; } };
@@ -39,18 +39,18 @@ export function HeldSales() {
           <Typography sx={styles.client}>{rowTitle(row)}</Typography>
           <Typography sx={styles.sub}>{rowKind(row)} · {rowItems(row) || rowKind(row)}</Typography>
         </Box>
-        <Typography sx={styles.amount}>{row.operation === 'screen_expense' ? '−' : ''}{koboNaira(rowTotalKobo(row))}</Typography>
+        <Typography sx={styles.amount}>{row.operation === 'screen_expense' || row.operation === 'expense_correction' ? '−' : ''}{koboNaira(rowTotalKobo(row))}</Typography>
       </Box>
       <Box sx={pills.pillRow}>
         <Box component="span" sx={row.status === 'pending' ? pills.pillWaiting : row.status === 'declined' ? pills.pillDeclined : pills.pillExpired}>
           {row.status === 'declined' ? 'Declined by the owner' : STATUS_LABEL[row.status]}
         </Box>
       </Box>
-      {row.status === 'pending' && <Typography sx={styles.sub}>{row.operation === 'sale_correction' ? 'Nothing has changed yet. The sale stays as it was' : `Not recorded yet. ${row.operation === 'screen_expense' ? 'No money counts as paid out' : 'No money is counted and no stock is taken'}`} until the owner approves.</Typography>}
+      {row.status === 'pending' && <Typography sx={styles.sub}>{isChangeRequest(row) ? `Nothing has changed yet. The ${row.operation === 'expense_correction' ? 'expense' : 'sale'} stays as it was` : `Not recorded yet. ${row.operation === 'screen_expense' ? 'No money counts as paid out' : 'No money is counted and no stock is taken'}`} until the owner approves.</Typography>}
       {row.status === 'expired' && <Typography sx={styles.sub}>The owner did not decide in time. Enter it again from {row.operation === 'screen_expense' ? 'Log Expense' : 'New Sale'}.</Typography>}
       {row.status === 'declined' && <>
         {row.decision_note && <Box sx={styles.note}>“{row.decision_note}”</Box>}
-        <Typography sx={styles.sub}>{row.operation === 'sale_correction' ? 'The sale was not changed.' : `It was not recorded. Enter it again from ${row.operation === 'screen_expense' ? 'Log Expense' : 'New Sale'} if it should go ahead.`}</Typography>
+        <Typography sx={styles.sub}>{isChangeRequest(row) ? `The ${row.operation === 'expense_correction' ? 'expense' : 'sale'} was not changed.` : `It was not recorded. Enter it again from ${row.operation === 'screen_expense' ? 'Log Expense' : 'New Sale'} if it should go ahead.`}</Typography>
       </>}
       {row.status !== 'pending' && <Button color="inherit" variant="outlined" sx={styles.dismiss} onClick={() => dismiss(row.id)}>Dismiss</Button>}
     </Box>)}

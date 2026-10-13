@@ -1,4 +1,4 @@
 // The database version this build of the app expects. Update both lines whenever a migration is added;
 // lib/schema-version.test.ts fails until they match the supabase/migrations folder.
-export const EXPECTED_MIGRATION_COUNT = 42;
-export const EXPECTED_LATEST_MIGRATION = '202610120040_sale_corrections.sql';
+export const EXPECTED_MIGRATION_COUNT = 43;
+export const EXPECTED_LATEST_MIGRATION = '202610130041_expense_corrections.sql';

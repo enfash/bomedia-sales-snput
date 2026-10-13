@@ -8,6 +8,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import { Package, ChevronDown } from "lucide-react";
+import { StockBar } from "@/components/stock-bar";
 
 const parseNum = (v: string | number | undefined) =>
   parseFloat(String(v ?? "0").replace(/[^\d.-]/g, "")) || 0;
@@ -58,6 +59,7 @@ export function MaterialSelector({
               <Typography component="span" sx={styles.triggerSub}>
                 {parseNum(selected["Width (ft)"])} ft wide · ₦{parseNum(selected["Selling Price"]).toLocaleString()} per sq ft
               </Typography>
+              <StockBar compact remaining={parseNum(selected["Total Remaining (ft)"])} capacity={parseNum(selected["Total Capacity (ft)"])} status={selected.Status} />
             </>
           ) : (
             <Typography component="span" sx={styles.triggerPlaceholder}>{loading ? "Loading materials…" : "Tap to choose a material"}</Typography>

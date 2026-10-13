@@ -68,6 +68,7 @@ export function summarise(expenses: Expense[], today: string): ExpenseSummary {
   const month = today.slice(0, 7);
   const summary: ExpenseSummary = { monthSpent: 0, monthCount: 0, monthStart: `${month}-01`, owed: 0, owedCount: 0, paid: 0, paidCount: 0 };
   for (const expense of expenses) {
+    if (expense.STATUS === 'Cancelled') continue;
     const amount = expenseAmount(expense);
     if (!isPaidExpense(expense)) { summary.owed += amount; summary.owedCount += 1; }
     if (!expenseDay(expense).startsWith(month)) continue;
@@ -81,7 +82,7 @@ export function filterExpenses(expenses: Expense[], status: StatusFilter, query:
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return expenses.filter((expense) => {
     if (status === 'Paid' && !isPaidExpense(expense)) return false;
-    if (status === 'Unpaid' && isPaidExpense(expense)) return false;
+    if (status === 'Unpaid' && (isPaidExpense(expense) || expense.STATUS === 'Cancelled')) return false;
     if (!words.length) return true;
     const haystack = [expense.CATEGORY, expense['PAID TO'], expense.DESCRIPTION, expense['Logged By'], expense.AMOUNT].join(' ').toLowerCase();
     return words.every((word) => haystack.includes(word));

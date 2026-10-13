@@ -3,10 +3,17 @@
 import { useState } from 'react';
 import { Alert, Box, Button, Typography } from '@mui/material';
 import { ExternalLink } from 'lucide-react';
-import { expenseStyles as styles, settingsStyles } from '@/app/theme';
+import { expenseStyles as styles, saleChangeStyles as changeStyles, settingsStyles } from '@/app/theme';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { StatusBadge } from '@/components/status-badge';
+import { CancelExpenseSheet } from '@/components/expense-corrections/cancel-expense-sheet';
+import { CorrectExpenseSheet } from '@/components/expense-corrections/correct-expense-sheet';
+import { ExpenseHistory } from '@/components/expense-corrections/expense-history';
+import { useCorrectionAccess } from '@/components/sale-corrections/use-correction-access';
+import { lagosBusinessDate } from '@/lib/accounting-entry';
+import { expenseChangeable, expenseDateOf } from '@/lib/expense-corrections-view';
 import { expenseAmount, isPaidExpense, naira, type Expense } from '@/lib/expense-list';
+import { canChangeSale } from '@/lib/sale-corrections-view';
 
 /** The expense page's rule for when "Mark as paid" is offered: the old Sheets books allow either direction; the new books only pay a payable, unpaid expense. */
 export function canMarkPaid(expense: Expense) {
@@ -31,12 +38,19 @@ function Fact({ label, children, muted = false }: { label: string; children: str
   </Box>;
 }
 
-export function ExpenseDetailsSheet({ expense, onClose, onToggle }: {
+export function ExpenseDetailsSheet({ expense, onClose, onToggle, onChanged }: {
   expense: Expense | null;
   onClose: () => void;
   onToggle: (expense: Expense, newStatus: 'Paid' | 'Unpaid') => Promise<void>;
+  onChanged?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const access = useCorrectionAccess();
+  const [changing, setChanging] = useState<'correct' | 'cancel' | null>(null);
+  const [changes, setChanges] = useState(0);
+  const cancelled = expense?.STATUS === 'Cancelled';
+  const mayChange = !!expense && expenseChangeable(expense) && canChangeSale(access, expenseDateOf(expense.DATE), lagosBusinessDate());
+  const reference = expense?.['EXPENSE ID'] ?? '';
   const paid = expense ? isPaidExpense(expense) : false;
 
   async function toggle() {
@@ -83,7 +97,16 @@ export function ExpenseDetailsSheet({ expense, onClose, onToggle }: {
       </Typography>}
       {needsOpeningReview(expense) && <Alert severity="warning">Opening balance review required. This historical expense has no accepted liability in the books yet. Keep its original amount, date and receipt for the final-import reconciliation.</Alert>}
       {expense._backend === 'postgres' && canMarkPaid(expense) && <Typography variant="body2" sx={styles.hint}>You will choose how it was paid and the date, then confirm.</Typography>}
+      {cancelled ? <Box component="span" sx={changeStyles.cancelled}>Cancelled</Box> : changes > 0 && <Box component="span" sx={changeStyles.corrected}>Corrected {changes === 1 ? '1 time' : `${changes} times`}</Box>}
+      {mayChange && <Box sx={changeStyles.actionsRow}>
+        <Button variant="contained" onClick={() => setChanging('correct')}>Correct this expense</Button>
+        <Button variant="outlined" color="error" onClick={() => setChanging('cancel')}>Cancel expense</Button>
+      </Box>}
+      {mayChange && <Typography variant="body2" color="text.secondary">Nothing is erased. Changes are kept in the history below.{access && !access.isOwner ? ` You can ask for a change up to ${access.days} days after; the owner approves it.` : ''}</Typography>}
+      {/^EXP-/.test(reference) && <ExpenseHistory reference={reference} onLoaded={setChanges} />}
       {expense['EXPENSE ID'] && <Typography variant="caption" color="text.secondary">{expense['EXPENSE ID']}</Typography>}
     </Box>}
+    {expense && changing === 'correct' && <CorrectExpenseSheet expense={expense} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); onChanged?.(); onClose(); }} />}
+    {expense && changing === 'cancel' && <CancelExpenseSheet reference={reference} label={expense.CATEGORY} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); onChanged?.(); onClose(); }} />}
   </ResponsiveSheet>;
 }

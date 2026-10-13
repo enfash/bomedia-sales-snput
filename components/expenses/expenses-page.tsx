@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Button, ButtonBase, Paper, Skeleton, TextField, Typography } from '@mui/material';
 import { Plus, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,10 +20,11 @@ const FILTERS: StatusFilter[] = ['All', 'Unpaid', 'Paid'];
 
 function ExpenseRow({ expense, onOpen, onPay }: { expense: Expense; onOpen: (expense: Expense) => void; onPay: (expense: Expense) => void }) {
   const paid = isPaidExpense(expense);
+  const cancelled = expense.STATUS === 'Cancelled';
   const note = [expense['PAID TO'], expense.DESCRIPTION].filter(Boolean).join(' · ');
   return <Box sx={styles.row}>
-    <ButtonBase onClick={() => onOpen(expense)} sx={styles.rowButton} aria-label={`${expense.CATEGORY}, ${naira(expenseAmount(expense))}, ${paid ? 'paid' : 'unpaid'}. Open details`}>
-      <Box component="span" sx={[styles.iconTile, !paid && styles.iconTileOwed]}><Receipt size={18} /></Box>
+    <ButtonBase onClick={() => onOpen(expense)} sx={styles.rowButton} aria-label={`${expense.CATEGORY}, ${naira(expenseAmount(expense))}, ${cancelled ? 'cancelled' : paid ? 'paid' : 'unpaid'}. Open details`}>
+      <Box component="span" sx={[styles.iconTile, !paid && !cancelled && styles.iconTileOwed]}><Receipt size={18} /></Box>
       <Box sx={styles.rowMain}>
         <Typography component="span" sx={styles.category}>{expense.CATEGORY}</Typography>
         {note && <Typography variant="body2" component="span" sx={styles.meta}>{note}</Typography>}
@@ -51,6 +52,13 @@ export function ExpensesPage() {
   const [adding, setAdding] = useState(false);
   const [viewing, setViewing] = useState<Expense | null>(null);
   const [paying, setPaying] = useState<Expense | null>(null);
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [cancelledRows, setCancelledRows] = useState<Expense[]>([]);
+  const showCancelledRef = useRef(false);
+  const loadCancelled = useCallback(async () => {
+    try { const response = await fetch('/api/expenses?cancelled=only'), result = await response.json(); if (response.ok && Array.isArray(result.data)) setCancelledRows([...(result.data as Expense[])].reverse()); }
+    catch { /* The cancelled list is a convenience; the normal list still works. */ }
+  }, []);
 
   const fetchExpenses = useCallback(async () => {
     try {
@@ -61,13 +69,14 @@ export function ExpensesPage() {
       setExpenses([...(data as Expense[])].reverse());
       useSyncStore.setState({ cachedExpenses: data });
       setLoadFailed(false);
+      if (showCancelledRef.current) await loadCancelled();
     } catch {
       setLoadFailed(true);
       toast.error('Could not load expenses.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadCancelled]);
 
   // Fetch on mount, and again when a background sync reports new data.
   useEffect(() => { void fetchExpenses(); }, [fetchExpenses, lastSyncTime]);
@@ -103,10 +112,11 @@ export function ExpensesPage() {
   const payFromRow = (expense: Expense) => { void handleStatusToggle(expense, 'Paid'); };
 
   const today = lagosBusinessDate();
-  const summary = useMemo(() => summarise(expenses, today), [expenses, today]);
-  const visible = useMemo(() => filterExpenses(expenses, filter, search), [expenses, filter, search]);
+  const shown = useMemo(() => (showCancelled ? [...expenses, ...cancelledRows] : expenses), [expenses, cancelledRows, showCancelled]);
+  const summary = useMemo(() => summarise(shown, today), [shown, today]);
+  const visible = useMemo(() => filterExpenses(shown, filter, search), [shown, filter, search]);
   const days = useMemo(() => groupByDay(visible, today), [visible, today]);
-  const count = (status: StatusFilter) => filterExpenses(expenses, status, '').length;
+  const count = (status: StatusFilter) => filterExpenses(shown, status, '').length;
   const searching = search.trim().length > 0;
 
   return <Box sx={styles.screen}>
@@ -134,6 +144,8 @@ export function ExpensesPage() {
       <TextField label="Search" placeholder="Category, who was paid, or a note" value={search} onChange={(event) => setSearch(event.target.value)} type="search" slotProps={{ inputLabel: { shrink: true } }} />
       <Box sx={styles.chips} role="group" aria-label="Filter by status">
         {FILTERS.map((name) => <Button key={name} variant={filter === name ? 'contained' : 'outlined'} color="primary" sx={styles.chip} aria-pressed={filter === name} onClick={() => setFilter(name)}>{name} · {count(name)}</Button>)}
+        <Button variant={showCancelled ? 'contained' : 'outlined'} color={showCancelled ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={showCancelled}
+          onClick={() => { const next = !showCancelled; showCancelledRef.current = next; setShowCancelled(next); if (next) void loadCancelled(); }}>Show cancelled expenses</Button>
       </Box>
     </>}
 
@@ -159,7 +171,7 @@ export function ExpensesPage() {
     <ResponsiveSheet open={adding} onClose={() => setAdding(false)} title="New expense">
       <ExpenseEntry embedded onSaved={() => { void fetchExpenses(); setAdding(false); }} />
     </ResponsiveSheet>
-    <ExpenseDetailsSheet expense={viewing} onClose={() => setViewing(null)} onToggle={handleStatusToggle} />
+    <ExpenseDetailsSheet expense={viewing} onClose={() => setViewing(null)} onToggle={handleStatusToggle} onChanged={() => void fetchExpenses()} />
     <ExpensePaymentSheet expense={paying} onClose={() => setPaying(null)} />
   </Box>;
 }

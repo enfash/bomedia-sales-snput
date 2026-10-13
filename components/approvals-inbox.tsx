@@ -6,10 +6,12 @@ import { Alert, Box, Button, Paper, Skeleton, Stack, TextField, Typography } fro
 import { approvalInboxStyles as styles, approvalPromptStyles } from '@/app/theme';
 import { BackLink } from '@/components/back-link';
 import { useFloatingNotice } from '@/components/floating-notice';
+import { ExpenseEffectBox } from '@/components/expense-corrections/expense-effect-box';
 import { EffectBox } from '@/components/sale-corrections/effect-box';
-import { FieldDiff, hasFieldChanges } from '@/components/sale-corrections/field-diff';
+import { EXPENSE_LABELS, FieldDiff, hasFieldChanges } from '@/components/sale-corrections/field-diff';
+import type { ExpensePlan } from '@/lib/server/expense-corrections';
 import type { CorrectionPlan } from '@/lib/server/sale-corrections';
-import { STATUS_LABEL, changeText, changeTitle, koboNaira, rowChange, rowItems, rowKind, rowTitle, rowTotalKobo, type ApprovalRow } from '@/lib/approvals-view';
+import { STATUS_LABEL, changeText, changeTitle, koboNaira, rowChange, isChangeRequest, rowItems, rowKind, rowTitle, rowTotalKobo, type ApprovalRow } from '@/lib/approvals-view';
 
 const ENDPOINT = '/api/accounting/approvals';
 const PILL = { pending: styles.pillWaiting, approved: styles.pillApproved, declined: styles.pillDeclined, expired: styles.pillExpired } as const;
@@ -45,7 +47,7 @@ export function ApprovalsInbox() {
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error || 'The decision was not saved. Try again.');
       if (result?.status === 'failed') setProblems((p) => ({ ...p, [row.id]: `It could not be recorded yet: ${result.error || 'please check and try again'}. It is still waiting.` }));
-      else setDone(decision === 'approve' ? `${row.operation === 'sale_correction' ? `Approved. ${rowTitle(row)} has been changed.` : `Approved. ${rowTitle(row)} is now recorded.`}` : 'Declined. The cashier will see your note.');
+      else setDone(decision === 'approve' ? `${isChangeRequest(row) ? `Approved. ${rowTitle(row)} has been changed.` : `Approved. ${rowTitle(row)} is now recorded.`}` : 'Declined. The cashier will see your note.');
       await load();
     } catch (cause) { setError(message(cause)); }
     finally { setBusy(''); }
@@ -73,13 +75,18 @@ export function ApprovalsInbox() {
           <Box sx={{ minWidth: 0 }}>
             <Box sx={styles.titleRow}>
               <Typography variant="h6" component="h2">{rowTitle(row)}</Typography>
-              <Box component="span" sx={row.operation === 'screen_expense' ? styles.kindExpense : row.operation === 'sale_correction' ? styles.kindChange : styles.kindSale}>{rowKind(row)}</Box>
+              <Box component="span" sx={row.operation === 'screen_expense' ? styles.kindExpense : isChangeRequest(row) ? styles.kindChange : styles.kindSale}>{rowKind(row)}</Box>
             </Box>
             <Typography sx={styles.sub}>{rowItems(row) || rowKind(row)} · asked by {row.requested_by ?? 'a cashier'} · {when(row.created_at)}</Typography>
           </Box>
-          <Typography sx={[styles.amount, ...(row.operation === 'screen_expense' ? [styles.amountOut] : [])]}>{row.operation === 'screen_expense' ? '−' : ''}{koboNaira(rowTotalKobo(row))}</Typography>
+          <Typography sx={[styles.amount, ...(row.operation === 'screen_expense' || row.operation === 'expense_correction' ? [styles.amountOut] : [])]}>{row.operation === 'screen_expense' || row.operation === 'expense_correction' ? '−' : ''}{koboNaira(rowTotalKobo(row))}</Typography>
         </Box>
-        {row.operation === 'sale_correction' ? <Box sx={styles.changes}>
+        {row.operation === 'expense_correction' ? <Box sx={styles.changes}>
+          {(row.changes as unknown as ExpensePlan[]).map((plan, index) => plan.mode === 'cancel'
+            ? <Box key={index} sx={approvalPromptStyles.change}><Box component="span" sx={approvalPromptStyles.changeTitle}>Cancel this expense</Box></Box>
+            : hasFieldChanges(plan.before, plan.after) && <Box key={index} sx={approvalPromptStyles.change}><FieldDiff before={plan.before} after={plan.after} labels={EXPENSE_LABELS} /></Box>)}
+          {(row.changes as unknown as ExpensePlan[]).map((plan, index) => <ExpenseEffectBox key={index} plan={plan} cancel={plan.mode === 'cancel'} />)}
+        </Box> : row.operation === 'sale_correction' ? <Box sx={styles.changes}>
           {(row.changes as unknown as CorrectionPlan[]).map((plan, index) => plan.mode === 'cancel'
             ? <Box key={index} sx={approvalPromptStyles.change}><Box component="span" sx={approvalPromptStyles.changeTitle}>Cancel {String(plan.before.description ?? 'this job')}</Box></Box>
             : hasFieldChanges(plan.before, plan.after) && <Box key={index} sx={approvalPromptStyles.change}><FieldDiff before={plan.before} after={plan.after} /></Box>)}
@@ -95,7 +102,7 @@ export function ApprovalsInbox() {
             <TextField size="small" sx={styles.note} placeholder="Note for the cashier (optional)" value={notes[row.id] ?? ''} disabled={busy === row.id}
               onChange={(event) => setNotes((n) => ({ ...n, [row.id]: event.target.value.slice(0, 500) }))} slotProps={{ htmlInput: { 'aria-label': 'Note for the cashier' } }} />
             <Button color="inherit" variant="outlined" disabled={busy === row.id} onClick={() => void decide(row, 'decline')}>Decline</Button>
-            <Button variant="contained" disabled={busy === row.id} onClick={() => void decide(row, 'approve')}>{row.operation === 'screen_expense' ? 'Approve and record' : row.operation === 'sale_correction' ? 'Approve and apply' : 'Approve'}</Button>
+            <Button variant="contained" disabled={busy === row.id} onClick={() => void decide(row, 'approve')}>{row.operation === 'screen_expense' ? 'Approve and record' : isChangeRequest(row) ? 'Approve and apply' : 'Approve'}</Button>
           </Box>
         </> : <Box sx={styles.pillRow}>
           <Box component="span" sx={PILL[row.status]}>{STATUS_LABEL[row.status]}</Box>

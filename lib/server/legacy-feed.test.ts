@@ -126,3 +126,11 @@ it('leaves cancelled sales out of the normal sales list and returns them only wh
  expect((await (await legacyFeedResponse('sales',call))!.json()).data.map((r:{'Sales ID':string})=>r['Sales ID'])).toEqual(['BOM-1']);
  expect((await (await legacyFeedResponse('sales',call,{cancelled:'only'}))!.json()).data.map((r:{'Sales ID':string})=>r['Sales ID'])).toEqual(['BOM-2']);
 });
+it('leaves cancelled expenses out of the normal expense list and returns them only when asked',async()=>{
+ const today=lagosToday();
+ const rows=[{DATE:today,'EXPENSE ID':'EXP-1',STATUS:'Unpaid'},{DATE:today,'EXPENSE ID':'EXP-2',STATUS:'Cancelled'}];
+ mocks.session.mockResolvedValue(null);mocks.admin.mockResolvedValue('owner@example.test');
+ const call=vi.fn().mockResolvedValue(rows);
+ expect((await (await legacyFeedResponse('expenses',call))!.json()).data.map((r:{'EXPENSE ID':string})=>r['EXPENSE ID'])).toEqual(['EXP-1']);
+ expect((await (await legacyFeedResponse('expenses',call,{cancelled:'only'}))!.json()).data.map((r:{'EXPENSE ID':string})=>r['EXPENSE ID'])).toEqual(['EXP-2']);
+});

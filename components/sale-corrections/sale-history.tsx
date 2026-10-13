@@ -25,12 +25,12 @@ export function SaleHistory({ salesId, version = 0, onLoaded }: { salesId: strin
 
   if (!entries) return <Skeleton variant="rounded" height={64} />;
   if (!entries.length) return null;
-  return <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>History</Typography>
+  return <Box sx={styles.historyList}>
+    <Typography variant="subtitle1" sx={styles.strong}>History</Typography>
     {entries.map((entry) => {
       return <Box key={`${entry.at}-${entry.revision}-${entry.job}`} sx={diffStyles.change}>
         <Box sx={diffStyles.changeHead}>
-          <Typography sx={{ fontWeight: 700 }}>{entry.kind === 'cancellation' ? 'Cancelled' : 'Corrected'} by {entry.by ?? 'staff'}{entry.approved_by ? ` · approved by ${entry.approved_by}` : ''}</Typography>
+          <Typography sx={styles.strong}>{entry.kind === 'cancellation' ? 'Cancelled' : 'Corrected'} by {entry.by ?? 'staff'}{entry.approved_by ? ` · approved by ${entry.approved_by}` : ''}</Typography>
           <Typography variant="body2" color="text.secondary">{timeLabel(entry.at)}</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary">“{entry.reason}”</Typography>

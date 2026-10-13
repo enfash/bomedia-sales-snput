@@ -10,7 +10,7 @@ import type { CorrectionPlan } from '@/lib/server/sale-corrections';
 export function EffectBox({ plans, cancel = false, whoApproves = false }: { plans: CorrectionPlan[]; cancel?: boolean; whoApproves?: boolean }) {
   const e = effectOf(plans);
   return <Box sx={[styles.effect, ...(cancel ? [styles.effectCancel] : [])]}>
-    <Typography sx={{ fontWeight: 700 }}>What this will do</Typography>
+    <Typography sx={styles.strong}>What this will do</Typography>
     <Box sx={styles.effectLine}><Typography color="text.secondary">Sale total</Typography>
       <Typography sx={styles.effectValue}><Box component="span" sx={styles.was}>{e.oldText}</Box>→ {e.newText}</Typography></Box>
     <Box sx={styles.effectLine}><Typography color="text.secondary">Stock</Typography><Typography sx={styles.effectValue}>{e.stock}</Typography></Box>

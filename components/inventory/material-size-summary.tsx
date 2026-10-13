@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { materialsStyles, inventoryStyles as styles, systemStatusStyles as status } from '@/app/theme';
+import { StockBar } from '@/components/stock-bar';
 import { feetText, toNumber, type FeedRow } from '@/lib/inventory-summary';
 
 export const statusTone = (value: string) => (value === 'Active' ? materialsStyles.chipOn : value === 'Low Stock' || value === 'Out of Stock' ? status.chipWarn : materialsStyles.chipOff);
@@ -26,5 +27,6 @@ export function MaterialSizeSummary({ row, forCashier = false }: { row: FeedRow;
       <Typography variant="body2" color="text.secondary">{forCashier ? 'Left' : rollCount === 0 ? 'No rolls yet' : `${rollCount} roll${rollCount === 1 ? '' : 's'}`}</Typography>
       <Typography sx={styles.strong}>{feetText(toNumber(row['Total Remaining (ft)']))}{forCashier ? '' : ' left'}</Typography>
     </Box>
+    <StockBar remaining={toNumber(row['Total Remaining (ft)'])} capacity={toNumber(row['Total Capacity (ft)'])} status={row.Status} />
   </>;
 }

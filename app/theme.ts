@@ -1497,6 +1497,8 @@ export const customerStyles = {
 
 // Correct and cancel a sale: the "what this will do" box, the form body and the cancel warning.
 export const saleChangeStyles = {
+  strong: { fontWeight: 700 },
+  historyList: { display: "flex", flexDirection: "column", gap: 1.25 },
   body: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
   row3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5 },
   row2: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 },
@@ -1612,4 +1614,15 @@ export const quickCheckStyles = {
   loading: { minHeight: "50vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, color: "text.secondary" },
   spinning: { display: "flex", animation: `${spin} 1s linear infinite` },
   iconBox: { display: "flex" },
+} as const;
+
+// The stock progress bar (components/stock-bar.tsx), the same on every screen that shows how much of a roll or material is left.
+export const stockBarStyles = {
+  bar: { width: "100%", minWidth: 0 },
+  compact: { width: "100%", minWidth: 48 },
+  track: { height: 8, borderRadius: 100, bgcolor: "action.hover" },
+  trackCompact: { height: 5, borderRadius: 100, bgcolor: "action.hover" },
+  menuItem: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: 0.5, whiteSpace: "normal" },
+  menuTop: { display: "flex", justifyContent: "space-between", gap: 2 },
+  menuSub: { color: "text.secondary", flexShrink: 0 },
 } as const;

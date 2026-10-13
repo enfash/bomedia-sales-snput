@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { StockBar } from "@/components/stock-bar";
 import { Info, Package, ChevronRight, Share2, Copy, Check } from "lucide-react";
 import { Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ interface InventoryRoll {
   "Item Name": string;
   "Width (ft)": string | number;
   "Remaining Length (ft)": string | number;
+  "Total Length (ft)"?: string | number;
   "Price": string | number;
   "Cost per Sqft": string | number;
   "Status": string;
@@ -131,10 +133,8 @@ function MaterialPicker({
                 >
                   <Typography sx={styles.strong}>{parseNum(roll["Width (ft)"])}ft wide</Typography>
                   <Typography variant="body2" color="text.secondary">₦{parseNum(roll["Price"]).toLocaleString()}/sqft</Typography>
-                  <Box sx={styles.rollStatus}>
-                    <Box component="span" sx={[styles.dot, isOut ? styles.dotOut : isLow ? styles.dotLow : styles.dotOk]} />
-                    <Typography variant="body2" color="text.secondary">{statusText}</Typography>
-                  </Box>
+                  <Typography variant="body2" color="text.secondary">{statusText}</Typography>
+                  <StockBar compact remaining={remaining} capacity={parseNum(roll["Total Length (ft)"])} status={roll.Status} />
                 </Paper>
               );
             })}

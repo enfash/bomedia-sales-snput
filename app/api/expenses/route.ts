@@ -12,8 +12,8 @@ const EXPENSES_HEADERS = [
   'PAID BY', 'PAID AT', 'TIMESTAMP',
 ];
 
-export async function GET() {
-  const fromPostgres = await legacyFeedResponse('expenses');
+export async function GET(request: Request) {
+  const fromPostgres = await legacyFeedResponse('expenses', undefined, { cancelled: new URL(request.url).searchParams.get('cancelled') === 'only' ? 'only' : undefined });
   if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();
