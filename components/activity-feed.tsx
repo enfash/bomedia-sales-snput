@@ -16,6 +16,8 @@ import { activityStyles as styles } from "@/app/theme";
 import { SidePanel } from "@/components/side-panel";
 import { useApprovalsCount } from "@/lib/approvals-count";
 import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
+import { CustomerChangesCard } from "@/components/customer-changes-card";
+import { useCustomerChanges } from "@/components/use-customer-changes";
 
 type ActivityType = "sale" | "expense" | "inventory";
 
@@ -46,6 +48,7 @@ export function ActivityFeed() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const waitingApprovals = useApprovalsCount();
+  const customerChanges = useCustomerChanges(!cashier);
 
   const activityItems = useMemo(() => {
     const parseVal = (val: any) => {
@@ -172,15 +175,16 @@ export function ActivityFeed() {
 
   return (
     <>
-      <IconButton aria-label="Notifications" onClick={() => setDrawerOpen(true)} sx={styles.bell}>
+      <IconButton aria-label="Notifications" onClick={() => { setDrawerOpen(true); customerChanges.markSeen(); }} sx={styles.bell}>
         <Bell size={20} />
         {waitingApprovals > 0
           ? <Box component="span" sx={styles.bellCount}>{waitingApprovals}</Box>
-          : alerts.totalCount > 0 && <Box component="span" sx={styles.bellDot} />}
+          : (alerts.totalCount > 0 || customerChanges.unseen > 0) && <Box component="span" sx={styles.bellDot} />}
       </IconButton>
 
       <SidePanel open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Activity & System Alerts" subtitle="Recent updates & warnings" icon={<Clock size={20} />}>
         <Box sx={{ px: 2, pt: 2 }}><ApprovalsWaitingCard onNavigate={() => setDrawerOpen(false)} /></Box>
+        {!cashier && <CustomerChangesCard changes={customerChanges.changes} onOpen={(change) => { setDrawerOpen(false); router.push(`/bom03/customers?open=${encodeURIComponent(change.reference)}`); }} />}
         <Box sx={styles.tabsWrap}>
           <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} variant="fullWidth" sx={styles.tabs}>
             <Tab label={<Box sx={styles.tabLabel}><Clock size={14} /><span>Updates ({activityItems.length})</span></Box>} />

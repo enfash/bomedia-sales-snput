@@ -7,8 +7,9 @@ import { materialsStyles as styles, settingsStyles, systemStatusStyles as status
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { koboToInput, nairaLabel } from '@/lib/materials-format';
 import { BackLink } from '@/components/back-link';
+import { StockBar } from '@/components/stock-bar';
 
-type Size = { id: string; code: string; width_ft: string; remaining_ft: string; roll_count: number; low_stock_ft: string; notes: string | null;
+type Size = { id: string; code: string; width_ft: string; remaining_ft: string; capacity_ft?: string; roll_count: number; low_stock_ft: string; notes: string | null;
   available: boolean; price_kobo: string };
 type Group = { name: string; price_kobo: string | null; prices_differ: boolean; sizes: Size[] };
 type Sheet = { kind: 'material'; group: Group } | { kind: 'size'; group: Group; size: Size } | { kind: 'add-size'; group: Group } | { kind: 'add-material' };
@@ -125,9 +126,10 @@ export function MaterialsSettings() {
           </Box>
           <Typography variant="overline" sx={styles.sectionLabel}>Sizes</Typography>
           <Box sx={styles.sizeList}>{group.sizes.map((size) => <Box key={size.id} sx={[styles.sizeRow, !size.available && styles.sizeOff]}>
-            <Box>
+            <Box sx={styles.sizeMain}>
               <Typography sx={status.strong}>{feet(size.width_ft)} wide</Typography>
               <Typography variant="body2" color="text.secondary">{size.roll_count === 0 ? 'No rolls yet' : `${feet(size.remaining_ft)} left · warns at ${feet(size.low_stock_ft)}`}</Typography>
+              <StockBar compact remaining={Number(size.remaining_ft)} capacity={Number(size.capacity_ft ?? 0)} status={size.roll_count === 0 ? 'Out of Stock' : Number(size.remaining_ft) <= Number(size.low_stock_ft) ? 'Low Stock' : ''} />
             </Box>
             <Box sx={styles.sizeActions}>
               <Box component="span" sx={[status.chip, size.available ? styles.chipOn : styles.chipOff]}>{size.available ? 'Available' : 'Turned off'}</Box>

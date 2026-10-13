@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Alert, Box, Button, IconButton, Paper, Skeleton, TextField, Typography, ButtonBase } from '@mui/material';
 import { ChevronLeft, ChevronRight, Download, Users } from 'lucide-react';
 
@@ -37,6 +38,9 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
   const [page, setPage] = useState(1);
   const [sorting, setSorting] = useState(false);
   const [openKey, setOpenKey] = useState('');
+  // A link from the bell (?open=CUS-0001) opens that customer's profile; closing it lets the page behave normally again.
+  const wanted = useSearchParams().get('open') ?? '';
+  const [dismissed, setDismissed] = useState('');
   const perPage = SYSTEM_DEFAULTS.PAGINATION_ITEMS_PER_PAGE;
 
   const load = useCallback(async () => {
@@ -69,7 +73,7 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
   const shown = sorted.slice((currentPage - 1) * perPage, currentPage * perPage);
   const stats = all ? summarise(all) : null;
   const key = (c: CustomerItem) => c.id ?? c.name;
-  const open = all?.find((c) => key(c) === openKey) ?? null;
+  const open = all?.find((c) => key(c) === openKey) ?? (wanted && wanted !== dismissed ? all?.find((c) => c.reference === wanted) ?? null : null);
 
   const exportCsv = () => {
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([toCsv(sorted)], { type: 'text/csv' })), download: `customers-${new Date().toISOString().slice(0, 10)}.csv` });
@@ -149,7 +153,7 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
       </Box>
     </ResponsiveSheet>
 
-    {open && open.id && <CustomerProfileSheet key={open.id} customer={{ ...open, id: open.id }} role={role} onClose={() => setOpenKey('')} onChanged={() => void load()} />}
-    {open && !open.id && <CustomerTimelineModal clientName={open.name} isOpen contact={open.contact} onClose={() => setOpenKey('')} onUpdate={() => void load()} theme={owner ? 'brand' : 'amber'} />}
+    {open && open.id && <CustomerProfileSheet key={open.id} customer={{ ...open, id: open.id }} role={role} onClose={() => { setOpenKey(''); setDismissed(wanted); }} onChanged={() => void load()} />}
+    {open && !open.id && <CustomerTimelineModal clientName={open.name} isOpen contact={open.contact} onClose={() => { setOpenKey(''); setDismissed(wanted); }} onUpdate={() => void load()} theme={owner ? 'brand' : 'amber'} />}
   </Box>;
 }

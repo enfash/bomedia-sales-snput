@@ -38,11 +38,13 @@ function Fact({ label, children, muted = false }: { label: string; children: str
   </Box>;
 }
 
-export function ExpenseDetailsSheet({ expense, onClose, onToggle, onChanged }: {
+export function ExpenseDetailsSheet({ expense, onClose, onToggle, onChanged, canPay = true }: {
   expense: Expense | null;
   onClose: () => void;
   onToggle: (expense: Expense, newStatus: 'Paid' | 'Unpaid') => Promise<void>;
   onChanged?: () => void;
+  /** The owner records payments; a cashier looking at their own expense is not offered "Mark as paid". */
+  canPay?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const access = useCorrectionAccess();
@@ -59,7 +61,7 @@ export function ExpenseDetailsSheet({ expense, onClose, onToggle, onChanged }: {
     try { await onToggle(expense, paid ? 'Unpaid' : 'Paid'); onClose(); } finally { setBusy(false); }
   }
 
-  const action = !expense ? null : canMarkPaid(expense) ? 'Mark as paid' : canMarkUnpaid(expense) ? 'Mark as unpaid' : null;
+  const action = !expense || !canPay ? null : canMarkPaid(expense) ? 'Mark as paid' : canMarkUnpaid(expense) ? 'Mark as unpaid' : null;
   return <ResponsiveSheet open={!!expense} onClose={onClose} title={expense?.CATEGORY || 'Expense'} description={expense ? `${longDay(expense.DATE)}${expense['PAID TO'] ? ` · ${expense['PAID TO']}` : ''}` : undefined} busy={busy}
     footer={<Box sx={settingsStyles.footer}>
       <Button color="inherit" disabled={busy} onClick={onClose}>Close</Button>

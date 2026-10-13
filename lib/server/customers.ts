@@ -21,8 +21,11 @@ function mapError(error: unknown): never {
   throw error;
 }
 
+export type RecentCustomerChange = { id: string; at: string; customer_id: string; reference: string; name: string; by_id: string; by: string; changes: Record<string, { from: string | null; to: string | null }> };
+
 export function createCustomers(call: FinancialCall = callFinancial) {
   return {
+    async recentChanges(days = 14) { return call<RecentCustomerChange[]>('api_recent_customer_changes', String(days), {}); },
     async list() { return (await call<{ data: CustomerRow[] }>('api_customers', '', {})).data; },
     async profile(id: unknown) {
       if (!validUUID(id)) throw invalid('Choose a customer.');

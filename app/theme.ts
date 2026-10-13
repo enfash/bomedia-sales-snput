@@ -907,6 +907,7 @@ export const systemStatusStyles = {
 
 // Settings > Materials. Cards, chips and lines come from systemStatusStyles; these are the extras.
 export const materialsStyles = {
+  sizeMain: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0.5 },
   sizeRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" },
   sizeOff: { opacity: 0.7 },
   sizeActions: { display: "flex", alignItems: "center", gap: 1 },
@@ -1625,4 +1626,14 @@ export const stockBarStyles = {
   menuItem: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: 0.5, whiteSpace: "normal" },
   menuTop: { display: "flex", justifyContent: "space-between", gap: 2 },
   menuSub: { color: "text.secondary", flexShrink: 0 },
+} as const;
+
+// Customer changes by staff, shown in the owner's bell.
+export const customerChangeCardStyles = {
+  card: { mx: 2, mt: 2, p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 3, bgcolor: "background.paper", display: "flex", flexDirection: "column", gap: 0.5 },
+  head: { display: "flex", alignItems: "center", gap: 1, mb: 0.5 },
+  icon: { display: "flex", color: "primary.main" },
+  title: { fontWeight: 700 },
+  row: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.25, p: 1, textAlign: "left", fontFamily: "inherit", color: "text.primary", bgcolor: "transparent", border: 0, borderRadius: 2, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } },
+  text: { fontSize: "0.875rem", fontWeight: 600 },
 } as const;

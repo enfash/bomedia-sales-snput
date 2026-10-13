@@ -1,13 +1,16 @@
 "use client";
 
 import { HomeBackLink } from "@/components/back-link";
+import { useState } from "react";
 import { ExpenseEntry } from "@/components/expense-entry";
+import { MyExpenses } from "@/components/expenses/my-expenses";
 import { Receipt } from "lucide-react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { expenseStyles as styles } from "@/app/theme";
 
 export default function ExpensesPage() {
+  const [saved, setSaved] = useState(0);
   return (
     <Box sx={styles.page}>
       <HomeBackLink />
@@ -22,7 +25,8 @@ export default function ExpensesPage() {
           Record business expenses directly to the Expenses sheet.
         </Typography>
       </Box>
-      <ExpenseEntry />
+      <ExpenseEntry onSaved={() => setSaved((n) => n + 1)} />
+      <MyExpenses refreshKey={saved} />
     </Box>
   );
 }

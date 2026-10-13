@@ -20,3 +20,12 @@ export function saveCustomer(request: Request) {
     return { success: true, ...await customers.save(actor, owner, body) };
   });
 }
+// The owner's bell: recent phone, notes and name changes made by staff. The owner's own edits are left out.
+export function readCustomerChanges() {
+  return financialHandler(async () => {
+    if (!await verifiedAdminIdentity()) throw new FinancialError('Owner access is required.', 403, 'OWNER_REQUIRED');
+    const identity = await financialIdentity(true);
+    const rows = await customers.recentChanges(14);
+    return { data: rows.filter((row) => !identity || row.by_id !== identity.staffId) };
+  });
+}

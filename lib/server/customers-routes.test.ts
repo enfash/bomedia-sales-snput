@@ -54,3 +54,14 @@ it('rejects unclear requests before the database and turns a refusal into a plai
   mocks.call.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'P0002' }));
   expect((await readCustomerProfile(get(`?id=${customer}`))).status).toBe(404);
 });
+
+it('gives the owner recent customer changes by staff, without the owner’s own, and refuses everyone else', async () => {
+  const { readCustomerChanges } = await import('./customers-routes');
+  mocks.call.mockResolvedValue([{ id: '1', by_id: cashier, by: 'Ada' }, { id: '2', by_id: owner, by: 'Owner' }]);
+  expect((await readCustomerChanges()).status).toBe(403);
+  mocks.admin.mockResolvedValue('owner@example.test'); mocks.session.mockResolvedValue({ staff_id: owner });
+  const res = await readCustomerChanges();
+  expect(res.status).toBe(200);
+  expect((await res.json()).data.map((r: { id: string }) => r.id)).toEqual(['1']);
+  expect(mocks.call).toHaveBeenLastCalledWith('api_recent_customer_changes', '14', {});
+});
