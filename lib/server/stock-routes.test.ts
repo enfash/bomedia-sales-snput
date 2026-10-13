@@ -13,16 +13,17 @@ it('stays off by default',async()=>{
   vi.stubEnv('POSTGRES_FINANCIAL_API_ENABLED','false');
   for (const route of [restockRolls,logWaste,correctStockCount]) expect((await route(request({}))).status).toBe(404);
 });
-it('lets any signed-in staff member log waste under their own identity',async()=>{
-  expect((await logWaste(request({}))).status).toBe(401);
-  mocks.session.mockResolvedValue({staff_id:id});mocks.waste.mockResolvedValue({stock_entry_id:'m'});
+it('keeps every stock change owner-only: a cashier cannot log waste, restock or correct a count',async()=>{
+  mocks.session.mockResolvedValue({staff_id:id});
+  for (const route of [logWaste,restockRolls,correctStockCount]) expect((await route(request({}))).status).toBe(403);
+  expect(mocks.waste).not.toHaveBeenCalled();
+});
+it('lets the owner log waste, restock and correct a count under the owner identity',async()=>{
+  mocks.session.mockResolvedValue({staff_id:id});
+  mocks.admin.mockResolvedValue('owner@example.test');vi.stubEnv('SUPABASE_ADMIN_STAFF_ID',id);
+  mocks.waste.mockResolvedValue({stock_entry_id:'m'});
   const input={requestId:'r',actor_id:'spoof'};
   expect((await logWaste(request(input))).status).toBe(200);expect(mocks.waste).toHaveBeenCalledWith({staffId:id},input);
-});
-it('keeps restock and count corrections owner-only',async()=>{
-  mocks.session.mockResolvedValue({staff_id:id});
-  expect((await restockRolls(request({}))).status).toBe(403);expect((await correctStockCount(request({}))).status).toBe(403);
-  mocks.admin.mockResolvedValue('owner@example.test');vi.stubEnv('SUPABASE_ADMIN_STAFF_ID',id);
   mocks.restock.mockResolvedValue({stock_entry_id:'r'});mocks.count.mockResolvedValue({stock_entry_id:'c'});
   expect((await restockRolls(request({}))).status).toBe(200);expect((await correctStockCount(request({}))).status).toBe(200);
   expect(mocks.restock).toHaveBeenCalledWith({staffId:id},{});
