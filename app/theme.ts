@@ -1646,7 +1646,7 @@ export const customerChangeCardStyles = {
 const onOrange = (opacity: number) => (theme: Theme) => alpha(theme.palette.common.white, opacity);
 export const cashierHomeStyles = {
   hero: {
-    position: "relative", overflow: "hidden", borderRadius: 5, p: { xs: 2.5, md: 3 }, bgcolor: "primary.main", color: "primary.contrastText", display: "flex", flexDirection: "column", gap: 2.5,
+    position: "relative", overflow: "hidden", borderRadius: "24px", p: { xs: 2.5, md: 3 }, bgcolor: "primary.main", color: "primary.contrastText", display: "flex", flexDirection: "column", gap: 2.5,
     "&::before": { content: '""', position: "absolute", top: -48, right: -40, width: 180, height: 180, borderRadius: "50%", bgcolor: onOrange(0.12), pointerEvents: "none" },
     "&::after": { content: '""', position: "absolute", bottom: -64, left: -32, width: 160, height: 160, borderRadius: "50%", bgcolor: (theme: Theme) => alpha(theme.palette.common.black, 0.1), pointerEvents: "none" },
     "& > *": { position: "relative", zIndex: 1 },
@@ -1661,7 +1661,7 @@ export const cashierHomeStyles = {
   heroButton: { color: "primary.contrastText", borderColor: onOrange(0.4), bgcolor: onOrange(0.15), "&:hover": { bgcolor: onOrange(0.25), borderColor: onOrange(0.6) } },
   heroButtonMain: { bgcolor: "primary.contrastText", color: "primary.dark", "&:hover": { bgcolor: onOrange(0.9) } },
   actionsPhone: { display: { xs: "grid", md: "none" }, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5 },
-  heroTile: { p: 1.5, textAlign: "center", borderRadius: 3, bgcolor: onOrange(0.18), border: "1px solid", borderColor: onOrange(0.25) },
+  heroTile: { p: 1.5, textAlign: "center", borderRadius: "16px", bgcolor: onOrange(0.18), border: "1px solid", borderColor: onOrange(0.25) },
   heroTileValue: { fontWeight: 700 },
   heroTrack: { height: 8, borderRadius: 100, bgcolor: onOrange(0.28), "& .MuiLinearProgress-bar": { bgcolor: "primary.contrastText" } },
   heroCollect: { display: "flex", flexDirection: "column", gap: 0.75 },
