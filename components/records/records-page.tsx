@@ -116,7 +116,8 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
   const openRef = params.get('open') ?? '';
   const [search, setSearch] = useState(params.get('q') ?? '');
   const [tab, setTab] = useState<RecordTab>('All');
-  const [sortBy, setSortBy] = useState<SortBy>('date');
+  // ?show=owing (from the home card's collect line) starts on the list of sales that still owe.
+  const [sortBy, setSortBy] = useState<SortBy>(params.get('show') === 'owing' ? 'debt' : 'date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [range, setRange] = useState<DateRange>(owner ? 'all' : 'today');
   const [customStart, setCustomStart] = useState('');

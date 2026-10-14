@@ -3,7 +3,7 @@ import { LoadingAnimation } from "@/components/loading-animation";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Receipt, RefreshCw, Ruler, MessageCircle, ShoppingBag } from "lucide-react";
+import { ChevronRight, Plus, Receipt, RefreshCw, Ruler, MessageCircle, ShoppingBag } from "lucide-react";
 import { Box, Button, IconButton, LinearProgress, Paper, Typography } from "@mui/material";
 import { isSameDay, subDays, isWithinInterval, format } from "date-fns";
 
@@ -11,6 +11,7 @@ import { cashierHomeStyles as styles } from "@/app/theme";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { HeldSales } from "@/components/records/held-sales";
 import { StockBar } from "@/components/stock-bar";
+import { collectionLook } from "@/lib/collection-status";
 import { processDebtData } from "@/lib/financial-utils";
 import { useSyncStore } from "@/lib/store";
 
@@ -231,6 +232,7 @@ export default function CashierDashboardPage() {
   }
 
   const collectedPct = todayRevenue > 0 ? Math.min(100, Math.round((todayCollected / todayRevenue) * 100)) : 0;
+  const collection = collectionLook(collectedPct, todayRevenue, dailyDebt);
   const lowStockRolls = cachedInventory.filter((item: any) => {
     const remaining = parseFloat(item["Remaining Length (ft)"] || item.Stock || "0");
     const threshold = parseFloat(item["Low Stock Threshold (ft)"] || "50");
@@ -277,8 +279,20 @@ export default function CashierDashboardPage() {
             <Typography variant="body2" sx={styles.heroSoft}>Collected so far today</Typography>
             <Typography sx={styles.strong}>{collectedPct}%</Typography>
           </Box>
-          <LinearProgress variant="determinate" value={collectedPct} sx={styles.heroTrack} aria-label={`${collectedPct}% of today's sales collected`} />
-          <Typography variant="body2" sx={styles.heroSoft}>{dailyDebt > 0 ? `${money(dailyDebt)} still to collect from today's jobs` : "Nothing left to collect from today's jobs"}</Typography>
+          <LinearProgress variant="determinate" value={collection.barPercent} sx={[styles.heroTrack, styles.heroTone[collection.tone]]} aria-label={`${collectedPct}% of today's sales collected`} />
+          {/* The words follow the bar's colour. While something is still owed, they lead to the list of sales that owe. */}
+          {(() => {
+            const line = <>
+              <Box component="span" aria-hidden sx={[styles.heroDot, styles.heroDotTone[collection.tone]]} />
+              <Typography variant="body2" component="span" sx={[styles.heroCollectText, collection.tone === "none" ? styles.heroSoft : styles.strongText]}>
+                {todaySales.length === 0 ? "No sales yet today" : dailyDebt > 0 ? `${collection.lead} ${money(dailyDebt)} still to collect` : "All of today's sales collected"}
+              </Typography>
+              {dailyDebt > 0 && <Box component="span" aria-hidden sx={styles.heroChevron}><ChevronRight size={18} /></Box>}
+            </>;
+            return dailyDebt > 0
+              ? <Box component={Link} href="/cashier/records?show=owing" sx={styles.heroCollectLine}>{line}</Box>
+              : <Box sx={styles.heroCollectLine}>{line}</Box>;
+          })()}
         </Box>
       </Box>
 
