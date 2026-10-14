@@ -1,6 +1,7 @@
 "use client";
 
-import { Alert, Box, Button, Typography } from '@mui/material';
+import { Alert, Box, Button, IconButton, Menu, MenuItem, Typography } from '@mui/material';
+import { EllipsisVertical } from 'lucide-react';
 import { recordsStyles as styles, settingsStyles } from '@/app/theme';
 import { ManageBatchAction } from '@/components/manage-batch-action';
 import { ManageSaleAction, type UnifiedRecord } from '@/components/manage-sale-action';
@@ -124,6 +125,7 @@ export function BatchDetailsSheet({ items, salesId, onClose, onUpdate, onReceipt
   const access = useCorrectionAccess();
   const [changing, setChanging] = useState<{ mode: 'correct'; item: UnifiedRecord } | { mode: 'cancel' } | null>(null);
   const [changes, setChanges] = useState(0);
+  const [menu, setMenu] = useState<{ anchor: HTMLElement; item: UnifiedRecord } | null>(null);
   const cancelled = !!first && first.jobStatus === 'Cancelled';
   const today = lagosBusinessDate();
   const mayChange = (item: UnifiedRecord) => !cancelled && !item.isPending && !!item.raw?._jobId && canChangeSale(access, item.raw?.DATE, today);
@@ -158,8 +160,8 @@ export function BatchDetailsSheet({ items, salesId, onClose, onUpdate, onReceipt
               <Box component="span" sx={styles.rowEnd}>
                 <Typography component="span" sx={styles.amount}>{naira(item.amount)}</Typography>
                 <StatusBadge status={item.status} />
-                {mayChange(item) && <Button size="small" color="inherit" variant="outlined" onClick={() => setChanging({ mode: 'correct', item })}>Correct</Button>}
               </Box>
+              {mayChange(item) && <IconButton aria-label={`More actions for ${item.description || 'this item'}`} sx={styles.itemMore} onClick={(event) => setMenu({ anchor: event.currentTarget, item })}><EllipsisVertical size={20} /></IconButton>}
             </Box>;
           })}
         </Box>
@@ -177,6 +179,9 @@ export function BatchDetailsSheet({ items, salesId, onClose, onUpdate, onReceipt
       {mayCancel && <Box sx={changeStyles.actionsRow}><Button variant="outlined" color="error" onClick={() => setChanging({ mode: 'cancel' })}>Cancel the whole sale</Button></Box>}
       {salesId && <SaleHistory salesId={salesId} onLoaded={setChanges} />}
     </Box>}
+    <Menu open={!!menu} anchorEl={menu?.anchor} onClose={() => setMenu(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+      <MenuItem onClick={() => { if (menu) setChanging({ mode: 'correct', item: menu.item }); setMenu(null); }}>Correct this item</MenuItem>
+    </Menu>
     {changing?.mode === 'correct' && <CorrectSaleSheet jobId={String(changing.item.raw._jobId)} description={changing.item.description} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); refresh(); }} />}
     {changing?.mode === 'cancel' && first && <CancelSaleSheet salesId={salesId} client={first.client} owner={!!access?.isOwner} onClose={() => setChanging(null)} onDone={() => { setChanging(null); refresh(); }} />}
   </ResponsiveSheet>;

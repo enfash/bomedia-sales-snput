@@ -1168,6 +1168,8 @@ export const recordsStyles = {
   pagerText: { color: "text.secondary", textAlign: "center" },
   miniTiles: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
   itemRow: { display: "flex", alignItems: "center", gap: 1.5, p: 1.5, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
+  // The quiet "more actions" button on each batch item: a fixed 44px circle, so the row never grows when an action is available.
+  itemMore: { width: 44, height: 44, flexShrink: 0, color: "text.secondary", bgcolor: (theme: Theme) => alpha(theme.palette.text.primary, 0.05), mr: -0.5 },
   actions: { display: "flex", flexDirection: "column", gap: 1 },
   actionPair: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 },
   fullWidth: { minHeight: 48, width: "100%" },
