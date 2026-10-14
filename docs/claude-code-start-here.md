@@ -98,6 +98,9 @@ Each update in the drawer is tappable: a sale opens Records with its details (`?
 - Session re-check: the `admin_session` cookie holds the Supabase refresh token (`rt`) and `checkedAt`. `proxy.ts` asks Supabase again every 5 min (`lib/server/admin-session.ts`; one shared refresh for concurrent requests). A definite no (user deleted/banned, password changed) signs the owner out; if Supabase cannot be reached the owner stays in for a 30 min grace, then must sign in again. Old-style (password) cookies carry no `rt` and are not checked. `verifiedAdminIdentity` also requires the grace window.
 - Cashier PIN sign-in is untouched. After it is proven: remove ADMIN_PASSWORD from the server settings.
 
+## Retired: Accounting entry page (14 Oct 2026)
+- `/cashier/accounting` and `/bom03/accounting` (components `accounting-entry.tsx`, `job-entry.tsx`) were removed because nobody uses them; New Entry, Records, Expenses, Customers and Approvals replaced them. The last version is in the Git tag `archive/accounting-entry-page` (local; push it only if the owner asks). The `records()` helper moved to `lib/accounting-records.ts` for the stock screens. Backend price-request endpoints are untouched but nothing in the app creates price requests any more.
+
 ## Opening balances (14 Oct 2026, read-only first look; see docs/migration-handoff.md)
 - Cutover planned Sunday 18 Oct 2026 (shop closed). Rules: Sales row decides what is owed; Payments tab is a cross-check only; never merge customers by name; no app-code changes for this. Private working files: `migration-data/opening-balances/` (git-ignored).
 

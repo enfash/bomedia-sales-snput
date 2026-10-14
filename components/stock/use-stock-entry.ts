@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { records } from '@/components/accounting-entry';
+import { records } from '@/lib/accounting-records';
 import { readPendingAccounting, sendAccountingEntry, type PendingAccountingEntry } from '@/lib/accounting-pending';
 import type { PaymentMethodOption, StockEntryDraft, StockMaterial, StockRoll } from '@/lib/stock-forms';
 

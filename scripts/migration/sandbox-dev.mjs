@@ -11,7 +11,7 @@ try {
   }
   const env = { ...process.env, ...sandbox, AUTH_BACKEND: 'postgres', POSTGRES_FINANCIAL_API_ENABLED: 'true',
     GOOGLE_SHEET_ID: 'sandbox-sheets-blocked', SUPABASE_DATABASE_URL: '', BOMEDIA_SANDBOX: 'true' };
-  console.log('Sandbox: http://localhost:3001/bom03/accounting  ·  Google Sheets blocked  ·  live data untouched');
+  console.log('Sandbox: http://localhost:3001/bom03  ·  Google Sheets blocked  ·  live data untouched');
   const child = spawn(process.execPath, [join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', '3001'], { cwd: root, env, stdio: 'inherit' });
   child.on('exit', code => process.exit(code ?? 0));
 } catch (error) {
