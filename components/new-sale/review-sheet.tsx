@@ -5,6 +5,7 @@ import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { newSaleStyles as styles } from "@/app/theme";
+import { MoneyField } from "@/components/money-field";
 import { PaidBy } from "@/components/paid-by";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { changeText, changeTitle, type EntryChange } from "@/lib/approvals-view";
@@ -48,8 +49,8 @@ export function ReviewSheet({ open, onClose, saving, meta, cart, grandTotal, bal
       </Box>
 
       {/* The saved value is "0" when nothing was paid, but the box starts empty so the cashier never has to delete a zero first. */}
-      <TextField label="Paid now (₦)" type="number" value={meta.initialPayment === "0" ? "" : meta.initialPayment} onChange={(event) => onPaid(event.target.value)}
-        helperText={`${paymentStatus} · balance left ${money(Math.max(0, balance))}`} slotProps={{ htmlInput: { min: 0, placeholder: "0" } }} />
+      <MoneyField label="Paid now (₦)" value={meta.initialPayment === "0" ? "" : meta.initialPayment} onChange={onPaid}
+        helperText={`${paymentStatus} · balance left ${money(Math.max(0, balance))}`} slotProps={{ htmlInput: { placeholder: "0" } }} />
       {balance > 0 && <TextField label="Customer phone number" required type="tel" value={meta.contact} onChange={(event) => onContact(event.target.value)}
         error={Boolean(contactProblem)} helperText={contactProblem || "Needed because a balance is left. We use it to remind them."} />}
       <PaidBy value={paidBy} onChange={onPaidBy} required={paid > 0} />
