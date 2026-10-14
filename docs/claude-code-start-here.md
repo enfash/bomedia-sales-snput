@@ -98,6 +98,9 @@ Each update in the drawer is tappable: a sale opens Records with its details (`?
 - Session re-check: the `admin_session` cookie holds the Supabase refresh token (`rt`) and `checkedAt`. `proxy.ts` asks Supabase again every 5 min (`lib/server/admin-session.ts`; one shared refresh for concurrent requests). A definite no (user deleted/banned, password changed) signs the owner out; if Supabase cannot be reached the owner stays in for a 30 min grace, then must sign in again. Old-style (password) cookies carry no `rt` and are not checked. `verifiedAdminIdentity` also requires the grace window.
 - Cashier PIN sign-in is untouched. After it is proven: remove ADMIN_PASSWORD from the server settings.
 
+## Opening balances (14 Oct 2026, read-only first look; see docs/migration-handoff.md)
+- Cutover planned Sunday 18 Oct 2026 (shop closed). Rules: Sales row decides what is owed; Payments tab is a cross-check only; never merge customers by name; no app-code changes for this. Private working files: `migration-data/opening-balances/` (git-ignored).
+
 ## Stage 4: phone alerts (13 Oct, built; real phone delivery NOT yet tried; uncommitted)
 - Owner's choices: a phone is registered by a tap while signed in; owner and cashiers both get alerts; messages never show money; iPhone (Home Screen app), Android and the shop computer's Chrome are all in scope.
 - Migration 048: `push_subscriptions`, `notification_preferences`, `notification_outbox` and triggers that write an alert row when an approval request is created or decided, a customer is changed by staff, or a roll goes low/out. Rows name an audience (`owner` or `staff`); the database does not know who the owner is, so the server resolves it (`SUPABASE_ADMIN_STAFF_ID`) when claiming. The person who caused an alert never receives it. `api_push_subscribe/unsubscribe/state/preference_save/claim/report`.

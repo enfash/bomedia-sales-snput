@@ -353,3 +353,31 @@ Verified against the real sandbox before committing Materials. Two collisions we
 
 ## Correct and cancel an expense (13 Oct, uncommitted)
 - Migration `202610130041_expense_corrections.sql` applied to the sandbox only. DB tests `supabase/tests/expense-corrections.test.ts` (14), route tests, feed test. Seen in the sandbox browser as owner: details sheet with Correct/Cancel/History, live effect box, an Ada request approved from the inbox (amount and payee changed), a cancelled expense hidden from the list and totals and shown with "Show cancelled expenses". Cashier requests were sent by API as the test cashier. After this: `npm test` 104 files / 753; `npm run test:db` 40 files / 358.
+
+
+## Opening balances: plan and first read of the Sheet (14 Oct 2026)
+**Status:** read-only check done; nothing written to the Sheet or the database; no figures are final.
+
+**When:** final snapshot and cutover on a Sunday with the shop closed (planned Sunday 18 Oct 2026). Opening balances are taken fresh from the Sheet then, so no past date has to be rebuilt.
+
+**Where the working files are (git-ignored, private):** `migration-data/opening-balances/` holds the six CSV templates, a draft customers-who-owe list built from the Sheet, and `REPORT-sheet-check-2026-10-14.md` with names and amounts. None of it goes to GitHub.
+
+**Rules**
+1. The Sales row decides what a customer owes: amount minus (initial payment + additional payment 1 + additional payment 2).
+2. The Payments tab never changes a balance. It was added later, and when a record was wrong the owner edited the Sales row by hand and often left the Payments row, so the two disagree. Compare and report only.
+3. Never merge customers by name alone. The Sheet has almost no phone numbers. The owner decides which names are the same person.
+4. Never treat an unknown balance as zero; leave it blank with a note.
+5. Do not change app code or database logic for any of this.
+6. Hand-edited sizes do not move stock. Confirm stock against a physical count instead of repairing it from sales.
+
+**What the first read found (aggregates only)**
+- Sales: 3,572 rows (18 Apr to 14 Oct). About 166 sales still owe at least N1, about N695,000 in total, across about 65 names. Another 243 rows are marked unpaid or part-paid but owe less than N1 (stale status). Only 6 of the 166 have a phone number. Only 1,951 sales rows carry a Sales ID.
+- Payments: 2,488 rows. 10 point to a Sales ID that does not exist, 89 are exact repeats, and for 28 owing sales the tab shows more paid than the Sales row.
+- Expenses: all marked Paid, so there are no unpaid expense balances. One N670,000 entry on 30 Jun looks like a borrowed-money loan recorded as an expense; ask the owner if it is still owed.
+
+**Who does what**
+- Owner: counts cash/bank/POS balances on the Sunday, confirms which names are the same person, answers the loan question, says when the shop is closed.
+- Claude: on the Sunday, re-reads Sales, Payments and Expenses (read-only), prepares the owing list, the name-matching list and the mismatch report; never writes to the Sheet.
+- Both: review the final list before anything is loaded.
+
+**Next:** name-matching list for the owner; Sunday snapshot; opening-journal entry screen/command (kind 'opening', with an evidence reference and `opening_confirmed`).
