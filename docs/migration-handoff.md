@@ -381,3 +381,9 @@ Verified against the real sandbox before committing Materials. Two collisions we
 - Both: review the final list before anything is loaded.
 
 **Next:** name-matching list for the owner; Sunday snapshot; opening-journal entry screen/command (kind 'opening', with an evidence reference and `opening_confirmed`).
+
+**Decisions from the owner (14 Oct 2026)**
+- No opening cash or bank counts: cash, bank and POS accounts start empty on the cutover Sunday, and only new movements are recorded. Cash and bank screens will therefore show movement since the start, not the real bank balance, until an opening entry is added later.
+- One borrowed-money entry (about N670,000, 30 Jun) is still owed: record it as a loan owed, not as an expense.
+- Customer debts are still brought in as opening balances; they do not need cash to be counted.
+- Look-alike customer names are decided one by one by the owner (list in the private working folder); trailing spaces and capital letters alone do not make a different customer.
