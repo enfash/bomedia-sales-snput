@@ -1698,7 +1698,7 @@ export const cashierHomeStyles = {
   oweNote: { px: 2, py: 1.5, color: "text.secondary" },
   collectRow: { p: 1.75, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 }, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } },
   reminder: { color: "success.main", bgcolor: tint("success", 0.1), "&:hover": { bgcolor: tint("success", 0.2) } },
-  links: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  links: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1 },
   lowRow: { p: 1.75, display: "flex", flexDirection: "column", gap: 0.75, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   lowTop: { display: "flex", justifyContent: "space-between", gap: 1 },
   spinning: { display: "flex", animation: `${spin} 1s linear infinite` },
@@ -1729,9 +1729,65 @@ export const loginStyles = {
   spinner: { display: "flex", animation: `${spin} 1s linear infinite`, color: "primary.main" },
   footer: { pt: 2, borderTop: "1px solid", borderColor: "divider", display: "flex", justifyContent: "space-between", gap: 2 },
   footerLink: { fontWeight: 600, color: "text.secondary", textDecoration: "none", "&:hover": { color: "primary.main" } },
+  qr: { width: 200, height: 200, mx: "auto", display: "block", borderRadius: 2, border: "1px solid", borderColor: "divider", bgcolor: "common.white", p: 1 },
+  secret: { fontFamily: "monospace", wordBreak: "break-all", textAlign: "center", userSelect: "all" },
+  codeInput: { "& input": { textAlign: "center", letterSpacing: "0.5em", fontSize: "1.25rem", fontWeight: 700 } },
+  textLink: { alignSelf: "center", color: "text.secondary", fontWeight: 600 },
 } as const;
 
 // The two debt tiles under the owner dashboard's numbers.
 export const dashboardDebtStyles = {
   tiles: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5, mt: 2 },
+} as const;
+
+// Phone bottom navigation (the capsule). Nothing here scales or grows on press, so no highlight can spill past the capsule edge.
+const BOTTOM_NAV_GAP = "calc(24px + env(safe-area-inset-bottom, 0px))";
+export const bottomNavStyles = {
+  // Reserves the space the capsule covers, so no page has to remember its own bottom padding.
+  spacer: { display: { md: "none" }, height: "calc(120px + env(safe-area-inset-bottom, 0px))" },
+  wrap: { display: { md: "none" }, position: "fixed", bottom: BOTTOM_NAV_GAP, left: 0, right: 0, zIndex: "appBar", px: 2, pointerEvents: "none", transition: "transform .25s ease, opacity .25s ease" },
+  wrapHidden: { transform: `translateY(calc(100% + ${BOTTOM_NAV_GAP} + 24px))`, opacity: 0 },
+  bar: {
+    maxWidth: 448, mx: "auto", height: 64, px: 0.5, display: "flex", alignItems: "center", borderRadius: "2rem", border: "1px solid",
+    boxShadow: (theme: Theme) => `0 12px 40px ${alpha(theme.palette.common.black, 0.15)}`, backdropFilter: "blur(20px)",
+    bgcolor: (theme: Theme) => alpha(theme.palette.background.paper, 0.9), pointerEvents: "auto",
+  },
+  barAdmin: { borderColor: (theme: Theme) => alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.3 : 0.15) },
+  barCashier: { borderColor: whiteTint(0.4) },
+  tab: {
+    flex: 1, minWidth: 48, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 0.25,
+    borderRadius: "1.5rem", color: "text.secondary", textDecoration: "none", WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
+    transition: "color .15s ease", "&:active .bottom-nav-icon": { bgcolor: tint("primary", 0.08) },
+  },
+  tabActive: { color: accent, "& .bottom-nav-icon": { bgcolor: tint("primary", 0.12) } },
+  tabIcon: { width: 48, height: 28, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color .15s ease" },
+  tabLabel: { fontSize: "0.6875rem", fontWeight: 600, lineHeight: 1.1 },
+  tabLabelActive: { fontWeight: 700 },
+  newSlot: { flex: 1, minWidth: 64, display: "flex", justifyContent: "center", alignSelf: "flex-start", transform: "translateY(-20px)", textDecoration: "none", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" },
+  fab: {
+    width: 56, height: 56, border: "4px solid", borderColor: "background.default", transition: "filter .15s ease", "&:active": { filter: "brightness(0.92)" },
+    boxShadow: (theme: Theme) => `0 8px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+  },
+} as const;
+
+// Phone alerts (owner Settings and the cashier's Phone alerts page).
+export const phoneAlertsStyles = {
+  page: { p: { xs: 2, md: 4 }, pb: { xs: 3, md: 12 }, minWidth: 0, display: "flex", flexDirection: "column", gap: 2.5 },
+  heading: { mt: 2, display: "flex", flexDirection: "column", gap: 0.5 },
+  phoneCard: { p: 2, display: "flex", flexDirection: "column", gap: 1.5, borderWidth: 2, borderColor: "primary.main" },
+  phoneTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 },
+  section: { display: "flex", flexDirection: "column", gap: 1 },
+  list: { overflow: "hidden" },
+  switchRow: { p: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
+  deviceRow: { p: 1.75, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
+  deviceName: { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", fontWeight: 700 },
+  thisPill: { ...tonePill("info"), fontSize: "0.6875rem", fontWeight: 700, px: 1, py: 0.125, borderRadius: 100 },
+  steps: { display: "flex", flexDirection: "column", gap: 1.25, m: 0, p: 0, listStyle: "none" },
+  step: { display: "flex", gap: 1.5, alignItems: "flex-start" },
+  stepNumber: { width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, bgcolor: tint("primary", 0.12), color: "primary.main" },
+  helpCard: { p: 2, display: "flex", flexDirection: "column", gap: 1.5, borderWidth: 2, borderColor: "primary.main" },
+  prompt: { mx: 2, mt: 2, p: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, textAlign: "left", fontFamily: "inherit", color: "text.primary", border: "1px solid", borderColor: tint("warning", 0.4), bgcolor: tint("warning", 0.1), borderRadius: 3, cursor: "pointer", width: "calc(100% - 32px)" },
+  promptQuiet: { mx: 2, mt: 2, p: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, textAlign: "left", fontFamily: "inherit", color: "text.secondary", border: "1px solid", borderColor: "divider", bgcolor: "background.paper", borderRadius: 3, cursor: "pointer", width: "calc(100% - 32px)" },
+  promptText: { fontSize: "0.875rem" },
+  promptAction: { fontWeight: 700, color: "primary.main", whiteSpace: "nowrap" },
 } as const;

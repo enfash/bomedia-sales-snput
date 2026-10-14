@@ -1,188 +1,115 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { shellVisible } from "@/lib/session-view";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, BarChart3, PlusCircle,
+  LayoutDashboard, BarChart3, Plus,
   KanbanSquare, Package, Calculator,
 } from "lucide-react";
-import { useTheme } from "@mui/material/styles";
 
 import Box from "@mui/material/Box";
-import Paper from "@mui/material/Paper";
-import BottomNavigation from "@mui/material/BottomNavigation";
-import BottomNavigationAction from "@mui/material/BottomNavigationAction";
+import ButtonBase from "@mui/material/ButtonBase";
 import Fab from "@mui/material/Fab";
-import { alpha } from "@mui/material/styles";
-import { accent, whiteTint } from "@/app/theme";
+import { bottomNavStyles as styles } from "@/app/theme";
 
-// 24px gap + 64px bar + 20px for the raised New button, plus breathing room and the phone's home-bar area.
-const BOTTOM_NAV_CLEARANCE = "calc(120px + env(safe-area-inset-bottom, 0px))";
+type NavItem = { label: string; icon: LucideIcon; href: string; primary?: boolean };
+
+const ADMIN_ITEMS: NavItem[] = [
+  { label: "Dash", icon: LayoutDashboard, href: "/bom03" },
+  { label: "Board", icon: KanbanSquare, href: "/bom03/board" },
+  { label: "New entry", icon: Plus, href: "/bom03/new-entry", primary: true },
+  { label: "Stock", icon: Package, href: "/bom03/inventory" },
+  { label: "Records", icon: BarChart3, href: "/bom03/records" },
+];
+const CASHIER_ITEMS: NavItem[] = [
+  { label: "Home", icon: LayoutDashboard, href: "/cashier" },
+  { label: "Quote", icon: Calculator, href: "/cashier/estimator" },
+  { label: "New entry", icon: Plus, href: "/cashier/new-entry", primary: true },
+  { label: "Board", icon: KanbanSquare, href: "/cashier/board" },
+  { label: "Records", icon: BarChart3, href: "/cashier/records" },
+];
+
+// Slides away while scrolling down a list and returns on scroll up, so it never sits over amounts. Resets on every page change.
+const HIDE_AFTER_PX = 80;
+const MOVE_THRESHOLD_PX = 8;
+
+function useHideOnScroll(pathname: string | null) {
+  const [state, setState] = useState<{ path: string | null; hidden: boolean }>({ path: pathname, hidden: false });
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const now = window.scrollY;
+      if (Math.abs(now - last) < MOVE_THRESHOLD_PX) return;
+      const nearBottom = window.innerHeight + now >= document.documentElement.scrollHeight - 24;
+      const hidden = now > last && now > HIDE_AFTER_PX && !nearBottom;
+      last = now;
+      setState((current) => (current.path === pathname && current.hidden === hidden ? current : { path: pathname, hidden }));
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [pathname]);
+  return state.path === pathname && state.hidden;
+}
 
 export function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const theme = useTheme();
-  const isAdmin = pathname?.startsWith("/bom03");
+  const hidden = useHideOnScroll(pathname);
+  const isAdmin = !!pathname?.startsWith("/bom03");
   const isCashier = pathname?.startsWith("/cashier") || isAdmin;
 
   if (!isCashier) return null;
-  if (pathname === "/bom03/login" || pathname === "/cashier/login") return null;
+  if (!shellVisible(pathname)) return null;
   if (pathname?.endsWith("/new-entry")) return null;
 
-  const navItems: { label: string; icon: LucideIcon; href: string; primary?: boolean }[] = isAdmin
-    ? [
-        { label: "Dash",  icon: LayoutDashboard, href: "/bom03" },
-        { label: "Board", icon: KanbanSquare,    href: "/bom03/board" },
-        { label: "New",   icon: PlusCircle,      href: "/bom03/new-entry", primary: true },
-        { label: "Stock", icon: Package,         href: "/bom03/inventory" },
-        { label: "Records", icon: BarChart3, href: "/bom03/records" },
-      ]
-    : [
-        { label: "Home",    icon: LayoutDashboard, href: "/cashier" },
-        { label: "Quote",   icon: Calculator,      href: "/cashier/estimator" },
-        { label: "New",     icon: PlusCircle,      href: "/cashier/new-entry", primary: true },
-        { label: "Board",   icon: KanbanSquare,    href: "/cashier/board" },
-        { label: "Records", icon: BarChart3,       href: "/cashier/records" },
-      ];
-
-  const getActiveValue = () => {
-    const match = navItems.find((item) =>
-      item.primary ? false :
-      pathname === item.href ||
-      (item.href !== "/cashier" && item.href !== "/bom03" && pathname?.startsWith(item.href))
-    );
-    return match?.href ?? false;
-  };
+  const items = isAdmin ? ADMIN_ITEMS : CASHIER_ITEMS;
+  const isActive = (item: NavItem) =>
+    pathname === item.href || (item.href !== "/cashier" && item.href !== "/bom03" && !!pathname?.startsWith(item.href));
 
   return (
     <>
-    {/* Reserves the space the floating bar covers, so no page has to remember its own bottom padding. */}
-    <Box aria-hidden sx={{ display: { md: "none" }, height: BOTTOM_NAV_CLEARANCE }} />
-    <Box
-      sx={{
-        display: { md: "none" },
-        position: "fixed",
-        bottom: "calc(24px + env(safe-area-inset-bottom, 0px))",
-        left: 0,
-        right: 0,
-        zIndex: "appBar",
-        px: 2,
-        pointerEvents: "none",
-      }}
-    >
-      <Paper
-        elevation={0}
-        sx={{
-          maxWidth: 448,
-          mx: "auto",
-          borderRadius: "2rem",
-          border: "1px solid",
-          borderColor: isAdmin
-            ? alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.3 : 0.15)
-            : whiteTint(0.4)(theme),
-          boxShadow: `0 12px 40px ${alpha(theme.palette.common.black, 0.15)}`,
-          backdropFilter: "blur(20px)",
-          bgcolor: alpha(theme.palette.background.paper, 0.9),
-          pointerEvents: "auto",
-          overflow: "visible",
-        }}
-      >
-        <BottomNavigation
-          value={getActiveValue()}
-          sx={{
-            bgcolor: "transparent",
-            borderRadius: "2rem",
-            height: 64,
-            alignItems: "center",
-            px: 0.5,
-            overflow: "visible",
-          }}
-        >
-          {navItems.map((item) => {
+      <Box aria-hidden sx={styles.spacer} />
+      <Box component="nav" aria-label="Main" sx={[styles.wrap, hidden && styles.wrapHidden]}>
+        <Box sx={[styles.bar, isAdmin ? styles.barAdmin : styles.barCashier]}>
+          {items.map((item) => {
             const Icon = item.icon;
-
             if (item.primary) {
               return (
-                <Box
-                  key={item.href}
-                  component={({ showLabel, value, onChange, ...props }: any) => <Link {...props} />}
-                  href={item.href}
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 0.5,
-                    transform: "translateY(-20px)",
-                    textDecoration: "none",
-                    flex: 1,
-                  }}
-                >
-                  <Fab
-                    color="primary"
-                    size="large"
-                    component="span"
-                    aria-label="New entry"
-                    sx={{
-                      width: 56,
-                      height: 56,
-                      border: "4px solid",
-                      borderColor: "background.default",
-                      boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, isAdmin ? 0.4 : 0.45)}`,
-                    }}
-                  >
-                    <PlusCircle size={28} />
+                <Box key={item.href} component={Link} href={item.href} aria-label={item.label} sx={styles.newSlot}>
+                  <Fab color="primary" size="large" component="span" aria-hidden sx={styles.fab}>
+                    <Icon size={28} />
                   </Fab>
-                  <Box
-                    component="span"
-                    sx={{
-                      fontSize: "0.5625rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                      color: accent,
-                      mt: -0.5,
-                    }}
-                  >
-                    {item.label}
-                  </Box>
                 </Box>
               );
             }
-
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/cashier" && item.href !== "/bom03" && pathname?.startsWith(item.href));
-
+            const active = isActive(item);
             return (
-              <BottomNavigationAction
+              <ButtonBase
                 key={item.href}
-                label={item.label}
-                value={item.href}
-                icon={<Icon size={20} strokeWidth={isActive ? 2.5 : 2} />}
-                onClick={() => router.push(item.href)}
-                sx={{
-                  minWidth: 0,
-                  color: isActive
-                    ? accent
-                    : "text.secondary",
-                  "& .MuiBottomNavigationAction-label": {
-                    fontSize: "0.5625rem",
-                    fontWeight: isActive ? 700 : 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    opacity: "1 !important", // override MUI's opacity-0 when showLabels is off
-                  },
-                  transform: isActive ? "scale(1.05)" : "scale(1)",
-                  transition: "transform 0.15s ease, color 0.15s ease",
+                component={Link}
+                href={item.href}
+                disableRipple
+                aria-current={active ? "page" : undefined}
+                // Tapping the tab you are already on scrolls back to the top instead of reloading the page.
+                onClick={(event) => {
+                  if (pathname === item.href) {
+                    event.preventDefault();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
                 }}
-              />
+                sx={[styles.tab, active && styles.tabActive]}
+              >
+                <Box className="bottom-nav-icon" sx={styles.tabIcon}>
+                  <Icon size={20} strokeWidth={active ? 2.5 : 2} aria-hidden />
+                </Box>
+                <Box component="span" sx={[styles.tabLabel, active && styles.tabLabelActive]}>{item.label}</Box>
+              </ButtonBase>
             );
           })}
-        </BottomNavigation>
-      </Paper>
-    </Box>
+        </Box>
+      </Box>
     </>
   );
 }

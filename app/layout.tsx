@@ -13,6 +13,7 @@ import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { SyncManager } from "@/components/sync-manager";
 import { PWAManager } from "@/components/pwa-manager";
+import { SessionGuard } from "@/components/session-guard";
 import { ThemeWrapper } from "@/components/theme-wrapper";
 import { BottomNav } from "@/components/bottom-nav";
 import { NotificationManager } from "@/components/notification-manager";
@@ -70,6 +71,7 @@ export default async function RootLayout({
         <AppRouterCacheProvider>
           <MuiProviders initialMode={initialMode}>
             <PWAManager />
+            <SessionGuard />
             <NotificationManager />
             <PresenceManager isAdmin={isAdmin} />
             <SyncManager />

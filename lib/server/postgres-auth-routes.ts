@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '../auth-utils';
 import { AuthError, postgresAuth } from './postgres-auth';
+import { withinGrace } from './admin-session';
 
 async function handle(work: () => Promise<NextResponse>) {
   try { return await work(); }
@@ -21,7 +22,8 @@ export async function verifiedAdminIdentity(): Promise<string | null> {
   const token = (await cookies()).get('admin_session')?.value;
   const payload = token ? await verifyToken(token) : null;
   const email = process.env.ADMIN_EMAIL || (process.env.NODE_ENV !== 'production' ? 'admin@bomedia.com' : null);
-  return payload?.role === 'admin' && email && payload.email === email ? email : null;
+  // A cookie from the Supabase sign-in must also have been confirmed recently (see admin-session.ts); old-style cookies are unaffected.
+  return payload?.role === 'admin' && email && payload.email === email && withinGrace(payload) ? email : null;
 }
 async function requireAdmin() {
   const identity = await verifiedAdminIdentity();

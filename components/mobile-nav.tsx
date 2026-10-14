@@ -1,5 +1,7 @@
 "use client";
 
+import { shellVisible } from "@/lib/session-view";
+import { clearSavedPages } from "@/components/session-guard";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ownerSettingsNav } from "@/components/settings-navigation";
@@ -77,12 +79,13 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
     }
 
     await fetch("/api/auth/logout", { method: "POST" });
+    await clearSavedPages();
     window.location.href = "/";
   };
 
   useEffect(() => { setIsOpen(false); }, [pathname]);
 
-  if (pathname === "/bom03/login" || pathname === "/cashier/login" || pathname === "/") return null;
+  if (!shellVisible(pathname)) return null;
 
   const isInCashierView = pathname.startsWith("/cashier") || !isAdmin;
 

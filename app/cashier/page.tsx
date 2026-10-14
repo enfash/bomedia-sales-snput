@@ -38,6 +38,7 @@ const LINKS = [
   { label: "Customers", href: "/cashier/customers" },
   { label: "Job board", href: "/cashier/board" },
   { label: "Estimator", href: "/cashier/estimator" },
+  { label: "Phone alerts", href: "/cashier/alerts" },
 ];
 
 // ─── Pieces ───────────────────────────────────────────────────────────────────

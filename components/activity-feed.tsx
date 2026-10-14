@@ -17,6 +17,7 @@ import { SidePanel } from "@/components/side-panel";
 import { useApprovalsCount } from "@/lib/approvals-count";
 import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
 import { CustomerChangesCard } from "@/components/customer-changes-card";
+import { PhoneAlertsPrompt } from "@/components/phone-alerts-prompt";
 import { useCustomerChanges } from "@/components/use-customer-changes";
 
 type ActivityType = "sale" | "expense" | "inventory";
@@ -183,6 +184,7 @@ export function ActivityFeed() {
       </IconButton>
 
       <SidePanel open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Activity & System Alerts" subtitle="Recent updates & warnings" icon={<Clock size={20} />}>
+        {drawerOpen && <PhoneAlertsPrompt role={cashier ? "cashier" : "owner"} onNavigate={() => setDrawerOpen(false)} />}
         <Box sx={{ px: 2, pt: 2 }}><ApprovalsWaitingCard onNavigate={() => setDrawerOpen(false)} /></Box>
         {!cashier && <CustomerChangesCard changes={customerChanges.changes} onOpen={(change) => { setDrawerOpen(false); router.push(`/bom03/customers?open=${encodeURIComponent(change.reference)}`); }} />}
         <Box sx={styles.tabsWrap}>

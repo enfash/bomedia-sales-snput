@@ -31,12 +31,8 @@ export function PWAManager() {
       }
     }
 
-    // Request Notification Permissions
-    if ("Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission();
-      }
-    }
+    // Permission is asked only when someone taps "Turn on phone alerts" (Settings or the cashier's Phone alerts page): phones, iPhones
+    // especially, refuse a prompt that nobody asked for.
 
     // Listen for custom notification events
     const handleNotify = (event: any) => {

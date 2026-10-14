@@ -1,5 +1,7 @@
 "use client";
 
+import { shellVisible } from "@/lib/session-view";
+import { clearSavedPages } from "@/components/session-guard";
 import Link from "next/link";
 import { ownerSettingsNav } from "@/components/settings-navigation";
 import { usePathname, useRouter } from "next/navigation";
@@ -72,10 +74,11 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       // cookie cleared server-side; redirect anyway
     }
 
+    await clearSavedPages();
     window.location.href = "/";
   };
 
-  if (pathname === "/bom03/login" || pathname === "/cashier/login" || pathname === "/") return null;
+  if (!shellVisible(pathname)) return null;
 
   const isInCashierView = pathname.startsWith("/cashier") || !isAdmin;
 
