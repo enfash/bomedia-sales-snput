@@ -15,13 +15,14 @@ import ButtonBase from "@mui/material/ButtonBase";
 import Fab from "@mui/material/Fab";
 import { bottomNavStyles as styles } from "@/app/theme";
 
-type NavItem = { label: string; icon: LucideIcon; href: string; primary?: boolean };
+/** `also` lists other screens that belong to this tab, so it stays lit on them (Stock covers both Inventory and the restock/waste/count screen). */
+type NavItem = { label: string; icon: LucideIcon; href: string; primary?: boolean; also?: string[] };
 
 const ADMIN_ITEMS: NavItem[] = [
   { label: "Dash", icon: LayoutDashboard, href: "/bom03" },
   { label: "Board", icon: KanbanSquare, href: "/bom03/board" },
   { label: "New entry", icon: Plus, href: "/bom03/new-entry", primary: true },
-  { label: "Stock", icon: Package, href: "/bom03/inventory" },
+  { label: "Stock", icon: Package, href: "/bom03/inventory", also: ["/bom03/stock"] },
   { label: "Records", icon: BarChart3, href: "/bom03/records" },
 ];
 const CASHIER_ITEMS: NavItem[] = [
@@ -66,7 +67,7 @@ export function BottomNav() {
 
   const items = isAdmin ? ADMIN_ITEMS : CASHIER_ITEMS;
   const isActive = (item: NavItem) =>
-    pathname === item.href || (item.href !== "/cashier" && item.href !== "/bom03" && !!pathname?.startsWith(item.href));
+    [item.href, ...(item.also ?? [])].some((href) => pathname === href || (href !== "/cashier" && href !== "/bom03" && !!pathname?.startsWith(href)));
 
   return (
     <>
