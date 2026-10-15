@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, MenuItem, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import { toast } from 'sonner';
 
 import { saleChangeStyles as styles } from '@/app/theme';
@@ -11,6 +11,7 @@ import { nairaToKobo } from '@/lib/accounting-entry';
 import { expenseDateOf } from '@/lib/expense-corrections-view';
 import type { Expense } from '@/lib/expense-list';
 import type { ExpenseChanges, ExpensePlan } from '@/lib/server/expense-corrections';
+import { LoadingState } from '@/components/loading-state';
 
 type Form = { amount: string; category: string; date: string; paidTo: string; description: string };
 
@@ -98,7 +99,7 @@ export function CorrectExpenseSheet({ expense, owner, onClose, onDone }: { expen
       <TextField label="Paid to" value={form.paidTo} onChange={set('paidTo')} slotProps={{ htmlInput: { maxLength: 200 } }} />
       <TextField label="What for" value={form.description} onChange={set('description')} slotProps={{ htmlInput: { maxLength: 1000 } }} />
       {problem && <Alert severity="warning">{problem}</Alert>}
-      {hasChanges && !problem && (plan ? <ExpenseEffectBox plan={plan} whoApproves={!owner} /> : <Skeleton variant="rounded" height={120} />)}
+      {hasChanges && !problem && (plan ? <ExpenseEffectBox plan={plan} whoApproves={!owner} /> : <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Working out the effect" />)}
       {!hasChanges && <Typography variant="body2" color="text.secondary">Change something above and the effect on the books shows here.</Typography>}
       <TextField label="Why? (required)" multiline minRows={2} value={reason} onChange={(event) => { requestId.current = null; setReason(event.target.value.slice(0, 500)); }} helperText={`${reason.length} / 500`} />
     </Box>

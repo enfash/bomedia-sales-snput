@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, TextField, Typography } from '@mui/material';
 import { toast } from 'sonner';
 
 import { saleChangeStyles as styles } from '@/app/theme';
 import { ExpenseEffectBox } from '@/components/expense-corrections/expense-effect-box';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import type { ExpensePlan } from '@/lib/server/expense-corrections';
+import { LoadingState } from '@/components/loading-state';
 
 async function post(body: Record<string, unknown>, preview: boolean) {
   const response = await fetch(`/api/accounting/expense-corrections${preview ? '?preview=1' : ''}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -54,7 +55,7 @@ export function CancelExpenseSheet({ reference, label, owner, onClose, onDone }:
       <Typography color="text.secondary">The expense stays in the list marked Cancelled, with who cancelled it and why. It is never erased.</Typography>
       {error && <Alert severity="error">{error}</Alert>}
       {problem && <Alert severity="warning">{problem}</Alert>}
-      {!plan && !problem && <Skeleton variant="rounded" height={140} />}
+      {!plan && !problem && <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Checking what cancelling changes" />}
       {plan && <ExpenseEffectBox plan={plan} cancel whoApproves={!owner} />}
       <TextField label="Why? (required)" multiline minRows={3} value={reason} onChange={(event) => { requestId.current = null; setReason(event.target.value.slice(0, 500)); }} helperText={`${reason.length} / 500`} />
     </Box>

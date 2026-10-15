@@ -51,7 +51,6 @@
     "googleapis": "^171.4.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
-    "lottie-colorify": "^0.8.0",
     "lottie-react": "^2.4.1",
     "lucide-react": "^1.8.0",
     "next": "^16.2.9",

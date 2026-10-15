@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import NextLink from 'next/link';
-import { Alert, Box, Button, ButtonBase, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, ButtonBase, TextField, Typography } from '@mui/material';
 import { Phone } from 'lucide-react';
 
 import { customerStyles as styles } from '@/app/theme';
@@ -14,6 +14,7 @@ import { WhatsAppReminder } from '@/components/whatsapp-reminder';
 import { koboNaira } from '@/lib/approvals-view';
 import { FIELD_LABEL, dayLabel, shortNaira, timeLabel, type CustomerItem } from '@/lib/customers-view';
 import type { CustomerProfile } from '@/lib/server/customers';
+import { LoadingState } from '@/components/loading-state';
 
 type Tab = 'sales' | 'payments' | 'changes';
 const money = (kobo: string | number) => koboNaira(Number(kobo) || 0);
@@ -84,7 +85,7 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
             <Button key={id} variant={tab === id ? 'contained' : 'outlined'} color={tab === id ? 'primary' : 'inherit'} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</Button>)}
         </Box>
 
-        {!profile && !error && <Skeleton variant="rounded" height={120} />}
+        {!profile && !error && <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Loading the customer" />}
         {profile && tab === 'sales' && (profile.sales.length ? <Box>
           {profile.sales.map((sale) => <ButtonBase key={sale.sales_id} component={NextLink} href={`${base}/records?open=${encodeURIComponent(sale.sales_id)}`} sx={[styles.line, { width: '100%', textAlign: 'left', justifyContent: 'space-between' }]}>
             <Box sx={styles.lineMain}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, MenuItem, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import { toast } from 'sonner';
 
 import { saleChangeStyles as styles } from '@/app/theme';
@@ -9,6 +9,7 @@ import { EffectBox } from '@/components/sale-corrections/effect-box';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { nairaToKobo } from '@/lib/accounting-entry';
 import type { CorrectionChanges, CorrectionPlan } from '@/lib/server/sale-corrections';
+import { LoadingState } from '@/components/loading-state';
 
 type Form = { description: string; quantity: string; width: string; height: string; price: string; materialId: string; date: string };
 type Material = { id: string; name: string; width: string };
@@ -102,7 +103,7 @@ export function CorrectSaleSheet({ jobId, description, owner, onClose, onDone }:
     </Box>}>
     <Box sx={styles.body}>
       {error && <Alert severity="error">{error}</Alert>}
-      {!form && !error && <Skeleton variant="rounded" height={200} />}
+      {!form && !error && <LoadingState pieces={[{ k: 'form', n: 3 }]} label="Loading the sale" />}
       {form && <>
         <TextField label="What is it?" value={form.description} onChange={set('description')} slotProps={{ htmlInput: { maxLength: 1000 } }} />
         <Box sx={service ? styles.row2 : styles.row3}>
@@ -119,7 +120,7 @@ export function CorrectSaleSheet({ jobId, description, owner, onClose, onDone }:
           {materials.map((m) => <MenuItem key={m.id} value={m.id}>{materialLabel(m)}</MenuItem>)}
         </TextField>}
         {problem && <Alert severity="warning">{problem}</Alert>}
-        {hasChanges && !problem && (plans ? <EffectBox plans={plans} whoApproves={!owner} /> : <Skeleton variant="rounded" height={120} />)}
+        {hasChanges && !problem && (plans ? <EffectBox plans={plans} whoApproves={!owner} /> : <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Working out the effect" />)}
         {!hasChanges && <Typography variant="body2" color="text.secondary">Change something above and the effect on the sale and the stock shows here.</Typography>}
         <TextField label="Why? (required)" multiline minRows={2} value={reason} onChange={(event) => { requestId.current = null; setReason(event.target.value.slice(0, 500)); }}
           helperText={`${reason.length} / 500`} />

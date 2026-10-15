@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Box, Skeleton, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 import { customerStyles as diffStyles, saleChangeStyles as styles } from '@/app/theme';
 import { FieldDiff } from '@/components/sale-corrections/field-diff';
 import { timeLabel } from '@/lib/customers-view';
 import type { SaleHistoryEntry } from '@/lib/server/sale-corrections';
+import { LoadingState } from '@/components/loading-state';
 
 /** Everything that was changed on a sale, newest first. Renders nothing for a sale nobody has changed. */
 export function SaleHistory({ salesId, version = 0, onLoaded }: { salesId: string; version?: number; onLoaded?: (count: number) => void }) {
@@ -23,7 +24,7 @@ export function SaleHistory({ salesId, version = 0, onLoaded }: { salesId: strin
     return () => { active = false; };
   }, [salesId, version, onLoaded]);
 
-  if (!entries) return <Skeleton variant="rounded" height={64} />;
+  if (!entries) return <LoadingState pieces={[{ k: 'list', n: 2 }]} label="Loading the history" />;
   if (!entries.length) return null;
   return <Box sx={styles.historyList}>
     <Typography variant="subtitle1" sx={styles.strong}>History</Typography>

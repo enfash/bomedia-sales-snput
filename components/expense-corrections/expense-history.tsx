@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Box, Skeleton, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 import { customerStyles as diffStyles, saleChangeStyles as styles } from '@/app/theme';
 import { EXPENSE_LABELS, FieldDiff } from '@/components/sale-corrections/field-diff';
 import { timeLabel } from '@/lib/customers-view';
 import { koboNaira } from '@/lib/approvals-view';
 import type { ExpenseHistoryEntry } from '@/lib/server/expense-corrections';
+import { LoadingState } from '@/components/loading-state';
 
 /** Everything that was changed on an expense, newest first. Renders nothing for an expense nobody has changed. */
 export function ExpenseHistory({ reference, onLoaded }: { reference: string; onLoaded?: (count: number) => void }) {
@@ -24,7 +25,7 @@ export function ExpenseHistory({ reference, onLoaded }: { reference: string; onL
     return () => { active = false; };
   }, [reference, onLoaded]);
 
-  if (!entries) return <Skeleton variant="rounded" height={64} />;
+  if (!entries) return <LoadingState pieces={[{ k: 'list', n: 2 }]} label="Loading the history" />;
   if (!entries.length) return null;
   return <Box sx={styles.historyList}>
     <Typography variant="subtitle1" sx={styles.strong}>History</Typography>

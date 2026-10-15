@@ -38,6 +38,9 @@ const SCREENS = {
     cashier: [{ k: "heading" }, { k: "cards", n: 4 }],
   },
   settings: { shared: [{ k: "heading" }, { k: "cards", n: 4 }] },
+  board: { shared: [{ k: "heading" }, { k: "wide" }, { k: "pills", n: 3 }, { k: "cards", n: 3 }] },
+  approvals: { shared: [{ k: "heading" }, { k: "cards", n: 2 }] },
+  form: { shared: [{ k: "heading" }, { k: "form", n: 4 }] },
   generic: { shared: [{ k: "heading" }, { k: "tiles", n: 4 }, { k: "list", n: 5 }] },
 } satisfies Record<string, Layout>;
 

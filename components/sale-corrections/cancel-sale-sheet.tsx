@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, TextField, Typography } from '@mui/material';
 import { toast } from 'sonner';
 
 import { saleChangeStyles as styles } from '@/app/theme';
 import { EffectBox } from '@/components/sale-corrections/effect-box';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import type { CorrectionPlan } from '@/lib/server/sale-corrections';
+import { LoadingState } from '@/components/loading-state';
 
 async function post(body: Record<string, unknown>, preview: boolean) {
   const response = await fetch(`/api/accounting/sale-corrections${preview ? '?preview=1' : ''}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -54,7 +55,7 @@ export function CancelSaleSheet({ salesId, client, owner, onClose, onDone }: { s
       <Typography color="text.secondary">The sale stays in Records marked Cancelled, with who cancelled it and why. It is never erased.</Typography>
       {error && <Alert severity="error">{error}</Alert>}
       {problem && <Alert severity="warning">{problem}</Alert>}
-      {!plans && !problem && <Skeleton variant="rounded" height={140} />}
+      {!plans && !problem && <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Checking what cancelling changes" />}
       {plans && <EffectBox plans={plans} cancel whoApproves={!owner} />}
       <TextField label="Why? (required)" multiline minRows={3} value={reason} onChange={(event) => { requestId.current = null; setReason(event.target.value.slice(0, 500)); }} helperText={`${reason.length} / 500`} />
     </Box>

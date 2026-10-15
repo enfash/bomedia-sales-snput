@@ -13,7 +13,6 @@ import { dashboardDebtStyles as debtStyles, dashboardStyles as styles } from "@/
 import Paper from "@mui/material/Paper";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Skeleton from "@mui/material/Skeleton";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
