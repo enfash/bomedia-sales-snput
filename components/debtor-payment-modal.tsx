@@ -11,7 +11,7 @@ import { Wallet, ChevronRight, CheckCircle2, AlertCircle, User } from "lucide-re
 import { toast } from "sonner";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import TextField from "@mui/material/TextField";
+import { MoneyField } from "@/components/money-field";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -279,12 +279,11 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate }: De
               <Typography variant="overline" component="label" htmlFor="debtor-payment-amount" sx={styles.label}>
                 Apply Payment (₦)
               </Typography>
-              <TextField
+              <MoneyField
                 id="debtor-payment-amount"
-                type="number"
                 placeholder="Enter amount to pay off"
                 value={paymentInput}
-                onChange={(e) => setPaymentInput(e.target.value)}
+                onChange={setPaymentInput}
                 fullWidth
                 sx={styles.amountInput}
               />

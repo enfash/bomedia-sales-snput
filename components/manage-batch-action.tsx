@@ -6,7 +6,7 @@ import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { useState, useMemo, useRef, type ReactNode } from "react";
 import { Wallet, CheckCircle2 } from "lucide-react";
 import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
+import { MoneyField } from "@/components/money-field";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -227,11 +227,10 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
             <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
               Lump-Sum Payment (₦)
             </Typography>
-            <TextField
-              type="number"
+            <MoneyField
               placeholder="Enter total payment amount"
               value={paymentInput}
-              onChange={(e) => setPaymentInput(e.target.value)}
+              onChange={setPaymentInput}
               fullWidth
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
             />

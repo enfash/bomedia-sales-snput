@@ -40,3 +40,8 @@ export function caretFor(formatted: string, significant: number): number {
   }
   return formatted.length;
 }
+
+/** When the box loses focus a lone trailing dot ("1500.") is dropped, so the saved amount is always a clean number. */
+export function settleMoney(raw: string): string {
+  return raw.endsWith('.') ? raw.slice(0, -1) : raw;
+}

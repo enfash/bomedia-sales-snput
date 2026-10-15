@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { caretFor, cleanMoney, formatMoney, significantBefore } from './money-input';
+import { caretFor, cleanMoney, formatMoney, settleMoney, significantBefore } from './money-input';
 
 describe('cleanMoney', () => {
   it('keeps what the screens store plain', () => {
@@ -59,5 +59,14 @@ describe('cursor', () => {
   it('handles the start and the end', () => {
     expect(caretFor('1,000', 0)).toBe(0);
     expect(caretFor('1,000', 99)).toBe(5);
+  });
+});
+
+describe('settleMoney', () => {
+  it('drops only a trailing dot', () => {
+    expect(settleMoney('1500.')).toBe('1500');
+    expect(settleMoney('1500.5')).toBe('1500.5');
+    expect(settleMoney('1500')).toBe('1500');
+    expect(settleMoney('')).toBe('');
   });
 });

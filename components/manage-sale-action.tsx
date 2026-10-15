@@ -12,7 +12,6 @@ import {
   Button,
   DialogContent,
   DialogActions,
-  TextField,
   Select,
   MenuItem,
   FormControl,
@@ -26,6 +25,7 @@ import type { RecordStatus } from "@/lib/records-view";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
 import { paymentContext, savePostgresPayment } from '@/lib/payment-outbox';
 import { paymentKobo } from '@/lib/payment-contract';
+import { MoneyField } from "@/components/money-field";
 import { PaidBy } from "@/components/paid-by";
 import type { PaymentMethod } from "@/lib/payment-methods";
 
@@ -417,11 +417,10 @@ function ContentBody({
             >
               Additional Payment 1 (₦)
             </Typography>
-            <TextField
-              type="number"
+            <MoneyField
               placeholder="Enter amount"
               value={addl1}
-              onChange={(e) => setAddl1(e.target.value)}
+              onChange={setAddl1}
               disabled={hasAddl1 || isFullyPaid || maxSlotsReached}
               fullWidth
               size="medium"
@@ -443,11 +442,10 @@ function ContentBody({
             >
               Additional Payment 2 (₦)
             </Typography>
-            <TextField
-              type="number"
+            <MoneyField
               placeholder="Enter amount"
               value={addl2}
-              onChange={(e) => setAddl2(e.target.value)}
+              onChange={setAddl2}
               disabled={!hasAddl1 || hasAddl2 || isFullyPaid || maxSlotsReached}
               fullWidth
               size="medium"
