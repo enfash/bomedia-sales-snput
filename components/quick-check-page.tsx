@@ -16,6 +16,7 @@ import Chip from "@mui/material/Chip";
 
 import { quickCheckStyles as styles, stockBarStyles } from "@/app/theme";
 import { HomeBackLink } from "@/components/back-link";
+import { LoadingState } from "@/components/loading-state";
 import { StockBar } from "@/components/stock-bar";
 import { groupRolls } from "@/lib/estimator-view";
 
@@ -90,12 +91,7 @@ export default function QuickCheckPage() {
 
   if (loading) {
     return (
-      <Box sx={styles.page}>
-        <Box sx={styles.loading}>
-          <Box sx={styles.spinning}><RefreshCw size={32} /></Box>
-          <Typography>Loading rolls…</Typography>
-        </Box>
-      </Box>
+      <Box sx={styles.page}><LoadingState pieces={[{ k: 'heading' }, { k: 'form', n: 3 }]} label="Loading rolls" /></Box>
     );
   }
 

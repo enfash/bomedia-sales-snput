@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Checkbox, FormControlLabel, MenuItem, Paper, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, FormControlLabel, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { CheckCircle2 } from 'lucide-react';
 import { settingsStyles, systemStatusStyles as styles } from '@/app/theme';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
@@ -10,6 +10,7 @@ import { readDeviceQueue } from '@/lib/device-queue-read';
 import type { DeviceQueueSummary } from '@/lib/device-queue-status';
 import { useSyncStore } from '@/lib/store';
 import { BackLink } from '@/components/back-link';
+import { LoadingState } from '@/components/loading-state';
 
 type Period = { configured: false; today: string }
   | { configured: true; starts_on: string; state: 'setup' | 'active'; closed_through: string | null; today: string; closable: string[] };
@@ -69,7 +70,7 @@ export function BookkeepingPeriodSettings() {
     </Box>
     {error && !confirming && <Alert severity="error" sx={styles.alert}>{error}</Alert>}
     {success && <Alert severity="success" sx={styles.alert}>{success}</Alert>}
-    {!period && !error && <Box sx={styles.stack}>{[0, 1, 2].map((i) => <Skeleton key={i} variant="rounded" height={120} />)}</Box>}
+    {!period && !error && <LoadingState pieces={[{ k: 'cards', n: 3 }]} label="Loading the bookkeeping period" />}
     {period && !period.configured && <Alert severity="info">Bookkeeping has not been set up yet, so there is nothing to close.</Alert>}
     {ready && <Box sx={styles.stack}>
       {ready.closed_through && <Box sx={[styles.banner, styles.bannerOk]} role="status">

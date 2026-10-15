@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Box, Button, Paper, Skeleton, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 
 import { approvalInboxStyles as styles, approvalPromptStyles } from '@/app/theme';
 import { BackLink } from '@/components/back-link';
@@ -12,6 +12,7 @@ import { EXPENSE_LABELS, FieldDiff, hasFieldChanges } from '@/components/sale-co
 import type { ExpensePlan } from '@/lib/server/expense-corrections';
 import type { CorrectionPlan } from '@/lib/server/sale-corrections';
 import { STATUS_LABEL, changeText, changeTitle, koboNaira, rowChange, isChangeRequest, rowItems, rowKind, rowTitle, rowTotalKobo, type ApprovalRow } from '@/lib/approvals-view';
+import { LoadingState } from '@/components/loading-state';
 
 const ENDPOINT = '/api/accounting/approvals';
 const PILL = { pending: styles.pillWaiting, approved: styles.pillApproved, declined: styles.pillDeclined, expired: styles.pillExpired } as const;
@@ -67,7 +68,7 @@ export function ApprovalsInbox() {
       <Button variant={tab === 'decided' ? 'contained' : 'outlined'} color={tab === 'decided' ? 'primary' : 'inherit'} onClick={() => setTab('decided')}>Decided</Button>
     </Box>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-    {!rows && !error && [0, 1].map((i) => <Skeleton key={i} variant="rounded" height={160} sx={{ mb: 1.5 }} />)}
+    {!rows && !error && <LoadingState pieces={[{ k: 'cards', n: 2 }]} label="Loading approvals" />}
     {rows && !shown.length && <Typography color="text.secondary">{tab === 'waiting' ? 'Nothing is waiting.' : 'Nothing has been decided in the last 30 days.'}</Typography>}
     <Box sx={styles.list}>
       {shown.map((row) => <Paper key={row.id} variant="outlined" sx={styles.card}>

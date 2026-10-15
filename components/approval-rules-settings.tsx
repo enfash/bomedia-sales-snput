@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Alert, Box, Paper, Skeleton, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Alert, Box, Paper, Stack, Switch, TextField, Typography } from '@mui/material';
 
 import { approvalRuleStyles as styles, settingsStyles } from '@/app/theme';
 import { BackLink } from '@/components/back-link';
 import { useFloatingNotice } from '@/components/floating-notice';
 import { RULE_INFO, ruleLimit, type ApprovalRuleRow } from '@/lib/approvals-view';
+import { LoadingState } from '@/components/loading-state';
 
 const ENDPOINT = '/api/accounting/approval-rules';
 const message = (error: unknown) => (error instanceof Error ? error.message : 'Approval rules could not be saved. Try again.');
@@ -56,7 +57,7 @@ export function ApprovalRulesSettings() {
     </Stack>
     <Stack spacing={2}>
       {error && <Alert severity="error">{error}</Alert>}
-      {!rules && !error && [0, 1].map((i) => <Skeleton key={i} variant="rounded" height={96} />)}
+      {!rules && !error && <LoadingState pieces={[{ k: 'cards', n: 2 }]} label="Loading approval rules" />}
       <Box sx={styles.list}>
         {rules && ACTIVE.map((kind) => {
           const current = rule(kind), info = RULE_INFO[kind], limit = ruleLimit(current);

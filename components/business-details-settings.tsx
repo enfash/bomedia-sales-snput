@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Paper, Skeleton, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 
 import { businessDetailsStyles as styles, settingsStyles } from '@/app/theme';
 import { clearBusinessDetailsCache, parseBusinessDetails, type BusinessDetails } from '@/lib/business-details';
 import { BackLink } from '@/components/back-link';
+import { LoadingState } from '@/components/loading-state';
 
 type Form = Pick<BusinessDetails, 'accountName' | 'accountNumber' | 'bank' | 'phone' | 'email' | 'address'>;
 type Meta = { updatedAt: string | null; updatedBy: string | null };
@@ -52,7 +53,7 @@ export function BusinessDetailsSettings() {
   if (!form || !saved) return <Box sx={settingsStyles.page}>
     <BackLink href="/bom03/settings" label="Settings" />
     <Stack spacing={1} sx={settingsStyles.heading}><Typography variant="h3" component="h1">Business details</Typography></Stack>
-    {error ? <Alert severity="error">{error}</Alert> : <Skeleton variant="rounded" height={360} />}
+    {error ? <Alert severity="error">{error}</Alert> : <LoadingState pieces={[{ k: 'form', n: 5 }]} label="Loading business details" />}
   </Box>;
 
   const errors = validate(form);

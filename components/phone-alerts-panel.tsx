@@ -1,10 +1,11 @@
 "use client";
 
-import { Alert, Box, Button, Paper, Skeleton, Switch, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Switch, Typography } from '@mui/material';
 
 import { phoneAlertsStyles as styles } from '@/app/theme';
 import { usePhoneAlerts } from '@/components/use-phone-alerts';
 import { CASHIER_ALERTS, OWNER_ALERTS } from '@/lib/phone-alerts-view';
+import { LoadingState } from '@/components/loading-state';
 
 const dateText = (value: string | null) => (value ? new Date(value).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' }) : '');
 
@@ -15,7 +16,7 @@ export function PhoneAlertsPanel({ role }: { role: 'owner' | 'cashier' }) {
   const choices = role === 'owner' ? OWNER_ALERTS : CASHIER_ALERTS;
   const on = !!state?.this_phone;
 
-  if (!alerts.ready) return <Box sx={styles.section}><Skeleton variant="rounded" height={140} /><Skeleton variant="rounded" height={120} /></Box>;
+  if (!alerts.ready) return <LoadingState pieces={[{ k: 'cards', n: 2 }]} label="Loading phone alerts" />;
   return <>
     {alerts.error && <Alert severity="error">{alerts.error}</Alert>}
     {state && !state.configured && <Alert severity="info">Phone alerts are not set up on this server yet. {role === 'owner' ? 'Add the alert keys to the server (npm run push:keys prints them) and reload.' : 'Ask the owner to set them up.'}</Alert>}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import NextLink from 'next/link';
-import { Alert, Box, Button, IconButton, Paper, Skeleton, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Alert, Box, Button, IconButton, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { ArrowDown, ArrowUp, ArchiveRestore, Plus, RefreshCw } from 'lucide-react';
 import { settingsStyles as styles } from '@/app/theme';
 import { formatKobo } from '@/lib/accounting-money';
@@ -11,6 +11,7 @@ import { readPendingAccounting, sendAccountingEntry, type PendingAccountingEntry
 import type { JobService } from '@/lib/job-items';
 import { ResponsiveSheet } from './responsive-sheet';
 import { BackLink } from '@/components/back-link';
+import { LoadingState } from '@/components/loading-state';
 
 type ServiceForm={id?:string;name:string;pricing:'fixed'|'per_job';price:string;visible:boolean;free:boolean};
 const blank:ServiceForm={name:'',pricing:'fixed',price:'',visible:true,free:false};
@@ -116,7 +117,7 @@ export function ServicesManager({staffId}:{staffId:string|null}) {
             <Button color="inherit" startIcon={<RefreshCw size={18}/>} disabled={busy||moving} onClick={()=>void reload().catch(cause=>setError(message(cause)))}>Refresh</Button>
           </Stack>
         </Box>
-        {!ready&&!error&&[0,1,2].map(i=><Skeleton key={i} variant="rounded" height={86}/>)}
+        {!ready&&!error&&<LoadingState pieces={[{k:'cards',n:3}]} label="Loading services"/>}
         {reordering&&<Alert severity="info">Use the arrows to put services in the order staff should see them. Each tap saves.</Alert>}
         {ready&&!services.length&&<Paper variant="outlined" sx={styles.row}><Typography color="text.secondary">No services yet. Add the first service your team offers.</Typography></Paper>}
         {offered.map((service,index)=><Paper key={service.id} variant="outlined" sx={styles.row}>

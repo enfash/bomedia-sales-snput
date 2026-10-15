@@ -715,6 +715,11 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
       // The admin indigo is too dark to read as "ticked" on the dark surface, so use the brighter accent there.
       MuiCheckbox: { styleOverrides: { root: { "&.Mui-checked": { color: mode === "dark" ? primaryLight : primaryColor } } } },
       MuiRadio:    { styleOverrides: { root: { "&.Mui-checked": { color: mode === "dark" ? primaryLight : primaryColor } } } },
+      // Every loading placeholder in the app shares one look: soft rounded blocks with a gentle pulse.
+      MuiSkeleton: {
+        defaultProps: { variant: "rounded", animation: "pulse" },
+        styleOverrides: { root: { backgroundColor: mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)" } },
+      },
       MuiBottomNavigationAction: { styleOverrides: { root: { "&.Mui-selected": { color: mode === "dark" ? primaryLight : primaryColor } } } },
       MuiButton: {
         defaultProps: { disableElevation: true },
@@ -1806,4 +1811,54 @@ export const phoneAlertsStyles = {
   promptQuiet: { mx: 2, mt: 2, p: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, textAlign: "left", fontFamily: "inherit", color: "text.secondary", border: "1px solid", borderColor: "divider", bgcolor: "background.paper", borderRadius: 3, cursor: "pointer", width: "calc(100% - 32px)" },
   promptText: { fontSize: "0.875rem" },
   promptAction: { fontWeight: 700, color: "primary.main", whiteSpace: "nowrap" },
+} as const;
+
+// The shared loading state (components/loading-state.tsx): the shapes a page shows while its data loads, and the first-start splash.
+export const loadingStyles = {
+  root: { display: "flex", flexDirection: "column", gap: 2, width: "100%" },
+  pagePad: { p: { xs: 2, md: 4 }, pb: { xs: 3, md: 12 }, minHeight: "60vh" },
+  heading: { display: "flex", flexDirection: "column", gap: 1, mt: 1 },
+  titleLine: { height: 32, width: "45%" },
+  subLine: { height: 18, width: "65%" },
+  tiles: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 },
+  tile: { height: 92 },
+  list: { overflow: "hidden" },
+  listRow: { display: "flex", alignItems: "center", gap: 1.5, p: 1.5, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
+  rowIcon: { width: 36, height: 36, flexShrink: 0 },
+  rowText: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0.75 },
+  rowLine: { height: 14, width: "60%" },
+  rowSub: { height: 11, width: "38%" },
+  rowAmount: { width: 64, height: 16, flexShrink: 0 },
+  tilesWideFirst: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5, "& > :first-of-type": { gridColumn: "1 / -1" } },
+  tilesTwo: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 },
+  tilesThree: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  eyebrow: { display: "flex", flexDirection: "column", gap: 1, mt: 1 },
+  eyebrowLine: { height: 14, width: "28%" },
+  pills: { display: "flex", gap: 1, flexWrap: "wrap" },
+  pill: { height: 40, width: 60, borderRadius: "20px" },
+  banner: { height: 64 },
+  search: { height: 56 },
+  wide: { height: 48 },
+  chart: { height: 220 },
+  cards: { display: "flex", flexDirection: "column", gap: 1.5 },
+  card: { height: 120 },
+  form: { display: "flex", flexDirection: "column", gap: 2 },
+  field: { height: 56 },
+  formButton: { height: 48, mt: 1 },
+  hero: { height: { xs: 300, md: 260 }, borderRadius: "24px" },
+  actions: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5 },
+  action: { height: 84 },
+} as const;
+
+// Shown once when the app is first opened in a browser session; the page's own loading state takes over after it fades.
+export const launchSplashStyles = {
+  splash: {
+    position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "background.default",
+    opacity: 1, transition: "opacity .35s ease",
+    // The page's head script marks sessions that already showed it, so a reload never flashes it again.
+    "html[data-launched='1'] &": { display: "none" },
+  },
+  splashOut: { opacity: 0, pointerEvents: "none" },
+  splashInner: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 },
+  splashLogo: { p: 1.5, display: "flex", borderRadius: 4, bgcolor: "background.paper", boxShadow: "0 8px 24px rgba(15,23,42,0.08)" },
 } as const;

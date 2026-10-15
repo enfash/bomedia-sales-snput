@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, FormControlLabel, Paper, Skeleton, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, FormControlLabel, Paper, Stack, Switch, TextField, Typography } from '@mui/material';
 
 import { paymentMethodStyles as styles, settingsStyles } from '@/app/theme';
 import { ResponsiveSheet } from './responsive-sheet';
 import { BackLink } from '@/components/back-link';
+import { LoadingState } from '@/components/loading-state';
 
 type Method = { method: 'cash' | 'transfer' | 'pos'; label: string; enabled: boolean; account_code: string; account_name: string };
 const ENDPOINT = '/api/accounting/payment-method-settings';
@@ -59,7 +60,7 @@ export function PaymentMethodsSettings() {
     <Stack spacing={2}>
       {error && !editing && <Alert severity="error">{error}</Alert>}
       {success && <Alert severity="success">{success}</Alert>}
-      {!methods && !error && [0, 1, 2].map((i) => <Skeleton key={i} variant="rounded" height={96} />)}
+      {!methods && !error && <LoadingState pieces={[{ k: 'cards', n: 3 }]} label="Loading payment methods" />}
       <Box sx={styles.list}>
         {methods?.map((m) => <Paper key={m.method} variant="outlined" sx={[styles.row, ...(!m.enabled ? [styles.rowOff] : [])]}>
           <Box sx={styles.grow}>

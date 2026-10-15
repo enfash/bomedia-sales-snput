@@ -21,6 +21,7 @@ import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { LoadingState } from "@/components/loading-state";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -349,7 +350,7 @@ export default function CashierEstimatorPage() {
           <TextField fullWidth placeholder="e.g. John Doe — appears on the quote" value={clientName} onChange={e => setClientName(e.target.value)} size="small" />
         </Paper>
 
-        {materials.length === 0 && syncing && <EmptyCard icon={<Package size={28} />}>Loading materials…</EmptyCard>}
+        {materials.length === 0 && syncing && <LoadingState pieces={[{ k: "cards", n: 2 }]} label="Loading materials" />}
         {materials.length === 0 && !syncing && <EmptyCard icon={<Package size={28} />}>No materials available. Contact your manager.</EmptyCard>}
 
         {materials.length > 0 && items.map((item, idx) => (

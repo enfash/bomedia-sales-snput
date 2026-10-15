@@ -12,6 +12,8 @@ import { cookies } from "next/headers";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { SyncManager } from "@/components/sync-manager";
+import { LaunchSplash } from "@/components/launch-splash";
+import { LAUNCH_HEAD_SCRIPT } from "@/lib/launch";
 import { PWAManager } from "@/components/pwa-manager";
 import { SessionGuard } from "@/components/session-guard";
 import { ThemeWrapper } from "@/components/theme-wrapper";
@@ -56,6 +58,7 @@ export default async function RootLayout({
     <html lang="en" className={plusJakarta.className} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
+        <script dangerouslySetInnerHTML={{ __html: LAUNCH_HEAD_SCRIPT }} />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body
@@ -70,6 +73,7 @@ export default async function RootLayout({
       >
         <AppRouterCacheProvider>
           <MuiProviders initialMode={initialMode}>
+            <LaunchSplash />
             <PWAManager />
             <SessionGuard />
             <NotificationManager />

@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Box, Button, IconButton, MenuItem, Paper, Skeleton, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, IconButton, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { auditLogStyles as styles, settingsStyles } from '@/app/theme';
 import { CATEGORY_LABEL, describeAudit, detailLines, groupByDay, timeLabel, type AuditCategory, type AuditEntryView } from '@/lib/audit-log-format';
 import { BackLink } from '@/components/back-link';
+import { LoadingState } from '@/components/loading-state';
 
 type Cursor = { at: string; id: string };
 type Page = { data: AuditEntryView[]; next_before: Cursor | null; people: { id: string; name: string }[] };
@@ -82,7 +83,7 @@ export function AuditLogSettings() {
     </Box>
 
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-    {entries === null && <Stack spacing={1}>{[0, 1, 2, 3].map((n) => <Skeleton key={n} variant="rounded" height={56} />)}</Stack>}
+    {entries === null && <LoadingState pieces={[{ k: 'list', n: 5 }]} label="Loading the audit log" />}
     {entries !== null && entries.length === 0 && !error && <Paper variant="outlined" sx={styles.empty}>
       <Typography variant="h6" color="text.secondary">Nothing recorded for these filters</Typography>
       <Typography variant="body2" color="text.disabled">Try a longer time range or a different kind of activity.</Typography>

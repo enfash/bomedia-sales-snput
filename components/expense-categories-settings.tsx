@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Radio, RadioGroup, Skeleton, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Radio, RadioGroup, Stack, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 
 import { expenseCategoryStyles as styles, settingsStyles } from '@/app/theme';
 import { ResponsiveSheet } from './responsive-sheet';
 import { BackLink } from '@/components/back-link';
+import { LoadingState } from '@/components/loading-state';
 
 type Kind = 'everyday' | 'capital';
 type Access = 'everyone' | 'chosen' | 'owner';
@@ -23,7 +24,7 @@ const countLabel = (n: number) => `${n} expense${n === 1 ? '' : 's'}`;
 const accessOf = (c: Category): Access => (!c.owner_only ? 'everyone' : c.staff_ids.length ? 'chosen' : 'owner');
 
 function StaffChecklist({ people, picked, onChange, disabled }: { people: Person[] | null; picked: string[]; onChange: (ids: string[]) => void; disabled?: boolean }) {
-  if (!people) return <Skeleton variant="rounded" height={44} />;
+  if (!people) return <LoadingState pieces={[{ k: 'wide' }]} label="Loading people" />;
   if (!people.length) return <Typography variant="body2" color="text.secondary">There are no staff accounts yet. Add staff in Staff Manager first.</Typography>;
   return <Box sx={styles.staffList} role="group" aria-label="Staff who can log this category">
     {people.map((p) => <FormControlLabel key={p.id} sx={styles.staffItem} disabled={disabled} label={p.name}
@@ -129,7 +130,7 @@ export function ExpenseCategoriesSettings() {
     <Stack spacing={2}>
       {error && !adding && !picking && <Alert severity="error">{error}</Alert>}
       {success && <Alert severity="success">{success}</Alert>}
-      {!categories && !error && [0, 1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={120} />)}
+      {!categories && !error && <LoadingState pieces={[{ k: 'cards', n: 4 }]} label="Loading categories" />}
       <Box sx={styles.list}>
         {categories?.map((c) => {
           const access = accessOf(c), lastOpen = c.enabled && !c.owner_only && openForStaff === 1;

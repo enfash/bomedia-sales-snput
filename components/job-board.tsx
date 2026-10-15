@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Box, Button, ButtonBase, IconButton, Skeleton, Typography, useMediaQuery } from '@mui/material';
+import { Box, Button, ButtonBase, IconButton, Typography, useMediaQuery } from '@mui/material';
+import { LoadingState } from '@/components/loading-state';
 import { useTheme } from '@mui/material/styles';
 import { Check, CheckCircle2, Clock, MoreVertical, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -156,7 +157,7 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
     </Button>
 
 
-    {!mounted || (refreshing && empty) ? <Skeleton variant="rounded" height={220} /> : empty ? <Box sx={styles.emptyBox}>
+    {!mounted || (refreshing && empty) ? <LoadingState pieces={[{ k: 'cards', n: 3 }]} label="Loading the board" /> : empty ? <Box sx={styles.emptyBox}>
       <Typography sx={styles.emptyTitle}>No jobs on the board</Typography>
       <Typography variant="body2" sx={styles.emptyText}>Every sale shows up here as a job once it is logged.</Typography>
     </Box> : desktop ? <>

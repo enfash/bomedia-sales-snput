@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, LinearProgress, Paper, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, LinearProgress, Paper, TextField, Typography } from '@mui/material';
+import { LoadingState } from '@/components/loading-state';
 
 import { inventoryStyles as styles, settingsStyles, statTileStyles, systemStatusStyles as status } from '@/app/theme';
 import { MaterialSizeSummary, barColor } from '@/components/inventory/material-size-summary';
@@ -50,7 +51,7 @@ export function CashierInventoryPage() {
       {error && <Alert severity="error">{error}</Alert>}
       <TextField type="search" label="Search materials" placeholder="Name or code, e.g. Flex or SAV-4FT" value={search} onChange={(event) => setSearch(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
 
-      {!materials && !error && <Box sx={status.stack}>{[0, 1, 2].map((i) => <Skeleton key={i} variant="rounded" height={120} />)}</Box>}
+      {!materials && !error && <LoadingState pieces={[{ k: 'tiles', n: 3, cols: 3 }, { k: 'cards', n: 3 }]} label="Loading stock" />}
       {materials && <>
         <Box sx={statTileStyles.grid3}>
           <StatTile label="Available" value={summary.active} tone="success" />

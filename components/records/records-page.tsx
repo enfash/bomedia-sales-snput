@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Alert, Box, Button, ButtonBase, IconButton, Paper, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, ButtonBase, IconButton, Paper, TextField, Typography } from '@mui/material';
+import { LoadingState } from '@/components/loading-state';
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { recordsStyles as styles } from '@/app/theme';
 import { HomeBackLink } from '@/components/back-link';
@@ -231,7 +232,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
 
     {!owner && <HeldSales />}
 
-    {owner && (loading && records.length === 0 ? <Box sx={styles.pair}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={84} />)}</Box> : records.length > 0 && <Box sx={styles.pair}>
+    {owner && (loading && records.length === 0 ? <LoadingState pieces={[{ k: 'tiles', n: 4, cols: 2 }]} label="Loading totals" /> : records.length > 0 && <Box sx={styles.pair}>
       <StatTile tone="primary" label={owner ? 'Total sales' : todayOnly ? 'Sales today' : 'Sales'} value={naira(salesSummary.sales)} caption={`${salesSummary.salesCount} sale${salesSummary.salesCount === 1 ? '' : 's'}`} />
       <StatTile tone={summary.owedCount ? 'error' : 'neutral'} label="Still owed" value={naira(summary.owed)} caption={`${summary.owedCount} unpaid job${summary.owedCount === 1 ? '' : 's'}`} />
       {owner && <StatTile label="Expenses" value={naira(summary.expenses)} caption={`${summary.expenseCount} expense${summary.expenseCount === 1 ? '' : 's'}`} />}
@@ -264,7 +265,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
       <Button variant="outlined" color="inherit" onClick={() => setSorting(true)}>Sort</Button>
     </Box>
 
-    {loading && records.length === 0 ? <Skeleton variant="rounded" height={220} /> : sorted.length === 0 ? <Box sx={styles.emptyBox}>
+    {loading && records.length === 0 ? <LoadingState pieces={[{ k: 'list', n: 6 }]} label="Loading records" /> : sorted.length === 0 ? <Box sx={styles.emptyBox}>
       <Typography sx={styles.emptyTitle}>
         {searching ? `No record matches "${search.trim()}"` : sortBy === 'debt' ? 'Nothing is owed' : dateFiltered.length === 0 && range !== (owner ? 'all' : 'today') ? 'No records for these dates' : records.length === 0 ? 'No records yet' : 'No records here'}
       </Typography>

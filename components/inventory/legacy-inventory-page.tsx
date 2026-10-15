@@ -1,7 +1,7 @@
 // The previous owner Inventory page, kept only while Google Sheets is still the live backend (its Add roll, Restock and Adjust write to Sheets).
 // With the new books switched on the route shows InventoryPage instead. Delete this file at cutover.
 "use client";
-import { LoadingAnimation } from "@/components/loading-animation";
+import { ScreenLoading } from "@/components/screen-loading";
 
 import { useEffect, useState, useMemo, Fragment } from "react";
 import NextLink from "next/link";
@@ -1191,11 +1191,7 @@ export function LegacyInventoryPage() {
   }, [materials]);
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <LoadingAnimation text="Loading..." />
-      </Box>
-    );
+    return <ScreenLoading screen="stock" role="admin" label="Loading stock" />;
   }
 
   return (

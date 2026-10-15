@@ -12,6 +12,7 @@ import {
   AddItemButton, EmptyCard, EstimatorHeading, FieldLabel, ItemCard, LinkCta, Notice, QuoteSummary, ResultTiles, SizeFields,
 } from "@/components/estimator/estimator-parts";
 import { fmtMoney, marginTone, newItemId, parseNum, toFt } from "@/lib/estimator-view";
+import { LoadingState } from "@/components/loading-state";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -329,7 +330,7 @@ export default function EstimatorPage() {
           <TextField placeholder="e.g. John Doe — appears on the quote" value={clientName} onChange={e => setClientName(e.target.value)} fullWidth size="small" />
         </Paper>
 
-        {inventory.length === 0 && syncing && <EmptyCard icon={<Package size={28} />}>Loading stock…</EmptyCard>}
+        {inventory.length === 0 && syncing && <LoadingState pieces={[{ k: "cards", n: 2 }]} label="Loading stock" />}
         {inventory.length === 0 && !syncing && (
           <EmptyCard icon={<Package size={28} />}>
             <Typography>No materials in inventory.</Typography>

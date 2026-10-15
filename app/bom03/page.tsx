@@ -1,5 +1,5 @@
 "use client";
-import { LoadingAnimation } from "@/components/loading-animation";
+import { ScreenLoading } from "@/components/screen-loading";
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
@@ -319,11 +319,7 @@ export default function DashboardPage() {
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <LoadingAnimation text="Loading..." />
-      </Box>
-    );
+    return <ScreenLoading screen="dashboard" role="admin" label="Loading the dashboard" />;
   }
 
   return (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Box, Button, ButtonBase, Paper, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, ButtonBase, Paper, TextField, Typography } from '@mui/material';
+import { LoadingState } from '@/components/loading-state';
 import { Plus, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { expenseStyles as styles } from '@/app/theme';
@@ -134,7 +135,7 @@ export function ExpensesPage() {
       Expenses could not be loaded. Check your connection. Nothing you logged has been lost.
     </Alert>}
 
-    {loading ? <Box sx={styles.summary}>{[0, 1, 2].map((i) => <Skeleton key={i} variant="rounded" height={i === 0 ? 96 : 76} />)}</Box> : expenses.length > 0 && <Box sx={styles.summary}>
+    {loading ? <LoadingState pieces={[{ k: 'tiles', n: 3, cols: 'wide-first' }]} label="Loading totals" /> : expenses.length > 0 && <Box sx={styles.summary}>
       <StatTile tone="primary" label="Spent this month" value={naira(summary.monthSpent)} caption={`${summary.monthCount} expense${summary.monthCount === 1 ? '' : 's'} since ${sinceLabel(summary.monthStart)}`} />
       <Box sx={styles.pair}>
         <StatTile tone={summary.owedCount ? 'error' : 'neutral'} label="Still owed" value={naira(summary.owed)} caption={`${summary.owedCount} unpaid`} />
@@ -151,7 +152,7 @@ export function ExpensesPage() {
       </Box>
     </>}
 
-    {loading ? <Skeleton variant="rounded" height={220} /> : expenses.length === 0 && !loadFailed ? <Box sx={styles.emptyBox}>
+    {loading ? <LoadingState pieces={[{ k: 'list', n: 5 }]} label="Loading expenses" /> : expenses.length === 0 && !loadFailed ? <Box sx={styles.emptyBox}>
       <Box sx={styles.emptyIcon}><Receipt size={22} /></Box>
       <Typography sx={styles.emptyTitle}>No expenses yet</Typography>
       <Typography variant="body2" sx={styles.emptyText}>Log the first one and it will show here with the month&apos;s total.</Typography>

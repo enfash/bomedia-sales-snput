@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, FormControlLabel, Paper, Skeleton, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, FormControlLabel, Paper, Stack, Switch, TextField, Typography } from '@mui/material';
 import { AlertTriangle } from 'lucide-react';
 import { materialsStyles as styles, settingsStyles, systemStatusStyles as status } from '@/app/theme';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { koboToInput, nairaLabel } from '@/lib/materials-format';
 import { BackLink } from '@/components/back-link';
 import { StockBar } from '@/components/stock-bar';
+import { LoadingState } from '@/components/loading-state';
 
 type Size = { id: string; code: string; width_ft: string; remaining_ft: string; capacity_ft?: string; roll_count: number; low_stock_ft: string; notes: string | null;
   available: boolean; price_kobo: string };
@@ -94,7 +95,7 @@ export function MaterialsSettings() {
     </Box>
     {error && !sheet && <Alert severity="error" sx={status.alert}>{error}</Alert>}
     {success && <Alert severity="success" sx={status.alert}>{success}</Alert>}
-    {!groups && !error && <Box sx={status.stack}>{[0, 1].map((i) => <Skeleton key={i} variant="rounded" height={200} />)}</Box>}
+    {!groups && !error && <LoadingState pieces={[{ k: 'cards', n: 2 }]} label="Loading materials" />}
     {groups && <Box sx={status.stack}>
       <Button variant="contained" onClick={() => open({ kind: 'add-material' })}>Add material</Button>
       {needPrice > 0 && <Box sx={[status.banner, status.bannerWarn]} role="status">

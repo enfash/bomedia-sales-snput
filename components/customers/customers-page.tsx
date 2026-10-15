@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Alert, Box, Button, IconButton, Paper, Skeleton, TextField, Typography, ButtonBase } from '@mui/material';
+import { Alert, Box, Button, IconButton, Paper, TextField, Typography, ButtonBase } from '@mui/material';
+import { LoadingState } from '@/components/loading-state';
 import { ChevronLeft, ChevronRight, Download, Users } from 'lucide-react';
 
 import { customerStyles, recordsStyles as styles } from '@/app/theme';
@@ -89,7 +90,7 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
 
     {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void load()}>Try again</Button>}>{error}</Alert>}
 
-    {!stats ? <Box sx={styles.pair}>{[0, 1, 2, 3].slice(0, owner ? 4 : 2).map((i) => <Skeleton key={i} variant="rounded" height={84} />)}</Box> : <Box sx={styles.pair}>
+    {!stats ? <LoadingState pieces={[{ k: 'tiles', n: owner ? 4 : 2, cols: 2 }]} label="Loading totals" /> : <Box sx={styles.pair}>
       <StatTile label="Customers" value={stats.count} />
       <StatTile tone={stats.owedKobo ? 'error' : 'neutral'} label="Still owed" value={koboNaira(stats.owedKobo)} caption={`${stats.owingCount} debtor${stats.owingCount === 1 ? '' : 's'}`} />
       {owner && <StatTile tone="primary" label="Top spender" value={stats.top ? stats.top.name : '—'} caption={stats.top ? `${koboNaira(stats.top.totalKobo)} in ${orderWord(stats.top.orders)}` : 'No sales yet'} />}
@@ -109,7 +110,7 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
       </Box>
     </Box>
 
-    {!all ? <Skeleton variant="rounded" height={220} /> : !sorted.length ? <Box sx={styles.emptyBox}>
+    {!all ? <LoadingState pieces={[{ k: 'list', n: 6 }]} label="Loading customers" /> : !sorted.length ? <Box sx={styles.emptyBox}>
       <Box sx={styles.emptyIcon}><Users size={22} /></Box>
       <Typography sx={styles.emptyTitle}>{search.trim() ? `No customer matches "${search.trim()}"` : owingOnly ? 'No debtors' : 'No customers yet'}</Typography>
       <Typography variant="body2" sx={styles.emptyText}>{search.trim() ? 'Try a shorter word, or clear the search.' : owingOnly ? 'Every customer has paid in full.' : 'Customers appear here once you record a sale.'}</Typography>

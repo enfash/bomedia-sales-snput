@@ -6,7 +6,7 @@ import { AlertTriangle, BarChart3, RefreshCw, TrendingUp, UserCheck, Users, Wall
 import { subDays, isWithinInterval, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { settingsStyles, staffManagerStyles as styles } from "@/app/theme";
-import { LoadingAnimation } from "@/components/loading-animation";
+import { ScreenLoading } from "@/components/screen-loading";
 import { ManageUsers } from "./staff/manage-users";
 import { StaffCard } from "./staff/staff-card";
 import { compactMoney, fmtMoney, isReallyOnline, isStaffView, parseAmt, STAFF_VIEWS, staffInView, type Cashier, type StaffStats, type StaffView } from "./staff/staff-utils";
@@ -152,11 +152,7 @@ export function StaffManager() {
   }, [staffStats]);
 
   if (loading) {
-    return (
-      <Box sx={styles.loading}>
-        <LoadingAnimation text="Loading..." />
-      </Box>
-    );
+    return <ScreenLoading screen="staff" label="Loading staff" />;
   }
 
   const summaryCards = [

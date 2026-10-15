@@ -1,5 +1,5 @@
 "use client";
-import { LoadingAnimation } from "@/components/loading-animation";
+import { ScreenLoading } from "@/components/screen-loading";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
@@ -228,7 +228,7 @@ export default function CashierDashboardPage() {
   }, [todaySales]);
 
   if (loading) {
-    return <Box sx={styles.loading}><LoadingAnimation text="Loading..." /></Box>;
+    return <ScreenLoading screen="dashboard" role="cashier" label="Loading today" />;
   }
 
   const collectedPct = todayRevenue > 0 ? Math.min(100, Math.round((todayCollected / todayRevenue) * 100)) : 0;

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
-import { Box, ButtonBase, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, ButtonBase, Paper, Typography } from '@mui/material';
+import { LoadingState } from '@/components/loading-state';
 import { Receipt } from 'lucide-react';
 
 import { expenseStyles as styles } from '@/app/theme';
@@ -30,7 +31,7 @@ export function MyExpenses({ refreshKey = 0 }: { refreshKey?: number }) {
     return () => { window.removeEventListener('bomedia-data-changed', reload); window.removeEventListener('bomedia-expense-confirmed', reload); };
   }, [load, refreshKey]);
 
-  if (!expenses) return <Skeleton variant="rounded" height={96} />;
+  if (!expenses) return <LoadingState pieces={[{ k: 'list', n: 3 }]} label="Loading your expenses" />;
   if (!expenses.length) return null;
   return <Box sx={styles.day}>
     <Box sx={styles.dayHead}><Typography variant="overline" sx={styles.dayLabel}>YOUR EXPENSES TODAY</Typography></Box>

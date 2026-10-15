@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Paper, Skeleton, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Typography } from '@mui/material';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { settingsStyles, systemStatusStyles as styles } from '@/app/theme';
 import { readDeviceQueue } from '@/lib/device-queue-read';
@@ -10,6 +10,7 @@ import { EXPECTED_MIGRATION_COUNT } from '@/lib/schema-version';
 import { formatClock, formatWhen } from '@/lib/status-format';
 import { useSyncStore } from '@/lib/store';
 import { BackLink } from '@/components/back-link';
+import { LoadingState } from '@/components/loading-state';
 
 type Seen = { reference: string | null; at: string } | null;
 type Status = {
@@ -58,7 +59,7 @@ export function SystemStatus() {
       <Typography color="text.secondary">A quick check that the app is saving where it should. Only you can see this page.</Typography>
     </Box>
     {error && <Alert severity="error" sx={styles.alert}>{error}</Alert>}
-    {!status && !error && <Box sx={styles.stack}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={110} />)}</Box>}
+    {!status && !error && <LoadingState pieces={[{ k: 'cards', n: 4 }]} label="Loading system status" />}
     {status && <Box sx={styles.stack}>
       <Box sx={[styles.banner, problems ? styles.bannerWarn : styles.bannerOk]} role="status">
         <Box sx={problems ? styles.bannerIconWarn : styles.bannerIconOk}>{problems ? <AlertTriangle size={28} /> : <CheckCircle2 size={28} />}</Box>
@@ -130,7 +131,7 @@ export function SystemStatus() {
           <Typography variant="overline" sx={styles.label}>Waiting on this device</Typography>
           {queue && queue.needsAttention > 0 && <Box component="span" sx={[styles.chip, styles.chipWarn]}>Needs attention</Box>}
         </Box>
-        {queue === null ? <Skeleton variant="rounded" height={40} /> : queue.total === 0 ? <>
+        {queue === null ? <LoadingState pieces={[{ k: 'wide' }]} label="Loading the queue" /> : queue.total === 0 ? <>
           <Box sx={styles.lineLeft}><Box component="span" sx={[styles.dot, styles.dotOk]} /><Typography sx={styles.strong}>Nothing waiting</Typography></Box>
           <Typography variant="body2" color="text.secondary">Every entry made on this phone has been saved. Other phones keep their own waiting entries, and those cannot be seen from here.</Typography>
         </> : <>
