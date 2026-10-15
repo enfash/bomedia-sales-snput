@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { CALM_DELAY_MS, isCalmWaiting } from '@/lib/sync-notice';
 
 export type FloatingNotice = {
   tone: 'warning' | 'error' | 'success';
@@ -33,4 +34,21 @@ export function useFloatingNotice(id: string, notice: FloatingNotice | null) {
   }, [id, text, tone, label, run]);
 
   useEffect(() => () => { toast.dismiss(id); }, [id]);
+}
+
+/**
+ * The text to show for a "saved on this device" notice. A message that only says "Waiting to sync." is held back for a few seconds,
+ * so the usual quick confirmation never flashes a Retry button. A message with an error is returned straight away.
+ */
+export function useCalmMessage(message: string, delayMs = CALM_DELAY_MS): string {
+  const calm = isCalmWaiting(message);
+  const [shown, setShown] = useState('');
+  useEffect(() => {
+    if (!message || !calm) return;
+    const timer = setTimeout(() => setShown(message), delayMs);
+    // Leaving this message (it cleared, or became a different one) starts the next one's wait from zero.
+    return () => { clearTimeout(timer); setShown(''); };
+  }, [message, calm, delayMs]);
+  if (!message) return '';
+  return calm ? (shown === message ? message : '') : message;
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { useFloatingNotice } from '@/components/floating-notice';
+import { useCalmMessage, useFloatingNotice } from '@/components/floating-notice';
 import { usePathname, useRouter } from 'next/navigation';
 import { deliverExpense, readExpenses, EXPENSE_EVENT, EXPENSE_PREFIX, EXPENSE_RECEIPT } from '@/lib/expense-outbox';
 import { useSyncStore } from '@/lib/store';
@@ -68,7 +68,8 @@ export function ExpenseSync() {
     window.addEventListener(EXPENSE_EVENT,sync);window.addEventListener('online',sync);window.addEventListener('storage',changed);
     return()=>{active=false;clearInterval(timer);window.removeEventListener(EXPENSE_EVENT,sync);window.removeEventListener('online',sync);window.removeEventListener('storage',changed);};
   },[pathname,router]);
-  useFloatingNotice('expense-pending',message?{tone:'warning',text:message,action:{label:'Retry saved expenses',run:retryExpenses}}:null);
+  const pending=useCalmMessage(message);
+  useFloatingNotice('expense-pending',pending?{tone:'warning',text:pending,action:{label:'Retry saved expenses',run:retryExpenses}}:null);
   useFloatingNotice('expense-confirmed',reference?{tone:'success',text:`Saved and confirmed: ${reference}`}:null);
   useFloatingNotice('expense-held',held?{tone:'warning',text:held}:null);
   return null;

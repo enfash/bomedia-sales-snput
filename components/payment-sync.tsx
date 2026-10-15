@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { useFloatingNotice } from '@/components/floating-notice';
+import { useCalmMessage, useFloatingNotice } from '@/components/floating-notice';
 import { usePathname, useRouter } from 'next/navigation';
 import { deliverPayment, paymentContext, PAYMENT_EVENT, readPaymentOutbox, PAYMENT_PREFIX } from '@/lib/payment-outbox';
 
@@ -47,6 +47,7 @@ export function PaymentSync() {
     window.addEventListener('storage', changed);
     return () => { active = false; clearInterval(interval); window.removeEventListener(PAYMENT_EVENT, sync); window.removeEventListener('online', sync); window.removeEventListener('storage', changed); };
   }, [pathname, router]);
-  useFloatingNotice('payment-pending', message ? { tone: 'warning', text: message, action: { label: 'Retry saved payment', run: retryPayments } } : null);
+  const pending = useCalmMessage(message);
+  useFloatingNotice('payment-pending', pending ? { tone: 'warning', text: pending, action: { label: 'Retry saved payment', run: retryPayments } } : null);
   return null;
 }

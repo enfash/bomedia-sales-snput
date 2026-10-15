@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { useFloatingNotice } from '@/components/floating-notice';
+import { useCalmMessage, useFloatingNotice } from '@/components/floating-notice';
 import { usePathname, useRouter } from 'next/navigation';
 import { deliverOrder, readOrders, ORDER_EVENT, ORDER_PREFIX, ORDER_RECEIPT } from '@/lib/order-outbox';
 import { useSyncStore } from '@/lib/store';
@@ -68,7 +68,8 @@ export function OrderSync() {
     window.addEventListener(ORDER_EVENT,sync);window.addEventListener('online',sync);window.addEventListener('storage',changed);
     return()=>{active=false;clearInterval(timer);window.removeEventListener(ORDER_EVENT,sync);window.removeEventListener('online',sync);window.removeEventListener('storage',changed);};
   },[pathname,router]);
-  useFloatingNotice('order-pending',message?{tone:'warning',text:message,action:{label:'Retry saved orders',run:retryOrders}}:null);
+  const pending=useCalmMessage(message);
+  useFloatingNotice('order-pending',pending?{tone:'warning',text:pending,action:{label:'Retry saved orders',run:retryOrders}}:null);
   useFloatingNotice('order-confirmed',reference?{tone:'success',text:`Saved and confirmed: ${reference}`}:null);
   useFloatingNotice('order-held',held?{tone:'warning',text:held}:null);
   return null;
