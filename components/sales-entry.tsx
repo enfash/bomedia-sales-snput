@@ -16,6 +16,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Alert from "@mui/material/Alert";
+import { MoneyField } from "@/components/money-field";
 import { PaidBy } from "@/components/paid-by";
 import type { PaymentMethod } from "@/lib/payment-methods";
 
@@ -212,12 +213,13 @@ export function SalesEntry() {
     [materials, selectedMaterialId]
   );
 
-  useEffect(() => {
-    if (selectedMaterial) {
-      const price = parseNum(selectedMaterial["Selling Price"]);
-      if (price > 0) setCostOverride(String(price));
-    }
-  }, [selectedMaterial]);
+  // The list price is filled in once, at the moment a material is chosen. It must not be re-applied when the materials list refreshes in the
+  // background (every 30 seconds), or a price the cashier typed would silently go back to the list price.
+  const chooseMaterial = (material: Record<string, string | number | undefined>) => {
+    setSelectedMaterialId(String(material["Material ID"]));
+    const price = parseNum(material["Selling Price"] as string | number | undefined);
+    if (price > 0) setCostOverride(String(price));
+  };
 
   const jobWFt = useMemo(() => {
     const w = parseFloat(jobWidth) || 0;
@@ -699,7 +701,7 @@ export function SalesEntry() {
                   <MaterialSelector
                     materials={materials}
                     selectedMaterialId={selectedMaterialId}
-                    onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
+                    onSelect={chooseMaterial}
                     loading={materialsLoading}
                   />
                   {selectedMaterial && <Typography sx={styles.stockLine}>
@@ -721,7 +723,7 @@ export function SalesEntry() {
                     error={formTouched && !jobHeight} onChange={(e) => { setJobHeight(e.target.value); setFormTouched(true); }} />
                   <TextField fullWidth type="number" label="Qty" value={qty} onChange={(e) => setQty(e.target.value)} slotProps={{ htmlInput: { min: 1 } }} />
                 </Box>
-                <TextField fullWidth type="number" label="Price per sq ft (₦)" placeholder="e.g. 200" value={costOverride} onChange={(e) => setCostOverride(e.target.value)}
+                <MoneyField fullWidth label="Price per sq ft (₦)" placeholder="e.g. 200" value={costOverride} onChange={setCostOverride}
                   helperText={selectedMaterial ? "Filled in from the material’s list price." : undefined} />
                 {listPricePerSqft > 0 && costPerSqft > 0 && costPerSqft !== listPricePerSqft && (
                   <Box sx={styles.noticeWarn}>
@@ -796,7 +798,7 @@ export function SalesEntry() {
                   <MaterialSelector
                     materials={materials}
                     selectedMaterialId={selectedMaterialId}
-                    onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
+                    onSelect={chooseMaterial}
                     loading={materialsLoading}
                   />
                   <Box sx={styles.grid2}>
