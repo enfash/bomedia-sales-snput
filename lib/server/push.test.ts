@@ -20,7 +20,7 @@ it('saves a phone under the signed-in person and refuses an unsupported address,
   const push = createPush(call, vi.fn());
   await push.subscribe({ staffId: cashier }, { endpoint: good, keys: { p256dh: 'k'.repeat(30), auth: 'a'.repeat(12) }, label: 'Ada’s phone', actor_id: 'spoof' });
   expect(call).toHaveBeenCalledWith('api_push_subscribe', expect.any(String), expect.objectContaining({ actor_id: cashier, endpoint: good, label: 'Ada’s phone' }));
-  await expect(push.subscribe({ staffId: cashier }, { endpoint: 'https://evil.example.test/x', keys: { p256dh: 'k', auth: 'a' } })).rejects.toMatchObject({ status: 400 });
+  await expect(push.subscribe({ staffId: cashier }, { endpoint: 'https://evil.example.test/x?secret=1', keys: { p256dh: 'k', auth: 'a' } })).rejects.toMatchObject({ status: 400, message: 'This phone’s alert address is not supported (evil.example.test).' });
   await expect(push.subscribe({ staffId: cashier }, { endpoint: good, keys: {} })).rejects.toMatchObject({ status: 400 });
   vi.stubEnv('PUSH_VAPID_PRIVATE_KEY', '');
   await expect(push.subscribe({ staffId: cashier }, { endpoint: good, keys: { p256dh: 'k', auth: 'a' } })).rejects.toMatchObject({ status: 503, code: 'PUSH_NOT_CONFIGURED' });

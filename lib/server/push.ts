@@ -16,6 +16,11 @@ export const pushPublicKey = () => process.env.PUSH_VAPID_PUBLIC_KEY ?? '';
 
 // Only the big push services may be written to: a signed-in person cannot make this server call any address they like.
 const PUSH_HOSTS = [/(^|\.)fcm\.googleapis\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)notify\.windows\.com$/];
+/** The host name of an alert address (for example fcm.googleapis.com), or null when it is not a web address. */
+export function pushHost(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try { return new URL(value).hostname || null; } catch { return null; }
+}
 export function pushEndpoint(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 2000) return null;
   try { const url = new URL(value); return url.protocol === 'https:' && PUSH_HOSTS.some((host) => host.test(url.hostname)) ? url.toString() : null; } catch { return null; }
@@ -42,7 +47,12 @@ export function createPush(call: FinancialCall = callFinancial, send: PushSender
       ready();
       const body = (input && typeof input === 'object' ? input : {}) as { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown }; label?: unknown };
       const endpoint = pushEndpoint(body.endpoint);
-      if (!endpoint) throw invalid('This phone’s alert address is not supported.');
+      if (!endpoint) {
+        // Say which service the phone uses (the host only, never the private part of the address), so an unfamiliar one can be reviewed.
+        const host = pushHost(body.endpoint);
+        console.warn('Phone alert address refused:', host ?? 'not a valid address');
+        throw invalid(`This phone’s alert address is not supported${host ? ` (${host})` : ''}.`);
+      }
       if (typeof body.keys?.p256dh !== 'string' || typeof body.keys?.auth !== 'string') throw invalid('This phone’s alert keys are missing.');
       try {
         return await call<{ id: string; subscribed: boolean }>('api_push_subscribe', crypto.randomUUID(), { actor_id: actorId(actor), endpoint, p256dh: body.keys.p256dh, auth: body.keys.auth,
