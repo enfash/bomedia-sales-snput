@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import webpush from 'web-push';
 
 import { callFinancial, type FinancialCall } from './financial-db';
@@ -96,13 +97,22 @@ export function createPush(call: FinancialCall = callFinancial, send: PushSender
 }
 export const push = createPush();
 
-// Alerts go out within a moment of whatever created them: after any accounting call, one coalesced send runs in this server process.
-let timer: ReturnType<typeof setTimeout> | undefined;
+// Alerts go out right after whatever created them. On Vercel the server can freeze as soon as it has answered, so the send is handed to Next's
+// `after()`, which keeps it running until it finishes. Outside a request (scripts, tests) `after()` is not available, so a short timer is used.
+type AfterResponse = (task: () => Promise<void> | void) => void;
+
+export function createDispatchQueue(run: () => Promise<unknown>, afterResponse: AfterResponse = after, delayMs = 800) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const send = () => run().then(() => undefined, (error) => console.warn('Phone alerts could not be sent:', error instanceof Error ? error.message : error));
+  return function queue() {
+    try { afterResponse(send); return; } catch { /* not inside a request: fall back to the timer */ }
+    if (timer) return;
+    timer = setTimeout(() => { timer = undefined; void send(); }, delayMs);
+    timer.unref?.();
+  };
+}
+
+const queue = createDispatchQueue(() => push.dispatch(process.env.SUPABASE_ADMIN_STAFF_ID));
 export function queueDispatch() {
-  if (!pushConfigured() || timer) return;
-  timer = setTimeout(() => {
-    timer = undefined;
-    void push.dispatch(process.env.SUPABASE_ADMIN_STAFF_ID).catch((error) => console.warn('Phone alerts could not be sent:', error instanceof Error ? error.message : error));
-  }, 800);
-  timer.unref?.();
+  if (pushConfigured()) queue();
 }
