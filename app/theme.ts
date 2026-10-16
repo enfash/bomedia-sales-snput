@@ -522,25 +522,14 @@ const softTone = (tone: Tone) => ({
 
 // Shift report modal (components/shift-report-modal.tsx).
 export const shiftReportStyles = {
-  root: { position: "fixed", inset: 0, zIndex: "modal", display: "flex", alignItems: { xs: "flex-end", md: "center" }, justifyContent: "center" },
-  backdrop: { position: "absolute", inset: 0, backdropFilter: "blur(4px)", bgcolor: (theme: Theme) => alpha(theme.palette.common.black, 0.6) },
-  sheet: {
-    position: "relative", width: "100%", maxWidth: { md: "42rem" }, bgcolor: "background.paper", borderRadius: { xs: "2.5rem 2.5rem 0 0", md: 4 },
-    border: "1px solid", borderColor: "divider", display: "flex", flexDirection: "column", maxHeight: { xs: "92dvh", md: "85dvh" }, overflow: "hidden",
-    boxShadow: (theme: Theme) => `0 25px 50px ${alpha(theme.palette.common.black, 0.25)}`,
-  },
-  header: { display: "flex", alignItems: "center", justifyContent: "space-between", p: 2.5, borderBottom: "1px solid", borderColor: "divider", flexShrink: 0 },
-  headerLead: { display: "flex", alignItems: "center", gap: 1.5 },
-  headerIcon: { width: 36, height: 36, borderRadius: 2, bgcolor: "primary.main", color: "primary.contrastText", display: "flex", alignItems: "center", justifyContent: "center" },
-  closeButton: { color: "text.secondary", "&:hover": { color: "text.primary" } },
-  controls: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, p: 2, borderBottom: "1px solid", borderColor: "divider", flexShrink: 0 },
+  controls: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, p: 2, borderBottom: "1px solid", borderColor: "divider", position: "sticky", top: 0, zIndex: 1, bgcolor: "background.paper" },
   dateRow: { display: "flex", alignItems: "center", gap: 1, flex: 1, minWidth: 180 },
   muted: { display: "flex", color: "text.disabled" },
   datePicker: { flex: 1, "& .MuiInputBase-root": { height: 36, borderRadius: 2, bgcolor: "action.hover", fontSize: "0.8125rem", fontWeight: 600 } },
   selectWrap: { position: "relative" },
   select: { height: 36, pl: 1.5, pr: 4, borderRadius: 2, border: "1px solid", borderColor: "divider", bgcolor: "action.hover", color: "text.primary", fontSize: "0.8125rem", fontWeight: 600, appearance: "none", fontFamily: "inherit", cursor: "pointer", "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main" } },
   selectChevron: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", color: "text.disabled" },
-  body: { overflowY: "auto", flex: 1, p: 2.5 },
+  body: { p: 2.5 },
   loading: { display: "flex", alignItems: "center", justifyContent: "center", height: 128, color: "primary.light" },
   statGrid: { display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 1.5 },
   statCard: { p: 1.5, borderRadius: 3 },
@@ -570,8 +559,30 @@ export const shiftReportStyles = {
   pillPart: softTone("warning"),
   pillUnpaid: softTone("error"),
   pillNeutral: { bgcolor: "action.hover", color: "text.secondary" },
-  footer: { display: "flex", gap: 1.5, p: 2, pb: "max(16px, env(safe-area-inset-bottom))", borderTop: "1px solid", borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" },
+  footer: { display: "flex", gap: 1.5, p: 2, borderTop: "1px solid", borderColor: "divider", bgcolor: "background.paper" },
   share: { flex: 1, bgcolor: WHATSAPP.main, color: "common.white", "&:hover": { bgcolor: WHATSAPP.dark } },
+  // The printed page is always black on white, whatever the app theme is.
+  print: {
+    host: { display: "none", "@media print": { display: "block" }, bgcolor: "#fff", color: "#111", fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', fontSize: "11px", lineHeight: 1.4 },
+    global: { "@media print": { "body > *:not([data-shift-print])": { display: "none !important" }, body: { background: "#fff !important" }, "@page": { size: "A4", margin: "14mm" } } },
+    head: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", pb: "8px", mb: "12px", borderBottom: "2px solid #2e388d" },
+    brand: { fontSize: "22px", fontWeight: 800, color: "#2e388d", letterSpacing: "-0.02em" },
+    title: { fontSize: "15px", fontWeight: 700 },
+    meta: { fontSize: "11px", color: "#555" },
+    stats: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", mb: "12px" },
+    stat: { border: "1px solid #ccc", borderRadius: "6px", p: "6px 10px", breakInside: "avoid" },
+    statLabel: { fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555" },
+    statValue: { fontSize: "15px", fontWeight: 800 },
+    heading: { fontSize: "12px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", mt: "14px", mb: "4px", breakAfter: "avoid" },
+    table: {
+      width: "100%", borderCollapse: "collapse", fontSize: "10.5px",
+      "& th, & td": { textAlign: "left", p: "4px 6px", borderBottom: "1px solid #ddd", verticalAlign: "top" },
+      "& th": { fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#555", borderBottom: "1px solid #888" },
+      "& tr": { breakInside: "avoid" },
+    },
+    num: { textAlign: "right !important", whiteSpace: "nowrap" },
+    foot: { mt: "16px", fontSize: "9px", color: "#777", textAlign: "center" },
+  },
 } as const;
 
 export const headerHomeLinkStyles = {

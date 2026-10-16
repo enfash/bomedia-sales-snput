@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   FileText,
   Share2,
@@ -13,12 +14,12 @@ import {
   Users,
   Package,
   Printer,
-  X,
   Calendar,
   ChevronDown,
 } from "lucide-react";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -28,6 +29,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { format, isSameDay } from "date-fns";
 import { toast } from "sonner";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { dashboardStyles, shiftReportStyles as styles } from "@/app/theme";
 
 interface ShiftReportProps {
@@ -69,6 +71,86 @@ function SectionHeader({ icon: Icon, label, count }: { icon: any; label: string;
   );
 }
 
+type PrintReport = {
+  dateLabel: string;
+  cashierLabel: string;
+  stats: { label: string; val: string }[];
+  materials: [string, { count: number; revenue: number }][];
+  jobs: { client: string; desc: string; by: string; amount: number; paid: number; status: string }[];
+  expenses: { category: string; desc: string; amount: number }[];
+};
+
+/** What the Print button prints: a plain white page. It sits beside the app, hidden on screen, and the print rules hide everything else. */
+function PrintSheet({ report }: { report: PrintReport }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <Box data-shift-print sx={styles.print.host}>
+      <GlobalStyles styles={styles.print.global} />
+      <Box sx={styles.print.head}>
+        <Typography component="p" sx={styles.print.brand}>BOMedia</Typography>
+        <Box sx={{ textAlign: "right" }}>
+          <Typography component="p" sx={styles.print.title}>Shift Report</Typography>
+          <Typography component="p" sx={styles.print.meta}>{report.dateLabel} · {report.cashierLabel}</Typography>
+        </Box>
+      </Box>
+      <Box sx={styles.print.stats}>
+        {report.stats.map((stat) => (
+          <Box key={stat.label} sx={styles.print.stat}>
+            <Typography component="p" sx={styles.print.statLabel}>{stat.label}</Typography>
+            <Typography component="p" sx={styles.print.statValue}>{stat.val}</Typography>
+          </Box>
+        ))}
+      </Box>
+      {report.materials.length > 0 && (
+        <>
+          <Typography component="h2" sx={styles.print.heading}>Material breakdown</Typography>
+          <Box component="table" sx={styles.print.table}>
+            <tbody>
+              {report.materials.map(([mat, { count, revenue }]) => (
+                <tr key={mat}><td>{mat}</td><td>{count} job{count !== 1 ? "s" : ""}</td><Box component="td" sx={styles.print.num}>{fmtMoney(revenue)}</Box></tr>
+              ))}
+            </tbody>
+          </Box>
+        </>
+      )}
+      {report.jobs.length > 0 && (
+        <>
+          <Typography component="h2" sx={styles.print.heading}>Jobs ({report.jobs.length})</Typography>
+          <Box component="table" sx={styles.print.table}>
+            <thead>
+              <tr><th>#</th><th>Client</th><th>Job</th><th>By</th><Box component="th" sx={styles.print.num}>Amount</Box><Box component="th" sx={styles.print.num}>Paid</Box><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {report.jobs.map((job, i) => (
+                <tr key={i}>
+                  <td>{i + 1}</td><td>{job.client}</td><td>{job.desc}</td><td>{job.by}</td>
+                  <Box component="td" sx={styles.print.num}>{fmtMoney(job.amount)}</Box>
+                  <Box component="td" sx={styles.print.num}>{fmtMoney(job.paid)}</Box>
+                  <td>{job.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Box>
+        </>
+      )}
+      {report.expenses.length > 0 && (
+        <>
+          <Typography component="h2" sx={styles.print.heading}>Expenses ({report.expenses.length})</Typography>
+          <Box component="table" sx={styles.print.table}>
+            <tbody>
+              {report.expenses.map((e, i) => (
+                <tr key={i}><td>{e.category}</td><td>{e.desc}</td><Box component="td" sx={styles.print.num}>−{fmtMoney(e.amount)}</Box></tr>
+              ))}
+            </tbody>
+          </Box>
+        </>
+      )}
+      <Typography component="p" sx={styles.print.foot}>Printed {format(new Date(), "d MMM yyyy, h:mm a")} · BOMedia Sales System</Typography>
+    </Box>,
+    document.body,
+  );
+}
+
 export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [loading, setLoading] = useState(true);
   const [reportDate, setReportDate] = useState(
@@ -78,7 +160,6 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [cashierFilter, setCashierFilter] = useState("All");
-  const reportRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -256,196 +337,203 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
     { label: "Net Cash", val: fmtMoney(netCash), icon: TrendingUp, tone: netCash >= 0 ? styles.tone.success : styles.tone.error, highlight: true },
   ];
 
-  return (
-    <Box sx={styles.root}>
-      <Box sx={styles.backdrop} onClick={onClose} />
+  const dateLabel = format(selectedDate, "EEEE, d MMMM yyyy");
+  const printReport: PrintReport = {
+    dateLabel,
+    cashierLabel: cashierFilter === "All" ? "All staff" : cashierFilter,
+    stats: stats.map(({ label, val }) => ({ label, val })),
+    materials: materialBreakdown,
+    jobs: filteredSales.map((s) => ({
+      client: s["CLIENT NAME"] || s["Client Name"] || "—",
+      desc: s["JOB DESCRIPTION"] || s["Job Description"] || "—",
+      by: s["LOGGED BY"] || s["Logged By"] || "—",
+      amount: parseAmt(s["AMOUNT (₦)"] || s["Amount (₦)"]),
+      paid: parseAmt(s["INITIAL PAYMENT (₦)"] || s["INITIAL PAYMENT"] || s["Initial Payment"]),
+      status: s["PAYMENT STATUS"] || "Unpaid",
+    })),
+    expenses: dayExpenses.map((e) => ({
+      category: e.CATEGORY || e.Category || "General",
+      desc: e.DESCRIPTION || e.Description || "—",
+      amount: parseAmt(e.AMOUNT || e.Amount),
+    })),
+  };
 
-      <Box sx={styles.sheet}>
-        <Box sx={styles.header}>
-          <Box sx={styles.headerLead}>
-            <Box sx={styles.headerIcon}>
-              <FileText size={16} />
-            </Box>
-            <Box>
-              <Typography variant="h5" component="h2">Shift Report</Typography>
-              <Typography variant="caption" color="text.secondary">Daily summary</Typography>
-            </Box>
-          </Box>
-          <IconButton size="small" onClick={onClose} aria-label="Close shift report" sx={styles.closeButton}>
-            <X size={16} />
-          </IconButton>
-        </Box>
-
-        <Box sx={styles.controls}>
-          <Box sx={styles.dateRow}>
-            <Box sx={styles.muted}><Calendar size={16} /></Box>
-            <DatePicker
-              value={reportDate ? dayjs(reportDate) : null}
-              onChange={(newVal) => setReportDate(newVal ? newVal.format("YYYY-MM-DD") : "")}
-              slotProps={{ textField: { size: "small", sx: styles.datePicker } }}
-            />
-          </Box>
-
-          {cashiers.length > 2 && (
-            <Box sx={styles.selectWrap}>
-              <Box
-                component="select"
-                aria-label="Filter by cashier"
-                value={cashierFilter}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCashierFilter(e.target.value)}
-                sx={styles.select}
-              >
-                {cashiers.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </Box>
-              <Box sx={styles.selectChevron}>
-                <ChevronDown size={14} />
-              </Box>
-            </Box>
-          )}
-
-          <IconButton size="small" onClick={fetchData} disabled={loading} aria-label="Refresh report" color="inherit">
-            <Box component="span" sx={spinning(loading)}>
-              <RefreshCw size={14} />
-            </Box>
-          </IconButton>
-        </Box>
-
-        <Box sx={styles.body} ref={reportRef}>
-          {loading ? (
-            <Box sx={styles.loading}>
-              <Box component="span" sx={spinning(true)}>
-                <RefreshCw size={24} />
-              </Box>
-            </Box>
-          ) : (
-            <Stack sx={{ gap: 2.5 }}>
-              <Box sx={styles.statGrid}>
-                {stats.map(({ label, val, icon: Icon, tone, highlight }) => (
-                  <Paper key={label} variant="outlined" sx={[styles.statCard, highlight && styles.statCardHighlight]}>
-                    <Box sx={[styles.statIcon, tone]}>
-                      <Icon size={14} />
-                    </Box>
-                    <Typography variant="overline" sx={styles.statLabel}>{label}</Typography>
-                    <Typography variant="h5" component="p" color={highlight ? "primary.main" : "text.primary"}>
-                      {val}
-                    </Typography>
-                  </Paper>
-                ))}
-              </Box>
-
-              {materialBreakdown.length > 0 && (
-                <Box>
-                  <SectionHeader icon={Package} label="Material Breakdown" />
-                  <Box sx={styles.list}>
-                    {materialBreakdown.map(([mat, { count, revenue }]) => (
-                      <Box key={mat} sx={styles.materialRow}>
-                        <Box sx={styles.materialName}>
-                          <Box sx={styles.dot} />
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{mat}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {count} job{count !== 1 ? "s" : ""}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{fmtMoney(revenue)}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {filteredSales.length > 0 && (
-                <Box>
-                  <SectionHeader icon={FileText} label="Jobs" count={filteredSales.length} />
-                  <Box sx={styles.list}>
-                    {filteredSales.map((s, i) => {
-                      const client = s["CLIENT NAME"] || s["Client Name"] || "—";
-                      const desc = s["JOB DESCRIPTION"] || s["Job Description"] || "—";
-                      const amt = parseAmt(s["AMOUNT (₦)"] || s["Amount (₦)"]);
-                      const paid = parseAmt(
-                        s["INITIAL PAYMENT (₦)"] ||
-                          s["INITIAL PAYMENT"] ||
-                          s["Initial Payment"]
-                      );
-                      const status = s["PAYMENT STATUS"] || "Unpaid";
-                      const loggedBy = s["LOGGED BY"] || s["Logged By"] || "—";
-
-                      return (
-                        <Paper key={i} variant="outlined" sx={styles.jobRow}>
-                          <Box sx={styles.jobLead}>
-                            <Box sx={styles.jobNumber}>{i + 1}</Box>
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography variant="h6" component="p" sx={styles.ellipsis}>{client}</Typography>
-                              <Typography variant="caption" color="text.secondary" sx={[styles.ellipsis, { display: "block" }]}>{desc}</Typography>
-                              <Typography variant="caption" color="text.secondary">via {loggedBy}</Typography>
-                            </Box>
-                          </Box>
-                          <Box sx={styles.right}>
-                            <Typography variant="h6" component="p">{fmtMoney(amt)}</Typography>
-                            <Typography variant="caption" color="success.main" sx={{ display: "block", fontWeight: 700 }}>
-                              +{fmtMoney(paid)}
-                            </Typography>
-                            <StatusPill status={status} />
-                          </Box>
-                        </Paper>
-                      );
-                    })}
-                  </Box>
-                </Box>
-              )}
-
-              {dayExpenses.length > 0 && (
-                <Box>
-                  <SectionHeader icon={Receipt} label="Expenses" count={dayExpenses.length} />
-                  <Box sx={styles.list}>
-                    {dayExpenses.map((e, i) => (
-                      <Paper key={i} variant="outlined" sx={styles.expenseRow}>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {e.CATEGORY || e.Category || "General"}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {e.DESCRIPTION || e.Description || "—"}
-                          </Typography>
-                        </Box>
-                        <Typography variant="h6" component="p" color="error.main">
-                          −{fmtMoney(parseAmt(e.AMOUNT || e.Amount))}
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {filteredSales.length === 0 && dayExpenses.length === 0 && (
-                <Stack sx={styles.empty}>
-                  <FileText size={40} />
-                  <Typography variant="h6" component="p">No activity on this date</Typography>
-                  <Typography variant="body2">Try selecting a different date</Typography>
-                </Stack>
-              )}
-            </Stack>
-          )}
-        </Box>
-
-        <Box sx={styles.footer}>
-          <Button
-            variant="contained"
-            color="success"
-            size="large"
-            onClick={handleWhatsAppShare}
-            disabled={filteredSales.length === 0 && dayExpenses.length === 0}
-            startIcon={<Share2 size={16} />}
-            sx={styles.share}
-          >
-            Share via WhatsApp
-          </Button>
-          <Button variant="outlined" color="inherit" size="large" onClick={() => window.print()} aria-label="Print report">
-            <Printer size={16} />
-          </Button>
-        </Box>
-      </Box>
+  const footer = (
+    <Box sx={styles.footer}>
+      <Button
+        variant="contained"
+        color="success"
+        size="large"
+        onClick={handleWhatsAppShare}
+        disabled={filteredSales.length === 0 && dayExpenses.length === 0}
+        startIcon={<Share2 size={16} />}
+        sx={styles.share}
+      >
+        Share via WhatsApp
+      </Button>
+      <Button variant="outlined" color="inherit" size="large" onClick={() => window.print()} aria-label="Print report">
+        <Printer size={16} />
+      </Button>
     </Box>
+  );
+
+  return (
+    <>
+      <ResponsiveSheet open={isOpen} onClose={onClose} title="Shift Report" description="Daily summary" maxWidth="md" footer={footer}>
+      <Box sx={styles.controls}>
+        <Box sx={styles.dateRow}>
+          <Box sx={styles.muted}><Calendar size={16} /></Box>
+          <DatePicker
+            value={reportDate ? dayjs(reportDate) : null}
+            onChange={(newVal) => setReportDate(newVal ? newVal.format("YYYY-MM-DD") : "")}
+            slotProps={{ textField: { size: "small", sx: styles.datePicker } }}
+          />
+        </Box>
+
+        {cashiers.length > 2 && (
+          <Box sx={styles.selectWrap}>
+            <Box
+              component="select"
+              aria-label="Filter by cashier"
+              value={cashierFilter}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCashierFilter(e.target.value)}
+              sx={styles.select}
+            >
+              {cashiers.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </Box>
+            <Box sx={styles.selectChevron}>
+              <ChevronDown size={14} />
+            </Box>
+          </Box>
+        )}
+
+        <IconButton size="small" onClick={fetchData} disabled={loading} aria-label="Refresh report" color="inherit">
+          <Box component="span" sx={spinning(loading)}>
+            <RefreshCw size={14} />
+          </Box>
+        </IconButton>
+      </Box>
+
+      <Box sx={styles.body}>
+        {loading ? (
+          <Box sx={styles.loading}>
+            <Box component="span" sx={spinning(true)}>
+              <RefreshCw size={24} />
+            </Box>
+          </Box>
+        ) : (
+          <Stack sx={{ gap: 2.5 }}>
+            <Box sx={styles.statGrid}>
+              {stats.map(({ label, val, icon: Icon, tone, highlight }) => (
+                <Paper key={label} variant="outlined" sx={[styles.statCard, highlight && styles.statCardHighlight]}>
+                  <Box sx={[styles.statIcon, tone]}>
+                    <Icon size={14} />
+                  </Box>
+                  <Typography variant="overline" sx={styles.statLabel}>{label}</Typography>
+                  <Typography variant="h5" component="p" color={highlight ? "primary.main" : "text.primary"}>
+                    {val}
+                  </Typography>
+                </Paper>
+              ))}
+            </Box>
+
+            {materialBreakdown.length > 0 && (
+              <Box>
+                <SectionHeader icon={Package} label="Material Breakdown" />
+                <Box sx={styles.list}>
+                  {materialBreakdown.map(([mat, { count, revenue }]) => (
+                    <Box key={mat} sx={styles.materialRow}>
+                      <Box sx={styles.materialName}>
+                        <Box sx={styles.dot} />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{mat}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {count} job{count !== 1 ? "s" : ""}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{fmtMoney(revenue)}</Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {filteredSales.length > 0 && (
+              <Box>
+                <SectionHeader icon={FileText} label="Jobs" count={filteredSales.length} />
+                <Box sx={styles.list}>
+                  {filteredSales.map((s, i) => {
+                    const client = s["CLIENT NAME"] || s["Client Name"] || "—";
+                    const desc = s["JOB DESCRIPTION"] || s["Job Description"] || "—";
+                    const amt = parseAmt(s["AMOUNT (₦)"] || s["Amount (₦)"]);
+                    const paid = parseAmt(
+                      s["INITIAL PAYMENT (₦)"] ||
+                        s["INITIAL PAYMENT"] ||
+                        s["Initial Payment"]
+                    );
+                    const status = s["PAYMENT STATUS"] || "Unpaid";
+                    const loggedBy = s["LOGGED BY"] || s["Logged By"] || "—";
+
+                    return (
+                      <Paper key={i} variant="outlined" sx={styles.jobRow}>
+                        <Box sx={styles.jobLead}>
+                          <Box sx={styles.jobNumber}>{i + 1}</Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="h6" component="p" sx={styles.ellipsis}>{client}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={[styles.ellipsis, { display: "block" }]}>{desc}</Typography>
+                            <Typography variant="caption" color="text.secondary">via {loggedBy}</Typography>
+                          </Box>
+                        </Box>
+                        <Box sx={styles.right}>
+                          <Typography variant="h6" component="p">{fmtMoney(amt)}</Typography>
+                          <Typography variant="caption" color="success.main" sx={{ display: "block", fontWeight: 700 }}>
+                            +{fmtMoney(paid)}
+                          </Typography>
+                          <StatusPill status={status} />
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+                </Box>
+              </Box>
+            )}
+
+            {dayExpenses.length > 0 && (
+              <Box>
+                <SectionHeader icon={Receipt} label="Expenses" count={dayExpenses.length} />
+                <Box sx={styles.list}>
+                  {dayExpenses.map((e, i) => (
+                    <Paper key={i} variant="outlined" sx={styles.expenseRow}>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {e.CATEGORY || e.Category || "General"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {e.DESCRIPTION || e.Description || "—"}
+                        </Typography>
+                      </Box>
+                      <Typography variant="h6" component="p" color="error.main">
+                        −{fmtMoney(parseAmt(e.AMOUNT || e.Amount))}
+                      </Typography>
+                    </Paper>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {filteredSales.length === 0 && dayExpenses.length === 0 && (
+              <Stack sx={styles.empty}>
+                <FileText size={40} />
+                <Typography variant="h6" component="p">No activity on this date</Typography>
+                <Typography variant="body2">Try selecting a different date</Typography>
+              </Stack>
+            )}
+          </Stack>
+        )}
+      </Box>
+      </ResponsiveSheet>
+      <PrintSheet report={printReport} />
+    </>
   );
 }
