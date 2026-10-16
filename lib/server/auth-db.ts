@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import { poolSettings } from './db-pool';
+import { poolSettings, withConnectionRetry } from './db-pool';
 import { readFile } from 'node:fs/promises';
 
 const methods = {
@@ -43,6 +43,9 @@ async function connect() {
 }
 export const callAuth: AuthCall = async <T>(method: AuthMethod, parameters: (string | boolean | null)[]): Promise<T> => {
   if (!Object.hasOwn(methods, method) || parameters.length !== methods[method]) throw new Error('Invalid authentication operation');
+  return withConnectionRetry(() => callAuthNow<T>(method, parameters));
+};
+const callAuthNow = async <T>(method: AuthMethod, parameters: (string | boolean | null)[]): Promise<T> => {
   database ??= connect().catch(error => { database = undefined; throw error; });
   const sql = await database;
   const args = parameters.map((_, index) => `$${index + 1}`).join(',');

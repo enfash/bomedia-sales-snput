@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import { poolSettings } from './db-pool';
+import { poolSettings, withConnectionRetry } from './db-pool';
 import { serializeJsonParameter } from './postgres-json.mjs';
 import { readFile } from 'node:fs/promises';
 
@@ -87,7 +87,7 @@ const callFinancialNow: FinancialCall = async <T>(method: FinancialMethod, key: 
 };
 // Anything an accounting call creates that someone should hear about is sent a moment later, from this process (see ./push).
 export const callFinancial: FinancialCall = async <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>): Promise<T> => {
-  const result = await callFinancialNow<T>(method, key, payload);
+  const result = await withConnectionRetry(() => callFinancialNow<T>(method, key, payload));
   if (process.env.PUSH_VAPID_PRIVATE_KEY && !method.startsWith('api_push_')) void import('./push').then((module) => module.queueDispatch()).catch(() => undefined);
   return result;
 };
