@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { poolSettings } from './db-pool';
 import { readFile } from 'node:fs/promises';
 
 const methods = {
@@ -28,7 +29,7 @@ async function connect() {
   const ca = process.env.SUPABASE_CA_CERT_PEM?.replace(/\\n/g, '\n')
     || (process.env.SUPABASE_CA_CERT_PATH ? await readFile(process.env.SUPABASE_CA_CERT_PATH, 'utf8') : undefined);
   const sql = postgres(connection, { ssl: { rejectUnauthorized: true, ...(ca ? { ca } : {}) },
-    max: 2, prepare: false, connect_timeout: 10, idle_timeout: 20, onnotice: () => {} });
+    ...poolSettings(), prepare: false, connect_timeout: 10, onnotice: () => {} });
   try {
     const [role] = await sql`select r.rolname, r.rolsuper, r.rolbypassrls, r.rolcreaterole, r.rolcreatedb,
       pg_has_role(current_user,'bomedia_auth_runtime','MEMBER') as member from pg_roles r where r.rolname=current_user`;

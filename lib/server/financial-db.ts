@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { poolSettings } from './db-pool';
 import { serializeJsonParameter } from './postgres-json.mjs';
 import { readFile } from 'node:fs/promises';
 
@@ -35,7 +36,7 @@ async function connect() {
     process.env.SUPABASE_PROJECT_REF || process.env.SUPABASE_MIGRATION_PROJECT_REF);
   const ca = process.env.SUPABASE_CA_CERT_PEM?.replace(/\\n/g, '\n')
     || (process.env.SUPABASE_CA_CERT_PATH ? await readFile(process.env.SUPABASE_CA_CERT_PATH, 'utf8') : undefined);
-  const sql = postgres(url,{ssl:{rejectUnauthorized:true,...(ca ? {ca} : {})},max:2,prepare:false,connect_timeout:10,idle_timeout:20,onnotice:()=>{},
+  const sql = postgres(url,{ssl:{rejectUnauthorized:true,...(ca ? {ca} : {})},...poolSettings(),prepare:false,connect_timeout:10,onnotice:()=>{},
     types:{jsonText:{to:114,from:[114,3802],serialize:serializeJsonParameter,parse:JSON.parse}}});
   try {
     const [role] = await sql`select rolname,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole,
