@@ -15,6 +15,11 @@ it('only accepts the big push services', () => {
   for (const bad of ['http://fcm.googleapis.com/x', 'https://evil.example.test/x', 'https://fcm.googleapis.com.evil.test/x', 'not a url', 42, null]) expect(pushEndpoint(bad)).toBeNull();
 });
 
+it('allows Google\u2019s one front-end alert address, only for alert paths, and nothing that looks like it', () => {
+  expect(pushEndpoint('https://jmt17.google.com/fcm/send/abc')).not.toBeNull();
+  for (const bad of ['https://jmt17.google.com/search', 'https://www.google.com/fcm/send/abc', 'https://jmt17.g00gle.com/fcm/send/abc', 'https://jmt17.google.com.evil.test/fcm/send/abc']) expect(pushEndpoint(bad)).toBeNull();
+});
+
 it('saves a phone under the signed-in person and refuses an unsupported address, missing keys or an unset server', async () => {
   const call = vi.fn().mockResolvedValue({ id: 'd1', subscribed: true });
   const push = createPush(call, vi.fn());

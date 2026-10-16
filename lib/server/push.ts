@@ -21,9 +21,17 @@ export function pushHost(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   try { return new URL(value).hostname || null; } catch { return null; }
 }
+// Chrome on some Android phones receives its alerts through Google's own front-end address instead of fcm.googleapis.com. That one host is
+// allowed, and only for Google's alert paths, never the rest of google.com.
+const GOOGLE_FRONT_END = { host: 'jmt17.google.com', paths: ['/fcm/send/', '/gcm/send/'] };
 export function pushEndpoint(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 2000) return null;
-  try { const url = new URL(value); return url.protocol === 'https:' && PUSH_HOSTS.some((host) => host.test(url.hostname)) ? url.toString() : null; } catch { return null; }
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:') return null;
+    if (PUSH_HOSTS.some((host) => host.test(url.hostname))) return url.toString();
+    return url.hostname === GOOGLE_FRONT_END.host && GOOGLE_FRONT_END.paths.some((path) => url.pathname.startsWith(path)) ? url.toString() : null;
+  } catch { return null; }
 }
 
 const invalid = (message: string) => new FinancialError(message, 400, 'INVALID_INPUT');
