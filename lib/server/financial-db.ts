@@ -86,8 +86,9 @@ const callFinancialNow: FinancialCall = async <T>(method: FinancialMethod, key: 
   return (await sql.unsafe(statement,[key,JSON.stringify(payload)]))[0].result as T;
 };
 // Anything an accounting call creates that someone should hear about is sent a moment later, from this process (see ./push).
+// Sending itself (claim/report) must not trigger another send, but a test alert has to go out.
 export const callFinancial: FinancialCall = async <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>): Promise<T> => {
   const result = await withConnectionRetry(() => callFinancialNow<T>(method, key, payload));
-  if (process.env.PUSH_VAPID_PRIVATE_KEY && !method.startsWith('api_push_')) void import('./push').then((module) => module.queueDispatch()).catch(() => undefined);
+  if (process.env.PUSH_VAPID_PRIVATE_KEY && (method === 'api_push_test' || !method.startsWith('api_push_'))) void import('./push').then((module) => module.queueDispatch()).catch(() => undefined);
   return result;
 };
