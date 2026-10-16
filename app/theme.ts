@@ -561,10 +561,9 @@ export const shiftReportStyles = {
   pillNeutral: { bgcolor: "action.hover", color: "text.secondary" },
   footer: { display: "flex", gap: 1.5, p: 2, borderTop: "1px solid", borderColor: "divider", bgcolor: "background.paper" },
   share: { flex: 1, bgcolor: WHATSAPP.main, color: "common.white", "&:hover": { bgcolor: WHATSAPP.dark } },
-  // The printed page is always black on white, whatever the app theme is.
+  // The PDF page is always black on white, whatever the app theme is.
   print: {
-    host: { display: "none", "@media print": { display: "block" }, bgcolor: "#fff", color: "#111", fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', fontSize: "11px", lineHeight: 1.4 },
-    global: { "@media print": { "body > *:not([data-shift-print])": { display: "none !important" }, body: { background: "#fff !important" }, "@page": { size: "A4", margin: "14mm" } } },
+    host: { display: "none", p: "14mm", bgcolor: "#fff", color: "#111", fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', fontSize: "11px", lineHeight: 1.4 },
     head: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", pb: "8px", mb: "12px", borderBottom: "2px solid #2e388d" },
     brand: { fontSize: "22px", fontWeight: 800, color: "#2e388d", letterSpacing: "-0.02em" },
     title: { fontSize: "15px", fontWeight: 700 },

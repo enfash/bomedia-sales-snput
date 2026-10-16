@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   FileText,
@@ -13,13 +13,12 @@ import {
   Receipt,
   Users,
   Package,
-  Printer,
+  Loader2,
   Calendar,
   ChevronDown,
 } from "lucide-react";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import GlobalStyles from "@mui/material/GlobalStyles";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -80,12 +79,11 @@ type PrintReport = {
   expenses: { category: string; desc: string; amount: number }[];
 };
 
-/** What the Print button prints: a plain white page. It sits beside the app, hidden on screen, and the print rules hide everything else. */
-function PrintSheet({ report }: { report: PrintReport }) {
+/** The page the PDF is made from: plain black on white. It sits beside the app, never shown on screen. */
+function PrintSheet({ report, pageRef }: { report: PrintReport; pageRef: React.RefObject<HTMLDivElement | null> }) {
   if (typeof document === "undefined") return null;
   return createPortal(
-    <Box data-shift-print sx={styles.print.host}>
-      <GlobalStyles styles={styles.print.global} />
+    <Box ref={pageRef} sx={styles.print.host}>
       <Box sx={styles.print.head}>
         <Typography component="p" sx={styles.print.brand}>BOMedia</Typography>
         <Box sx={{ textAlign: "right" }}>
@@ -160,6 +158,8 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [cashierFilter, setCashierFilter] = useState("All");
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [making, setMaking] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -358,6 +358,30 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
     })),
   };
 
+  // Same way the invoice does it: photograph the page, put it in a PDF and save the file.
+  const downloadPdf = async () => {
+    const page = pageRef.current;
+    if (!page || making) return;
+    setMaking(true);
+    const clone = page.cloneNode(true) as HTMLElement;
+    clone.style.cssText = "display:block;position:fixed;top:0;left:0;width:794px;background:#ffffff;z-index:-9999;pointer-events:none";
+    document.body.appendChild(clone);
+    try {
+      if ("fonts" in document) await document.fonts.ready;
+      const [{ default: html2canvas }, { default: JsPdf }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff", windowWidth: 794 });
+      if (canvas.width === 0 || canvas.height === 0) throw new Error("The report page is empty.");
+      const pdf = new JsPdf({ orientation: "portrait", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.85), "JPEG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`Shift_Report_${reportDate}.pdf`);
+    } catch {
+      toast.error("Could not make the PDF. Try again.");
+    } finally {
+      document.body.removeChild(clone);
+      setMaking(false);
+    }
+  };
+
   const footer = (
     <Box sx={styles.footer}>
       <Button
@@ -371,8 +395,15 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
       >
         Share via WhatsApp
       </Button>
-      <Button variant="outlined" color="inherit" size="large" onClick={() => window.print()} aria-label="Print report">
-        <Printer size={16} />
+      <Button
+        variant="outlined"
+        color="inherit"
+        size="large"
+        onClick={downloadPdf}
+        disabled={making || loading || (filteredSales.length === 0 && dayExpenses.length === 0)}
+        startIcon={making ? <Loader2 size={16} /> : <Download size={16} />}
+      >
+        {making ? "Making PDF..." : "PDF"}
       </Button>
     </Box>
   );
@@ -533,7 +564,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         )}
       </Box>
       </ResponsiveSheet>
-      <PrintSheet report={printReport} />
+      <PrintSheet report={printReport} pageRef={pageRef} />
     </>
   );
 }
