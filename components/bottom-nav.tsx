@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { shellVisible } from "@/lib/session-view";
+import { useSaleDraftWaiting } from "@/lib/use-sale-draft";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -58,6 +59,7 @@ function useHideOnScroll(pathname: string | null) {
 export function BottomNav() {
   const pathname = usePathname();
   const hidden = useHideOnScroll(pathname);
+  const draftWaiting = useSaleDraftWaiting();
   const isAdmin = !!pathname?.startsWith("/bom03");
   const isCashier = pathname?.startsWith("/cashier") || isAdmin;
 
@@ -78,10 +80,11 @@ export function BottomNav() {
             const Icon = item.icon;
             if (item.primary) {
               return (
-                <Box key={item.href} component={Link} href={item.href} aria-label={item.label} sx={styles.newSlot}>
+                <Box key={item.href} component={Link} href={item.href} aria-label={draftWaiting ? `${item.label}, unsaved sale waiting` : item.label} sx={styles.newSlot}>
                   <Fab color="primary" size="large" component="span" aria-hidden sx={styles.fab}>
                     <Icon size={28} />
                   </Fab>
+                  {draftWaiting && <Box component="span" aria-hidden sx={styles.draftDot} />}
                 </Box>
               );
             }

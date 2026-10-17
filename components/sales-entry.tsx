@@ -9,6 +9,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
 import { canonicalClientName } from "@/lib/client-names";
+import { readDraft, restoredDate, writeDraft } from "@/lib/sale-draft";
 
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -16,6 +17,11 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Alert from "@mui/material/Alert";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import { MoneyField } from "@/components/money-field";
 import { PaidBy } from "@/components/paid-by";
 import type { PaymentMethod } from "@/lib/payment-methods";
@@ -495,7 +501,7 @@ export function SalesEntry() {
           ...(customerId ? {customerId} : {}), ...(loadedQuote ? {quoteId:loadedQuote.id} : {}), jobStatus:meta.jobStatus,
           initialPaymentKobo:paid,...(paid!=='0'&&paidBy ? {paymentMethod:paidBy} : {}),totalKobo:orderTotal(items),items,...(reason ? {approvalReason:reason} : {})});
         toast.success(reason ? 'Sent to the owner for approval. It is recorded once approved.' : 'Order saved on this device. Its reference appears after confirmation.');
-        setShowConfirm(false);setCart([]);setLoadedQuote(null);setCustomerId(undefined);setPaidBy('');
+        setShowConfirm(false);setCart([]);setLoadedQuote(null);setCustomerId(undefined);setPaidBy('');setRestoredDraft(false);
         setMeta({date:lagosBusinessDate(),clientName:'',contact:'',jobStatus:JOB_STATUSES[0],initialPayment:'0'});
         return;
       }
@@ -569,7 +575,7 @@ export function SalesEntry() {
       toast.success("Order saved locally — syncing to Google Sheets…");
       setShowConfirm(false);
       setMeta({ date: lagosBusinessDate(), clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
-      setPaidBy("");
+      setPaidBy(""); setRestoredDraft(false);
       setCart([]); setSelectedMaterialId(""); setJobDesc(""); setJobWidth("");
       setJobHeight(""); setQty("1"); setCostOverride(""); setNlText(""); setFormTouched(false);
     } catch {
@@ -583,6 +589,42 @@ export function SalesEntry() {
   const [tabValue, setTabValue] = useState(0);
   const [showQuote, setShowQuote] = useState(false);
   const [showService, setShowService] = useState(false);
+
+  // ── Unsaved-sale draft ───────────────────────────────────────────────────
+  // What has been filled in is kept on this phone, so leaving the page or refreshing does not lose it. It clears itself once the sale is saved.
+  const [draftReady, setDraftReady] = useState(false);
+  const [restoredDraft, setRestoredDraft] = useState(false);
+  useEffect(() => {
+    // Deferred one tick so no state is set synchronously inside the effect.
+    void Promise.resolve().then(() => {
+      const draft = readDraft(localStorage);
+      if (draft) {
+        setMeta({ ...draft.meta, date: restoredDate(draft, lagosBusinessDate()) });
+        setPaidBy(draft.paidBy as PaymentMethod | "");
+        setCustomerId(draft.customerId); setCart(draft.cart); setLoadedQuote(draft.loadedQuote); setQuoteInput(draft.quoteInput);
+        setSelectedMaterialId(draft.job.materialId); setJobDesc(draft.job.desc); setJobWidth(draft.job.width); setJobHeight(draft.job.height);
+        setQty(draft.job.qty); setCostOverride(draft.job.price); setDimUnit(draft.job.unit); setNlText(draft.nlText);
+        setRestoredDraft(true);
+      }
+      setDraftReady(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (!draftReady) return;
+    writeDraft(localStorage, {
+      version: 1, savedAt: Date.now(), savedOn: lagosBusinessDate(), meta, paidBy, customerId, cart, loadedQuote, quoteInput, nlText,
+      job: { materialId: selectedMaterialId, desc: jobDesc, width: jobWidth, height: jobHeight, qty, price: costOverride, unit: dimUnit },
+    });
+  }, [draftReady, meta, paidBy, customerId, cart, loadedQuote, quoteInput, nlText, selectedMaterialId, jobDesc, jobWidth, jobHeight, qty, costOverride, dimUnit]);
+  // An in-page question instead of the browser's pop-up, which some phones and app windows block (the button then does nothing).
+  const [ask, setAsk] = useState<{ title: string; message: string; yes: string; run: () => void } | null>(null);
+  const startFresh = () => {
+    setMeta({ date: lagosBusinessDate(), clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
+    setPaidBy(""); setCustomerId(undefined); setCart([]); setLoadedQuote(null); setQuoteInput("");
+    setSelectedMaterialId(""); setJobDesc(""); setJobWidth(""); setJobHeight(""); setQty("1"); setCostOverride(""); setDimUnit("ft"); setNlText("");
+    setFormTouched(false); setRestoredDraft(false);
+    toast.success("Started a new sale");
+  };
   const isOwner = approvalRules?.isOwner ?? false;
   // Only the price rule is checked per item (the date is the same for the whole sale), and never for the owner.
   const priceFlagged = (item: CartItem) => !!approvalRules && !isOwner && !!catalog && item.orderItem?.kind !== "service"
@@ -593,10 +635,10 @@ export function SalesEntry() {
   };
   const reviewDisabled = cart.length === 0 || !meta.clientName.trim();
 
-  const loadQuote = async () => {
+  const loadQuote = async (confirmed = false) => {
     const qId = quoteInput.trim().toUpperCase();
     if (!qId) return;
-    if (cart.length && !window.confirm("Replace the current order items with this quote?")) return;
+    if (cart.length && !confirmed) { setAsk({ title: "Replace the order?", message: "The items in this order will be replaced by the quote.", yes: "Replace", run: () => void loadQuote(true) }); return; }
     setQuoteLoading(true);
     try {
       const context = await paymentContext();
@@ -623,6 +665,12 @@ export function SalesEntry() {
         <Button variant={tabValue === 0 ? "contained" : "outlined"} color={tabValue === 0 ? "primary" : "inherit"} aria-pressed={tabValue === 0} startIcon={<PenLine size={16} />} onClick={() => setTabValue(0)}>Manual</Button>
         <Button variant={tabValue === 1 ? "contained" : "outlined"} color={tabValue === 1 ? "primary" : "inherit"} aria-pressed={tabValue === 1} startIcon={<Sparkles size={16} />} onClick={() => setTabValue(1)}>Describe it (AI)</Button>
       </Box>
+
+      {restoredDraft && (
+        <Alert severity="info" onClose={() => setRestoredDraft(false)} action={<Button color="inherit" size="small" onClick={() => setAsk({ title: "Start fresh?", message: "This throws away the unsaved sale on this phone.", yes: "Start fresh", run: startFresh })}>Start fresh</Button>}>
+          Your unsaved sale was restored{meta.clientName.trim() ? ` (${meta.clientName.trim()})` : ""}. Nothing was lost.
+        </Alert>
+      )}
 
       <Box sx={styles.layout}>
         <Box sx={styles.stack}>
@@ -688,7 +736,7 @@ export function SalesEntry() {
           </Paper>
 
           {loadedQuote && <Alert severity={loadedQuote.changed ? "warning" : "info"} action={
-            <Button color="inherit" size="small" onClick={() => { if (window.confirm("Clear the quoted items and start a new order?")) { setCart([]); setLoadedQuote(null); setQuoteInput(""); } }}>Start a new order</Button>}>
+            <Button color="inherit" size="small" onClick={() => setAsk({ title: "Start a new order?", message: "This clears the quoted items.", yes: "Start a new order", run: () => { setCart([]); setLoadedQuote(null); setQuoteInput(""); } })}>Start a new order</Button>}>
             Quote {loadedQuote.number} loaded. {loadedQuote.changed ? "Prices have changed. Confirm the current total with the customer before saving." : "Review the items before saving."}
           </Alert>}
 
@@ -816,6 +864,15 @@ export function SalesEntry() {
 
         <OrderPanel cart={cart} total={grandTotal} client={meta.clientName} flagged={priceFlagged} onRemove={removeFromCart} onReview={handleReview} reviewDisabled={reviewDisabled} />
       </Box>
+
+      <Dialog open={!!ask} onClose={() => setAsk(null)} aria-labelledby="ask-title">
+        <DialogTitle id="ask-title">{ask?.title}</DialogTitle>
+        <DialogContent><DialogContentText>{ask?.message}</DialogContentText></DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setAsk(null)}>Cancel</Button>
+          <Button variant="contained" autoFocus onClick={() => { const run = ask?.run; setAsk(null); run?.(); }}>{ask?.yes}</Button>
+        </DialogActions>
+      </Dialog>
 
       <TotalBar count={cart.length} total={grandTotal} onReview={handleReview} disabled={reviewDisabled} />
 

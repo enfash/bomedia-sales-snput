@@ -1794,7 +1794,9 @@ export const bottomNavStyles = {
   tabIcon: { width: 48, height: 28, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color .15s ease" },
   tabLabel: { fontSize: "0.6875rem", fontWeight: 600, lineHeight: 1.1 },
   tabLabelActive: { fontWeight: 700 },
-  newSlot: { flex: 1, minWidth: 64, display: "flex", justifyContent: "center", alignSelf: "flex-start", transform: "translateY(-20px)", textDecoration: "none", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" },
+  newSlot: { position: "relative", flex: 1, minWidth: 64, display: "flex", justifyContent: "center", alignSelf: "flex-start", transform: "translateY(-20px)", textDecoration: "none", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" },
+  // Shown while an unsaved sale is waiting on this phone.
+  draftDot: { position: "absolute", top: -2, left: "calc(50% + 14px)", width: 16, height: 16, borderRadius: "50%", bgcolor: "error.main", border: "2px solid", borderColor: "background.paper", zIndex: 1 },
   fab: {
     width: 56, height: 56, border: "4px solid", borderColor: "background.default", transition: "filter .15s ease", "&:active": { filter: "brightness(0.92)" },
     boxShadow: (theme: Theme) => `0 8px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
