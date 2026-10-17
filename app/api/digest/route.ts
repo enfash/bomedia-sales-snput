@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { legacyFeedEnabled, legacyRows } from '@/lib/server/legacy-feed';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 
 export const dynamic = 'force-dynamic';
@@ -22,24 +23,28 @@ function isToday(dateStr: string): boolean {
   );
 }
 
+async function sheetRows() {
+  const doc = await getDoc();
+  const salesSheet = doc.sheetsByTitle['Sales'];
+  const expensesSheet = doc.sheetsByTitle['Expenses'];
+  const paymentsSheet = doc.sheetsByTitle['Payments'];
+  const inventorySheet = doc.sheetsByTitle['Inventory'];
+  return Promise.all([
+    salesSheet ? salesSheet.getRows() : Promise.resolve([]),
+    expensesSheet ? expensesSheet.getRows() : Promise.resolve([]),
+    paymentsSheet ? paymentsSheet.getRows() : Promise.resolve([]),
+    inventorySheet ? inventorySheet.getRows() : Promise.resolve([]),
+  ]);
+}
+
 // ─── GET /api/digest ─────────────────────────────────────────────────────────
 
 export async function GET() {
   try {
-    const doc = await getDoc();
-
-    // ── 1. Sales today ───────────────────────────────────────────────────────
-    const salesSheet = doc.sheetsByTitle['Sales'];
-    const expensesSheet = doc.sheetsByTitle['Expenses'];
-    const paymentsSheet = doc.sheetsByTitle['Payments'];
-    const inventorySheet = doc.sheetsByTitle['Inventory'];
-
-    const [salesRows, expenseRows, paymentRows, inventoryRows] = await Promise.all([
-      salesSheet ? salesSheet.getRows() : Promise.resolve([]),
-      expensesSheet ? expensesSheet.getRows() : Promise.resolve([]),
-      paymentsSheet ? paymentsSheet.getRows() : Promise.resolve([]),
-      inventorySheet ? inventorySheet.getRows() : Promise.resolve([]),
-    ]);
+    const [salesRows, expenseRows, paymentRows, inventoryRows] = legacyFeedEnabled()
+      ? (await Promise.all((['sales', 'expenses', 'payments', 'inventory'] as const).map(resource => legacyRows(resource))))
+          .map(rows => rows.map(row => ({ get: (key: string) => row[key] })))
+      : await sheetRows();
 
     // ── Sales today ──────────────────────────────────────────────────────────
     const todaySales = salesRows.filter((r: any) => isToday(r.get('DATE') || r.get('Date') || ''));

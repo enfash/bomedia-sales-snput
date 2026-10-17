@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { accent } from "@/app/theme";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+
+import { useState, useMemo, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useMediaQuery } from "@/lib/useMediaQuery";
 import { MoreHorizontal, MessageCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useSyncStore } from "@/lib/store";
 import {
   Button,
-  Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Select,
   MenuItem,
   FormControl,
@@ -22,8 +21,13 @@ import {
   Stack,
   IconButton,
 } from "@mui/material";
-import { RecordStatus } from "@/components/record-card";
+import type { RecordStatus } from "@/lib/records-view";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
+import { paymentContext, savePostgresPayment } from '@/lib/payment-outbox';
+import { paymentKobo } from '@/lib/payment-contract';
+import { MoneyField } from "@/components/money-field";
+import { PaidBy } from "@/components/paid-by";
+import type { PaymentMethod } from "@/lib/payment-methods";
 
 export interface UnifiedRecord {
   id: string;
@@ -51,19 +55,23 @@ interface ManageSaleActionProps {
   record: UnifiedRecord;
   onUpdate: () => void;
   variant?: "icon" | "button";
+  /** Draws the button that opens the dialog, in place of the default icon or "Manage" button. */
+  trigger?: (open: () => void) => ReactNode;
 }
 
 export function ManageSaleAction({
   record,
   onUpdate,
   variant = "icon",
+  trigger,
 }: ManageSaleActionProps) {
+  const submitting = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addl1, setAddl1] = useState(record?.additionalPayment1 ? String(record.additionalPayment1) : "");
   const [addl2, setAddl2] = useState(record?.additionalPayment2 ? String(record.additionalPayment2) : "");
   const [status, setStatus] = useState(record?.jobStatus ?? JOB_STATUSES[0]);
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
   const pathname = usePathname();
 
   const isLocked = useMemo(() => {
@@ -88,6 +96,8 @@ export function ManageSaleAction({
   }
 
   const handleUpdate = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
     setIsSubmitting(true);
     try {
       const payload: Record<string, any> = {
@@ -109,6 +119,29 @@ export function ManageSaleAction({
         payload.additionalPayment2 = parseFloat(addl2) || 0;
         newPaymentAmount = payload.additionalPayment2;
         newPaymentType = "Additional Payment 2";
+      }
+
+      if (newPaymentAmount > 0) {
+        // The books keep cash, transfer and POS apart; the ID stops a retry paying twice.
+        if (!paidBy) { toast.error("Choose how the customer paid: Cash, Transfer or POS"); return; }
+        payload.paymentMethod = paidBy;
+        payload.requestId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pay-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      }
+
+      if (newPaymentAmount > 0) {
+        const context = await paymentContext();
+        if (context.backend === 'postgres') {
+          if (!record.raw?._jobId) throw new Error('Refresh this record before recording a PostgreSQL payment.');
+          await savePostgresPayment(context, {
+            jobIds: [record.raw._jobId], amountKobo: paymentKobo(!hasAddl1 && addl1 !== '' ? addl1 : addl2),
+            paymentMethod: paidBy as PaymentMethod, jobStatus: status,
+          }, `Payment for ${record.client}`);
+          toast.success('Payment saved on this device. Confirmation will appear after syncing.');
+          setIsOpen(false);
+          onUpdate();
+          return;
+        }
+        if (record.raw?._jobId) throw new Error('These records belong to PostgreSQL. Refresh before recording a payment.');
       }
 
       const isOnline = typeof window !== "undefined" ? navigator.onLine : true;
@@ -172,18 +205,19 @@ export function ManageSaleAction({
         onUpdate();
       }
     } catch (err) {
-      toast.error("Network error");
+      toast.error(err instanceof Error ? err.message : "Network error");
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
 
-  const triggerButton =
+  const triggerButton = trigger ? trigger(() => setIsOpen(true)) :
     variant === "icon" ? (
       <IconButton
         size="small"
         onClick={() => setIsOpen(true)}
-        sx={{ color: "primary.main", "&:hover": { bgcolor: "primary.main", color: "white" } }}
+        sx={{ color: accent, "&:hover": { bgcolor: "primary.main", color: "white" } }}
       >
         <MoreHorizontal size={16} />
       </IconButton>
@@ -206,109 +240,43 @@ export function ManageSaleAction({
     setAddl2,
     status,
     setStatus,
+    paidBy,
+    setPaidBy,
     isSubmitting,
     handleUpdate,
     setIsOpen,
   };
 
-  if (isMobile) {
-    return (
-      <>
-        {triggerButton}
-        <Dialog
-          fullScreen
-          open={isOpen}
-          onClose={() => setIsOpen(false)}
-
-          slotProps={{
-            paper: {
-              sx: {
-                mt: "10vh",
-                borderTopLeftRadius: 32,
-                borderTopRightRadius: 32,
-                bgcolor: "background.default",
-                display: "flex",
-                flexDirection: "column",
-              }
-            }
-          }}
-          sx={{
-            "& .MuiDialog-container": {
-              alignItems: "flex-end",
-            }
-          }}
-        >
-          <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 1, flexShrink: 0 }} />
-          <Box sx={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-            <Box sx={{ px: 3, pt: 1, pb: 0 }}>
-              <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary" }}>
-                Manage Sale Record
-              </Typography>
-            </Box>
-            <ContentBody {...contentProps} />
-          </Box>
-          <Box sx={{ px: 3 }}>
-            <ContentFooter {...contentProps} drawer />
-          </Box>
-        </Dialog>
-      </>
-    );
-  }
-
-  return (
-    <>
-      {triggerButton}
-      <Dialog
-      open={isOpen}
-      onClose={() => setIsOpen(false)}
-      maxWidth="sm"
-      fullWidth
-      slotProps={{ paper: { sx: { borderRadius: 4, overflow: "hidden" } } }}
-    >
-      <HeaderContent {...contentProps} />
+  return <>
+    {triggerButton}
+    <ResponsiveSheet open={isOpen} onClose={() => setIsOpen(false)} busy={isSubmitting}
+      title="Manage Sale Record" description={`${record.client} · Balance ₦${(record.balance || 0).toLocaleString()}`}
+      footer={<ContentFooter {...contentProps} />}>
       <ContentBody {...contentProps} />
-      <ContentFooter {...contentProps} />
-    </Dialog>
-    </>
-  );
+    </ResponsiveSheet>
+  </>;
 }
 
-function HeaderContent({ record }: any) {
-  return (
-    <Box sx={{ p: 3, bgcolor: "primary.main", color: "primary.contrastText" }}>
-      <DialogTitle
-        sx={{
-          p: 0,
-          mb: 1,
-          color: "inherit",
-          fontWeight: 900,
-          fontSize: "1.25rem",
-        }}
-      >
-        Manage Sale Record
-      </DialogTitle>
-      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-end" }}>
-        <Typography sx={{ fontWeight: 500, color: "inherit" }}>
-          Update payments and job progress for {record.client}
-        </Typography>
-        <Box sx={{ textAlign: "right" }}>
-          <Typography
-            sx={{
-              fontSize: "0.625rem",
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              color: "rgba(255,255,255,0.9)",
-              lineHeight: 1,
-              mb: 0.25,
-            }}
-          >
-            Current Balance
-          </Typography>
-          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "inherit", lineHeight: 1 }}>
-            ₦{(record.balance || 0).toLocaleString()}
-          </Typography>
+function ContentBody({
+  record,
+  addl1,
+  setAddl1,
+  addl2,
+  setAddl2,
+  status,
+  setStatus,
+  paidBy,
+  setPaidBy,
+  isSubmitting,
+}: any) {
+  const hasAddl1 = (record.additionalPayment1 ?? 0) > 0;
+  const hasAddl2 = (record.additionalPayment2 ?? 0) > 0;
+  const isFullyPaid = (record.balance ?? 0) <= 0 || record.status === "Paid";
+  const maxSlotsReached = hasAddl1 && hasAddl2 && (record.balance ?? 0) > 0;
 
+  return (
+    <DialogContent sx={{ p: 3 }}>
+      <Stack sx={{ gap: 3 }}>
           {(record.balance || 0) > 0 && record.contact && (
             <Button
               size="small"
@@ -332,41 +300,18 @@ function HeaderContent({ record }: any) {
                 height: 28,
                 px: 1,
                 borderRadius: 2,
-                bgcolor: "rgba(255,255,255,0.2)",
+                bgcolor: "primary.main",
                 color: "white",
                 fontSize: "0.625rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                "&:hover": { bgcolor: "primary.dark" },
               }}
             >
               WhatsApp Reminder
             </Button>
           )}
-        </Box>
-      </Stack>
-    </Box>
-  );
-}
-
-function ContentBody({
-  record,
-  addl1,
-  setAddl1,
-  addl2,
-  setAddl2,
-  status,
-  setStatus,
-}: any) {
-  const hasAddl1 = (record.additionalPayment1 ?? 0) > 0;
-  const hasAddl2 = (record.additionalPayment2 ?? 0) > 0;
-  const isFullyPaid = (record.balance ?? 0) <= 0 || record.status === "Paid";
-  const maxSlotsReached = hasAddl1 && hasAddl2 && (record.balance ?? 0) > 0;
-
-  return (
-    <DialogContent sx={{ p: 3 }}>
-      <Stack sx={{ gap: 3 }}>
         <Stack
           direction="row"
           sx={{
@@ -408,7 +353,7 @@ function ContentBody({
             >
               Current Status
             </Typography>
-            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "primary.main" }}>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: accent }}>
               {record.status}
             </Typography>
           </Box>
@@ -472,11 +417,10 @@ function ContentBody({
             >
               Additional Payment 1 (₦)
             </Typography>
-            <TextField
-              type="number"
+            <MoneyField
               placeholder="Enter amount"
               value={addl1}
-              onChange={(e) => setAddl1(e.target.value)}
+              onChange={setAddl1}
               disabled={hasAddl1 || isFullyPaid || maxSlotsReached}
               fullWidth
               size="medium"
@@ -498,17 +442,21 @@ function ContentBody({
             >
               Additional Payment 2 (₦)
             </Typography>
-            <TextField
-              type="number"
+            <MoneyField
               placeholder="Enter amount"
               value={addl2}
-              onChange={(e) => setAddl2(e.target.value)}
+              onChange={setAddl2}
               disabled={!hasAddl1 || hasAddl2 || isFullyPaid || maxSlotsReached}
               fullWidth
               size="medium"
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
             />
           </Box>
+
+          {!isFullyPaid && !maxSlotsReached && (
+            <PaidBy value={paidBy} onChange={setPaidBy} disabled={isSubmitting}
+              required={Number(hasAddl1 ? addl2 : addl1) > 0} />
+          )}
 
           <FormControl fullWidth size="medium">
             <InputLabel
@@ -538,31 +486,7 @@ function ContentBody({
   );
 }
 
-function ContentFooter({ isSubmitting, handleUpdate, setIsOpen, drawer }: any) {
-  if (drawer) {
-    return (
-      <Stack sx={{ gap: 1.5, mt: 4 }}>
-        <Button
-          variant="contained"
-          disabled={isSubmitting}
-          onClick={handleUpdate}
-          fullWidth
-          sx={{ height: 48, borderRadius: 3, fontWeight: 900 }}
-        >
-          {isSubmitting ? "Updating..." : "Save Changes"}
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={() => setIsOpen(false)}
-          fullWidth
-          sx={{ height: 48, borderRadius: 3, fontWeight: 700 }}
-        >
-          Cancel
-        </Button>
-      </Stack>
-    );
-  }
-
+function ContentFooter({ isSubmitting, handleUpdate, setIsOpen }: any) {
   return (
     <DialogActions
       sx={{
@@ -576,6 +500,7 @@ function ContentFooter({ isSubmitting, handleUpdate, setIsOpen, drawer }: any) {
       <Button
         variant="outlined"
         onClick={() => setIsOpen(false)}
+        disabled={isSubmitting}
         sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
       >
         Cancel

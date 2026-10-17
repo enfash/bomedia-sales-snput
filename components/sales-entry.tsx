@@ -1,38 +1,42 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
-import {
-  AlertTriangle, CheckCircle2, Plus, Sparkles,
-  Trash2, User, Ruler, Layers, Receipt, XCircle, RefreshCw,
-  ArrowRight, Info, ChevronDown, ChevronUp,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, PenLine, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { useSyncStore } from "@/lib/store";
 import { MaterialSelector } from "@/components/material-selector";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
 import { canonicalClientName } from "@/lib/client-names";
+import { readDraft, restoredDate, writeDraft } from "@/lib/sale-draft";
 
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
-import FormControl from "@mui/material/FormControl";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import Chip from "@mui/material/Chip";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
+import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import Divider from "@mui/material/Divider";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import { MoneyField } from "@/components/money-field";
+import { PaidBy } from "@/components/paid-by";
+import type { PaymentMethod } from "@/lib/payment-methods";
+
+import { paymentContext, cachedPaymentContext } from '@/lib/payment-outbox';
+import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
+import { saveScreenOrder } from '@/lib/order-outbox';
+import { entryChanges, type ApprovalRuleRow, type EntryChange } from '@/lib/approvals-view';
+import { phoneProblem } from '@/lib/new-sale';
+import { OrderPanel, TotalBar } from '@/components/new-sale/order-panel';
+import { ReviewSheet } from '@/components/new-sale/review-sheet';
+import { newSaleStyles as styles } from '@/app/theme';
+import { orderItemTotal, orderTotal, type OrderCatalog } from '@/lib/order-contract';
+import { cartOrderItem, quoteCart, type OrderCartRow, type ScreenQuote } from '@/lib/order-cart';
+import { ServiceOrderEntry } from '@/components/service-order-entry';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,27 +52,7 @@ interface InventoryRoll {
   _rowIndex: number;
 }
 
-interface CartItem {
-  id: string;
-  materialId: string;
-  rollId?: string;
-  rollLabel: string;
-  itemName: string;
-  widthFt: number;
-  jobDescription: string;
-  jobWidth: number;
-  jobHeight: number;
-  dimUnit: 'ft' | 'in';
-  qty: number;
-  costPerSqft: number;
-  unitSqft: number;
-  unitCost: number;
-  totalAmount: number;
-  jobLengthFt: number;
-  remainingAfterJob: number;
-  fromInventory: boolean;
-  isFlipped: boolean;
-}
+type CartItem = OrderCartRow;
 
 interface BatchMeta {
   date: string;
@@ -86,190 +70,6 @@ const parseNum = (v: string | number | undefined) =>
 const fmtCurrency = (n: number) =>
   `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
-// ─── TabPanel ────────────────────────────────────────────────────────────────
-
-function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
-  return <div hidden={value !== index}>{value === index && children}</div>;
-}
-
-// ─── StockBadge ──────────────────────────────────────────────────────────────
-
-function StockBadge({ roll }: { roll: InventoryRoll }) {
-  const remaining = parseNum(roll["Remaining Length (ft)"]);
-  const status = roll.Status || "Active";
-  if (status === "Out of Stock" || remaining <= 0)
-    return <Chip label="Out of Stock" size="small" sx={{ bgcolor: "#fee2e2", color: "#dc2626", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />;
-  if (status === "Low Stock")
-    return <Chip label={`Low · ${remaining.toFixed(0)}ft`} size="small" sx={{ bgcolor: "#fef3c7", color: "#d97706", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />;
-  return <Chip label={`${remaining.toFixed(0)}ft left`} size="small" sx={{ bgcolor: "#d1fae5", color: "#059669", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />;
-}
-
-// ─── CartItemCard ─────────────────────────────────────────────────────────────
-
-function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: (id: string) => void }) {
-  const stockOk = item.remainingAfterJob >= 0;
-  return (
-    <Paper
-      variant="outlined"
-      sx={{
-        position: "relative",
-        p: 2,
-        borderRadius: 3,
-        borderColor: stockOk ? "divider" : "error.light",
-        bgcolor: stockOk ? "background.paper" : "rgba(192,57,43,0.03)",
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2, pr: 3 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 800 }} noWrap>
-              {item.jobDescription || "Unnamed job"}
-            </Typography>
-            <Chip
-              label={item.rollLabel}
-              size="small"
-              sx={{ bgcolor: "rgba(200,71,46,0.08)", color: "primary.main", fontWeight: 700, fontSize: "0.6rem", height: 18, border: "none" }}
-            />
-            {item.isFlipped && (
-              <Chip label="↻ Auto-Rotated" size="small" sx={{ bgcolor: "#e0f2fe", color: "#0284c7", fontWeight: 700, fontSize: "0.6rem", height: 18 }} />
-            )}
-          </Box>
-          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
-            {item.qty}× · {item.jobWidth}{item.dimUnit} × {item.jobHeight}{item.dimUnit} · {item.jobLengthFt.toFixed(1)}ft consumed
-          </Typography>
-          {!stockOk && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 1 }}>
-              <AlertTriangle size={12} color="#dc2626" />
-              <Typography variant="caption" sx={{ color: "error.main", fontWeight: 800 }}>
-                Insufficient stock across all rolls of this material
-              </Typography>
-            </Box>
-          )}
-        </Box>
-        <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-          <Typography variant="body1" sx={{ fontWeight: 800 }}>{fmtCurrency(item.totalAmount)}</Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>₦{item.costPerSqft}/sqft</Typography>
-        </Box>
-      </Box>
-      <IconButton
-        size="small"
-        onClick={() => onRemove(item.id)}
-        aria-label="Remove"
-        sx={{ position: "absolute", top: 8, right: 8, color: "text.disabled", "&:hover": { color: "error.main" } }}
-      >
-        <Trash2 size={14} />
-      </IconButton>
-    </Paper>
-  );
-}
-
-// ─── SummaryBar ───────────────────────────────────────────────────────────────
-
-function SummaryBar({
-  cart, grandTotal, initialPayment, balance, paymentStatus, onSubmit, disabled,
-}: {
-  cart: CartItem[];
-  grandTotal: number;
-  initialPayment: number;
-  balance: number;
-  paymentStatus: string;
-  onSubmit: () => void;
-  disabled: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  if (cart.length === 0) return null;
-
-  return (
-    <Box sx={{ position: "fixed", bottom: 0, left: { xs: 0, md: 240 }, right: 0, zIndex: 50 }}>
-      <Paper elevation={8} sx={{ borderRadius: 0, borderTop: "1px solid", borderColor: "divider" }}>
-        {expanded && (
-          <Box
-            sx={{
-              px: 2, pt: 2, pb: 1.5,
-              display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2,
-              borderBottom: "1px solid", borderColor: "divider",
-            }}
-          >
-            {[
-              { label: "Items", val: String(cart.length), sub: "in order" },
-              { label: "Grand Total", val: fmtCurrency(grandTotal), sub: "before payment" },
-              { label: "Balance Due", val: fmtCurrency(Math.max(0, balance)), sub: paymentStatus, accent: balance > 0 },
-            ].map(({ label, val, sub, accent }) => (
-              <Box key={label} sx={{ textAlign: "center" }}>
-                <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.25 }}>
-                  {label}
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 800, lineHeight: 1.2, color: accent ? "error.main" : "text.primary" }}>
-                  {val}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>{sub}</Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.5 }}>
-          <Box
-            component="button"
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1, minWidth: 0, bgcolor: "transparent", border: "none", cursor: "pointer", p: 0, textAlign: "left" }}
-          >
-            <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: "rgba(200,71,46,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Receipt size={16} color="#C8472E" />
-            </Box>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block" }}>
-                {cart.length} item{cart.length !== 1 ? "s" : ""} · tap to {expanded ? "collapse" : "expand"}
-              </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>{fmtCurrency(grandTotal)}</Typography>
-            </Box>
-            <Box sx={{ ml: "auto", flexShrink: 0, color: "text.secondary", display: "flex" }}>
-              {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-            </Box>
-          </Box>
-
-          <Button
-            variant="contained"
-            onClick={onSubmit}
-            disabled={disabled}
-            endIcon={<ArrowRight size={16} />}
-            sx={{ height: 48, px: 3, borderRadius: 3, fontWeight: 800, flexShrink: 0 }}
-          >
-            Review
-          </Button>
-        </Box>
-      </Paper>
-    </Box>
-  );
-}
-
-// ─── Section label helper ─────────────────────────────────────────────────────
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography
-      variant="caption"
-      sx={{ fontSize: "0.65rem", whiteSpace: "nowrap", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}
-    >
-      {children}
-    </Typography>
-  );
-}
-
-function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
-  return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2.5 }}>
-      <Box sx={{ width: 28, height: 28, borderRadius: 2, bgcolor: "rgba(200,71,46,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon size={14} color="#C8472E" />
-      </Box>
-      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.primary", fontSize: "0.75rem" }}>
-        {title}
-      </Typography>
-    </Box>
-  );
-}
-
 // ─── Main SalesEntry Component ────────────────────────────────────────────────
 
 export function SalesEntry() {
@@ -284,7 +84,7 @@ export function SalesEntry() {
       const res = await fetch("/api/sales");
       const json = await res.json();
       if (res.ok && json.data?.length) {
-        setCachedData(json.data, cachedExpenses, cachedInventory, cachedPayments, cachedMaterials);
+        useSyncStore.setState({cachedSales:json.data});
       }
     } catch { /* silent */ }
   }, [cachedExpenses, cachedInventory, cachedPayments, cachedMaterials, setCachedData]);
@@ -300,7 +100,7 @@ export function SalesEntry() {
       const res = await fetch("/api/materials");
       const json = await res.json();
       if (res.ok) {
-        setCachedData(cachedSales, cachedExpenses, cachedInventory, cachedPayments, json.data || []);
+        useSyncStore.setState({cachedMaterials:json.data || []});
       } else {
         toast.error(`Materials: ${json.error || "Failed to load"}`);
       }
@@ -318,7 +118,7 @@ export function SalesEntry() {
 
   // ── Batch meta ───────────────────────────────────────────────────────────
   const [meta, setMeta] = useState<BatchMeta>({
-    date: new Date().toISOString().split("T")[0],
+    date: lagosBusinessDate(),
     clientName: "",
     contact: "",
     jobStatus: JOB_STATUSES[0],
@@ -326,6 +126,45 @@ export function SalesEntry() {
   });
   const setMetaField = (k: keyof BatchMeta, v: string) =>
     setMeta((prev) => ({ ...prev, [k]: v }));
+  // How the customer paid the initial payment. The books keep cash, bank
+  // transfer and POS apart, so it is asked whenever money is entered.
+  const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
+  const savingRef = useRef(false);
+  const [catalog, setCatalog] = useState<OrderCatalog | null>(null);
+  // The owner's approval rules, so the cashier is asked for a reason before sending a sale the owner must approve.
+  const [approvalRules, setApprovalRules] = useState<{ rules: ApprovalRuleRow[]; isOwner: boolean } | null>(null);
+  // What makes this sale need the owner, worked out when the review opens.
+  const [reviewChanges, setReviewChanges] = useState<EntryChange[]>([]);
+  const [postgres, setPostgres] = useState(false);
+  const [backendReady,setBackendReady]=useState(false);
+  const [customerId, setCustomerId] = useState<string | undefined>();
+  const [loadedQuote, setLoadedQuote] = useState<{id:string;number:string;changed:boolean}|null>(null);
+  const [quoteInput, setQuoteInput] = useState('');
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void paymentContext().then(async context => {
+      if (!active) return;
+      setPostgres(context.backend === 'postgres');setBackendReady(true);
+      if (context.backend !== 'postgres') return;
+      const response = await fetch('/api/accounting/orders', {cache:'no-store'});
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Customer and service list unavailable.');
+      if (active) { setCatalog(result); localStorage.setItem('bomedia-order-catalog',JSON.stringify(result)); }
+      try {
+        const rulesResponse = await fetch('/api/accounting/approval-rules?for=entry', {cache:'no-store'}), rules = await rulesResponse.json();
+        if (rulesResponse.ok && Array.isArray(rules.rules) && active) { setApprovalRules(rules); localStorage.setItem('bomedia-approval-rules',JSON.stringify(rules)); }
+      } catch { /* The server still decides; without the rules the sale is simply sent and answered there. */ }
+    }).catch(() => {
+      if (active && cachedPaymentContext(localStorage)?.backend === 'postgres') {
+        setPostgres(true);setBackendReady(true);
+        try { setCatalog(JSON.parse(localStorage.getItem('bomedia-order-catalog') || 'null')); } catch { /* Keep entered items. */ }
+        try { setApprovalRules(JSON.parse(localStorage.getItem('bomedia-approval-rules') || 'null')); } catch { /* Same: the server decides. */ }
+      }
+    });
+    return () => { active = false; };
+  }, []);
+
 
   // ── Client suggestions ───────────────────────────────────────────────────
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -361,8 +200,9 @@ export function SalesEntry() {
 
   const filteredClients = useMemo(() => {
     const q = meta.clientName.toLowerCase();
-    return uniqueClients.filter((c) => c.toLowerCase().includes(q)).slice(0, 6);
-  }, [uniqueClients, meta.clientName]);
+    return catalog ? catalog.customers.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6).map(c=>({label:c.name,id:c.id,contact:c.contact||''}))
+      : uniqueClients.filter(c=>c.toLowerCase().includes(q)).slice(0,6).map(c=>({label:c,id:undefined,contact:clientContacts[c]||''}));
+  }, [uniqueClients, meta.clientName, catalog, clientContacts]);
 
   // ── Job form ─────────────────────────────────────────────────────────────
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
@@ -379,12 +219,13 @@ export function SalesEntry() {
     [materials, selectedMaterialId]
   );
 
-  useEffect(() => {
-    if (selectedMaterial) {
-      const price = parseNum(selectedMaterial["Selling Price"]);
-      if (price > 0) setCostOverride(String(price));
-    }
-  }, [selectedMaterial]);
+  // The list price is filled in once, at the moment a material is chosen. It must not be re-applied when the materials list refreshes in the
+  // background (every 30 seconds), or a price the cashier typed would silently go back to the list price.
+  const chooseMaterial = (material: Record<string, string | number | undefined>) => {
+    setSelectedMaterialId(String(material["Material ID"]));
+    const price = parseNum(material["Selling Price"] as string | number | undefined);
+    if (price > 0) setCostOverride(String(price));
+  };
 
   const jobWFt = useMemo(() => {
     const w = parseFloat(jobWidth) || 0;
@@ -419,6 +260,7 @@ export function SalesEntry() {
     : 0;
 
   const costPerSqft = parseFloat(costOverride) || 0;
+  const listPricePerSqft = selectedMaterial ? parseNum(selectedMaterial["Selling Price"]) : 0;
   const unitSqft = jobWFt * jobHFt;
   const unitCost = unitSqft * costPerSqft;
   const totalAmount = unitCost * qtyNum;
@@ -433,7 +275,11 @@ export function SalesEntry() {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const handleAddToCart = () => {
+    if (loadedQuote) { toast.error('Start a new order before changing quoted items.'); return; }
     setFormTouched(true);
+    if (!/^[1-9][0-9]{0,4}$/.test(qty) || Number(qty) > 10000 || !nairaToKobo(costOverride) || costPerSqft <= 0 || jobWFt <= 0 || jobHFt <= 0) {
+      toast.error('Enter positive sizes, a whole quantity, and a price with at most two decimal places.'); return;
+    }
     if (!selectedMaterialId) { toast.error("Please select a material profile"); return; }
     if (!jobWidth || !jobHeight) { toast.error("Enter both job width and height"); return; }
     if (!widthCompatible) {
@@ -472,32 +318,64 @@ export function SalesEntry() {
       isFlipped,
     };
 
+    if (postgres) {
+      try { newItem.orderItem = cartOrderItem(newItem,catalog); newItem.totalAmount = Number(orderItemTotal(newItem.orderItem))/100; newItem.unitCost = newItem.totalAmount/newItem.qty; }
+      catch (e) { toast.error((e as Error).message); return; }
+    }
+    setLoadedQuote(null);
     setCart((prev) => [...prev, newItem]);
     toast.success("Job added to order");
     setJobDesc(""); setJobWidth(""); setJobHeight(""); setQty("1"); setFormTouched(false);
   };
 
+  async function loadPostgresQuote(qId: string) {
+                          const [response, catalogResponse] = await Promise.all([
+                            fetch(`/api/accounting/quotes?number=${encodeURIComponent(qId)}`,{cache:'no-store'}),
+                            fetch('/api/accounting/orders',{cache:'no-store'})]);
+                          const quote = await response.json(); const fresh = await catalogResponse.json();
+                          if (!response.ok || !catalogResponse.ok) throw new Error(quote.error || fresh.error || 'Quote unavailable.');
+                          const items = quoteCart(quote as ScreenQuote,fresh);
+                          setCatalog(fresh); setCart(items); setCustomerId(quote.customer_id || undefined);
+                          setMeta(previous=>({...previous,clientName:quote.client_name,contact:fresh.customers.find((c:{id:string})=>c.id===quote.customer_id)?.contact||'',initialPayment:'0'}));
+                          setPaidBy(''); setLoadedQuote({id:quote.estimate_id,number:quote.quote_number,changed:orderTotal(items.map(i=>cartOrderItem(i,fresh)))!==quote.total_kobo});
+                          toast.success('Quote loaded. Review the order and payment before saving.');
+  }
+  const handoffLoading = useRef(false);
+
   // ── Load from Estimator Handoff ──────────────────────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem("estimatorCart");
-    if (saved && materials.length > 0) {
+    if (saved && materials.length > 0 && backendReady) {
       try {
         const data = JSON.parse(saved);
+        if ((data.backend && data.backend !== (postgres?'postgres':'sheets')) || (!data.backend && postgres)) throw new Error('This older estimate needs review. Load a saved PostgreSQL quote or re-enter its items; the original draft is preserved.');
+        if (data.quoteNumber) {
+          if (!handoffLoading.current) {
+            handoffLoading.current = true;
+            void loadPostgresQuote(data.quoteNumber).then(()=>{setQuoteInput(data.quoteNumber);localStorage.removeItem('estimatorCart');})
+              .catch(error=>toast.error(error.message)).finally(()=>{handoffLoading.current=false;});
+          }
+          return;
+        }
         if (data.clientName) setMetaField("clientName", data.clientName);
         if (data.items && Array.isArray(data.items)) {
           const newCartItems = data.items.map((it: any) => {
             const material = materials.find(m => m["Material ID"] === it.materialId);
-            if (!material) return null;
+            if (!material) throw new Error("A quoted material is unavailable. No items were dropped.");
             const wFt = it.dimUnit === "in" ? (parseFloat(it.width) || 0) / 12 : (parseFloat(it.width) || 0);
             const hFt = it.dimUnit === "in" ? (parseFloat(it.height) || 0) / 12 : (parseFloat(it.height) || 0);
-            const qty = parseInt(it.qty) || 1;
+            if (!/^[1-9][0-9]{0,4}$/.test(String(it.qty)) || Number(it.qty)>10000 || wFt<=0 || hFt<=0) throw new Error('Estimate dimensions or quantity need review.');
+            const qty = Number(it.qty);
             const costPerSqft = parseNum(material["Selling Price"]);
             const unitSqft = wFt * hFt;
             const rollWidth = parseNum(material["Width (ft)"]);
             const fitsNormal = wFt <= rollWidth;
             const fitsFlipped = hFt <= rollWidth;
-            const isFlipped = !fitsNormal && fitsFlipped;
-            const jobLengthFt = (isFlipped ? wFt : hFt) * qty;
+            if (!fitsNormal && !fitsFlipped) throw new Error('An estimate item does not fit its roll.');
+            const normal = fitsNormal ? Math.ceil(qty/Math.floor(rollWidth/wFt))*hFt : Infinity;
+            const rotated = fitsFlipped ? Math.ceil(qty/Math.floor(rollWidth/hFt))*wFt : Infinity;
+            const isFlipped = rotated < normal;
+            const jobLengthFt = Math.min(normal,rotated);
             return {
               id: crypto.randomUUID(),
               materialId: it.materialId,
@@ -518,33 +396,34 @@ export function SalesEntry() {
               fromInventory: true,
               isFlipped,
             };
-          }).filter(Boolean);
+          }).map((row:CartItem)=>{const item=cartOrderItem(row,catalog);const exact=Number(orderItemTotal(item))/100;return {...row,orderItem:postgres?item:undefined,totalAmount:exact,unitCost:exact/row.qty};});
           if (newCartItems.length > 0) {
             setCart(prev => [...prev, ...newCartItems]);
             toast.success("Loaded estimate from Calculator!");
           }
         }
-      } catch { /* ignore */ }
-      localStorage.removeItem("estimatorCart");
+        localStorage.removeItem("estimatorCart");
+      } catch (error) { toast.error(error instanceof Error ? error.message : "Estimate needs review."); }
     }
-  }, [materials]);
+  }, [materials,backendReady,postgres]);
 
   // ── Totals ───────────────────────────────────────────────────────────────
-  const grandTotal = useMemo(() => cart.reduce((s, i) => s + i.totalAmount, 0), [cart]);
+  const grandTotal = useMemo(() => postgres ? Number(orderTotal(cart.map(i=>cartOrderItem(i,catalog))))/100 : cart.reduce((s, i) => s + i.totalAmount, 0), [cart, postgres, catalog]);
   const initialPaymentNum = parseFloat(meta.initialPayment) || 0;
   const balance = grandTotal - initialPaymentNum;
   const paymentStatus = useMemo(() => {
-    if (grandTotal === 0) return "Unpaid";
+    if (grandTotal === 0) return cart.length ? "Free" : "Unpaid";
     if (balance <= 0) return "Paid";
     if (balance < grandTotal) return "Part-payment";
     return "Unpaid";
-  }, [grandTotal, balance]);
+  }, [grandTotal, balance, cart.length]);
 
   // ── AI / NL state ────────────────────────────────────────────────────────
   const [nlText, setNlText] = useState("");
   const [nlParsing, setNlParsing] = useState(false);
 
   const handleNlSubmit = async () => {
+    if (loadedQuote) { toast.error('Start a new order before changing quoted items.'); return; }
     if (!nlText.trim()) return;
     setNlParsing(true);
     try {
@@ -556,7 +435,7 @@ export function SalesEntry() {
       const json = await res.json();
       if (res.ok && json.data) {
         const d = json.data;
-        if (d["CLIENT NAME"]) setMetaField("clientName", d["CLIENT NAME"]);
+        if (d["CLIENT NAME"]) { setMetaField("clientName", d["CLIENT NAME"]); setCustomerId(undefined); }
         if (d["CONTACT"]) setMetaField("contact", d["CONTACT"]);
         if (d["INITIAL PAYMENT (₦)"]) setMetaField("initialPayment", String(d["INITIAL PAYMENT (₦)"]));
         if (d["JOB DESCRIPTION"]) setJobDesc(d["JOB DESCRIPTION"]);
@@ -594,15 +473,42 @@ export function SalesEntry() {
     if (!meta.clientName.trim()) { toast.error("Client name is required"); return; }
     // Safety net: blur normally handles this, but nothing should reach the
     // sheet under a spelling that splits an existing customer's history.
-    const canonicalClient = canonicalClientName(meta.clientName, allClientNames);
+    const canonicalClient = postgres ? meta.clientName.trim() : canonicalClientName(meta.clientName, allClientNames);
     if (canonicalClient !== meta.clientName) setMetaField("clientName", canonicalClient);
     if (cart.length === 0) { toast.error("Add at least one job to the order"); return; }
+    if (initialPaymentNum > 0 && !paidBy) { toast.error("Choose how the customer paid: Cash, Transfer or POS"); return; }
+    const paid = nairaToKobo(meta.initialPayment || '0');
+    if (paid === null || BigInt(paid) > BigInt(orderTotal(cart.map(i=>cartOrderItem(i,catalog))))) { toast.error('Enter a valid payment no greater than the order total.'); return; }
+    setReviewChanges(approvalRules && !approvalRules.isOwner && catalog
+      ? entryChanges({ businessDate: meta.date, today: lagosBusinessDate(), items: cart.map(i=>cartOrderItem(i,catalog)), materials: catalog.materials }, approvalRules.rules)
+      : []);
     setShowConfirm(true);
   };
 
-  const handleSave = async () => {
-    if (saving) return;
-    setSaving(true);
+  const handleSave = async (reason?: string) => {
+    if (savingRef.current) return;
+    const contactProblem = phoneProblem(meta.contact, Math.round(balance * 100));
+    if (contactProblem) { toast.error(contactProblem); return; }
+    savingRef.current = true; setSaving(true);
+    try {
+      const context = await paymentContext();
+      if (context.backend === 'postgres') {
+        const items = cart.map(i=>cartOrderItem(i,catalog));
+        const paid = nairaToKobo(meta.initialPayment || '0');
+        if (paid === null) throw new Error('Enter the initial payment to the nearest kobo.');
+        if (reviewChanges.length && !reason) throw new Error('Tell the owner why this sale is different.');
+        await saveScreenOrder({operation:'sale',businessDate:meta.date,clientName:meta.clientName.trim(),contact:meta.contact,
+          ...(customerId ? {customerId} : {}), ...(loadedQuote ? {quoteId:loadedQuote.id} : {}), jobStatus:meta.jobStatus,
+          initialPaymentKobo:paid,...(paid!=='0'&&paidBy ? {paymentMethod:paidBy} : {}),totalKobo:orderTotal(items),items,...(reason ? {approvalReason:reason} : {})});
+        toast.success(reason ? 'Sent to the owner for approval. It is recorded once approved.' : 'Order saved on this device. Its reference appears after confirmation.');
+        setShowConfirm(false);setCart([]);setLoadedQuote(null);setCustomerId(undefined);setPaidBy('');setRestoredDraft(false);
+        setMeta({date:lagosBusinessDate(),clientName:'',contact:'',jobStatus:JOB_STATUSES[0],initialPayment:'0'});
+        return;
+      }
+      if (cart.some(i=>i.orderItem?.kind==='service') || loadedQuote) throw new Error('This order belongs to PostgreSQL. Reconnect before saving.');
+    } catch(error) { toast.error(error instanceof Error ? error.message : 'Order could not be saved.'); return; }
+    finally { savingRef.current=false;setSaving(false); }
+    savingRef.current=true;setSaving(true);
     const loggedBy = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown" : "Unknown";
     let remainingPayment = initialPaymentNum;
 
@@ -647,6 +553,7 @@ export function SalesEntry() {
     try {
       useSyncStore.getState().addPendingEntry("sale", {
         batch: true,
+        ...(initialPaymentNum > 0 && paidBy ? { paymentMethod: paidBy } : {}),
         items: rowArrays.map((row, i) => {
           const item = cart[i];
           return {
@@ -667,654 +574,315 @@ export function SalesEntry() {
 
       toast.success("Order saved locally — syncing to Google Sheets…");
       setShowConfirm(false);
-      setMeta({ date: new Date().toISOString().split("T")[0], clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
+      setMeta({ date: lagosBusinessDate(), clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
+      setPaidBy(""); setRestoredDraft(false);
       setCart([]); setSelectedMaterialId(""); setJobDesc(""); setJobWidth("");
       setJobHeight(""); setQty("1"); setCostOverride(""); setNlText(""); setFormTouched(false);
     } catch {
       toast.error("Failed to save locally");
     } finally {
-      setSaving(false);
+      savingRef.current=false;setSaving(false);
     }
   };
 
-  // ── Tab state ────────────────────────────────────────────────────────────
+  // ── View state ───────────────────────────────────────────────────────────
   const [tabValue, setTabValue] = useState(0);
+  const [showQuote, setShowQuote] = useState(false);
+  const [showService, setShowService] = useState(false);
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Unsaved-sale draft ───────────────────────────────────────────────────
+  // What has been filled in is kept on this phone, so leaving the page or refreshing does not lose it. It clears itself once the sale is saved.
+  const [draftReady, setDraftReady] = useState(false);
+  const [restoredDraft, setRestoredDraft] = useState(false);
+  useEffect(() => {
+    // Deferred one tick so no state is set synchronously inside the effect.
+    void Promise.resolve().then(() => {
+      const draft = readDraft(localStorage);
+      if (draft) {
+        setMeta({ ...draft.meta, date: restoredDate(draft, lagosBusinessDate()) });
+        setPaidBy(draft.paidBy as PaymentMethod | "");
+        setCustomerId(draft.customerId); setCart(draft.cart); setLoadedQuote(draft.loadedQuote); setQuoteInput(draft.quoteInput);
+        setSelectedMaterialId(draft.job.materialId); setJobDesc(draft.job.desc); setJobWidth(draft.job.width); setJobHeight(draft.job.height);
+        setQty(draft.job.qty); setCostOverride(draft.job.price); setDimUnit(draft.job.unit); setNlText(draft.nlText);
+        setRestoredDraft(true);
+      }
+      setDraftReady(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (!draftReady) return;
+    writeDraft(localStorage, {
+      version: 1, savedAt: Date.now(), savedOn: lagosBusinessDate(), meta, paidBy, customerId, cart, loadedQuote, quoteInput, nlText,
+      job: { materialId: selectedMaterialId, desc: jobDesc, width: jobWidth, height: jobHeight, qty, price: costOverride, unit: dimUnit },
+    });
+  }, [draftReady, meta, paidBy, customerId, cart, loadedQuote, quoteInput, nlText, selectedMaterialId, jobDesc, jobWidth, jobHeight, qty, costOverride, dimUnit]);
+  // An in-page question instead of the browser's pop-up, which some phones and app windows block (the button then does nothing).
+  const [ask, setAsk] = useState<{ title: string; message: string; yes: string; run: () => void } | null>(null);
+  const startFresh = () => {
+    setMeta({ date: lagosBusinessDate(), clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
+    setPaidBy(""); setCustomerId(undefined); setCart([]); setLoadedQuote(null); setQuoteInput("");
+    setSelectedMaterialId(""); setJobDesc(""); setJobWidth(""); setJobHeight(""); setQty("1"); setCostOverride(""); setDimUnit("ft"); setNlText("");
+    setFormTouched(false); setRestoredDraft(false);
+    toast.success("Started a new sale");
+  };
+  const isOwner = approvalRules?.isOwner ?? false;
+  // Only the price rule is checked per item (the date is the same for the whole sale), and never for the owner.
+  const priceFlagged = (item: CartItem) => !!approvalRules && !isOwner && !!catalog && item.orderItem?.kind !== "service"
+    && entryChanges({ businessDate: meta.date, today: meta.date, items: [cartOrderItem(item, catalog)], materials: catalog.materials }, approvalRules.rules).length > 0;
+  const removeFromCart = (id: string) => {
+    if (loadedQuote) { toast.error("Start a new order before changing quoted items."); return; }
+    setCart((prev) => prev.filter((i) => i.id !== id));
+  };
+  const reviewDisabled = cart.length === 0 || !meta.clientName.trim();
+
+  const loadQuote = async (confirmed = false) => {
+    const qId = quoteInput.trim().toUpperCase();
+    if (!qId) return;
+    if (cart.length && !confirmed) { setAsk({ title: "Replace the order?", message: "The items in this order will be replaced by the quote.", yes: "Replace", run: () => void loadQuote(true) }); return; }
+    setQuoteLoading(true);
+    try {
+      const context = await paymentContext();
+      if (context.backend === "postgres") {
+        await loadPostgresQuote(qId);
+      } else {
+        const response = await fetch(`/api/estimates?quoteId=${encodeURIComponent(qId)}`);
+        const result = await response.json();
+        if (!response.ok || !result.data) throw new Error(result.error || "Quote not found.");
+        localStorage.setItem("estimatorCart", JSON.stringify({ version: 3, backend: "sheets", clientName: result.data["CLIENT NAME"], items: JSON.parse(result.data["CART DATA"]) }));
+        window.location.reload();
+      }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Quote could not be loaded."); }
+    finally { setQuoteLoading(false); }
+  };
+
+  // ─────────────────────────────────────────────────────────────────
   // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ pb: 16 }}>
-
-      {/* ── Tab bar ───────────────────────────────────────────────────────── */}
-      <Box sx={{ display: "flex", justifyContent: "center", mb: 4 }}>
-        <Box
-          sx={{
-            display: "inline-flex",
-            bgcolor: "grey.100",
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 99,
-            p: 0.5,
-            gap: 0.5,
-          }}
-        >
-          <Tabs
-            value={tabValue}
-            onChange={(_, v) => setTabValue(v)}
-            sx={{
-              minHeight: 0,
-              "& .MuiTabs-indicator": { display: "none" },
-              "& .MuiTabs-flexContainer": { gap: 0.5 },
-            }}
-          >
-            <Tab
-              label="✏️ Manual"
-              sx={{
-                borderRadius: 99, minHeight: 0, py: 1, px: 3,
-                fontSize: "0.875rem", fontWeight: 800,
-                "&.Mui-selected": { bgcolor: "primary.main", color: "primary.contrastText", boxShadow: "0 4px 14px rgba(200,71,46,.25)" },
-                color: "text.secondary",
-              }}
-            />
-            <Tab
-              label="⚡ AI Log"
-              sx={{
-                borderRadius: 99, minHeight: 0, py: 1, px: 3,
-                fontSize: "0.875rem", fontWeight: 800,
-                "&.Mui-selected": { bgcolor: "primary.main", color: "primary.contrastText", boxShadow: "0 4px 14px rgba(200,71,46,.25)" },
-                color: "text.secondary",
-              }}
-            />
-          </Tabs>
-        </Box>
+    <Box sx={styles.page}>
+      <Box sx={styles.tabs} role="group" aria-label="How to enter the sale">
+        <Button variant={tabValue === 0 ? "contained" : "outlined"} color={tabValue === 0 ? "primary" : "inherit"} aria-pressed={tabValue === 0} startIcon={<PenLine size={16} />} onClick={() => setTabValue(0)}>Manual</Button>
+        <Button variant={tabValue === 1 ? "contained" : "outlined"} color={tabValue === 1 ? "primary" : "inherit"} aria-pressed={tabValue === 1} startIcon={<Sparkles size={16} />} onClick={() => setTabValue(1)}>Describe it (AI)</Button>
       </Box>
 
-      {/* ── MANUAL TAB ───────────────────────────────────────────────────── */}
-      <TabPanel value={tabValue} index={0}>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {restoredDraft && (
+        <Alert severity="info" onClose={() => setRestoredDraft(false)} action={<Button color="inherit" size="small" onClick={() => setAsk({ title: "Start fresh?", message: "This throws away the unsaved sale on this phone.", yes: "Start fresh", run: startFresh })}>Start fresh</Button>}>
+          Your unsaved sale was restored{meta.clientName.trim() ? ` (${meta.clientName.trim()})` : ""}. Nothing was lost.
+        </Alert>
+      )}
 
-          {/* Section 1: Client Info */}
-          <Card sx={{ overflow: "visible", zIndex: 12 }}>
-            <CardContent sx={{ p: 3 }}>
-              <SectionHeader icon={User} title="Client Info" />
-
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
-                <Box>
-                  <FieldLabel>Date</FieldLabel>
-                  <DatePicker
-                    value={meta.date ? dayjs(meta.date) : null}
-                    onChange={(val) => setMetaField("date", val?.format("YYYY-MM-DD") ?? "")}
-                    slotProps={{ textField: { fullWidth: true } }}
-                  />
-                </Box>
-
-                <Box sx={{ position: "relative" }}>
-                  <FieldLabel>Client Name *</FieldLabel>
-                  <TextField
-                    fullWidth
-                    placeholder="Sarah Jones"
-                    value={meta.clientName}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => {
-                      // Correct to the spelling already on file. Runs on tap-away,
-                      // so it does not depend on a keyboard. Suggestion taps fire
-                      // onMouseDown first, so this only ever confirms their choice.
-                      setMetaField("clientName", canonicalClientName(meta.clientName, allClientNames));
-                      setTimeout(() => setShowSuggestions(false), 180);
-                    }}
-                    onChange={(e) => { setMetaField("clientName", e.target.value); setShowSuggestions(true); }}
-                  />
-                  {showSuggestions && filteredClients.length > 0 && (
-                    <Paper
-                      elevation={4}
-                      sx={{ position: "absolute", zIndex: 50, top: "100%", left: 0, right: 0, mt: 0.5, borderRadius: 2, overflow: "hidden" }}
-                    >
-                      {filteredClients.map((c) => (
-                        <Box
-                          key={c}
-                          component="button"
-                          type="button"
-                          onMouseDown={() => {
-                            setMetaField("clientName", c);
-                            setMetaField("contact", clientContacts[c] || meta.contact);
-                            setShowSuggestions(false);
-                          }}
-                          sx={{
-                            width: "100%", px: 2, py: 1.5, textAlign: "left", fontSize: "0.875rem",
-                            fontWeight: 600, color: "text.primary", bgcolor: "transparent", border: "none",
-                            borderBottom: "1px solid", borderColor: "divider", cursor: "pointer",
-                            display: "block", "&:last-child": { borderBottom: "none" },
-                            "&:hover": { bgcolor: "action.hover" },
-                          }}
-                        >
-                          {c}
-                        </Box>
-                      ))}
-                    </Paper>
-                  )}
-                </Box>
-
-                <Box>
-                  <FieldLabel>Contact</FieldLabel>
-                  <TextField
-                    fullWidth
-                    placeholder="08012345678"
-                    value={meta.contact}
-                    onChange={(e) => setMetaField("contact", e.target.value)}
-                  />
-                </Box>
-              </Box>
-
-              {/* Load Saved Quote */}
-              <Box sx={{ mt: 2.5, pt: 2.5, borderTop: "1px solid", borderColor: "divider" }}>
-                <FieldLabel>Load Saved Quote</FieldLabel>
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <TextField
-                    id="quoteInput"
-                    placeholder="e.g. QT-1234"
-                    size="small"
-                    sx={{ flex: 1, "& input": { textTransform: "uppercase" } }}
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={async () => {
-                      const input = document.getElementById("quoteInput") as HTMLInputElement;
-                      const qId = input?.value.trim().toUpperCase();
-                      if (!qId) return;
-                      const toastId = toast.loading("Loading quote...");
-                      try {
-                        const res = await fetch(`/api/estimates?quoteId=${qId}`);
-                        const json = await res.json();
-                        if (res.ok && json.data) {
-                          const estimate = json.data;
-                          setMetaField("clientName", estimate["CLIENT NAME"]);
-                          let cartData;
-                          try { cartData = JSON.parse(estimate["CART DATA"]); }
-                          catch { throw new Error("Invalid quote data"); }
-                          localStorage.setItem("estimatorCart", JSON.stringify({ clientName: estimate["CLIENT NAME"], items: cartData }));
-                          window.location.reload();
-                        } else {
-                          toast.error(json.error || "Quote not found", { id: toastId });
-                        }
-                      } catch {
-                        toast.error("Failed to load quote", { id: toastId });
-                      }
-                    }}
-                  >
-                    Load
-                  </Button>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Section 2: Roll & Material */}
-          <Card sx={{ overflow: "visible", zIndex: 11 }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
-                <SectionHeader icon={Layers} title="Roll & Material" />
-                <Button
-                  size="small"
-                  startIcon={<RefreshCw size={12} style={{ animation: materialsLoading ? "spin 1s linear infinite" : "none" }} />}
-                  onClick={() => fetchMaterials()}
-                  sx={{ color: "text.secondary", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", minWidth: 0 }}
-                >
-                  Refresh
-                </Button>
-              </Box>
-
-              <MaterialSelector
-                materials={materials}
-                selectedMaterialId={selectedMaterialId}
-                onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
-                loading={materialsLoading}
+      <Box sx={styles.layout}>
+        <Box sx={styles.stack}>
+          {/* Customer */}
+          <Paper variant="outlined" sx={styles.card}>
+            <Typography variant="h6" component="h2">Customer</Typography>
+            <Box sx={styles.customerGrid}>
+              <DatePicker
+                label="Date"
+                value={meta.date ? dayjs(meta.date) : null}
+                onChange={(val) => setMetaField("date", val?.format("YYYY-MM-DD") ?? "")}
+                slotProps={{ textField: { fullWidth: true } }}
               />
+              <Box sx={styles.suggestWrap}>
+                <TextField
+                  fullWidth required label="Client name"
+                  disabled={!!loadedQuote}
+                  value={meta.clientName}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => {
+                    // Correct to the spelling already on file. Runs on tap-away, so it does not depend on a keyboard.
+                    // Suggestion taps fire onMouseDown first, so this only ever confirms their choice.
+                    if (!postgres) setMetaField("clientName", canonicalClientName(meta.clientName, allClientNames));
+                    setTimeout(() => setShowSuggestions(false), 180);
+                  }}
+                  onChange={(e) => { setMetaField("clientName", e.target.value); setCustomerId(undefined); setLoadedQuote(null); setShowSuggestions(true); }}
+                />
+                {showSuggestions && filteredClients.length > 0 && (
+                  <Paper variant="outlined" sx={styles.suggestions}>
+                    {filteredClients.map((c) => (
+                      <Box
+                        key={c.id || c.label}
+                        component="button"
+                        type="button"
+                        sx={styles.suggestion}
+                        onMouseDown={() => {
+                          setMetaField("clientName", c.label);
+                          setCustomerId(c.id);
+                          setMetaField("contact", c.contact || meta.contact);
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        {c.label}{c.contact ? ` · ${c.contact}` : ""}
+                      </Box>
+                    ))}
+                  </Paper>
+                )}
+              </Box>
+              <TextField fullWidth label="Contact" placeholder="08012345678" value={meta.contact} onChange={(e) => setMetaField("contact", e.target.value)} />
+            </Box>
+            {showQuote ? (
+              <Box sx={styles.quoteForm}>
+                <TextField size="small" fullWidth label="Quote number" placeholder="e.g. QT-1234" value={quoteInput}
+                  onChange={(e) => setQuoteInput(e.target.value.toUpperCase())} />
+                <Button variant="outlined" disabled={quoteLoading} onClick={() => void loadQuote()}>Load</Button>
+              </Box>
+            ) : (
+              <Box sx={styles.quoteRow}>
+                <Typography variant="body2" color="text.secondary">Have a saved quote?</Typography>
+                <Button size="small" onClick={() => setShowQuote(true)}>Load it</Button>
+              </Box>
+            )}
+          </Paper>
 
-              {selectedMaterial && (
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, 1fr)" }, gap: 1.5, mt: 2 }}>
-                  {[
-                    {
-                      label: "Remaining",
-                      val: `${parseNum(selectedMaterial["Total Remaining (ft)"]).toFixed(1)}ft`,
-                      accent: selectedMaterial.Status === "Low Stock" ? "amber" : selectedMaterial.Status === "Out of Stock" ? "rose" : "green",
-                    },
-                    {
-                      label: "Selling Rate",
-                      val: `₦${parseNum(selectedMaterial["Selling Price"]).toLocaleString()}/sqft`,
-                      accent: "neutral",
-                    },
-                  ].map(({ label, val, accent }) => (
-                    <Paper
-                      key={label}
-                      variant="outlined"
-                      sx={{
-                        p: 1.5, borderRadius: 2, textAlign: "center",
-                        bgcolor: accent === "amber" ? "rgba(232,161,58,0.06)" : accent === "rose" ? "rgba(192,57,43,0.04)" : "grey.50",
-                        borderColor: accent === "amber" ? "warning.light" : accent === "rose" ? "error.light" : "divider",
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.25 }}>
-                        {label}
-                      </Typography>
-                      <Typography variant="body2" sx={{
-                        fontWeight: 800,
-                        color: accent === "amber" ? "warning.dark" : accent === "rose" ? "error.main" : "text.primary",
-                      }}>
-                        {val}
-                      </Typography>
-                    </Paper>
-                  ))}
+          {loadedQuote && <Alert severity={loadedQuote.changed ? "warning" : "info"} action={
+            <Button color="inherit" size="small" onClick={() => setAsk({ title: "Start a new order?", message: "This clears the quoted items.", yes: "Start a new order", run: () => { setCart([]); setLoadedQuote(null); setQuoteInput(""); } })}>Start a new order</Button>}>
+            Quote {loadedQuote.number} loaded. {loadedQuote.changed ? "Prices have changed. Confirm the current total with the customer before saving." : "Review the items before saving."}
+          </Alert>}
+
+          {tabValue === 0 ? (<>
+            <Paper variant="outlined" sx={styles.card}>
+              <Typography variant="h6" component="h2">Add an item</Typography>
+
+              <>
+                <Box>
+                  <MaterialSelector
+                    materials={materials}
+                    selectedMaterialId={selectedMaterialId}
+                    onSelect={chooseMaterial}
+                    loading={materialsLoading}
+                  />
+                  {selectedMaterial && <Typography sx={styles.stockLine}>
+                    {parseNum(selectedMaterial["Total Remaining (ft)"]).toFixed(1)} ft left · list price {fmtCurrency(parseNum(selectedMaterial["Selling Price"]))} per sq ft
+                  </Typography>}
                 </Box>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Section 3: Job Dimensions & Pricing */}
-          <Card sx={{ overflow: "visible", zIndex: 10 }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
-                <SectionHeader icon={Ruler} title="Job Dimensions & Pricing" />
-                {/* Unit toggle */}
-                <Box sx={{ display: "inline-flex", bgcolor: "grey.100", p: 0.25, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+                <TextField fullWidth label="What is it? (optional)" placeholder="Event banner, sticker label, window graphic" value={jobDesc} onChange={(e) => setJobDesc(e.target.value)} />
+                <Box sx={styles.stageChips} role="group" aria-label="Size unit">
                   {(["ft", "in"] as const).map((u) => (
-                    <Button
-                      key={u}
-                      size="small"
-                      onClick={() => setDimUnit(u)}
-                      disableElevation
-                      sx={{
-                        borderRadius: 1.5, px: 1.5, py: 0.5, minWidth: 0,
-                        fontSize: "0.625rem", fontWeight: 800, textTransform: "uppercase",
-                        bgcolor: dimUnit === u ? "primary.main" : "transparent",
-                        color: dimUnit === u ? "primary.contrastText" : "text.secondary",
-                        "&:hover": { bgcolor: dimUnit === u ? "primary.dark" : "action.hover" },
-                        boxShadow: "none",
-                      }}
-                    >
+                    <Button key={u} size="small" variant={dimUnit === u ? "contained" : "outlined"} color={dimUnit === u ? "primary" : "inherit"} aria-pressed={dimUnit === u} onClick={() => setDimUnit(u)}>
                       {u === "ft" ? "Feet" : "Inches"}
                     </Button>
                   ))}
                 </Box>
-              </Box>
-
-              {/* Description */}
-              <Box sx={{ mb: 2 }}>
-                <FieldLabel>Job Description</FieldLabel>
-                <TextField
-                  fullWidth
-                  placeholder="e.g. Event banner, sticker label, window graphic…"
-                  value={jobDesc}
-                  onChange={(e) => setJobDesc(e.target.value)}
-                />
-              </Box>
-
-              {/* Width × Height × Qty */}
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5, mb: 2 }}>
-                <Box>
-                  <FieldLabel>Width ({dimUnit}) *</FieldLabel>
-                  <TextField
-                    fullWidth type="number"
-                    placeholder={dimUnit === "ft" ? "4" : "48"}
-                    value={jobWidth}
-                    error={formTouched && !jobWidth}
-                    onChange={(e) => { setJobWidth(e.target.value); setFormTouched(true); }}
-                    slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
-                  />
+                <Box sx={styles.grid3}>
+                  <TextField fullWidth required type="number" label={`Width (${dimUnit})`} placeholder={dimUnit === "ft" ? "4" : "48"} value={jobWidth}
+                    error={formTouched && !jobWidth} onChange={(e) => { setJobWidth(e.target.value); setFormTouched(true); }} />
+                  <TextField fullWidth required type="number" label={`Height (${dimUnit})`} placeholder={dimUnit === "ft" ? "8" : "96"} value={jobHeight}
+                    error={formTouched && !jobHeight} onChange={(e) => { setJobHeight(e.target.value); setFormTouched(true); }} />
+                  <TextField fullWidth type="number" label="Qty" value={qty} onChange={(e) => setQty(e.target.value)} slotProps={{ htmlInput: { min: 1 } }} />
                 </Box>
-                <Box>
-                  <FieldLabel>Height ({dimUnit}) *</FieldLabel>
-                  <TextField
-                    fullWidth type="number"
-                    placeholder={dimUnit === "ft" ? "8" : "96"}
-                    value={jobHeight}
-                    error={formTouched && !jobHeight}
-                    onChange={(e) => { setJobHeight(e.target.value); setFormTouched(true); }}
-                    slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
-                  />
-                </Box>
-                <Box>
-                  <FieldLabel>Qty</FieldLabel>
-                  <TextField
-                    fullWidth type="number"
-                    slotProps={{ htmlInput: { min: 1, style: { fontWeight: 700 } } }}
-                    value={qty}
-                    onChange={(e) => setQty(e.target.value)}
-                  />
-                </Box>
-              </Box>
-
-              {/* Cost per sqft */}
-              <Box sx={{ mb: 2.5 }}>
-                <FieldLabel>
-                  Cost Per Sqft (₦){selectedMaterial && <span style={{ color: "#C8472E", fontWeight: 700, textTransform: "none", letterSpacing: 0 }}> · auto-filled from material</span>}
-                </FieldLabel>
-                <TextField
-                  fullWidth type="number"
-                  placeholder="e.g. 200"
-                  value={costOverride}
-                  onChange={(e) => setCostOverride(e.target.value)}
-                  slotProps={{ htmlInput: { style: { fontWeight: 700, color: "#C8472E" } } }}
-                />
-              </Box>
-
-              {/* Live calculation preview */}
-              {unitSqft > 0 && jobLengthFt > 0 && (
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 1.5, mb: 2.5 }}>
-                  {[
-                    { label: "Job Area", val: `${unitSqft.toFixed(2)} sqft`, sub: "per piece" },
-                    { label: "Length Used", val: `${jobLengthFt.toFixed(1)}ft`, sub: isFlipped ? "from roll (rotated)" : "from roll", warn: !stockOk },
-                    { label: "After Deduction", val: `${Math.max(0, remainingAfterJob).toFixed(1)}ft`, sub: "roll remaining", warn: remainingAfterJob < 0, good: remainingAfterJob >= 0 && jobLengthFt > 0 },
-                    { label: "Job Total", val: fmtCurrency(totalAmount), sub: `${qtyNum} × ${fmtCurrency(unitCost)}`, highlight: true },
-                  ].map(({ label, val, sub, warn, good, highlight }) => (
-                    <Paper
-                      key={label}
-                      variant="outlined"
-                      sx={{
-                        p: 1.5, borderRadius: 2, textAlign: "center",
-                        bgcolor: highlight ? "primary.main" : warn ? "rgba(192,57,43,0.04)" : good ? "rgba(46,125,91,0.04)" : "grey.50",
-                        borderColor: highlight ? "primary.main" : warn ? "error.light" : good ? "success.light" : "divider",
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", mb: 0.25, color: highlight ? "rgba(255,255,255,0.7)" : warn ? "error.main" : good ? "success.main" : "text.secondary" }}>
-                        {label}
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: highlight ? "primary.contrastText" : warn ? "error.main" : good ? "success.main" : "text.primary" }}>
-                        {val}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: highlight ? "rgba(255,255,255,0.6)" : "text.secondary" }}>{sub}</Typography>
-                    </Paper>
-                  ))}
-                </Box>
-              )}
-
-              {/* Orientation hint */}
-              {selectedMaterial && jobWFt > 0 && jobHFt > 0 && isFlipped && (
-                <Paper variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, bgcolor: "rgba(232,161,58,0.06)", borderColor: "warning.light", mb: 2 }}>
-                  <XCircle size={16} color="#d97706" style={{ flexShrink: 0 }} />
-                  <Typography variant="caption" sx={{ color: "warning.dark", fontWeight: 700 }}>
-                    Job will be rotated to fit — {dimUnit === "in" ? `${parseFloat(jobHeight)}in` : `${jobHFt.toFixed(1)}ft`} side runs along the {rollWidth.toFixed(1)}ft roll width.
-                  </Typography>
-                </Paper>
-              )}
-
-              {/* Width compatibility error */}
-              {selectedMaterial && jobWFt > 0 && !widthCompatible && (
-                <Paper variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, bgcolor: "rgba(192,57,43,0.04)", borderColor: "error.light", mb: 2 }}>
-                  <XCircle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
-                  <Typography variant="caption" sx={{ color: "error.main", fontWeight: 700 }}>
-                    {dimUnit === "in"
-                      ? `Both dimensions (${parseFloat(jobWidth)}in × ${parseFloat(jobHeight)}in) exceed the roll width (${(rollWidth * 12).toFixed(0)}in). Choose a wider material.`
-                      : `Job (${jobWFt.toFixed(1)}ft × ${jobHFt.toFixed(1)}ft) exceeds roll width (${rollWidth.toFixed(1)}ft) in both orientations. Choose a wider material.`}
-                  </Typography>
-                </Paper>
-              )}
-
-              {/* Add to Order */}
-              <Button
-                fullWidth
-                variant="contained"
-                color="secondary"
-                size="large"
-                startIcon={<Plus size={20} />}
-                onClick={handleAddToCart}
-                disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}
-                sx={{ height: 56, borderRadius: 3, fontWeight: 800, fontSize: "1rem" }}
-              >
-                Add to Order
-                {totalAmount > 0 && (
-                  <Box component="span" sx={{ ml: 1, opacity: 0.6, fontWeight: 700 }}>
-                    · {fmtCurrency(totalAmount)}
+                <MoneyField fullWidth label="Price per sq ft (₦)" placeholder="e.g. 200" value={costOverride} onChange={setCostOverride}
+                  helperText={selectedMaterial ? "Filled in from the material’s list price." : undefined} />
+                {listPricePerSqft > 0 && costPerSqft > 0 && costPerSqft !== listPricePerSqft && (
+                  <Box sx={styles.noticeWarn}>
+                    <Box sx={styles.noticeRow}>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>List price is {fmtCurrency(listPricePerSqft)} per sq ft</Typography>
+                        <Typography variant="body2">{approvalRules && !isOwner && approvalRules.rules.some((r) => r.kind === "price" && r.enabled)
+                          ? "A different price needs the owner’s approval when you review the sale."
+                          : "You can save at your price. The owner will see this job in “Price changes to review”."}</Typography>
+                      </Box>
+                      <Button color="inherit" size="small" onClick={() => setCostOverride(String(listPricePerSqft))}>Use list price</Button>
+                    </Box>
                   </Box>
                 )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Section 4: Cart */}
-          {cart.length > 0 && (
-            <Card>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
-                  <SectionHeader icon={Receipt} title="Current Order" />
-                  <Chip
-                    label={`${cart.length} item${cart.length !== 1 ? "s" : ""}`}
-                    size="small"
-                    sx={{ bgcolor: "rgba(200,71,46,0.08)", color: "primary.main", fontWeight: 700 }}
+                {selectedMaterial && jobWFt > 0 && jobHFt > 0 && isFlipped && (
+                  <Box sx={styles.noticeWarn}>
+                    <Typography variant="body2">The job will be rotated to fit: the {dimUnit === "in" ? `${parseFloat(jobHeight)} in` : `${jobHFt.toFixed(1)} ft`} side runs along the {rollWidth.toFixed(1)} ft roll width.</Typography>
+                  </Box>
+                )}
+                {selectedMaterial && jobWFt > 0 && !widthCompatible && (
+                  <Box sx={styles.noticeError}>
+                    <Typography variant="body2">
+                      {dimUnit === "in"
+                        ? `Both sides (${parseFloat(jobWidth)} in × ${parseFloat(jobHeight)} in) are wider than the roll (${(rollWidth * 12).toFixed(0)} in). Choose a wider material.`
+                        : `The job (${jobWFt.toFixed(1)} ft × ${jobHFt.toFixed(1)} ft) is wider than the roll (${rollWidth.toFixed(1)} ft) both ways. Choose a wider material.`}
+                    </Typography>
+                  </Box>
+                )}
+                {unitSqft > 0 && jobLengthFt > 0 && (
+                  <Box sx={styles.totalTile}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">{(unitSqft * qtyNum).toFixed(1)} sq ft · {qtyNum} piece{qtyNum === 1 ? "" : "s"}</Typography>
+                      <Typography sx={styles.stockLine} color={stockOk ? undefined : "error"}>
+                        {jobLengthFt.toFixed(1)} ft from the roll · {Math.max(0, remainingAfterJob).toFixed(1)} ft left after{stockOk ? "" : " (not enough stock)"}
+                      </Typography>
+                    </Box>
+                    <Typography sx={styles.amount}>{fmtCurrency(totalAmount)}</Typography>
+                  </Box>
+                )}
+                <Button fullWidth variant="contained" size="large" startIcon={<Plus size={20} />} onClick={handleAddToCart}
+                  disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}>
+                  Add to order{totalAmount > 0 ? ` · ${fmtCurrency(totalAmount)}` : ""}
+                </Button>
+              </>
+            </Paper>
+            {postgres && catalog && !loadedQuote && <Paper variant="outlined" sx={styles.card}>
+              <Box component="button" type="button" sx={styles.collapseHead} aria-expanded={showService} onClick={() => setShowService((open) => !open)}>
+                <Box>
+                  <Typography variant="h6" component="h2">Add a service</Typography>
+                  <Typography variant="body2" color="text.secondary">Eyelets, design, fixing and other work that uses no roll.</Typography>
+                </Box>
+                {showService ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </Box>
+              {showService && <ServiceOrderEntry services={catalog.services} onAdd={(item) => { setCart((previous) => [...previous, item]); }} />}
+            </Paper>}
+          </>) : (
+            <Paper variant="outlined" sx={styles.card}>
+              <Box>
+                <Typography variant="h6" component="h2">Describe it</Typography>
+                <Typography variant="body2" color="text.secondary">Write the job in plain words and the form fills itself in. Check it, pick the material, then add it.</Typography>
+              </Box>
+              <Box sx={styles.aiBox}>
+                <TextField fullWidth multiline minRows={5} label="The job"
+                  placeholder={`e.g. "John Doe ordered 3 SAV stickers, 4ft by 2ft each, paid ₦5,000 deposit"`}
+                  value={nlText} onChange={(e) => setNlText(e.target.value)} />
+                <Button fullWidth variant="contained" size="large" disabled={nlParsing || !nlText.trim()} onClick={handleNlSubmit}
+                  startIcon={nlParsing ? <RefreshCw size={16} /> : <Sparkles size={16} />}>
+                  {nlParsing ? "Reading…" : "Fill in the form"}
+                </Button>
+                {(jobWidth || jobHeight || jobDesc) && <>
+                  <Box sx={styles.noticeWarn}><Typography variant="body2">Filled in. Now choose the material and add it to the order.</Typography></Box>
+                  <MaterialSelector
+                    materials={materials}
+                    selectedMaterialId={selectedMaterialId}
+                    onSelect={chooseMaterial}
+                    loading={materialsLoading}
                   />
-                </Box>
-
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 3 }}>
-                  {cart.map((item) => (
-                    <CartItemCard key={item.id} item={item} onRemove={(id) => setCart((prev) => prev.filter((i) => i.id !== id))} />
-                  ))}
-                </Box>
-
-                {/* Payment inputs */}
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2, pt: 2.5, borderTop: "1px solid", borderColor: "divider" }}>
-                  <Box>
-                    <FieldLabel>Initial Payment (₦)</FieldLabel>
-                    <TextField
-                      fullWidth type="number"
-                      placeholder="0"
-                      value={meta.initialPayment}
-                      onChange={(e) => setMetaField("initialPayment", e.target.value)}
-                      slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
-                    />
+                  <Box sx={styles.grid2}>
+                    <TextField fullWidth type="number" label={`Width (${dimUnit})`} value={jobWidth} onChange={(e) => setJobWidth(e.target.value)} />
+                    <TextField fullWidth type="number" label={`Height (${dimUnit})`} value={jobHeight} onChange={(e) => setJobHeight(e.target.value)} />
                   </Box>
-                  <Box>
-                    <FieldLabel>Job Status</FieldLabel>
-                    <FormControl fullWidth>
-                      <Select
-                        value={meta.jobStatus}
-                        onChange={(e) => setMetaField("jobStatus", e.target.value)}
-                        sx={{ fontWeight: 700 }}
-                      >
-                        {JOB_STATUSES.map((s) => (
-                          <MenuItem key={s} value={s} sx={{ fontWeight: 600 }}>{s}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "flex-end" }}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 0.25 }}>
-                      Balance Due ·{" "}
-                      <Box component="span" sx={{ color: paymentStatus === "Paid" ? "success.main" : "error.main" }}>
-                        {paymentStatus.toUpperCase()}
-                      </Box>
-                    </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                      {fmtCurrency(Math.max(0, balance))}
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
+                  <Button fullWidth variant="contained" disabled={!selectedMaterialId || !jobWidth || !jobHeight} onClick={handleAddToCart}>
+                    Add to order · {fmtCurrency(totalAmount)}
+                  </Button>
+                </>}
+              </Box>
+            </Paper>
           )}
         </Box>
-      </TabPanel>
 
-      {/* ── AI TAB ───────────────────────────────────────────────────────── */}
-      <TabPanel value={tabValue} index={1}>
-        <Card>
-          <CardContent sx={{ p: { xs: 3, md: 5 } }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
-              <Box sx={{ width: 40, height: 40, borderRadius: 2.5, bgcolor: "rgba(200,71,46,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Sparkles size={20} color="#C8472E" />
-              </Box>
-              <Box>
-                <Typography variant="h4" sx={{ fontWeight: 800 }}>AI Natural Language Entry</Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.25 }}>
-                  Describe the job in plain English — Gemini fills the form for you
-                </Typography>
-              </Box>
-            </Box>
+        <OrderPanel cart={cart} total={grandTotal} client={meta.clientName} flagged={priceFlagged} onRemove={removeFromCart} onReview={handleReview} reviewDisabled={reviewDisabled} />
+      </Box>
 
-            <TextField
-              fullWidth multiline minRows={6}
-              placeholder={`e.g. "John Doe ordered 3 SAV stickers, 4ft by 2ft each, paid ₦5,000 deposit…"`}
-              value={nlText}
-              onChange={(e) => setNlText(e.target.value)}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "grey.50", fontSize: "1rem" } }}
-            />
-            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
-              Then select the matching roll from inventory before adding to order.
-            </Typography>
-
-            <Button
-              fullWidth variant="contained" size="large"
-              disabled={nlParsing || !nlText.trim()}
-              onClick={handleNlSubmit}
-              startIcon={nlParsing ? <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={16} />}
-              sx={{ height: 56, mt: 2.5, borderRadius: 3, fontWeight: 800, fontSize: "1rem" }}
-            >
-              {nlParsing ? "Parsing…" : "Extract & Fill Form"}
-            </Button>
-
-            {(jobWidth || jobHeight || jobDesc) && (
-              <Box sx={{ mt: 3, pt: 3, borderTop: "1px solid", borderColor: "divider", display: "flex", flexDirection: "column", gap: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CheckCircle2 size={16} color="#2E7D5B" />
-                  <Typography variant="body2" sx={{ fontWeight: 800, color: "text.primary" }}>
-                    Parsed — now select a material and add to order
-                  </Typography>
-                </Box>
-
-                <MaterialSelector
-                  materials={materials}
-                  selectedMaterialId={selectedMaterialId}
-                  onSelect={(mat) => setSelectedMaterialId(mat["Material ID"])}
-                  loading={materialsLoading}
-                />
-
-                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
-                  <Box>
-                    <FieldLabel>Width ({dimUnit})</FieldLabel>
-                    <TextField fullWidth type="number" value={jobWidth} onChange={(e) => setJobWidth(e.target.value)} slotProps={{ htmlInput: { style: { fontWeight: 700 } } }} />
-                  </Box>
-                  <Box>
-                    <FieldLabel>Height ({dimUnit})</FieldLabel>
-                    <TextField fullWidth type="number" value={jobHeight} onChange={(e) => setJobHeight(e.target.value)} slotProps={{ htmlInput: { style: { fontWeight: 700 } } }} />
-                  </Box>
-                </Box>
-
-                <Button
-                  fullWidth variant="contained"
-                  disabled={!selectedMaterialId || !jobWidth || !jobHeight}
-                  onClick={handleAddToCart}
-                  sx={{ borderRadius: 3, fontWeight: 800 }}
-                >
-                  Add Parsed Job to Order · {fmtCurrency(totalAmount)}
-                </Button>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-      </TabPanel>
-
-      {/* ── Sticky summary bar ────────────────────────────────────────────── */}
-      <SummaryBar
-        cart={cart}
-        grandTotal={grandTotal}
-        initialPayment={initialPaymentNum}
-        balance={balance}
-        paymentStatus={paymentStatus}
-        onSubmit={handleReview}
-        disabled={cart.length === 0 || !meta.clientName.trim()}
-      />
-
-      {/* ── Confirm dialog ────────────────────────────────────────────────── */}
-      <Dialog
-        open={showConfirm}
-        onClose={() => setShowConfirm(false)}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{ paper: { sx: { borderRadius: 3, overflow: "hidden" } } }}
-      >
-        <DialogTitle sx={{ bgcolor: "primary.main", color: "primary.contrastText", pb: 1 }}>
-          <Typography component="span" variant="h6" sx={{ fontWeight: 800, color: "inherit", display: "block" }}>Confirm Order</Typography>
-          <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)", display: "block" }}>
-            Review before pushing to Google Sheets
-          </Typography>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 3 }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-            {/* Client */}
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "grey.50" }}>
-              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.5 }}>
-                Client
-              </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 800 }}>{meta.clientName}</Typography>
-              {meta.contact && <Typography variant="body2" sx={{ color: "text.secondary" }}>{meta.contact}</Typography>}
-            </Paper>
-
-            {/* Line items */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {cart.map((item, i) => (
-                <Paper
-                  key={item.id}
-                  variant="outlined"
-                  sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.5, borderRadius: 2, bgcolor: "grey.50" }}
-                >
-                  <Box sx={{ minWidth: 0, flex: 1, pr: 2 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
-                      {i + 1}. {item.jobDescription}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      {item.rollLabel} · {item.qty}× {item.jobWidth}{item.dimUnit}×{item.jobHeight}{item.dimUnit}
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 800, flexShrink: 0 }}>{fmtCurrency(item.totalAmount)}</Typography>
-                </Paper>
-              ))}
-            </Box>
-
-            {/* Totals */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
-              {[
-                { label: "Grand Total", val: fmtCurrency(grandTotal) },
-                { label: "Initial Payment", val: fmtCurrency(initialPaymentNum), green: true },
-                { label: "Balance Due", val: fmtCurrency(Math.max(0, balance)), red: balance > 0 },
-              ].map(({ label, val, green, red }) => (
-                <Box key={label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 600 }}>{label}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 800, color: green ? "success.main" : red ? "error.main" : "text.primary" }}>{val}</Typography>
-                </Box>
-              ))}
-            </Box>
-
-            <Paper variant="outlined" sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: 2, bgcolor: "rgba(200,71,46,0.04)", borderColor: "primary.light" }}>
-              <Info size={16} color="#C8472E" style={{ flexShrink: 0 }} />
-              <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700 }}>
-                Roll stock will be decremented automatically when this syncs.
-              </Typography>
-            </Paper>
-          </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider", gap: 1.5 }}>
-          <Button
-            variant="outlined"
-            fullWidth
-            onClick={() => setShowConfirm(false)}
-            sx={{ height: 48, borderRadius: 2, fontWeight: 700 }}
-          >
-            Back
-          </Button>
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleSave}
-            disabled={saving}
-            startIcon={saving ? <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
-            sx={{ height: 48, borderRadius: 2, fontWeight: 800 }}
-          >
-            {saving ? "Saving…" : "Confirm & Save"}
-          </Button>
+      <Dialog open={!!ask} onClose={() => setAsk(null)} aria-labelledby="ask-title">
+        <DialogTitle id="ask-title">{ask?.title}</DialogTitle>
+        <DialogContent><DialogContentText>{ask?.message}</DialogContentText></DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setAsk(null)}>Cancel</Button>
+          <Button variant="contained" autoFocus onClick={() => { const run = ask?.run; setAsk(null); run?.(); }}>{ask?.yes}</Button>
         </DialogActions>
       </Dialog>
+
+      <TotalBar count={cart.length} total={grandTotal} onReview={handleReview} disabled={reviewDisabled} />
+
+      <ReviewSheet
+        key={String(showConfirm)}
+        open={showConfirm} onClose={() => setShowConfirm(false)} saving={saving}
+        meta={meta} cart={cart} grandTotal={grandTotal} balance={balance} paymentStatus={paymentStatus}
+        stages={JOB_STATUSES} onStage={(stage) => setMetaField("jobStatus", stage)} onPaid={(value) => setMetaField("initialPayment", value)} onContact={(value) => setMetaField("contact", value)}
+        paidBy={paidBy} onPaidBy={setPaidBy} changes={reviewChanges} onSave={(reason) => void handleSave(reason)}
+      />
     </Box>
   );
 }

@@ -2,20 +2,23 @@ import { useState } from "react";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Box from "@mui/material/Box";
+import ButtonBase from "@mui/material/ButtonBase";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import Divider from "@mui/material/Divider";
 import { formatDistanceToNow } from "date-fns";
 import { Activity, ArrowRight, CircleDollarSign, User, TrendingDown, Layers, ChevronDown, ChevronUp } from "lucide-react";
 import { parseAmount } from "@/lib/financial-utils";
+import { avatarTone } from "@/lib/avatar-tone";
+import { paymentTypeStyles, pulseStyles as styles } from "@/app/theme";
 
-const PAYMENT_TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  "Initial Payment":      { bg: "#dbeafe", text: "#1d4ed8", label: "Initial" },
-  "Additional Payment 1": { bg: "#fef3c7", text: "#b45309", label: "Addl. 1" },
-  "Additional Payment 2": { bg: "#ede9fe", text: "#7c3aed", label: "Addl. 2" },
-  "Settlement":           { bg: "#d1fae5", text: "#065f46", label: "Settlement" },
-  "Rounding":             { bg: "#fce7f3", text: "#9d174d", label: "Rounding" },
-  "Lump Sum":             { bg: "#e0e7ff", text: "#3730a3", label: "Lump Sum" },
+// Colours live in the theme (paymentTypeStyles); this only maps a payment type to a tone and a label.
+const PAYMENT_TYPE_STYLES: Record<string, { tone: keyof typeof paymentTypeStyles; label: string }> = {
+  "Initial Payment":      { tone: "initial", label: "Initial" },
+  "Additional Payment 1": { tone: "addl1", label: "Addl. 1" },
+  "Additional Payment 2": { tone: "addl2", label: "Addl. 2" },
+  "Settlement":           { tone: "settlement", label: "Settlement" },
+  "Rounding":             { tone: "rounding", label: "Rounding" },
+  "Lump Sum":             { tone: "lumpSum", label: "Lump Sum" },
 };
 
 /**
@@ -58,13 +61,11 @@ function groupByBatch(payments: any[]): any[] {
 }
 
 function getPaymentStyle(type: string) {
-  return (
-    PAYMENT_TYPE_STYLES[type] ?? {
-      bg: "#d1fae5",
-      text: "#065f46",
-      label: type || "Payment",
-    }
-  );
+  const known = PAYMENT_TYPE_STYLES[type];
+  return {
+    sx: paymentTypeStyles[known?.tone ?? "settlement"],
+    label: known?.label ?? (type || "Payment"),
+  };
 }
 
 function getInitials(name: string) {
@@ -73,14 +74,6 @@ function getInitials(name: string) {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-const AVATAR_COLORS = [
-  "#ef4444", "#3b82f6", "#10b981",
-  "#8b5cf6", "#f59e0b", "#06b6d4", "#f97316",
-];
-function getAvatarColor(name: string) {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
 export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
@@ -102,33 +95,27 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
   const hasData = recent.length > 0;
 
   return (
-    <Card sx={{ overflow: "hidden", height: 420, display: "flex", flexDirection: "column" }}>
-      <Box sx={{ px: 2.5, pt: 2, pb: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-          <Box sx={{ p: 0.75, bgcolor: "primary.50", borderRadius: 2, color: "primary.main", display: "flex" }}>
-            <Activity size={16} />
-          </Box>
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
-              Recent Payments Pulse
-            </Typography>
-            <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, color: "text.secondary" }}>
-              Latest Incoming Cash
-            </Typography>
-          </Box>
-        </Stack>
+    <Card sx={styles.card}>
+      <Box sx={styles.header}>
+        <Box sx={styles.headerIcon}>
+          <Activity size={16} />
+        </Box>
+        <Box>
+          <Typography variant="h6" component="h3">Recent Payments Pulse</Typography>
+          <Typography variant="overline" color="text.secondary" sx={styles.block}>Latest Incoming Cash</Typography>
+        </Box>
       </Box>
 
-      <CardContent sx={{ p: 0, flexGrow: 1, overflowY: "auto", "&:last-child": { pb: 0 } }}>
+      <CardContent sx={styles.content}>
         {!hasData ? (
-          <Stack sx={{ alignItems: "center", justifyContent: "center", height: 200, textAlign: "center", px: 2 }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: "50%", bgcolor: "action.hover", display: "flex", alignItems: "center", justifyContent: "center", mb: 1.5 }}>
-              <CircleDollarSign size={24} color="#9ca3af" />
+          <Stack sx={styles.empty}>
+            <Box sx={styles.emptyIcon}>
+              <CircleDollarSign size={24} />
             </Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", display: "block" }}>
+            <Typography variant="h6" component="p" color="text.secondary">
               No recent payments.
             </Typography>
-            <Typography variant="caption" sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
+            <Typography variant="caption" color="text.disabled" sx={styles.block}>
               Payments will appear here when logged.
             </Typography>
           </Stack>
@@ -152,57 +139,43 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
               const rowKey        = payment["PAYMENT ID"] || idx;
 
               return (
-                <Box
-                  key={payment["PAYMENT ID"] || idx}
-                  sx={{ p: 2, borderBottom: idx < recent.length - 1 ? "1px solid" : "none", borderColor: "divider", "&:hover": { bgcolor: "action.hover" }, transition: "background 0.2s" }}
-                >
-                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 1.5 }}>
-                    <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, minWidth: 0 }}>
-                      <Box
-                        sx={{ width: 36, height: 36, borderRadius: "50%", bgcolor: getAvatarColor(clientName), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                      >
-                        <Typography sx={{ fontSize: "0.6875rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>
-                          {getInitials(clientName) || <User size={16} />}
-                        </Typography>
+                <Box key={payment["PAYMENT ID"] || idx} sx={styles.row}>
+                  <Box sx={styles.top}>
+                    <Box sx={styles.who}>
+                      <Box sx={[styles.avatar, { bgcolor: avatarTone(clientName) }]}>
+                        {getInitials(clientName) || <User size={16} />}
                       </Box>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 900, color: "text.primary", display: "block" }} noWrap>
+                      <Box sx={styles.minZero}>
+                        <Typography variant="h6" component="p" noWrap>
                           {clientName}
                         </Typography>
-                        <Box
-                          component="span"
-                          sx={{ display: "inline-block", mt: 0.25, fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, px: 0.75, py: 0.25, borderRadius: 1, bgcolor: style.bg, color: style.text }}
-                        >
+                        <Box component="span" sx={[styles.typeChip, style.sx]}>
                           {style.label}
                         </Box>
                       </Box>
-                    </Stack>
+                    </Box>
 
-                    <Typography variant="body2" sx={{ fontWeight: 900, color: "#059669", flexShrink: 0, fontFamily: "monospace" }}>
+                    <Typography variant="body2" sx={styles.amount}>
                       +₦{amount.toLocaleString()}
                     </Typography>
-                  </Stack>
+                  </Box>
 
                   {subPayments ? (
-                    <Box sx={{ mt: 1, pl: 6 }}>
-                      <Box
-                        component="button"
-                        type="button"
+                    <Box sx={[styles.indent, { mt: 1 }]}>
+                      <ButtonBase
                         onClick={() => toggleBatch(String(rowKey))}
-                        sx={{
-                          display: "flex", alignItems: "center", gap: 0.5,
-                          border: "none", bgcolor: "transparent", cursor: "pointer", p: 0, color: "text.secondary",
-                        }}
+                        aria-expanded={expandedBatches.has(String(rowKey))}
+                        sx={styles.batchToggle}
                       >
-                        <Layers size={11} />
-                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                        <Layers size={12} />
+                        <Typography variant="caption" component="span" sx={{ fontWeight: 700 }}>
                           {expandedBatches.has(String(rowKey)) ? "Hide" : "Show"} {subPayments.length} allocations
                         </Typography>
                         {expandedBatches.has(String(rowKey)) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                      </Box>
+                      </ButtonBase>
 
                       {expandedBatches.has(String(rowKey)) && (
-                        <Stack sx={{ gap: 0.5, mt: 0.75 }}>
+                        <Box sx={styles.subList}>
                           {subPayments.map((sub, subIdx) => {
                             const subAmount = parseAmount(sub["AMOUNT"]);
                             const subBefore = parseAmount(sub["BALANCE BEFORE"]);
@@ -211,67 +184,61 @@ export function RecentPaymentsPulse({ payments }: { payments: any[] }) {
                             const subSalesId = sub["SALES ID"] || "";
                             const subStyle = getPaymentStyle(subType);
                             return (
-                              <Stack key={sub["PAYMENT ID"] || subIdx} direction="row" sx={{
-                                alignItems: "center", justifyContent: "space-between", gap: 1,
-                                bgcolor: "action.hover", borderRadius: 1.5, px: 1, py: 0.5,
-                              }}>
-                                <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, minWidth: 0 }}>
-                                  <Box
-                                    component="span"
-                                    sx={{ flexShrink: 0, fontSize: "0.5rem", fontWeight: 900, textTransform: "uppercase", px: 0.5, py: 0.125, borderRadius: 0.75, bgcolor: subStyle.bg, color: subStyle.text }}
-                                  >
+                              <Box key={sub["PAYMENT ID"] || subIdx} sx={styles.subRow}>
+                                <Box sx={styles.who}>
+                                  <Box component="span" sx={[styles.subChip, subStyle.sx]}>
                                     {subStyle.label}
                                   </Box>
-                                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.625rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  <Typography variant="caption" sx={styles.subText}>
                                     {subSalesId} · ₦{subBefore.toLocaleString()} → {subAfter <= 0 ? "Cleared" : `₦${subAfter.toLocaleString()}`}
                                   </Typography>
-                                </Stack>
-                                <Typography variant="caption" sx={{ fontWeight: 900, color: "#059669", fontFamily: "monospace", flexShrink: 0 }}>
+                                </Box>
+                                <Typography variant="caption" sx={[styles.amount, { fontSize: "0.75rem" }]}>
                                   +₦{subAmount.toLocaleString()}
                                 </Typography>
-                              </Stack>
+                              </Box>
                             );
                           })}
-                        </Stack>
+                        </Box>
                       )}
                     </Box>
                   ) : (balanceBefore > 0 || balanceAfter >= 0) && (
-                    <Stack direction="row" sx={{ mt: 1, pl: 6, alignItems: "center", gap: 0.5 }}>
-                      <TrendingDown size={12} color="#9ca3af" />
-                      <Typography variant="caption" sx={{ color: "text.secondary" }}>Debt:</Typography>
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444", fontFamily: "monospace" }}>
+                    <Box sx={[styles.debtRow, styles.indent]}>
+                      <Box component="span" sx={styles.iconMuted}><TrendingDown size={12} /></Box>
+                      <Typography variant="caption" color="text.secondary">Debt:</Typography>
+                      <Typography variant="caption" color="error.main" sx={[styles.mono, { fontWeight: 700 }]}>
                         ₦{balanceBefore.toLocaleString()}
                       </Typography>
-                      <ArrowRight size={10} color="#9ca3af" />
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: balanceAfter <= 0 ? "#059669" : "#d97706", fontFamily: "monospace" }}>
+                      <Box component="span" sx={styles.iconMuted}><ArrowRight size={10} /></Box>
+                      <Typography variant="caption" color={balanceAfter <= 0 ? "success.main" : "warning.dark"} sx={[styles.mono, { fontWeight: 700 }]}>
                         {balanceAfter <= 0 ? "Cleared" : `₦${balanceAfter.toLocaleString()}`}
                       </Typography>
-                    </Stack>
+                    </Box>
                   )}
 
                   {notes && notes !== `Logged via Manage Sale Action` && (
-                    <Typography variant="caption" sx={{ display: "block", mt: 0.75, pl: 6, color: "text.secondary", fontStyle: "italic" }} noWrap>
+                    <Typography variant="caption" sx={[styles.notes, styles.indent]} noWrap>
                       "{notes}"
                     </Typography>
                   )}
 
-                  <Stack direction="row" sx={{ mt: 1, pl: 6, alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                  <Box sx={[styles.meta, styles.indent]}>
                     {collectedBy && (
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", fontSize: "0.5625rem" }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
                         By {collectedBy}
                       </Typography>
                     )}
                     {collectedBy && (
-                      <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.5625rem" }}>·</Typography>
+                      <Typography variant="caption" color="text.disabled">·</Typography>
                     )}
-                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.5625rem" }}>{timeAgo}</Typography>
+                    <Typography variant="caption" color="text.secondary">{timeAgo}</Typography>
                     {!subPayments && salesId && (
                       <>
-                        <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.5625rem" }}>·</Typography>
-                        <Typography variant="caption" sx={{ color: "text.disabled", fontFamily: "monospace", fontSize: "0.5625rem" }}>{salesId}</Typography>
+                        <Typography variant="caption" color="text.disabled">·</Typography>
+                        <Typography variant="caption" color="text.disabled" sx={styles.mono}>{salesId}</Typography>
                       </>
                     )}
-                  </Stack>
+                  </Box>
                 </Box>
               );
             })}

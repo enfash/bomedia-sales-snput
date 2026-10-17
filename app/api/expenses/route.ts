@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { legacyFeedResponse, legacyWriteBlocked } from '@/lib/server/legacy-feed';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
@@ -11,7 +12,9 @@ const EXPENSES_HEADERS = [
   'PAID BY', 'PAID AT', 'TIMESTAMP',
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
+  const fromPostgres = await legacyFeedResponse('expenses', undefined, { cancelled: new URL(request.url).searchParams.get('cancelled') === 'only' ? 'only' : undefined });
+  if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[1];
@@ -29,6 +32,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const moved = legacyWriteBlocked();
+  if (moved) return moved;
   try {
     const body = await request.json();
 
@@ -106,6 +111,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const moved = legacyWriteBlocked();
+  if (moved) return moved;
   try {
     const { timestamp, status, paidBy } = await request.json();
     if (!timestamp || !status) {

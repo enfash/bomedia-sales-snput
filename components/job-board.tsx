@@ -1,540 +1,230 @@
 "use client";
 
-import { UnifiedRecord } from "@/components/manage-sale-action";
-import { useState, useMemo } from "react";
-import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Chip from "@mui/material/Chip";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import Stack from "@mui/material/Stack";
-import IconButton from "@mui/material/IconButton";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import { MaterialBadge } from "@/components/material-badge";
-import { Clock, CheckCircle2, RefreshCw, X, Check, MoreVertical } from "lucide-react";
-import { useSyncStore } from "@/lib/store";
-
-const parseAmount = (val: any): number => {
-  if (val === undefined || val === null) return 0;
-  const str = val.toString().replace(/[₦, \s]/g, "");
-  return parseFloat(str) || 0;
-};
-
-const mapSale = (r: any): UnifiedRecord => {
-  const amount = parseAmount(r["AMOUNT (₦)"] || r["Amount (₦)"]);
-  const sId = r["Sales ID"] || r["Sales Id"] || r["SALES ID"] || "";
-  const rowIndexStr = r._rowIndex !== undefined ? r._rowIndex.toString() : "";
-  return {
-    id: sId ? `${sId}-${rowIndexStr}` : `sale-${r.DATE || r.Date || ""}-${r["CLIENT NAME"] || r["Client Name"] || ""}-${rowIndexStr}`,
-    date: r.DATE || r.Date || "N/A",
-    type: "Sale",
-    client: r["CLIENT NAME"] || r["Client Name"] || "N/A",
-    description: r["JOB DESCRIPTION"] || r["Job Description"] || "—",
-    amount,
-    status: "In Progress",
-    loggedBy: r["Logged By"] || "Unknown",
-    isPending: false,
-    rowIndex: r._rowIndex ? parseInt(r._rowIndex.toString()) : undefined,
-    jobStatus: r["JOB STATUS"] || r["Job Status"] || "Quoted",
-    material: r["Material"] || r["MATERIAL"] || r["material"] || "",
-    balance: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
-    salesId: sId,
-    raw: r
-  };
-};
-
-const COLUMNS = [
-  {
-    id: "Quoted",
-    label: "Quoted / Pending",
-    chipColor: "#6b7280",
-    chipBg: "rgba(107,114,128,0.1)",
-    accentColor: "#9ca3af",
-    stripBg: "#e5e7eb",
-  },
-  {
-    id: "Printing",
-    label: "Printing",
-    chipColor: "#d97706",
-    chipBg: "rgba(245,158,11,0.1)",
-    accentColor: "#f59e0b",
-    stripBg: "#fde68a",
-  },
-  {
-    id: "Finishing",
-    label: "Finishing / In Progress",
-    chipColor: "#0284c7",
-    chipBg: "rgba(2,132,199,0.1)",
-    accentColor: "#38bdf8",
-    stripBg: "#bae6fd",
-  },
-  {
-    id: "Ready",
-    label: "Ready",
-    chipColor: "#059669",
-    chipBg: "rgba(5,150,105,0.1)",
-    accentColor: "#34d399",
-    stripBg: "#a7f3d0",
-  },
-  {
-    id: "Delivered",
-    label: "Delivered / Completed",
-    chipColor: "#C8472E",
-    chipBg: "rgba(200,71,46,0.1)",
-    accentColor: "#C8472E",
-    stripBg: "#fca5a5",
-  },
-];
-
-const getColumnId = (status: string) => {
-  if (status === "Pending" || status === "Quoted") return "Quoted";
-  if (status === "In Progress" || status === "Finishing") return "Finishing";
-  if (status === "Completed" || status === "Delivered") return "Delivered";
-  if (status === "Ready") return "Ready";
-  if (status === "Printing") return "Printing";
-  return "Quoted";
-};
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { Box, Button, ButtonBase, IconButton, Typography, useMediaQuery } from '@mui/material';
+import { LoadingState } from '@/components/loading-state';
+import { useTheme } from '@mui/material/styles';
+import { Check, CheckCircle2, Clock, MoreVertical, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
+import { boardStyles as styles, stageStyles, settingsStyles } from '@/app/theme';
+import { HomeBackLink } from '@/components/back-link';
+import { useFloatingNotice } from '@/components/floating-notice';
+import type { UnifiedRecord } from '@/components/manage-sale-action';
+import { MaterialBadge } from '@/components/material-badge';
+import { ResponsiveSheet } from '@/components/responsive-sheet';
+import { dayFromText, shortDay } from '@/lib/expense-list';
+import { STAGES, boardColumns, jobsFrom, jobsToMove, nextStage, stageById, stageOf, type Stage, type StageId } from '@/lib/job-board';
+import { useSyncStore } from '@/lib/store';
 
 interface JobBoardProps {
   isAdmin?: boolean;
   filterClient?: string | null;
 }
 
+const dateOf = (job: UnifiedRecord) => { const day = dayFromText(job.date); return day ? shortDay(day) : job.date; };
+const jobName = (job: UnifiedRecord) => `${job.description}, ${job.client}`;
+
+function JobCardBody({ job, stage, showClient = true }: { job: UnifiedRecord; stage: StageId; showClient?: boolean }) {
+  return <>
+    <Box>
+      {showClient && <Typography variant="body2" sx={styles.jobClient}>{job.client}</Typography>}
+      <Typography variant="h6" component="p" sx={styles.jobTitle}>{job.description}</Typography>
+    </Box>
+    <Box sx={styles.jobMeta}>
+      <Box>{job.material && <MaterialBadge material={job.material} />}</Box>
+      {stage === 'Delivered'
+        ? <Typography variant="body2" component="span" sx={styles.jobDone}><CheckCircle2 size={14} />Done</Typography>
+        : <Typography variant="body2" component="span" sx={styles.jobDate}><Clock size={14} />{dateOf(job)}</Typography>}
+    </Box>
+  </>;
+}
+
+/** Phone: one job, with a one-tap move to the next stage. In select mode the whole card ticks instead. */
+function PhoneCard({ job, selecting, selected, onToggle, onMoveNext, onMoveOther }: {
+  job: UnifiedRecord; selecting: boolean; selected: boolean; onToggle: () => void; onMoveNext: (stage: Stage) => void; onMoveOther: () => void;
+}) {
+  const stage = stageOf(job);
+  const next = nextStage(stage);
+  return <Box sx={[styles.jobCard, selected && styles.jobCardSelected]}>
+    {selecting && <ButtonBase aria-pressed={selected} aria-label={`Select ${jobName(job)}`} onClick={onToggle} sx={[styles.tick, selected && styles.tickOn]}>{selected && <Check size={16} />}</ButtonBase>}
+    <Box sx={styles.jobBody} onClick={selecting ? onToggle : undefined}>
+      <JobCardBody job={job} stage={stage} />
+      {!selecting && <Box sx={styles.jobActions}>
+        {next && <Button variant="contained" sx={styles.moveNext} onClick={() => onMoveNext(next)}>Move to {next.id}</Button>}
+        <IconButton aria-label={`Move ${jobName(job)} to another stage`} sx={styles.moveOther} onClick={onMoveOther}><MoreVertical size={18} /></IconButton>
+      </Box>}
+    </Box>
+  </Box>;
+}
+
+/** Desktop: a card to drag between columns; a click selects it. */
+function DeskCard({ job, selected, dragging, onToggle, onDragStart, onDragEnd, onMoveOther }: {
+  job: UnifiedRecord; selected: boolean; dragging: boolean; onToggle: () => void; onDragStart: () => void; onDragEnd: () => void; onMoveOther: () => void;
+}) {
+  return <Box draggable onClick={onToggle} onDragStart={onDragStart} onDragEnd={onDragEnd} sx={[styles.jobCard, styles.deskCard, selected && styles.jobCardSelected, dragging && styles.dragging]}>
+    {selected && <Box component="span" sx={styles.tickBadge}><Check size={12} /></Box>}
+    <Box sx={styles.jobBody}>
+      <Box sx={styles.jobMeta}>
+        <Typography variant="body2" sx={styles.jobClient}>{job.client}</Typography>
+        <IconButton size="small" aria-label={`Move ${jobName(job)} to another stage`} onClick={(event) => { event.stopPropagation(); onMoveOther(); }}><MoreVertical size={16} /></IconButton>
+      </Box>
+      <JobCardBody job={job} stage={stageOf(job)} showClient={false} />
+    </Box>
+  </Box>;
+}
+
+// False while the server renders and during hydration, true afterwards: what the board shows depends on saved browser data.
+const noSubscription = () => () => {};
+const useMounted = () => useSyncExternalStore(noSubscription, () => true, () => false);
+
 export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
-  const { cachedSales, updateSaleStatus } = useSyncStore();
-  const [draggedJob, setDraggedJob] = useState<UnifiedRecord | null>(null);
-  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const theme = useTheme();
+  const mounted = useMounted();
+  const desktop = useMediaQuery(theme.breakpoints.up('md'));
+  const cachedSales = useSyncStore((s) => s.cachedSales);
+  const updateSaleStatus = useSyncStore((s) => s.updateSaleStatus);
 
-  // Status Menu State for Mobile & Touch interactions
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [menuActiveJob, setMenuActiveJob] = useState<UnifiedRecord | null>(null);
+  const [chosen, setChosen] = useState<StageId | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dragged, setDragged] = useState<UnifiedRecord | null>(null);
+  const [over, setOver] = useState<StageId | null>(null);
+  const [moving, setMoving] = useState<UnifiedRecord[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
 
-  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>, job: UnifiedRecord) => {
-    e.stopPropagation();
-    setMenuAnchorEl(e.currentTarget);
-    setMenuActiveJob(job);
-  };
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
+  }, []);
 
-  const handleMenuClose = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setMenuAnchorEl(null);
-    setMenuActiveJob(null);
-  };
-
-  const handleStatusSelect = (dbStatus: string) => {
-    if (menuActiveJob) {
-      updateSaleStatus(menuActiveJob.salesId || "", menuActiveJob.rowIndex, dbStatus);
-    }
-    handleMenuClose();
-  };
-
-  const records = useMemo(() => {
-    let mapped = (cachedSales || []).map((r: any) => mapSale(r));
-    if (filterClient) {
-      mapped = mapped.filter((r: UnifiedRecord) =>
-        r.client.toLowerCase().includes(filterClient.toLowerCase())
-      );
-    }
-    return mapped;
-  }, [cachedSales, filterClient]);
+  const jobs = jobsFrom(cachedSales, filterClient);
+  const columns = boardColumns(jobs);
+  const active: StageId = chosen ?? columns.find((c) => c.items.length > 0)?.stage.id ?? 'Quoted';
+  const activeColumn = columns.find((c) => c.stage.id === active)!;
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
+    setRefreshing(true);
+    setRefreshFailed(false);
     try {
-      const res = await fetch("/api/sales");
+      const res = await fetch('/api/sales');
       const json = await res.json();
       const store = useSyncStore.getState();
       store.setCachedData(json.data || [], store.cachedExpenses, store.cachedInventory, store.cachedPayments, store.cachedMaterials);
-    } catch (error) {
-      console.error("Failed to refresh board");
+    } catch {
+      setRefreshFailed(true);
     } finally {
-      setIsRefreshing(false);
+      setRefreshing(false);
     }
   };
 
-  const toggleSelection = (jobId: string) => {
-    setSelectedJobIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(jobId)) {
-        newSet.delete(jobId);
-      } else {
-        newSet.add(jobId);
-      }
-      return newSet;
-    });
+  const toggle = (id: string) => setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const clearSelection = () => setSelected(new Set());
+
+  /** Writes the new stage for each job that has to move; a selected job takes the whole selection with it. */
+  const move = (moved: UnifiedRecord, to: Stage) => {
+    const list = jobsToMove(jobs, selected, moved, to.id);
+    list.forEach((job) => updateSaleStatus(job.salesId || '', job.rowIndex, to.dbStatus));
+    if (selected.has(moved.id)) clearSelection();
+    if (list.length) toast.success(list.length === 1 ? `Moved to ${to.label}` : `${list.length} jobs moved to ${to.label}`);
   };
 
-  const handleDrop = (e: React.DragEvent, columnId: string) => {
-    e.preventDefault();
-    if (!draggedJob) return;
-
-    const currentId = getColumnId(draggedJob.jobStatus || "Quoted");
-    if (currentId !== columnId) {
-      // Map columnId back to standard database JOB STATUS strings
-      let dbStatus = columnId;
-      if (columnId === "Finishing") dbStatus = "In Progress";
-      if (columnId === "Delivered") dbStatus = "Delivered";
-
-      if (selectedJobIds.has(draggedJob.id)) {
-        const jobsToMove = records.filter(r => selectedJobIds.has(r.id));
-        jobsToMove.forEach(job => {
-          const jobCurrentId = getColumnId(job.jobStatus || "Quoted");
-          if (jobCurrentId !== columnId) {
-            updateSaleStatus(job.salesId || "", job.rowIndex, dbStatus);
-          }
-        });
-        setSelectedJobIds(new Set());
-      } else {
-        updateSaleStatus(draggedJob.salesId || "", draggedJob.rowIndex, dbStatus);
-      }
-    }
-    setDraggedJob(null);
+  const dropOn = (stage: StageId) => {
+    if (dragged) move(dragged, stageById(stage));
+    setDragged(null);
+    setOver(null);
   };
 
-  const boardData = COLUMNS.map(col => ({
-    ...col,
-    items: records.filter(r => r.type === "Sale" && getColumnId(r.jobStatus || "Quoted") === col.id)
-  }));
+  useFloatingNotice('board-refresh', mounted && refreshFailed ? { tone: 'error', text: 'The board could not be refreshed. Check your connection. The jobs you see are the last ones saved.' } : null);
+  useFloatingNotice('board-offline', mounted && !online ? { tone: 'warning', text: 'Showing the last saved board. Moves you make now are kept on this phone and sent when it is online.' } : null);
 
-  return (
-    <Stack sx={{ gap: 2 }}>
-      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", minHeight: 36 }}>
-        <Box>
-          {selectedJobIds.size > 0 && (
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-              <Chip
-                label={`${selectedJobIds.size} selected`}
-                size="small"
-                sx={{
-                  bgcolor: "primary.main" + "1A",
-                  color: "primary.main",
-                  fontWeight: 700,
-                  fontSize: "0.875rem",
-                  height: 28,
-                  border: "1px solid",
-                  borderColor: "primary.main" + "33",
-                }}
-              />
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => setSelectedJobIds(new Set())}
-                sx={{ color: "text.secondary", fontSize: "0.75rem", "&:hover": { color: "text.primary" }, height: 32, px: 1 }}
-                startIcon={<X size={14} />}
-              >
-                Clear
-              </Button>
-              <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.disabled" }}>
-                Drag any selected card to move all
-              </Typography>
-            </Stack>
-          )}
-        </Box>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          startIcon={<RefreshCw size={16} style={{ animation: isRefreshing ? "spin 1s linear infinite" : "none" }} />}
-          sx={{ height: 36, flexShrink: 0 }}
-        >
-          Refresh Board
-        </Button>
-      </Stack>
+  const selectedJobs = jobs.filter((job) => selected.has(job.id));
+  const empty = jobs.length === 0;
 
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          overflowX: "auto",
-          pb: 2,
-          minHeight: "calc(100vh - 14rem)",
-          scrollSnapType: "x mandatory",
-        }}
-      >
-        {boardData.map((column) => (
-          <Box
-            key={column.id}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleDrop(e, column.id)}
-            sx={{
-              flexShrink: 0,
-              width: 320,
-              display: "flex",
-              flexDirection: "column",
-              bgcolor: (theme) => theme.palette.mode === "dark" ? "rgba(30, 41, 59, 0.5)" : "rgba(249,250,251,0.5)",
-              borderRadius: 3,
-              border: "1px solid",
-              borderColor: "grey.100",
-              scrollSnapAlign: "start",
-              maxHeight: "calc(100vh - 10rem)",
-              transition: "background-color 0.2s",
-            }}
-          >
-            <Stack
-              direction="row"
-              sx={{
-                alignItems: "center",
-                justifyContent: "space-between",
-                p: 2,
-                borderBottom: "1px solid",
-                borderColor: "grey.100",
-                position: "sticky",
-                top: 0,
-                bgcolor: (theme) => theme.palette.mode === "dark" ? "rgba(30, 41, 59, 0.95)" : "rgba(249,250,251,0.95)",
-                backdropFilter: "blur(8px)",
-                zIndex: 10,
-                borderRadius: "12px 12px 0 0",
-              }}
-            >
-              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                <Box
-                  sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    bgcolor: (theme) => theme.palette.mode === "dark" ? column.chipColor : column.stripBg,
-                    border: "2px solid",
-                    borderColor: column.accentColor,
-                  }}
-                />
-                <Typography sx={{ fontWeight: 700, color: "text.primary", fontSize: "0.875rem" }}>
-                  {column.label}
-                </Typography>
-              </Stack>
-              <Chip
-                label={column.items.length}
-                size="small"
-                sx={{
-                  bgcolor: "background.paper",
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  height: 22,
-                  "& .MuiChip-label": { px: 1 },
-                }}
-              />
-            </Stack>
+  return <Box sx={styles.screen}>
+    <HomeBackLink />
+    <Box sx={styles.heading}>
+      <Typography variant="h3" component="h1">{isAdmin ? 'Production board' : 'Job board'}</Typography>
+      <Typography color="text.secondary">{desktop ? 'Drag a job to the next stage, or select several and drag one of them.' : 'Move jobs through the stages as they are done.'}</Typography>
+    </Box>
 
-            <Box sx={{ p: 1.5, flex: 1, overflowY: "auto" }}>
-              <Stack sx={{ gap: 1.5 }}>
-                {column.items.map((job) => {
-                  const isSelected = selectedJobIds.has(job.id);
-                  const isDraggingSelected = draggedJob && selectedJobIds.has(draggedJob.id) && isSelected;
-                  const isDraggingThis = draggedJob?.id === job.id;
+    <Button variant="outlined" color="primary" size="large" startIcon={<RefreshCw size={18} />} disabled={refreshing} onClick={() => void handleRefresh()}>
+      {refreshing ? 'Refreshing…' : 'Refresh board'}
+    </Button>
 
-                  return (
-                    <Card
-                      key={job.id}
-                      draggable
-                      onClick={() => toggleSelection(job.id)}
-                      onDragStart={() => setDraggedJob(job)}
-                      onDragEnd={() => setDraggedJob(null)}
-                      sx={{
-                        position: "relative",
-                        cursor: "grab",
-                        "&:active": { cursor: "grabbing" },
-                        transition: "all 0.2s",
-                        opacity: isDraggingThis || isDraggingSelected ? 0.5 : 1,
-                        transform: isDraggingThis || isDraggingSelected ? "scale(0.95)" : "scale(1)",
-                        ...(isSelected
-                          ? {
-                              outline: "2px solid",
-                              outlineColor: "primary.main",
-                              bgcolor: "primary.main" + "0D",
-                              borderColor: "primary.main",
-                              boxShadow: "0 4px 12px rgba(200,71,46,0.15)",
-                            }
-                          : {
-                              "&:hover": {
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                                borderColor: "grey.300",
-                              },
-                            }),
-                        borderRadius: "16px",
-                        overflow: "visible",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          width: 4,
-                          borderRadius: "10px 0 0 10px",
-                          bgcolor: (theme) => theme.palette.mode === "dark" ? column.chipColor : column.stripBg,
-                        }}
-                      />
 
-                      {isSelected && (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: -8,
-                            right: -8,
-                            bgcolor: "primary.main",
-                            color: "primary.contrastText",
-                            width: 20,
-                            height: 20,
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-                            zIndex: 10,
-                          }}
-                        >
-                          <Check size={12} />
-                        </Box>
-                      )}
-
-                      <CardContent sx={{ p: "12px !important", pl: "20px !important" }}>
-                        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
-                          <Box sx={{ minWidth: 0, pr: 1, pointerEvents: "none", flex: 1 }}>
-                            <Typography sx={{ fontSize: "0.7rem", color: "text.secondary", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {job.client}
-                            </Typography>
-                            <Typography sx={{ fontSize: "0.875rem", fontWeight: 700, color: "text.primary", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", mt: 0.25 }}>
-                              {job.description}
-                            </Typography>
-                          </Box>
-
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuOpen(e, job)}
-                            sx={{
-                              p: 0.5,
-                              mt: -0.5,
-                              mr: -0.5,
-                              color: "text.secondary",
-                              "&:hover": { color: "text.primary", bgcolor: "action.hover" }
-                            }}
-                          >
-                            <MoreVertical size={16} />
-                          </IconButton>
-                        </Stack>
-
-                        <Box sx={{ mb: 1.5, pointerEvents: "none" }}>
-                          {job.material && <MaterialBadge material={job.material} />}
-                        </Box>
-
-                        <Stack
-                          direction="row"
-                          sx={{
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            pt: 1,
-                            borderTop: "1px solid",
-                            borderColor: "grey.100",
-                            pointerEvents: "none",
-                          }}
-                        >
-                          <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
-                            <Clock size={14} color="#6b7280" />
-                            <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
-                              {job.date?.split(",")[0]}
-                            </Typography>
-                          </Stack>
-
-                          {column.id === "Delivered" && (
-                            <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
-                              <CheckCircle2 size={14} color="#059669" />
-                              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#059669" }}>
-                                Done
-                              </Typography>
-                            </Stack>
-                          )}
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-
-                {column.items.length === 0 && (
-                  <Box
-                    sx={{
-                      height: 96,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "2px dashed",
-                      borderColor: "grey.200",
-                      borderRadius: 3,
-                    }}
-                  >
-                    <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontWeight: 500 }}>
-                      Drop jobs here
-                    </Typography>
-                  </Box>
-                )}
-              </Stack>
-            </Box>
+    {!mounted || (refreshing && empty) ? <LoadingState pieces={[{ k: 'cards', n: 3 }]} label="Loading the board" /> : empty ? <Box sx={styles.emptyBox}>
+      <Typography sx={styles.emptyTitle}>No jobs on the board</Typography>
+      <Typography variant="body2" sx={styles.emptyText}>Every sale shows up here as a job once it is logged.</Typography>
+    </Box> : desktop ? <>
+      {selected.size > 0 && <Box sx={styles.selection}>
+        <Typography variant="body2" component="span" sx={styles.selectedPill}>{selected.size} selected</Typography>
+        <Button color="inherit" size="small" onClick={clearSelection}>Clear</Button>
+        <Typography variant="body2" color="text.secondary">Drag any selected card to move all of them.</Typography>
+      </Box>}
+      <Box sx={styles.columns}>
+        {columns.map(({ stage, items }) => <Box key={stage.id} sx={[styles.column, over === stage.id && styles.columnOver]}
+          onDragOver={(event) => { event.preventDefault(); if (over !== stage.id) setOver(stage.id); }}
+          onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(null); }}
+          onDrop={(event) => { event.preventDefault(); dropOn(stage.id); }}>
+          <Box sx={styles.columnHead}>
+            <Typography component="span" sx={styles.columnTitle}><Box component="span" sx={stageStyles[stage.id].dotLarge} />{stage.label}</Typography>
+            <Typography variant="caption" component="span" sx={styles.columnCount}>{items.length}</Typography>
           </Box>
-        ))}
+          <Box sx={styles.columnScroll}>
+            {items.map((job) => <DeskCard key={job.id} job={job} selected={selected.has(job.id)} dragging={!!dragged && (dragged.id === job.id || (selected.has(dragged.id) && selected.has(job.id)))}
+              onToggle={() => toggle(job.id)} onDragStart={() => setDragged(job)} onDragEnd={() => { setDragged(null); setOver(null); }} onMoveOther={() => setMoving([job])} />)}
+            {items.length === 0 && <Box sx={styles.dropHint}><Typography variant="body2">Drop jobs here</Typography></Box>}
+          </Box>
+        </Box>)}
       </Box>
-
-      {/* Tactile Status Selector for Mobile/Desktop */}
-      <Menu
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={() => handleMenuClose()}
-        onClick={(e) => e.stopPropagation()}
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: 3,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-              border: "1px solid",
-              borderColor: "divider",
-              minWidth: 180,
-            }
-          }
-        }}
-      >
-        <Box sx={{ px: 2, py: 1, borderBottom: "1px solid", borderColor: "divider", mb: 0.5 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: "text.disabled", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Move Job To
-          </Typography>
+    </> : <>
+      <Box sx={styles.stageChips} role="group" aria-label="Stage">
+        {columns.map(({ stage, items }) => <Button key={stage.id} variant="outlined" color="inherit" sx={[styles.stageChip, active === stage.id && stageStyles[stage.id].active]} aria-pressed={active === stage.id}
+          startIcon={<Box component="span" sx={stageStyles[stage.id].dot} />} onClick={() => { setChosen(stage.id); setSelecting(false); clearSelection(); }}>
+          {stage.id} · {items.length}
+        </Button>)}
+      </Box>
+      <Box sx={styles.listHead}>
+        <Typography variant="overline" sx={styles.dayLabel}>{activeColumn.stage.label.toUpperCase()} · {activeColumn.items.length} {activeColumn.items.length === 1 ? 'JOB' : 'JOBS'}</Typography>
+        {activeColumn.items.length > 0 && <Button variant="outlined" color="inherit" onClick={() => { setSelecting(!selecting); clearSelection(); }}>{selecting ? 'Done' : 'Select'}</Button>}
+      </Box>
+      {activeColumn.items.length === 0 ? <Box sx={styles.emptyBox}>
+        <Typography sx={styles.emptyTitle}>Nothing is {activeColumn.stage.id} yet</Typography>
+        <Typography variant="body2" sx={styles.emptyText}>Jobs you move here will show up in this list.</Typography>
+      </Box> : <Box sx={styles.jobList}>
+        {activeColumn.items.map((job) => <PhoneCard key={job.id} job={job} selecting={selecting} selected={selected.has(job.id)} onToggle={() => toggle(job.id)}
+          onMoveNext={(stage) => move(job, stage)} onMoveOther={() => setMoving([job])} />)}
+      </Box>}
+      {!selecting && activeColumn.items.length > 1 && <Typography variant="body2" sx={styles.hint}>Tap <strong>Select</strong> to move several jobs to a stage at once.</Typography>}
+      {selecting && selected.size > 0 && <Box sx={styles.selectBar}>
+        <Box>
+          <Typography sx={styles.amountValue}>{selected.size} selected</Typography>
+          <Typography variant="caption" color="text.secondary">{selectedJobs.every((job) => stageOf(job) === active) ? `${selected.size === 1 ? 'It is' : selected.size === 2 ? 'Both are' : 'All are'} in ${active}` : 'In different stages'}</Typography>
         </Box>
-        {COLUMNS.map((col) => {
-          let dbStatus = col.id;
-          if (col.id === "Finishing") dbStatus = "In Progress";
-          if (col.id === "Delivered") dbStatus = "Delivered";
+        <Box sx={styles.selectActions}>
+          <Button color="inherit" onClick={clearSelection}>Clear</Button>
+          <Button variant="contained" onClick={() => setMoving(selectedJobs)}>Move to…</Button>
+        </Box>
+      </Box>}
+    </>}
 
-          const isCurrent = getColumnId(menuActiveJob?.jobStatus || "Quoted") === col.id;
-
-          return (
-            <MenuItem
-              key={col.id}
-              onClick={() => handleStatusSelect(dbStatus)}
-              disabled={isCurrent}
-              sx={{
-                fontSize: "0.8125rem",
-                fontWeight: 600,
-                py: 1,
-                px: 2,
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                color: isCurrent ? "text.disabled" : "text.primary"
-              }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  bgcolor: col.chipColor,
-                }}
-              />
-              {col.label}
-            </MenuItem>
-          );
+    <ResponsiveSheet open={!!moving} onClose={() => setMoving(null)} title={moving && moving.length > 1 ? `Move ${moving.length} jobs` : 'Move this job'} description={moving && moving.length === 1 ? jobName(moving[0]) : undefined}
+      footer={<Box sx={settingsStyles.footer}><Button color="inherit" onClick={() => setMoving(null)}>Close</Button></Box>}>
+      {moving && <Box sx={styles.sheetBody}>
+        {STAGES.map((stage) => {
+          const current = moving.length === 1 && stageOf(moving[0]) === stage.id;
+          const look = stageStyles[stage.id];
+          return current
+            ? <Box key={stage.id} sx={[styles.stageChoiceCurrent, look.active]}><Box component="span" sx={look.dotLarge} />{stage.label}<Typography variant="caption" component="span" sx={styles.stageChoiceTag}>Current</Typography></Box>
+            : <Button key={stage.id} color="inherit" sx={styles.stageChoice} startIcon={<Box component="span" sx={look.dotLarge} />} onClick={() => { move(moving[0], stage); setMoving(null); }}>{stage.label}</Button>;
         })}
-      </Menu>
-    </Stack>
-  );
+        <Typography variant="body2" sx={styles.hint}>Tapping a stage moves the job straight away. The change saves with the other sales.</Typography>
+      </Box>}
+    </ResponsiveSheet>
+  </Box>;
 }

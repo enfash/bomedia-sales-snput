@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { legacyWriteBlocked, legacyFeedEnabled } from '@/lib/server/legacy-feed';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
 
@@ -8,6 +9,8 @@ const SHEET_TITLE = 'Estimates';
 const HEADERS = ['QUOTE ID', 'DATE', 'CLIENT NAME', 'CART DATA'];
 
 export async function GET(request: Request) {
+  // The old estimator's quotes stay in Sheets; new quotes load in Accounting entry.
+  if (legacyFeedEnabled()) return NextResponse.json({ data: [], error: 'Load quotes in Accounting entry.' }, { status: new URL(request.url).searchParams.get('quoteId') ? 404 : 200 });
   try {
     const { searchParams } = new URL(request.url);
     const quoteId = searchParams.get('quoteId');
@@ -38,6 +41,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const moved = legacyWriteBlocked();
+  if (moved) return moved;
   try {
     const body = await request.json();
     const { quoteId, clientName, cartData } = body;

@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { legacyFeedEnabled, legacyFeedResponse } from '@/lib/server/legacy-feed';
+import { changeJobStatus } from '@/lib/server/job-status';
+import { recordLegacySale } from '@/lib/server/legacy-sale';
 import { cookies } from 'next/headers';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { deductBatchFromInventory } from '@/lib/inventory-deduction';
@@ -34,7 +37,9 @@ const INVENTORY_HEADERS = [
   'Status', 'Date Added', 'Material ID',
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
+  const fromPostgres = await legacyFeedResponse('sales', undefined, { cancelled: new URL(request.url).searchParams.get('cancelled') === 'only' ? 'only' : undefined });
+  if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE] || doc.sheetsByIndex[0];
@@ -54,6 +59,10 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  if (request.headers.get('X-Bomedia-Backend') === 'postgres' && !legacyFeedEnabled()) {
+    return NextResponse.json({ error: 'This payment belongs to PostgreSQL and is held for review.', code: 'BACKEND_CHANGED' }, { status: 409 });
+  }
+  if (legacyFeedEnabled()) return changeJobStatus(request);
   try {
     const body = await request.json();
     const { rowIndex, saleId, additionalPayment1, additionalPayment2, jobStatus } = body;
@@ -149,6 +158,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (legacyFeedEnabled()) return recordLegacySale(request);
   try {
     const body = await request.json();
     const doc = await getDoc();

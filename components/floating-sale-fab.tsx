@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { Fab, Box } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -43,9 +44,7 @@ export function FloatingSaleActionButton() {
             color: "white",
             border: "4px solid",
             borderColor: "background.paper",
-            boxShadow: isAdmin
-              ? "0 8px 32px rgba(200,71,46,0.4)"
-              : "0 8px 32px rgba(232,161,58,0.4)",
+            boxShadow: (theme) => `0 8px 32px ${alpha(isAdmin ? theme.palette.primary.main : theme.palette.warning.main, 0.4)}`,
             "&:hover": {
               bgcolor: isAdmin ? "primary.dark" : "warning.dark",
               transform: "scale(1.1)",

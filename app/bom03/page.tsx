@@ -1,26 +1,24 @@
 "use client";
-import { LoadingAnimation } from "@/components/loading-animation";
+import { ScreenLoading } from "@/components/screen-loading";
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX, CalendarRange, FileText, Users, Calculator, Bell } from "lucide-react";
+import { Zap, RefreshCw, Receipt, BarChart3, Package, Volume2, VolumeX, FileText, Users, Calculator, Bell } from "lucide-react";
 import { motion } from "framer-motion";
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import { useTheme } from "@mui/material/styles";
+import { dashboardDebtStyles as debtStyles, dashboardStyles as styles } from "@/app/theme";
 import Paper from "@mui/material/Paper";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Skeleton from "@mui/material/Skeleton";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import ToggleButton from "@mui/material/ToggleButton";
 import Stack from "@mui/material/Stack";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import dayjs from "dayjs";
+import { DateRangeFields } from "@/components/date-range-fields";
+import { PeriodSelector } from "@/components/period-selector";
+import { QuickActionGroup } from "@/components/quick-action-group";
 
 import { useSyncStore } from "@/lib/store";
 import { DashboardMetrics } from "@/components/dashboard-metrics";
@@ -28,7 +26,10 @@ import { SalesExpenseChart, OutstandingDebtChart, PaymentStatusWidget, TopClient
 import { RecentPaymentsPulse } from "@/components/recent-payments-pulse";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { processDebtData } from "@/lib/financial-utils";
+import { debtWindows } from "@/lib/debt-windows";
+import { StatTile } from "@/components/stat-tile";
 import { TodayBanner } from "@/components/today-banner";
+import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
 import { ShiftReportModal } from "@/components/shift-report-modal";
 import { ProfitabilityWidget } from "@/components/profitability-widget";
 
@@ -66,7 +67,6 @@ const parseSheetDate = (dateStr: any): Date | null => {
 type Row = Record<string, string>;
 
 export default function DashboardPage() {
-  const theme = useTheme();
   const { pendingQueue, cachedSales, cachedExpenses, cachedInventory, cachedMaterials, cachedPayments, setCachedData } = useSyncStore();
 
   const [loading, setLoading] = useState(cachedSales.length === 0);
@@ -121,11 +121,13 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    // Deferred one tick so the loading flags are not set synchronously inside the effect.
+    void Promise.resolve().then(() => fetchData());
 
     const handleOnline = () => { fetchData(true); };
     window.addEventListener("online", handleOnline);
-    return () => { window.removeEventListener("online", handleOnline); };
+    window.addEventListener("bomedia-data-changed", handleOnline);
+    return () => { window.removeEventListener("online", handleOnline); window.removeEventListener("bomedia-data-changed", handleOnline); };
   }, []);
 
   // ── Data assembly ──────────────────────────────────────────────────────────
@@ -240,7 +242,7 @@ export default function DashboardPage() {
     const addl1      = parseAmount(r["ADDITIONAL PAYMENT 1"] || r["Additional Payment 1"]);
     const addl2      = parseAmount(r["ADDITIONAL PAYMENT 2"] || r["Additional Payment 2"]);
     const balance    = total - initialPay - addl1 - addl2;
-    if (balance <= 1) return;
+    if (balance <= (r._jobId ? 0.005 : 1)) return;
     const client = (r["CLIENT NAME"] || r["Client Name"] || "").trim();
     const d = parseSheetDate(r.DATE || r.Date);
     if (!client || !d) return;
@@ -249,6 +251,7 @@ export default function DashboardPage() {
   });
 
   // ── Outstanding debt ───────────────────────────────────────────────────────
+  const debtNow = debtWindows(allSales);
   const { chartData: outstandingDebtChart, totalDebt: outstandingDebtTotal, count: unpaidCount } = processDebtData(allSales);
 
   // ── Summary sentence ───────────────────────────────────────────────────────
@@ -315,23 +318,13 @@ export default function DashboardPage() {
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <LoadingAnimation text="Loading..." />
-      </Box>
-    );
+    return <ScreenLoading screen="dashboard" role="admin" label="Loading the dashboard" />;
   }
 
-  const timeRangeOptions = [
-    { val: "all",    label: "All" },
-    { val: "today",  label: "Today" },
-    { val: "7d",     label: "7D" },
-    { val: "30d",    label: "30D" },
-    { val: "custom", label: "Custom" },
-  ] as const;
-
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", bgcolor: "background.default", pb: 12 }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", bgcolor: "background.default", pb: { xs: 3, md: 12 } }}>
+
+      <ApprovalsWaitingCard />
 
       {/* Today Banner */}
       <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
@@ -340,123 +333,30 @@ export default function DashboardPage() {
 
       {/* Mobile Time Range Selector */}
       <Box sx={{ display: { xs: "block", md: "none" }, mt: 2 }}>
-        <ToggleButtonGroup
-          value={timeRange}
-          exclusive
-          onChange={(_, val) => val && setTimeRange(val)}
-          fullWidth
-          size="small"
-          sx={{
-            bgcolor: "grey.100",
-            borderRadius: 3,
-            p: 0.5,
-            "& .MuiToggleButton-root": {
-              border: "none",
-              borderRadius: "8px !important",
-              fontSize: "0.7rem",
-              fontWeight: 700,
-              py: 0.75,
-              "&.Mui-selected": {
-                bgcolor: "background.paper",
-                color: "primary.main",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
-              },
-            },
-          }}
-        >
-          {timeRangeOptions.map(({ val, label }) => (
-            <ToggleButton key={val} value={val} disableRipple>
-              {val === "custom" ? <CalendarRange size={14} /> : label}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-
+        <PeriodSelector value={timeRange} onChange={setTimeRange} fullWidth />
         {timeRange === "custom" && (
-          <Stack direction="row" sx={{ gap: 1.5, mt: 1.5, alignItems: "center" }}>
-            <Box sx={{ flex: 1 }}>
-              <DatePicker
-                value={customStart ? dayjs(customStart) : null}
-                maxDate={customEnd ? dayjs(customEnd) : undefined}
-                onChange={(val) => setCustomStart(val?.format("YYYY-MM-DD") ?? "")}
-                label="From"
-                slotProps={{ textField: { size: "small", fullWidth: true } }}
-              />
-            </Box>
-            <Typography sx={{ color: "text.disabled" }}>→</Typography>
-            <Box sx={{ flex: 1 }}>
-              <DatePicker
-                value={customEnd ? dayjs(customEnd) : null}
-                minDate={customStart ? dayjs(customStart) : undefined}
-                onChange={(val) => setCustomEnd(val?.format("YYYY-MM-DD") ?? "")}
-                label="To"
-                slotProps={{ textField: { size: "small", fullWidth: true } }}
-              />
-            </Box>
-          </Stack>
+          <Box sx={{ mt: 1.5 }}>
+            <DateRangeFields start={customStart} end={customEnd} onStartChange={setCustomStart} onEndChange={setCustomEnd} />
+          </Box>
         )}
+        <Button
+          variant="outlined"
+          size="small"
+          fullWidth
+          onClick={() => setShowReport(true)}
+          startIcon={<FileText size={14} />}
+          sx={{ mt: 1.5 }}
+        >
+          Shift Report
+        </Button>
       </Box>
 
       {/* Desktop Time Range + Controls */}
       <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "space-between", gap: 2, mt: 2, flexWrap: "wrap" }}>
         <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <ToggleButtonGroup
-            value={timeRange}
-            exclusive
-            onChange={(_, val) => val && setTimeRange(val)}
-            size="small"
-            sx={{
-              bgcolor: "grey.100",
-              borderRadius: 2,
-              p: 0.5,
-              "& .MuiToggleButton-root": {
-                border: "none",
-                borderRadius: "6px !important",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                px: 1.5,
-                py: 0.5,
-                "&.Mui-selected": {
-                  bgcolor: "background.paper",
-                  color: "primary.main",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
-                },
-              },
-            }}
-          >
-            {timeRangeOptions.map(({ val, label }) => (
-              <ToggleButton key={val} value={val} disableRipple>
-                {val === "custom" ? (
-                  <Box component="span" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <CalendarRange size={12} />
-                    <span>{label}</span>
-                  </Box>
-                ) : label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-
+          <PeriodSelector value={timeRange} onChange={setTimeRange} />
           {timeRange === "custom" && (
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-              <Box>
-                <DatePicker
-                  value={customStart ? dayjs(customStart) : null}
-                  maxDate={customEnd ? dayjs(customEnd) : undefined}
-                  onChange={(val) => setCustomStart(val?.format("YYYY-MM-DD") ?? "")}
-                  label="From"
-                  slotProps={{ textField: { size: "small", sx: { width: 130 } } }}
-                />
-              </Box>
-              <Typography sx={{ color: "text.disabled" }}>→</Typography>
-              <Box>
-                <DatePicker
-                  value={customEnd ? dayjs(customEnd) : null}
-                  minDate={customStart ? dayjs(customStart) : undefined}
-                  onChange={(val) => setCustomEnd(val?.format("YYYY-MM-DD") ?? "")}
-                  label="To"
-                  slotProps={{ textField: { size: "small", sx: { width: 130 } } }}
-                />
-              </Box>
-            </Stack>
+            <DateRangeFields start={customStart} end={customEnd} onStartChange={setCustomStart} onEndChange={setCustomEnd} />
           )}
 
           <Button
@@ -464,7 +364,6 @@ export default function DashboardPage() {
             size="small"
             onClick={() => setIsMuted(!isMuted)}
             startIcon={isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            sx={{ fontSize: "0.7rem", fontWeight: 700, borderRadius: 100, height: 32 }}
           >
             {isMuted ? "Muted" : "Sound On"}
           </Button>
@@ -476,8 +375,7 @@ export default function DashboardPage() {
             size="small"
             onClick={() => fetchData(true)}
             disabled={refreshing}
-            startIcon={<RefreshCw size={14} style={refreshing ? { animation: "spin 1s linear infinite" } : undefined} />}
-            sx={{ fontSize: "0.75rem", fontWeight: 700, borderRadius: 100, height: 36 }}
+            startIcon={<Box component="span" sx={[styles.iconSpan, refreshing && styles.refreshing]}><RefreshCw size={14} /></Box>}
           >
             {refreshing ? "Updating..." : "Refresh"}
           </Button>
@@ -486,7 +384,6 @@ export default function DashboardPage() {
             size="small"
             onClick={() => setShowReport(true)}
             startIcon={<FileText size={14} />}
-            sx={{ fontSize: "0.75rem", fontWeight: 700, borderRadius: 100, height: 36 }}
           >
             Shift Report
           </Button>
@@ -495,22 +392,9 @@ export default function DashboardPage() {
 
       {/* Summary sentence */}
       {totalSalesVal > 0 && (
-        <Paper
-          sx={{
-            mt: 2,
-            mb: 3,
-            px: 2.5,
-            py: 1.5,
-            borderRadius: "16px",
-            bgcolor: "primary.main",
-            backgroundImage: "none",
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 1.5,
-          }}
-        >
-          <span style={{ fontSize: "1rem", marginTop: 2 }}>📊</span>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: "primary.contrastText", lineHeight: 1.6 }}>
+        <Paper sx={styles.summaryBanner}>
+          <Box component="span" sx={styles.summaryEmoji}>📊</Box>
+          <Typography variant="body2" sx={styles.summaryText}>
             {summaryText}
           </Typography>
         </Paper>
@@ -534,11 +418,15 @@ export default function DashboardPage() {
           prevGrossMarginPct={prevGrossMarginPct}
           sparkData={chartData.slice(-7).map(d => d.sales)}
         />
+        <Box sx={debtStyles.tiles}>
+          <StatTile tone={debtNow.today > 0 ? "warning" : "neutral"} label="Owed from today's jobs" value={`₦${debtNow.today.toLocaleString()}`} caption={`${debtNow.todayCount} customer${debtNow.todayCount === 1 ? "" : "s"}`} />
+          <StatTile tone={debtNow.week > 0 ? "error" : "neutral"} label="Owed from the last 7 days" value={`₦${debtNow.week.toLocaleString()}`} caption={`${debtNow.weekCount} customer${debtNow.weekCount === 1 ? "" : "s"}`} />
+        </Box>
       </motion.div>
 
       {/* Inventory Alerts + Quick Actions */}
       <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, gap: 2, mt: 2 }}>
+        <Box sx={styles.alertsAndShortcuts}>
 
           {/* Inventory Alerts Widget */}
           {(() => {
@@ -561,16 +449,15 @@ export default function DashboardPage() {
             const alertCount = sortedMaterials.filter(m => m.status !== "Good").length;
 
             return (
-              <Card sx={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <Card sx={styles.alertCard}>
                 {/* Header */}
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+                <Box sx={styles.alertHeader}>
                   <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.12, position: "absolute" }} />
-                    <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", opacity: 1, position: "relative" }}>
-                      <Package size={16} color="white" />
+                    <Box sx={styles.alertIcon}>
+                      <Package size={16} />
                     </Box>
                     <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 800 }}>Inventory Reorder Alerts</Typography>
+                      <Typography variant="h6" component="p">Inventory Reorder Alerts</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {cachedMaterials.length === 0
                           ? "No materials tracked"
@@ -585,44 +472,37 @@ export default function DashboardPage() {
                       <Chip
                         label={`${alertCount} alert${alertCount !== 1 ? "s" : ""}`}
                         size="small"
-                        sx={{ fontSize: "0.65rem", fontWeight: 800, bgcolor: "error.light", color: "error.dark", height: 20 }}
+                        color="error"
                       />
                     )}
-                    <Link href="/bom03/inventory">
-                      <Button variant="outlined" size="small" sx={{ fontSize: "0.7rem", fontWeight: 700, height: 28, borderRadius: 100, px: 1.5 }}>
-                        View All
-                      </Button>
-                    </Link>
+                    <Button component={Link} href="/bom03/inventory" variant="outlined" size="small">
+                      View All
+                    </Button>
                   </Stack>
                 </Box>
 
                 {/* Scrollable list */}
-                <Box sx={{ overflowY: "auto", maxHeight: 260, p: 2 }}>
+                <Box sx={styles.alertList}>
                   {cachedMaterials.length === 0 ? (
-                    <Stack sx={{ alignItems: "center", justifyContent: "center", py: 4, color: "text.disabled" }}>
-                      <Package size={32} style={{ opacity: 0.4, marginBottom: 8 }} />
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>No inventory data yet</Typography>
-                      <Link href="/bom03/inventory">
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main", mt: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}>
-                          Add your first material →
-                        </Typography>
-                      </Link>
+                    <Stack sx={styles.emptyState}>
+                      <Box sx={styles.emptyIcon}><Package size={32} /></Box>
+                      <Typography variant="caption" color="text.secondary" sx={styles.bold}>No inventory data yet</Typography>
+                      <Typography variant="caption" component={Link} href="/bom03/inventory" sx={styles.emptyLink}>
+                        Add your first material →
+                      </Typography>
                     </Stack>
                   ) : alertCount === 0 ? (
-                    <Stack sx={{ alignItems: "center", justifyContent: "center", py: 4 }}>
-                      <Box sx={{ width: 40, height: 40, borderRadius: "50%", bgcolor: "success.light", display: "flex", alignItems: "center", justifyContent: "center", mb: 1, opacity: 0.7 }}>
-                        <Package size={20} color="#2E7D5B" />
+                    <Stack sx={styles.emptyState}>
+                      <Box sx={styles.healthyIcon}>
+                        <Package size={20} />
                       </Box>
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>All stock levels are healthy</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={styles.bold}>All stock levels are healthy</Typography>
                       <Typography variant="caption" color="text.disabled">{cachedMaterials.length} material{cachedMaterials.length !== 1 ? "s" : ""} tracked</Typography>
                     </Stack>
                   ) : (
                     <Stack sx={{ gap: 1 }}>
                       {sortedMaterials.filter(m => m.status !== "Good").map(({ item, remaining, total, pct, status }) => {
                         const barColor = status === "Critical" ? "error" : status === "Low" ? "warning" : "success";
-                        const chipColor = status === "Critical"
-                          ? { bgcolor: "#fef2f2", color: "#be123c" }
-                          : { bgcolor: "#fffbeb", color: "#b45309" };
                         const materialName = item["Material Name"] || item["Material ID"] || "Unknown";
                         const width = parseFloat(item["Width (ft)"]?.toString() || "0") || 0;
                         const rollCount = item["Roll Count"] || "";
@@ -631,19 +511,19 @@ export default function DashboardPage() {
                           <Paper
                             key={item["Material ID"] || materialName}
                             variant="outlined"
-                            sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover", "&:hover": { bgcolor: "action.selected" }, transition: "background-color .15s" }}
+                            sx={styles.materialRow}
                           >
                             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
                               <Box sx={{ minWidth: 0, flex: 1 }}>
                                 <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 800 }} noWrap>{materialName}</Typography>
+                                  <Typography variant="h6" component="p" noWrap>{materialName}</Typography>
                                   {width > 0 && (
-                                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.65rem" }}>{width}ft wide</Typography>
+                                    <Typography variant="caption" color="text.disabled">{width}ft wide</Typography>
                                   )}
                                   <Chip
                                     label={status === "Critical" ? "Out of Stock" : status}
                                     size="small"
-                                    sx={{ fontSize: "0.6rem", fontWeight: 800, height: 18, textTransform: "uppercase", letterSpacing: "0.04em", ...chipColor }}
+                                    color={status === "Critical" ? "error" : "warning"}
                                   />
                                 </Stack>
                                 <Typography variant="caption" color="text.secondary">
@@ -651,17 +531,15 @@ export default function DashboardPage() {
                                   {rollCount ? ` · ${rollCount} roll${Number(rollCount) !== 1 ? "s" : ""}` : ""}
                                 </Typography>
                               </Box>
-                              <Link href="/bom03/inventory" style={{ marginLeft: 12, flexShrink: 0 }}>
-                                <Button variant="outlined" size="small" sx={{ fontSize: "0.7rem", fontWeight: 700, height: 28, borderRadius: 100, px: 1.5 }}>
-                                  Restock
-                                </Button>
-                              </Link>
+                              <Button component={Link} href="/bom03/inventory" variant="outlined" size="small" sx={styles.restock}>
+                                Restock
+                              </Button>
                             </Box>
                             <LinearProgress
                               variant="determinate"
                               value={pct}
                               color={barColor as any}
-                              sx={{ height: 6, borderRadius: 3, bgcolor: "grey.200" }}
+                              sx={styles.stockBar}
                             />
                           </Paper>
                         );
@@ -674,147 +552,51 @@ export default function DashboardPage() {
           })()}
 
           {/* Quick Action Shortcuts */}
-          <Stack sx={{ gap: 1.5 }}>
+          <Box sx={styles.quickRow}>
             {[
-              {
-                href: "/bom03/inventory",
-                label: "Inventory Control",
-                title: "Full Stock Sheet",
-                desc: "Add materials & logs",
-                icon: <Package size={24} />,
-                color: { bg: "#eff6ff", border: "#bfdbfe", icon: "#2e388d", label: "#2e388d" },
-              },
-              {
-                href: "/bom03/quick-check",
-                label: "Verification",
-                title: "Material Quick-Check",
-                desc: "Test viability before job",
-                icon: <Zap size={24} />,
-                color: { bg: "#eff6ff", border: "#bfdbfe", icon: "#2e388d", label: "#2e388d" },
-              },
-              {
-                href: "/bom03/staff",
-                label: "Admin Only",
-                title: "Staff Performance",
-                desc: "Revenue & collection rates",
-                icon: <Users size={24} />,
-                color: { bg: "#eff6ff", border: "#bfdbfe", icon: "#2e388d", label: "#2e388d" },
-              },
-            ].map(({ href, label, title, desc, icon, color }) => (
-              <Link key={href} href={href} style={{ textDecoration: "none", flex: 1, display: "flex" }}>
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    flex: 1,
-                    p: 2,
-                    borderRadius: "16px",
-                    bgcolor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.05)" : color.bg,
-                    borderColor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.1)" : color.border,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    cursor: "pointer",
-                    transition: "transform .15s, background-color .15s",
-                    "&:hover": { bgcolor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.1)" : color.border },
-                    "&:active": { transform: "scale(0.97)" },
-                  }}
-                >
-                  <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: theme.palette.mode === "dark" ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.7)", color: color.icon, display: "flex" }}>
-                    {icon}
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: theme.palette.mode === "dark" ? color.icon : color.label }}>
-                      {label}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.3 }}>{title}</Typography>
-                    <Typography variant="caption" color="text.secondary">{desc}</Typography>
-                  </Box>
-                </Paper>
-              </Link>
+              { href: "/bom03/inventory", label: "Inventory Control", title: "Stock", desc: "Materials & logs", icon: <Package size={24} /> },
+              { href: "/bom03/quick-check", label: "Verification", title: "Quick-Check", desc: "Test a roll", icon: <Zap size={24} /> },
+              { href: "/bom03/settings", label: "Admin Only", title: "Settings", desc: "Services & staff", icon: <Users size={24} /> },
+            ].map(({ href, title, desc, icon }) => (
+              <Paper key={href} component={Link} href={href} variant="outlined" sx={styles.quickCard}>
+                <Box sx={styles.quickHead}>
+                  <Box sx={styles.quickIcon}>{icon}</Box>
+                  <Typography component="p" noWrap sx={styles.quickTitle}>{title}</Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary" noWrap sx={styles.quickDesc}>{desc}</Typography>
+              </Paper>
             ))}
-          </Stack>
+          </Box>
         </Box>
       </motion.div>
 
       {/* Quick Actions Banner */}
       <motion.div variants={sectionVariants} custom={0.22} initial="hidden" animate="show">
-        <Paper
-          sx={{
-            mt: 2,
-            p: 2.5,
-            borderRadius: "16px",
-            background: "linear-gradient(135deg, #4A56C4 0%, #2E388D 100%)",
-            boxShadow: "0 8px 24px rgba(46,56,141,0.35)",
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            alignItems: { md: "center" },
-            justifyContent: "space-between",
-            gap: 3,
-          }}
-        >
+        <Paper sx={styles.voiceBanner}>
           <Stack direction="row" sx={{ alignItems: "center", gap: 2 }}>
-            <Box sx={{ width: 44, height: 44, borderRadius: 2.5, bgcolor: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Zap size={20} color="white" />
+            <Box sx={styles.voiceIcon}>
+              <Zap size={20} />
             </Box>
             <Box>
-              <Typography variant="body1" sx={{ fontWeight: 700, color: "white", lineHeight: 1.3 }}>Quick Actions</Typography>
-              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)" }}>
-                Say: <em style={{ fontStyle: "normal", fontWeight: 600 }}>"Logged ₦12k sale..."</em> — Fast mobile entry.
+              <Typography variant="body1" sx={styles.voiceTitle}>Quick Actions</Typography>
+              <Typography variant="caption" sx={styles.voiceHint}>
+                Say: <Box component="em" sx={styles.voiceExample}>"Logged ₦12k sale..."</Box> — Fast mobile entry.
               </Typography>
             </Box>
           </Stack>
 
-          <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, width: { xs: "100%", md: "auto" } }}>
-            {[
-              { href: "/bom03/expenses", icon: <Receipt size={14} />, label: "Log Expense" },
-              { href: "/bom03/records",  icon: <BarChart3 size={14} />, label: "Records" },
-              { href: "/estimator",      icon: <Calculator size={14} />, label: "Estimator" },
-            ].map(({ href, icon, label }) => (
-              <Link key={href} href={href} style={{ flex: 1, minWidth: "fit-content" }}>
-                <Button
-                  variant="outlined"
-                  startIcon={icon}
-                  fullWidth
-                  sx={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    height: 40,
-                    borderColor: "rgba(255,255,255,0.35)",
-                    color: "white",
-                    bgcolor: "rgba(255,255,255,0.1)",
-                    borderRadius: 100,
-                    "&:hover": { bgcolor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.5)" },
-                  }}
-                >
-                  {label}
-                </Button>
-              </Link>
-            ))}
-            <Button
-              variant="outlined"
-              startIcon={<Bell size={14} />}
-              onClick={async () => {
-                try {
-                  const res = await fetch("/api/digest");
-                  const json = await res.json();
-                  if (json.whatsappUrl) window.open(json.whatsappUrl, "_blank");
-                } catch { toast.error("Could not load digest"); }
-              }}
-              sx={{
-                flex: 1,
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                height: 40,
-                borderColor: "rgba(255,255,255,0.35)",
-                color: "white",
-                bgcolor: "rgba(255,255,255,0.1)",
-                borderRadius: 100,
-                "&:hover": { bgcolor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.5)" },
-              }}
-            >
-              Daily Digest
-            </Button>
-          </Stack>
+          <QuickActionGroup actions={[
+            { href: "/bom03/expenses", icon: <Receipt size={14} />, label: "Log Expense" },
+            { href: "/bom03/records", icon: <BarChart3 size={14} />, label: "Records" },
+            { href: "/estimator", icon: <Calculator size={14} />, label: "Estimator" },
+            { icon: <Bell size={14} />, label: "Daily Digest", onClick: async () => {
+              try {
+                const res = await fetch("/api/digest");
+                const json = await res.json();
+                if (json.whatsappUrl) window.open(json.whatsappUrl, "_blank");
+              } catch { toast.error("Could not load digest"); }
+            } },
+          ]} />
         </Paper>
       </motion.div>
 

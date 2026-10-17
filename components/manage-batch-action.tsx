@@ -1,34 +1,40 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useMediaQuery } from "@/lib/useMediaQuery";
+import { accent } from "@/app/theme";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+
+import { useState, useMemo, useRef, type ReactNode } from "react";
 import { Wallet, CheckCircle2 } from "lucide-react";
 import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
+import { MoneyField } from "@/components/money-field";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogActions from "@mui/material/DialogActions";
 import IconButton from "@mui/material/IconButton";
 import { toast } from "sonner";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
 import { computeWaterfall } from "@/lib/financial-utils";
 import { useSyncStore } from "@/lib/store";
 
+import { paymentContext, savePostgresPayment } from '@/lib/payment-outbox';
+import { paymentKobo, rowDebtKobo } from '@/lib/payment-contract';
+import { PaidBy } from './paid-by';
+import type { PaymentMethod } from '@/lib/payment-methods';
+
 interface ManageBatchActionProps {
   records: UnifiedRecord[];
   salesId: string;
   onUpdate: () => void;
   variant?: "icon" | "button";
+  /** Draws the button that opens the dialog, in place of the default icon or "Pay Batch" button. */
+  trigger?: (open: () => void) => ReactNode;
 }
 
-export function ManageBatchAction({ records, salesId, onUpdate, variant = "button" }: ManageBatchActionProps) {
+export function ManageBatchAction({ records, salesId, onUpdate, variant = "button", trigger: customTrigger }: ManageBatchActionProps) {
+  const submitting = useRef(false);
+  const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentInput, setPaymentInput] = useState("");
-  const isMobile = useMediaQuery("(max-width: 768px)");
 
   const grandTotal = records.reduce((s, r) => s + (r.amount ?? 0), 0);
   const totalBalance = records.reduce((s, r) => s + (r.balance ?? 0), 0);
@@ -41,8 +47,20 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
     [records, lumpSum]
   );
 
-  const handleSubmit = async () => {
+  const submit = async () => {
     if (lumpSum <= 0) return;
+    if (!paidBy) throw new Error('Choose how the customer paid: Cash, Transfer or POS.');
+    const context = await paymentContext();
+    if (context.backend === 'postgres') {
+      const jobs = records.filter(r => r.raw?._jobId ? rowDebtKobo(r.raw) > BigInt(0) : (r.balance || 0) > 0);
+      if (!jobs.length || jobs.some(r => !r.raw?._jobId)) throw new Error('Refresh the jobs before recording this payment.');
+      if (BigInt(paymentKobo(paymentInput)) > jobs.reduce((sum, r) => sum + rowDebtKobo(r.raw), BigInt(0))) throw new Error('The amount exceeds the selected debt. Ask the owner to review any excess.');
+      await savePostgresPayment(context, { jobIds: jobs.map(r => r.raw._jobId), amountKobo: paymentKobo(paymentInput),
+        paymentMethod: paidBy, notes: 'Batch payment' }, `Payment for ${records[0]?.client || 'customer'}`);
+      toast.success('Payment saved on this device. Confirmation will appear after syncing.');
+      setPaymentInput(''); setPaidBy(''); setIsOpen(false); onUpdate(); return;
+    }
+    if (records.some(r => r.raw?._jobId)) throw new Error('These records belong to PostgreSQL. Refresh before recording a payment.');
     const steps = computeWaterfall(records, lumpSum);
     if (steps.length === 0) {
       toast.error("No eligible unpaid items to apply payment to.");
@@ -70,6 +88,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       collectedBy: localStorage.getItem("userName") || "System",
       notes: `Logged via Batch Payment distribution (${salesId})`,
       lumpSum,
+      paymentMethod: paidBy,
       steps: steps.map((step) => ({
         rowIndex: step.record.rowIndex,
         salesId: step.record.salesId || "",
@@ -83,6 +102,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
 
     const finish = () => {
       setPaymentInput("");
+      setPaidBy("");
       setIsOpen(false);
       onUpdate();
     };
@@ -132,12 +152,20 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
     }
   };
 
-  const trigger = variant === "icon" ? (
+  const handleSubmit = async () => {
+    if (submitting.current) return;
+    submitting.current = true; setIsSubmitting(true);
+    try { await submit(); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Payment could not be saved.'); }
+    finally { submitting.current = false; setIsSubmitting(false); }
+  };
+
+  const trigger = customTrigger ? customTrigger(() => setIsOpen(true)) : variant === "icon" ? (
     <IconButton
       size="small"
       onClick={() => setIsOpen(true)}
       title="Pay Batch"
-      sx={{ color: "primary.main", "&:hover": { bgcolor: "primary.main", color: "white" } }}
+      sx={{ color: accent, "&:hover": { bgcolor: "primary.main", color: "white" } }}
     >
       <Wallet size={16} />
     </IconButton>
@@ -153,8 +181,8 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
         fontSize: "0.625rem",
         fontWeight: 900,
         letterSpacing: "0.08em",
-        borderColor: "primary.main",
-        color: "primary.main",
+        borderColor: accent,
+        color: accent,
         whiteSpace: "nowrap",
         minWidth: "max-content",
         "&:hover": { bgcolor: "primary.main", color: "primary.contrastText" },
@@ -199,11 +227,10 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
             <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
               Lump-Sum Payment (₦)
             </Typography>
-            <TextField
-              type="number"
+            <MoneyField
               placeholder="Enter total payment amount"
               value={paymentInput}
-              onChange={(e) => setPaymentInput(e.target.value)}
+              onChange={setPaymentInput}
               fullWidth
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
             />
@@ -214,6 +241,8 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
               </Typography>
             )}
           </Box>
+
+          <PaidBy value={paidBy} onChange={setPaidBy} disabled={isSubmitting} />
 
           {preview.length > 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -274,17 +303,12 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
     </Box>
   );
 
-  const footer = (drawer?: boolean) => (
-    <Box
-      sx={
-        drawer
-          ? { display: "flex", flexDirection: "column", gap: 1.5, mt: 2, px: 3, pb: 3 }
-          : { display: "flex", gap: 1.5, p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider" }
-      }
-    >
+  const footer = (
+    <Box sx={{ display: "flex", gap: 1.5, p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider" }}>
       <Button
         variant="outlined"
         onClick={() => setIsOpen(false)}
+        disabled={isSubmitting}
         sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
       >
         Cancel
@@ -300,74 +324,11 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
     </Box>
   );
 
-  if (isMobile) {
-    return (
-      <>
-        {trigger}
-        <Dialog
-          fullScreen
-          open={isOpen}
-          onClose={() => setIsOpen(false)}
-
-          slotProps={{
-            paper: {
-              sx: {
-                mt: "10vh",
-                borderTopLeftRadius: 32,
-                borderTopRightRadius: 32,
-                bgcolor: "background.default",
-                display: "flex",
-                flexDirection: "column",
-              }
-            }
-          }}
-          sx={{
-            "& .MuiDialog-container": {
-              alignItems: "flex-end",
-            }
-          }}
-        >
-          <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 2, flexShrink: 0 }} />
-          <Box sx={{ flex: 1, overflowY: "auto" }}>
-            <Box sx={{ px: 3, pb: 1 }}>
-              <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary" }}>
-                Batch Payment
-              </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mt: 0.5 }}>
-                {salesId}
-              </Typography>
-            </Box>
-            {body}
-          </Box>
-          {footer(true)}
-        </Dialog>
-      </>
-    );
-  }
-
-  return (
-    <>
-      {trigger}
-      <Dialog
-      open={isOpen}
-      onClose={() => setIsOpen(false)}
-      slotProps={{ paper: { sx: { borderRadius: 4, maxWidth: 448, width: "100%", p: 0 } } }}
-    >
-      <DialogTitle sx={{ bgcolor: "primary.main", color: "primary.contrastText", borderRadius: "16px 16px 0 0", pb: 2 }}>
-        <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "primary.contrastText" }}>
-          Batch Payment
-        </Typography>
-        <Typography sx={{ fontSize: "0.75rem", color: "primary.contrastText", opacity: 0.7, mt: 0.5 }}>
-          {salesId} · {records.length} item{records.length !== 1 ? "s" : ""}
-        </Typography>
-      </DialogTitle>
-      <DialogContent sx={{ p: 0 }}>
-        {body}
-      </DialogContent>
-      <DialogActions sx={{ p: 0 }}>
-        {footer()}
-      </DialogActions>
-    </Dialog>
-    </>
-  );
+  return <>
+    {trigger}
+    <ResponsiveSheet open={isOpen} onClose={() => setIsOpen(false)} busy={isSubmitting}
+      title="Batch Payment" description={`${salesId} · ${records.length} items`} footer={footer}>
+      {body}
+    </ResponsiveSheet>
+  </>;
 }

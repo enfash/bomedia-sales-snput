@@ -255,7 +255,7 @@ export function processDebtData(sales: any[], limit = 7) {
 
     const client = (r["CLIENT NAME"] || r["Client Name"] || "Unknown").trim();
     if (!client) return;
-    owedByClient[client] = (owedByClient[client] || 0) + collectableAmount(balance);
+    owedByClient[client] = (owedByClient[client] || 0) + collectableAmount(balance, !!r._jobId);
   });
 
   // Step 2: Keep clients still owing more than a naira (ignores rounding noise)
@@ -263,7 +263,7 @@ export function processDebtData(sales: any[], limit = 7) {
   const debtors: Record<string, number> = {};
 
   Object.entries(owedByClient).forEach(([client, owed]) => {
-    if (owed > 1) {
+    if (owed > (sales.some(r => !!r._jobId) ? 0.005 : 1)) {
       debtors[client] = owed;
       totalDebt += owed;
     }
