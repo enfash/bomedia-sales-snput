@@ -435,8 +435,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
 
   return (
     <>
-      <ResponsiveSheet open={isOpen} onClose={onClose} title="Shift Report" description="Collections and paid expenses by payment date; debt is the current balance of these sales." maxWidth="md" footer={footer}>
-      {exact && complete && <Typography variant="body2">Cash: {formatKobo(exact.cash)} · Transfer: {formatKobo(exact.transfer)} · POS: {formatKobo(exact.pos)} · Net all methods: {formatKobo(exact.net)}</Typography>}
+      <ResponsiveSheet open={isOpen} onClose={onClose} title="Shift Report" description="Money in and out, by payment date" maxWidth="md" footer={footer}>
       <Box sx={styles.controls}>
         <Box sx={styles.dateRow}>
           <Box sx={styles.muted}><Calendar size={16} /></Box>
@@ -482,6 +481,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
           </Box>
         ) : loadError ? <Typography role="alert" color="error">{loadError}</Typography> : (
           <Stack sx={{ gap: 2.5 }}>
+            {exact && complete && <Typography variant="body2" color="text.secondary">Cash {formatKobo(exact.cash)} · Transfer {formatKobo(exact.transfer)} · POS {formatKobo(exact.pos)} · Net {formatKobo(exact.net)}</Typography>}
             <Box sx={styles.statGrid}>
               {stats.map(({ label, val, icon: Icon, tone, highlight }) => (
                 <Paper key={label} variant="outlined" sx={[styles.statCard, highlight && styles.statCardHighlight]}>
