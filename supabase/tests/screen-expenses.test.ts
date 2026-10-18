@@ -77,3 +77,12 @@ it('lets staff the owner chose log an owner-only category, and nobody else',asyn
   await fail(()=>call('api_screen_expense','other-try',{actor_id:other,operation:'log',items:[item({category:'Equipment'})]}));
 });
 
+it('protects an attached receipt from other cashiers and permits the owner',async()=>{
+ const receipt=await reserve();await call('api_receipt','ready',{actor_id:actor,receipt_id:receipt.id});
+ const date=(await db.query<{d:string}>("select ((now() at time zone 'Africa/Lagos')::date)::text d")).rows[0].d;
+ await log([item({businessDate:date,receiptId:receipt.id})]);
+ await db.exec('reset role');const other=await insertId(db,"insert into bomedia.staff(display_name,login_name) values('Other','other') returning id");await db.exec('set local role bomedia_financial_runtime');
+ await fail(()=>call('api_receipt','read',{actor_id:other,receipt_id:receipt.id}));
+ expect((await call('api_receipt','read',{actor_id:actor,receipt_id:receipt.id})).id).toBe(receipt.id);
+ expect((await call('api_receipt','read',{actor_id:other,receipt_id:receipt.id,by_owner:'true'})).id).toBe(receipt.id);
+});

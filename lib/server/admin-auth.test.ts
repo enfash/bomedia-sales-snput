@@ -124,3 +124,14 @@ describe('password reset', () => {
     await fails(fake({}).auth.setPassword('', 'a-long-new-password'), 400);
   });
 });
+
+it('bounds a nonsettling refresh and aborts the network request',async()=>{
+ const {vi}=await import('vitest');vi.useFakeTimers();
+ try {
+  let signal:AbortSignal|undefined;
+  const auth=createAdminAuth(env,async(_url,init)=>{signal=init?.signal as AbortSignal;return new Promise<Response>(()=>{});});
+  const result=auth.refreshSession('synthetic-refresh');
+  await vi.advanceTimersByTimeAsync(5001);
+  expect(await result).toEqual({status:'unavailable'});expect(signal?.aborted).toBe(true);
+ } finally {vi.useRealTimers();}
+});

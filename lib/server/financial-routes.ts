@@ -56,7 +56,7 @@ export function readFinancialRecords(request: Request) {
   return financialHandler(async()=>{
     const identity=await financialIdentity(false);
     const params=new URL(request.url).searchParams;
-    if (params.get('resource')==='expenses_awaiting' && !await verifiedAdminIdentity()) {
+    if (['expenses_awaiting','expenses'].includes(params.get('resource') ?? '') && !await verifiedAdminIdentity()) {
       throw new FinancialError('Owner access is required for expenses awaiting payment.',403,'OWNER_REQUIRED');
     }
     const allowed=new Set(['resource','limit','after_id','customer_id']);

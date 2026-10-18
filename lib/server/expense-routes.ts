@@ -8,6 +8,7 @@ async function body(request:Request) {
 }
 export function logExpense(request:Request) {
   return financialHandler(async()=>{
+    if(!await verifiedAdminIdentity())throw new FinancialError('Use Expenses to submit expenses for approval.',403,'OWNER_REQUIRED');
     const actor=await financialIdentity(true);
     if(!actor)throw new FinancialError('Staff identity required.',403,'ACTOR_REQUIRED');
     return {success:true,...await expenseService.log(actor,await body(request),Boolean(await verifiedAdminIdentity()))};

@@ -68,3 +68,14 @@ it('validates alert switches and removing a phone', async () => {
   await push.unsubscribe({ staffId: owner }, { endpoint: good });
   expect(call).toHaveBeenLastCalledWith('api_push_unsubscribe', expect.any(String), { actor_id: owner, endpoint: good });
 });
+it('reports a transiently failing target even when another target succeeds',async()=>{
+ const targets=[{id:'a',endpoint:good,p256dh:'p',auth:'a'},{id:'b',endpoint:good+'2',p256dh:'p',auth:'a'}];
+ const call=vi.fn().mockImplementation(async(method)=>method==='api_push_claim'?[{id:'partial',title:'Alert',body:'Body',url:'/',targets}]:{});
+ const send=vi.fn(async(target:{id:string})=>{if(target.id==='b')throw Object.assign(new Error('temporary'),{statusCode:503});});
+ await createPush(call,send).dispatch(owner);
+ expect(call).toHaveBeenLastCalledWith('api_push_report','',{results:[{id:'partial',delivered:1,delivered_to:['a'],gone:[],error:'temporary'}]});
+});
+it('refuses credentials and nonstandard ports in push URLs',()=>{
+ expect(pushEndpoint('https://user:password@fcm.googleapis.com/send/x')).toBeNull();
+ expect(pushEndpoint('https://fcm.googleapis.com:8443/send/x')).toBeNull();
+});

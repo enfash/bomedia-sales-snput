@@ -1,5 +1,7 @@
 "use client";
 
+import { clearSavedPages } from '@/components/session-guard';
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -32,9 +34,10 @@ export default function LoginPage() {
     setLoading(true);
     try { await work(); } catch { toast.error("Failed to connect to server"); } finally { setLoading(false); }
   }
-  function enter() {
+  async function enter() {
     localStorage.removeItem("bomedia-payment-context-v1");
     localStorage.setItem("userName", "Admin");
+    await clearSavedPages();
     toast.success("Welcome back!");
     router.push("/bom03");
     router.refresh();
@@ -47,7 +50,7 @@ export default function LoginPage() {
       if (!ok) return void toast.error(data.error || "Invalid credentials");
       if (data.step === "setup") { setQr(data.qr); setSecret(data.secret); setStep("setup"); setPassword(""); return; }
       if (data.step === "code") { setStep("code"); setPassword(""); return; }
-      enter(); // Password-only mode (no second step).
+      await enter(); // Password-only mode (no second step).
     });
   };
   const handleCode = (e: React.FormEvent) => {
@@ -55,7 +58,7 @@ export default function LoginPage() {
     void run(async () => {
       const { ok, data } = await send("/api/auth/admin-code", { code });
       if (!ok) { toast.error(data.error || "That code is not right"); if (data.error?.includes("expired")) { setStep("password"); setCode(""); } return; }
-      enter();
+      await enter();
     });
   };
   const handleForgot = (e: React.FormEvent) => {

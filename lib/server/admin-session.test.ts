@@ -51,3 +51,12 @@ describe('checking the owner with Supabase', () => {
     expect(new Set(results.map((r) => r.cookie)).size).toBe(1);
   });
 });
+
+it('requires a tracked owner cookie after selecting Supabase authentication',async()=>{
+ const {vi}=await import('vitest');vi.stubEnv('ADMIN_AUTH','supabase');
+ try {
+  expect(withinGrace({role:'admin',email:'owner@example.com'})).toBe(false);
+  expect(withinGrace(owner({rt:''}))).toBe(false);
+  expect(withinGrace(owner())).toBe(true);
+ } finally {vi.unstubAllEnvs();}
+});

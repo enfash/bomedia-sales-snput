@@ -75,3 +75,18 @@ describe('sale draft', () => {
     expect(() => clearDraft(blocked, notify)).not.toThrow();
   });
 });
+
+it('keys PostgreSQL drafts by verified staff identity even when names collide',()=>{
+ const a=memory('Same name'),b=memory('Same name');
+ a.setItem('bomedia-payment-context-v1',JSON.stringify({userName:'Same name',backend:'postgres',staffId:'00000000-0000-4000-8000-000000000001'}));
+ b.setItem('bomedia-payment-context-v1',JSON.stringify({userName:'Same name',backend:'postgres',staffId:'00000000-0000-4000-8000-000000000002'}));
+ expect(draftKey(a)).not.toBe(draftKey(b));expect(draftKey(a)).toContain('postgres');
+});
+it('sign-out purges personal drafts while preserving pending financial operations',async()=>{
+ const {purgeSaleDrafts}=await import('./sale-draft');const store=memory('ada');
+ store.setItem('bomedia-sale-draft:old-name','customer details');writeDraft(store,base(),notify);
+ store.setItem('bomedia-order-v3:pending','frozen order');
+ const storage={...store,get length(){return store.data.size;},key:(i:number)=>[...store.data.keys()][i]??null};
+ purgeSaleDrafts(storage);expect([...store.data.keys()].some(k=>k.startsWith('bomedia-sale-draft:'))).toBe(false);
+ expect(store.getItem('bomedia-order-v3:pending')).toBe('frozen order');
+});

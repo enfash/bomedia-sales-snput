@@ -52,7 +52,7 @@ it('corrects an unpaid expense: the old entry is reversed, the new amount is owe
   expect(revision.before).toMatchObject({ amount_kobo: '6000000' });
   expect(revision.after).toMatchObject({ amount_kobo: '600000', paid_to: 'Ink Depot Ltd' });
   expect((await owned("select details from bomedia.audit_events where action='expense_corrected'"))[0].details).toMatchObject({ reference: e.reference });
-  const history = (await db.query<{ r: any[] }>('select bomedia.api_expense_history($1) as r', [e.reference])).rows[0].r;
+  const history = (await db.query<{ r: any[] }>("select bomedia.api_expense_detail('history',jsonb_build_object('reference',$1::text,'actor_id',$2::text,'by_owner','true')) as r", [e.reference,owner])).rows[0].r;
   expect(history).toHaveLength(1);
   expect(history[0]).toMatchObject({ kind: 'correction', by: 'Owner', reason: 'Typed the wrong amount' });
 });
@@ -137,13 +137,13 @@ it('keeps correcting: a second correction reverses only what is still in force',
   await change('c10b', mine(e.reference, { amountKobo: '1000000' }, 'Still too high'));
   expect(await net('2010')).toBe(-1000000);
   expect(await net('6000')).toBe(1000000);
-  const history = (await db.query<{ r: any[] }>('select bomedia.api_expense_history($1) as r', [e.reference])).rows[0].r;
+  const history = (await db.query<{ r: any[] }>("select bomedia.api_expense_detail('history',jsonb_build_object('reference',$1::text,'actor_id',$2::text,'by_owner','true')) as r", [e.reference,owner])).rows[0].r;
   expect(history.map((h) => h.revision)).toEqual([2, 1]);
 });
 
 it('previews the effect without changing anything', async () => {
   const e = await log('e11', { status: 'paid', paymentMethod: 'Cash' });
-  const { plan } = (await db.query<{ r: Record<string, any> }>('select bomedia.api_expense_correction_preview($1::jsonb) as r', [JSON.stringify({ reference: e.reference, mode: 'correct', changes: { amountKobo: '1000000' } })])).rows[0].r;
+  const { plan } = (await db.query<{ r: Record<string, any> }>("select bomedia.api_expense_detail('preview',$1::jsonb || jsonb_build_object('actor_id',$2::text,'by_owner','true')) as r", [JSON.stringify({ reference: e.reference, mode: 'correct', changes: { amountKobo: '1000000' } }),owner])).rows[0].r;
   expect(plan).toMatchObject({ old_amount_kobo: '6000000', new_amount_kobo: '1000000', paid: true, excess_kobo: '5000000' });
   expect(Number((await row(e.reference)).amount_kobo)).toBe(6000000);
   expect(await owned('select count(*)::int as n from bomedia.expense_revisions')).toEqual([{ n: 0 }]);
@@ -236,10 +236,33 @@ it('keeps the recovered money when the expense is corrected again, and recovers 
 it('remembers the cash that really left when a paid expense is corrected twice', async () => {
   const e = await log('e20', { status: 'paid', paymentMethod: 'Cash' });
   await change('c20a', mine(e.reference, { amountKobo: '3000000' }));
-  const { plan } = (await db.query<{ r: Record<string, any> }>('select bomedia.api_expense_correction_preview($1::jsonb) as r', [JSON.stringify({ reference: e.reference, mode: 'correct', changes: { amountKobo: '1000000' } })])).rows[0].r;
+  const { plan } = (await db.query<{ r: Record<string, any> }>("select bomedia.api_expense_detail('preview',$1::jsonb || jsonb_build_object('actor_id',$2::text,'by_owner','true')) as r", [JSON.stringify({ reference: e.reference, mode: 'correct', changes: { amountKobo: '1000000' } }),owner])).rows[0].r;
   expect(plan).toMatchObject({ paid_out_kobo: '6000000', excess_kobo: '5000000' });
   await change('c20b', mine(e.reference, { amountKobo: '1000000' }, 'Still too high'));
   expect(await net('1000')).toBe(-6000000);
   expect(await net('6000')).toBe(1000000);
   expect(await net('1300')).toBe(5000000);
+});
+
+it('restricts expense history and previews to the owner or today’s originating cashier',async()=>{
+ const e=await log('private');
+ const detail=(action:string,who:string,extra={})=>db.query("select bomedia.api_expense_detail($1,$2::jsonb) as r",[action,JSON.stringify({actor_id:who,reference:e.reference,mode:'cancel',...extra})]);
+ await failure(()=>detail('preview',bola),'42501');await failure(()=>detail('history',bola),'42501');
+ await expect(detail('preview',ada)).resolves.toBeDefined();
+ await owned("update bomedia.expenses set business_date=business_date-1 where id=$1",[e.expense_id]);
+ await failure(()=>detail('history',ada),'42501');
+ await expect(detail('history',owner,{by_owner:'true'})).resolves.toBeDefined();
+});
+it('reports paid movements by payment date and actor, retaining cancelled expense cash and recovery',async()=>{
+ const old=(await owned("select ((now() at time zone 'Africa/Lagos')::date-1)::text d"))[0].d;
+ await log('unpaid-report',{amountKobo:'500000'});
+ const later=await log('later-report',{businessDate:old,amountKobo:'300000'});
+ await payLater('pay-report',later.expense_id,'300000','Transfer');
+ const paid=await log('paid-report',{amountKobo:'200000',status:'paid',paymentMethod:'Cash'});
+ await change('cancel-report',cancel(paid.reference));
+ const query=(who:string,owner=false)=>db.query<{r:any}>("select bomedia.api_shift_report($1,$2::jsonb) r",[today,JSON.stringify({actor_id:who,by_owner:String(owner)})]);
+ const report=(await query(owner,true)).rows[0].r;
+ expect(report.expenses.map((e:any)=>e._amountKobo).sort()).toEqual(['200000','300000']);
+ expect(report.expenses.find((e:any)=>e._amountKobo==='300000')).toMatchObject({'PAYMENT METHOD':'Transfer',_staffId:owner});
+ expect((await query(ada)).rows[0].r.expenses.map((e:any)=>e._amountKobo)).toEqual(['200000']);
 });

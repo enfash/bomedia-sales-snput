@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest) {
   const payload = token ? await verifyToken(token) : null;
   let renewed: string | undefined;
   let revoked = false;
-  let allowed = true;
+  let allowed = payload?.role !== 'admin' || withinGrace(payload) || needsCheck(payload);
   if (payload && payload.role === 'admin' && needsCheck(payload)) {
     const verdict = await checkOwner(payload);
     if (verdict.revoked) { revoked = true; allowed = false; }
@@ -94,7 +94,9 @@ async function route(request: NextRequest, renewedCookie: string | undefined, ad
     const isAuthApi = pathname.startsWith('/api/auth');
     const isPublicCashierApi = (pathname === '/api/cashiers' || pathname === '/api/cashiers/') && (method === 'GET' || method === 'PATCH');
 
-    if (!isAuthApi && !isPublicCashierApi) {
+    const isPushDispatch = pathname === '/api/push/dispatch' && method === 'POST';
+
+    if (!isAuthApi && !isPublicCashierApi && !isPushDispatch) {
       // Admin-only protection for adding or deleting users
       if (pathname.startsWith('/api/cashiers') && (pathname.startsWith('/api/cashiers/access') || method === 'POST' || method === 'DELETE')) {
         if (!isAdmin) {

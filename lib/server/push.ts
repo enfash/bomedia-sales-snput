@@ -28,7 +28,7 @@ export function pushEndpoint(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 2000) return null;
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:') return null;
+    if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return null;
     if (PUSH_HOSTS.some((host) => host.test(url.hostname))) return url.toString();
     return url.hostname === GOOGLE_FRONT_END.host && GOOGLE_FRONT_END.paths.some((path) => url.pathname.startsWith(path)) ? url.toString() : null;
   } catch { return null; }
@@ -106,7 +106,7 @@ export function createPush(call: FinancialCall = callFinancial, send: PushSender
           }
         }
         sent += deliveredTo.length; failed += item.targets.length - deliveredTo.length - gone.length;
-        results.push({ id: item.id, delivered: deliveredTo.length, delivered_to: deliveredTo, gone, error: deliveredTo.length === 0 && gone.length < item.targets.length ? error : '' });
+        results.push({ id: item.id, delivered: deliveredTo.length, delivered_to: deliveredTo, gone, error: deliveredTo.length + gone.length < item.targets.length ? error || 'Temporary delivery failure' : '' });
       }
       if (results.length) await call('api_push_report', '', { results });
       return { sent, failed };

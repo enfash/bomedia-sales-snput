@@ -9,7 +9,7 @@ const context={backend:'postgres' as const,staffId:id};
 const request=():ExpenseRequest=>({version:1,backend:'postgres',requestId:id,expectedStaffId:id,operation:'log',items:[{businessDate:'2026-10-08',amountKobo:'123451',category:'Transport',description:'Test',paidTo:'Vendor',status:'paid',paymentMethod:'pos'}]});
 const result=()=>({request_id:id,actor_id:id,operation:'log',expenses:[{expense_id:other,journal_entry_id:id,reference:'EXP-20261008-10000',amount_kobo:'123451',business_date:'2026-10-08',status:'Paid',receipt_id:null}]});
 it('persists before dispatch, reuses repeated Save, and retains original date/amount through lost responses and reload',async()=>{
- const s=new Store(),entry=persistExpense(s,request());expect(persistExpense(s,{...request(),requestId:other})).toEqual(entry);
+ const s=new Store(),entry=persistExpense(s,request());expect(persistExpense(s,request())).toEqual(entry);
  const send=vi.fn().mockRejectedValueOnce(new Error('lost')).mockResolvedValueOnce(Response.json(result()));
  expect(await deliverExpense(s,entry,context,send)).toBeNull();
  const reloaded=readExpenses(s)[0];expect(reloaded.expense).toEqual(request());
@@ -46,4 +46,9 @@ it('hands a held expense to the server, clears the device queue and keeps a note
 it('accepts a reason up to 500 characters on a logged expense and no more',()=>{
  expect((expenseContract({...request(),approvalReason:'Van hire'}) as {approvalReason?:string}).approvalReason).toBe('Van hire');
  expect(()=>expenseContract({...request(),approvalReason:'x'.repeat(501)})).toThrow(/500/);
+});
+
+it('retains two identical expenses with different operation IDs',()=>{
+ const s=new Store();persistExpense(s,request());persistExpense(s,{...request(),requestId:other});expect(readExpenses(s)).toHaveLength(2);
+ const changed=request();changed.expectedStaffId=other;expect(()=>persistExpense(s,changed)).toThrow(/different values/);
 });

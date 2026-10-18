@@ -188,3 +188,20 @@ it('only ever lets the server runtime use the approval functions', async () => {
   expect(rows).toEqual([]);
   await db.exec('set local role bomedia_financial_runtime');
 });
+
+it('keeps a declined operation declined when its rule is switched off',async()=>{
+ await rule('date',true,{days:0});
+ const input={businessDate:await daysFromToday(-1)};
+ const held=await cashier('declined-after-rule',input);
+ await decide('reject-after-rule',held.approval_request_id,'decline');
+ await rule('date',false,{days:0});
+ expect((await cashier('declined-after-rule',input)).status).toBe('declined');
+ expect(await count('orders')).toBe(0);
+});
+it('returns a completed sale receipt before evaluating changed date rules',async()=>{
+ const input={businessDate:await daysFromToday(-1)};
+ const first=await cashier('successful-retry',input,null);
+ await rule('date',true,{days:0});
+ expect(await cashier('successful-retry',input,null)).toEqual(first);
+ expect(await count('orders')).toBe(1);expect(await count('approval_requests')).toBe(0);
+});

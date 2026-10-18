@@ -1,3 +1,4 @@
+import { verifiedAdminIdentity } from './postgres-auth-routes';
 // The existing New Sale screen keeps its screen and offline queue; once
 // Postgres is in charge, POST /api/sales turns its queued batch into one sale
 // in the books (api_legacy_sale). The queue's transactionId makes retries safe.
@@ -66,6 +67,7 @@ export async function recordLegacySale(request: Request, call: FinancialCall = c
     body = parsed;
   } catch { return fail('Invalid sale.', 'INVALID_INPUT', 400); }
   try {
+    if (!await verifiedAdminIdentity()) throw new FinancialError('Use New entry to submit sales for approval. Keep this saved entry for owner review.', 403, 'OWNER_REQUIRED');
     const identity = await financialIdentity(true);
     if (!identity) throw new FinancialError('Your account needs an accounting identity.', 403, 'ACTOR_REQUIRED');
     const { requestId, payload } = legacySalePayload(body, identity.staffId.toLowerCase());

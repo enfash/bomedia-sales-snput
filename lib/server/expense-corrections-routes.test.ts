@@ -34,7 +34,7 @@ it('previews without a reason and without writing', async () => {
   mocks.call.mockResolvedValue({ plan: { new_amount_kobo: '1' } });
   const res = await changeExpense(post({ mode: 'correct', reference: 'EXP-20261012-0007', changes: { amountKobo: '1' } }, '?preview=1'));
   expect(await res.json()).toEqual({ plan: { new_amount_kobo: '1' } });
-  expect(mocks.call).toHaveBeenCalledWith('api_expense_correction_preview', '', { mode: 'correct', reference: 'EXP-20261012-0007', changes: { amountKobo: '1' } });
+  expect(mocks.call).toHaveBeenCalledWith('api_expense_detail', 'preview', { actor_id:cashier,by_owner:'false',mode: 'correct', reference: 'EXP-20261012-0007', changes: { amountKobo: '1' } });
 });
 
 it('rejects unclear requests before the database', async () => {
@@ -52,7 +52,7 @@ it('turns a refusal into a plain message and reads an expense’s history for an
   mocks.call.mockResolvedValue([{ kind: 'correction' }]);
   const history = await readExpenseHistory(new Request('https://app.example.test/api/accounting/expense-corrections?reference=EXP-20261012-0007'));
   expect(await history.json()).toEqual({ data: [{ kind: 'correction' }] });
-  expect(mocks.call).toHaveBeenLastCalledWith('api_expense_history', 'EXP-20261012-0007', {});
+  expect(mocks.call).toHaveBeenLastCalledWith('api_expense_detail', 'history', {reference:'EXP-20261012-0007',actor_id:cashier,by_owner:'false'});
 });
 
 it('lets only the owner record money coming back, under the owner identity', async () => {

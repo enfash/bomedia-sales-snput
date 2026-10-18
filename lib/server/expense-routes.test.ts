@@ -11,13 +11,16 @@ beforeEach(()=>{vi.resetAllMocks();vi.stubEnv('POSTGRES_FINANCIAL_API_ENABLED','
 afterEach(()=>vi.unstubAllEnvs());
 it('stays off by default and needs a live session to log',async()=>{
   vi.stubEnv('POSTGRES_FINANCIAL_API_ENABLED','false');expect((await logExpense(request({}))).status).toBe(404);
-  vi.stubEnv('POSTGRES_FINANCIAL_API_ENABLED','true');expect((await logExpense(request({}))).status).toBe(401);
+  vi.stubEnv('POSTGRES_FINANCIAL_API_ENABLED','true');expect((await logExpense(request({}))).status).toBe(403);
   expect(mocks.log).not.toHaveBeenCalled();
 });
 it('logs with the session identity, never a client-sent actor',async()=>{
   mocks.session.mockResolvedValue({staff_id:id});mocks.log.mockResolvedValue({expense_id:'e',status:'Paid'});
   const input={requestId:'r',actor_id:'spoof'};const response=await logExpense(request(input));
-  expect(response.status).toBe(200);expect(mocks.log).toHaveBeenCalledWith({staffId:id},input,false);
+  expect(response.status).toBe(403);expect(mocks.log).not.toHaveBeenCalled();
+  mocks.admin.mockResolvedValue('owner@example.test');vi.stubEnv('SUPABASE_ADMIN_STAFF_ID',id);
+  expect((await logExpense(request({requestId:'owner'}))).status).toBe(200);
+  expect(mocks.log).toHaveBeenCalledWith({staffId:id},{requestId:'owner'},true);
 });
 it('lets only the verified owner mark expenses paid',async()=>{
   mocks.session.mockResolvedValue({staff_id:id});

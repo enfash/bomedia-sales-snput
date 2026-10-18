@@ -36,9 +36,9 @@ async function connect() {
     if (!role || role.rolname !== 'bomedia_auth_server' || role.rolsuper || role.rolbypassrls || role.rolcreaterole
       || role.rolcreatedb || !role.member) throw new Error('Authentication role privileges do not match');
     return sql;
-  } catch {
+  } catch (cause) {
     await sql.end({ timeout: 2 });
-    throw new Error('Authentication database is unavailable');
+    throw new Error('Authentication database is unavailable', { cause });
   }
 }
 export const callAuth: AuthCall = async <T>(method: AuthMethod, parameters: (string | boolean | null)[]): Promise<T> => {

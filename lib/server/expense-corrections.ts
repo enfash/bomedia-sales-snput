@@ -38,9 +38,9 @@ function target(input: unknown, withReason: boolean) {
 
 export function createExpenseCorrections(call: FinancialCall = callFinancial) {
   return {
-    async preview(input: unknown) {
+    async preview(input: unknown, actor: FinancialActor, owner: boolean) {
       const { body, reference, changes } = target(input, false);
-      try { return (await call<{ plan: ExpensePlan }>('api_expense_correction_preview', '', { mode: body.mode, reference, changes })).plan; } catch (error) { return mapError(error); }
+      try { return (await call<{ plan: ExpensePlan }>('api_expense_detail', 'preview', { mode: body.mode, reference, changes, actor_id: actor.staffId, by_owner: String(owner) })).plan; } catch (error) { return mapError(error); }
     },
     // The server, never the browser, says whether the signed-in person is the owner.
     async request(actor: FinancialActor, isOwner: boolean, input: unknown) {
@@ -70,9 +70,9 @@ export function createExpenseCorrections(call: FinancialCall = callFinancial) {
         });
       } catch (error) { return mapError(error); }
     },
-    async history(reference: unknown) {
+    async history(reference: unknown, actor: FinancialActor, owner: boolean) {
       if (typeof reference !== 'string' || !REFERENCE.test(reference.trim())) throw invalid('Choose an expense.');
-      return call<ExpenseHistoryEntry[]>('api_expense_history', reference.trim(), {});
+      return call<ExpenseHistoryEntry[]>('api_expense_detail', 'history', {reference: reference.trim(), actor_id: actor.staffId, by_owner: String(owner)});
     },
   };
 }

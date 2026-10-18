@@ -1,5 +1,7 @@
 "use client";
 
+import { clearSavedPages } from '@/components/session-guard';
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -57,6 +59,7 @@ export default function CashierLoginPage() {
         body: JSON.stringify({ name: selectedCashier.Name, passcode: "" }),
       });
       if (res.ok) {
+        await clearSavedPages();
         localStorage.removeItem("bomedia-payment-context-v1");
         localStorage.setItem("userName", selectedCashier.Name);
         toast.success(`Welcome back, ${selectedCashier.Name}!`);
@@ -88,6 +91,7 @@ export default function CashierLoginPage() {
         body: JSON.stringify({ name: selectedCashier.Name, passcode: pin }),
       });
       if (res.ok) {
+        await clearSavedPages();
         localStorage.removeItem("bomedia-payment-context-v1");
         localStorage.setItem("userName", selectedCashier.Name);
         toast.success(`Welcome back, ${selectedCashier.Name}!`);

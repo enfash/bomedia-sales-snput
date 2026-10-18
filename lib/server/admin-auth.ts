@@ -38,17 +38,25 @@ export function createAdminAuth(env: Env = process.env, fetcher: Fetcher = (inpu
   }
   async function call<T>(path: string, init: { method?: string; body?: unknown; token?: string } = {}) {
     const { url, key } = base();
-    let response: Response;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      response = await fetcher(`${url}${path}`, {
-        method: init.method ?? 'POST',
-        headers: { apikey: key, 'Content-Type': 'application/json', Authorization: `Bearer ${init.token ?? key}` },
-        body: init.body === undefined ? undefined : JSON.stringify(init.body),
-      });
+      return await Promise.race([
+        (async () => {
+          const response = await fetcher(`${url}${path}`, {
+            method: init.method ?? 'POST', signal: controller.signal,
+            headers: { apikey: key, 'Content-Type': 'application/json', Authorization: `Bearer ${init.token ?? key}` },
+            body: init.body === undefined ? undefined : JSON.stringify(init.body),
+          });
+          const data = await response.json().catch(() => ({})) as T & { error_code?: string; code?: string | number };
+          return { status: response.status, data };
+        })(),
+        new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('Auth timed out')); }, 5000); }),
+      ]);
     } catch { throw new AdminAuthError('Sign-in service is unavailable. Please try again.', 503); }
-    const data = await response.json().catch(() => ({})) as T & { error_code?: string; code?: string | number };
-    return { status: response.status, data };
+    finally { clearTimeout(timer); }
   }
+
   const isOwner = (email: unknown) => typeof email === 'string' && email.trim().toLowerCase() === ownerEmail();
 
   async function passwordStep(email: unknown, password: unknown): Promise<PasswordStep> {

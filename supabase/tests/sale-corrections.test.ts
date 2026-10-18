@@ -231,3 +231,24 @@ it('tells the sales feed how many times a sale was corrected', async () => {
   await correct('c-feed', mine(job.id, { quantity: '1' }));
   expect((await feed())._revisions).toBe('1');
 });
+
+it('retains collections after same-day cancellation and scopes them to the collector',async()=>{
+ const sale=await sell('paid-for-report',{initialPaymentKobo:'960000',paymentMethod:'Cash'});
+ await correct('cancel-for-report',cancelAll(sale.sales_id));
+ const r=(await db.query<{r:any}>('select bomedia.api_shift_report($1,$2::jsonb) r',[today,JSON.stringify({actor_id:owner,by_owner:'true'})])).rows[0].r;
+ expect(r.sales).toEqual([]);expect(r.payments).toHaveLength(1);expect(r.payments[0]).toMatchObject({_amountKobo:'960000',_staffId:ada,'PAYMENT METHOD':'Cash'});
+});
+it('refuses cancellation of imported opening debt without altering the job or opening journal',async()=>{
+ await db.exec('rollback; begin');
+ owner=await insertId(db,"insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id");
+ await db.exec("insert into bomedia.bookkeeping_settings(starts_on,state) values('2026-10-01','setup')");
+ const customer=await insertId(db,"insert into bomedia.customers(display_name) values('Historical customer') returning id");
+ const orderId=await insertId(db,"insert into bomedia.orders(customer_id,legacy_sales_id) values($1,'BOM-OLD') returning id",[customer]);
+ const job=await insertId(db,"insert into bomedia.jobs(order_id,customer_id,description,quantity,unit_price_kobo,amount_kobo,job_status,business_date) values($1,$2,'Imported debt',1,1000000,1000000,'Delivered','2026-09-01') returning id",[orderId,customer]);
+ // Open the books only after the imported balance has been posted.
+ await db.query("select bomedia.post_journal('opening-debt-test',$1::jsonb)",[JSON.stringify({actor_id:owner,business_date:'2026-09-30',kind:'opening',memo:'Imported balance',opening_confirmed:true,evidence_reference:'Owner-confirmed test schedule',lines:[{account_code:'1100',debit_kobo:'1000000',job_id:job,customer_id:customer},{account_code:'3000',credit_kobo:'1000000'}]})]);
+ await db.exec("update bomedia.bookkeeping_settings set state='active'; set local role bomedia_financial_runtime");
+ await failure(()=>correct('cancel-imported',cancelAll('BOM-OLD')));
+ expect((await owned('select amount_kobo::text amount,cancelled_at from bomedia.jobs where id=$1',[job]))[0]).toMatchObject({amount:'1000000',cancelled_at:null});
+ expect(await net('1100')).toBe(1000000);
+});

@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {beforeEach,expect,it,vi} from 'vitest';
 const mocks=vi.hoisted(()=>({identity:vi.fn(),call:vi.fn(),storage:vi.fn(),bucket:vi.fn()}));
+vi.mock('./postgres-auth-routes',()=>({verifiedAdminIdentity:async()=>null}));
 vi.mock('./receipt-storage',()=>({RECEIPT_BUCKET:'expense-receipts',RECEIPT_LIMIT:1048576,storageRequest:mocks.storage,verifyReceiptBucket:mocks.bucket}));
 vi.mock('./financial-db',()=>({callFinancial:mocks.call,financialApiEnabled:()=>true}));
 vi.mock('./financial-routes',()=>({financialIdentity:mocks.identity,financialHandler:async(work:()=>Promise<unknown>)=>{try{return Response.json(await work());}catch(e){return Response.json({error:(e as Error).message},{status:(e as {status:number}).status||500});}}}));

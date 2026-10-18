@@ -1,3 +1,4 @@
+import { verifiedAdminIdentity } from './postgres-auth-routes';
 import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { financialHandler, financialIdentity } from './financial-routes';
@@ -47,7 +48,7 @@ export async function readExpenseReceipt(id:string){
   try {
     if(!financialApiEnabled())throw fail('Receipt service is not enabled.',404);
     const actor=await financialIdentity(true);if(!actor||!isUUID(id))throw fail('Receipt unavailable.',404);
-    const receipt=await callFinancial<Receipt>('api_receipt','read',{actor_id:actor.staffId,receipt_id:id});
+    const receipt=await callFinancial<Receipt>('api_receipt','read',{actor_id:actor.staffId,receipt_id:id,by_owner:String(Boolean(await verifiedAdminIdentity()))});
     if(!receipt.ready)throw fail('Receipt upload is not complete.',409);
     const bytes=await storedBytes(receipt);
     return new NextResponse(bytes,{headers:{'Content-Type':receipt.mime_type,'Content-Disposition':`inline; filename="receipt-${receipt.id}.${receipt.mime_type.split('/')[1]}"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; sandbox"}});

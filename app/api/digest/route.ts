@@ -1,3 +1,7 @@
+import { verifiedAdminIdentity } from '@/lib/server/postgres-auth-routes';
+import { shiftData } from '@/lib/server/shift-report';
+import { shiftTotals, formatKobo } from '@/lib/shift-report';
+import { lagosBusinessDate } from '@/lib/accounting-entry';
 import { NextResponse } from 'next/server';
 import { legacyFeedEnabled, legacyRows } from '@/lib/server/legacy-feed';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
@@ -15,12 +19,7 @@ function isToday(dateStr: string): boolean {
   if (!dateStr) return false;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return false;
-  const now = new Date();
-  return (
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear()
-  );
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Lagos'}).format(d) === lagosBusinessDate();
 }
 
 async function sheetRows() {
@@ -41,19 +40,21 @@ async function sheetRows() {
 
 export async function GET() {
   try {
+    if (!await verifiedAdminIdentity()) return NextResponse.json({error:'Owner access is required.'},{status:403});
+    const movements = legacyFeedEnabled() ? shiftTotals(await shiftData(lagosBusinessDate())) : null;
     const [salesRows, expenseRows, paymentRows, inventoryRows] = legacyFeedEnabled()
       ? (await Promise.all((['sales', 'expenses', 'payments', 'inventory'] as const).map(resource => legacyRows(resource))))
           .map(rows => rows.map(row => ({ get: (key: string) => row[key] })))
       : await sheetRows();
 
     // ── Sales today ──────────────────────────────────────────────────────────
-    const todaySales = salesRows.filter((r: any) => isToday(r.get('DATE') || r.get('Date') || ''));
+    const todaySales = salesRows.filter((r: any) => r.get('JOB STATUS') !== 'Cancelled' && isToday(r.get('DATE') || r.get('Date') || ''));
 
     const totalRevenue = todaySales.reduce(
       (s: number, r: any) => s + parseAmt(r.get('AMOUNT (₦)') || r.get('Amount (₦)')),
       0
     );
-    const totalCollected = todaySales.reduce(
+    const totalCollected = movements ? Number(movements.receipts)/100 : todaySales.reduce(
       (s: number, r: any) =>
         s + parseAmt(r.get('INITIAL PAYMENT (₦)') || r.get('INITIAL PAYMENT') || r.get('Initial Payment')),
       0
@@ -73,15 +74,15 @@ export async function GET() {
 
     // ── Expenses today ───────────────────────────────────────────────────────
     const todayExpenses = expenseRows.filter((r: any) => isToday(r.get('DATE') || r.get('Date') || ''));
-    const totalExpenses = todayExpenses.reduce(
+    const totalExpenses = movements ? Number(movements.spent)/100 : todayExpenses.reduce(
       (s: number, r: any) => s + parseAmt(r.get('Amount (₦)') || r.get('AMOUNT') || r.get('Amount')),
       0
     );
 
     // ── Payments today ───────────────────────────────────────────────────────
     const todayPayments = paymentRows.filter((r: any) => isToday(r.get('Date') || r.get('DATE') || ''));
-    const newPaymentsTotal = todayPayments.reduce(
-      (s: number, r: any) => s + parseAmt(r.get('Amount') || r.get('Amount (₦)')),
+    const newPaymentsTotal = movements ? 0 : todayPayments.reduce(
+      (s: number, r: any) => s + parseAmt(r.get('AMOUNT') || r.get('Amount') || r.get('Amount (₦)')),
       0
     );
 
@@ -131,20 +132,21 @@ export async function GET() {
       `🧾 *TODAY'S SALES*`,
       `• Jobs logged: ${todaySales.length}`,
       `• Total billed: ${fmtMoney(totalRevenue)}`,
-      `• Cash collected: ${fmtMoney(totalCollected)}`,
-      `• New debt created: ${fmtMoney(totalDebt)}`,
+      `• Collections (all methods): ${movements ? formatKobo(movements.receipts) : fmtMoney(totalCollected)}`,
+      `• Current debt on today’s sales: ${fmtMoney(totalDebt)}`,
       ...(Object.entries(statusCounts).map(([st, n]) => `  ↳ ${st}: ${n}`)),
       ``,
       `💸 *EXPENSES TODAY*`,
-      `• Total spent: ${fmtMoney(totalExpenses)}`,
-      ...(todayExpenses.slice(0, 4).map((r: any) => {
+      `• Paid expenses less recoveries: ${movements ? formatKobo(movements.spent) : fmtMoney(totalExpenses)}`,
+      ...(!movements ? todayExpenses.slice(0, 4) : []).map((r: any) => {
         const desc = r.get('Description') || r.get('DESCRIPTION') || r.get('Category') || '—';
         const amt = parseAmt(r.get('Amount (₦)') || r.get('AMOUNT') || r.get('Amount'));
         return `  ↳ ${desc}: ${fmtMoney(amt)}`;
-      })),
+      }),
       ``,
-      `💰 *NET CASH*`,
-      `• Net cash flow: ${fmtMoney(netCash)}`,
+      `💰 *NET COLLECTIONS*`,
+      `• Net all methods: ${movements ? formatKobo(movements.net) : fmtMoney(netCash)}`,
+      ...(movements ? [`• Cash: ${formatKobo(movements.cash)}; Transfer: ${formatKobo(movements.transfer)}; POS: ${formatKobo(movements.pos)}`, `• Net cash: ${formatKobo(movements.netCash)}`] : []),
       ...(newPaymentsTotal > 0 ? [`• Debt payments received: ${fmtMoney(newPaymentsTotal)}`] : []),
     ];
 

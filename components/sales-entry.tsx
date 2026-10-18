@@ -9,7 +9,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { JOB_STATUSES, STORAGE_KEYS } from "@/lib/constants";
 import { canonicalClientName } from "@/lib/client-names";
-import { readDraft, restoredDate, writeDraft } from "@/lib/sale-draft";
+import { clearDraft, readDraft, restoredDate, writeDraft } from "@/lib/sale-draft";
 
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -485,7 +485,7 @@ export function SalesEntry() {
     setShowConfirm(true);
   };
 
-  const handleSave = async (reason?: string) => {
+  const handleSave = async (reason?: string, acceptedRestoredPrices = false) => {
     if (savingRef.current) return;
     const contactProblem = phoneProblem(meta.contact, Math.round(balance * 100));
     if (contactProblem) { toast.error(contactProblem); return; }
@@ -494,6 +494,14 @@ export function SalesEntry() {
       const context = await paymentContext();
       if (context.backend === 'postgres') {
         const items = cart.map(i=>cartOrderItem(i,catalog));
+        if (draftPricesNeedReview && !loadedQuote && !acceptedRestoredPrices && (!catalog || !navigator.onLine || items.some(item => {
+          if (item.kind !== 'print') return false;
+          const current = catalog.materials.find(m=>m.id===item.ref || m.ref===item.ref);
+          return !current || current.priceKobo !== item.priceKobo;
+        }))) {
+          setAsk({title:'Review restored prices',message:'This restored draft may contain older print prices. Keep these prices only if they are intentional; otherwise cancel and update the items.',yes:'Keep these prices',run:()=>{void handleSave(reason,true);}});
+          return;
+        }
         const paid = nairaToKobo(meta.initialPayment || '0');
         if (paid === null) throw new Error('Enter the initial payment to the nearest kobo.');
         if (reviewChanges.length && !reason) throw new Error('Tell the owner why this sale is different.');
@@ -501,8 +509,7 @@ export function SalesEntry() {
           ...(customerId ? {customerId} : {}), ...(loadedQuote ? {quoteId:loadedQuote.id} : {}), jobStatus:meta.jobStatus,
           initialPaymentKobo:paid,...(paid!=='0'&&paidBy ? {paymentMethod:paidBy} : {}),totalKobo:orderTotal(items),items,...(reason ? {approvalReason:reason} : {})});
         toast.success(reason ? 'Sent to the owner for approval. It is recorded once approved.' : 'Order saved on this device. Its reference appears after confirmation.');
-        setShowConfirm(false);setCart([]);setLoadedQuote(null);setCustomerId(undefined);setPaidBy('');setRestoredDraft(false);
-        setMeta({date:lagosBusinessDate(),clientName:'',contact:'',jobStatus:JOB_STATUSES[0],initialPayment:'0'});
+        setShowConfirm(false);startFresh(false);
         return;
       }
       if (cart.some(i=>i.orderItem?.kind==='service') || loadedQuote) throw new Error('This order belongs to PostgreSQL. Reconnect before saving.');
@@ -594,9 +601,10 @@ export function SalesEntry() {
   // What has been filled in is kept on this phone, so leaving the page or refreshing does not lose it. It clears itself once the sale is saved.
   const [draftReady, setDraftReady] = useState(false);
   const [restoredDraft, setRestoredDraft] = useState(false);
+  const [draftPricesNeedReview, setDraftPricesNeedReview] = useState(false);
   useEffect(() => {
     // Deferred one tick so no state is set synchronously inside the effect.
-    void Promise.resolve().then(() => {
+    void paymentContext().catch(() => null).then(() => {
       const draft = readDraft(localStorage);
       if (draft) {
         setMeta({ ...draft.meta, date: restoredDate(draft, lagosBusinessDate()) });
@@ -604,7 +612,7 @@ export function SalesEntry() {
         setCustomerId(draft.customerId); setCart(draft.cart); setLoadedQuote(draft.loadedQuote); setQuoteInput(draft.quoteInput);
         setSelectedMaterialId(draft.job.materialId); setJobDesc(draft.job.desc); setJobWidth(draft.job.width); setJobHeight(draft.job.height);
         setQty(draft.job.qty); setCostOverride(draft.job.price); setDimUnit(draft.job.unit); setNlText(draft.nlText);
-        setRestoredDraft(true);
+        setRestoredDraft(true); setDraftPricesNeedReview(true);
       }
       setDraftReady(true);
     });
@@ -618,12 +626,13 @@ export function SalesEntry() {
   }, [draftReady, meta, paidBy, customerId, cart, loadedQuote, quoteInput, nlText, selectedMaterialId, jobDesc, jobWidth, jobHeight, qty, costOverride, dimUnit]);
   // An in-page question instead of the browser's pop-up, which some phones and app windows block (the button then does nothing).
   const [ask, setAsk] = useState<{ title: string; message: string; yes: string; run: () => void } | null>(null);
-  const startFresh = () => {
+  const startFresh = (notify = true) => {
+    clearDraft(localStorage); setDraftPricesNeedReview(false);
     setMeta({ date: lagosBusinessDate(), clientName: "", contact: "", jobStatus: JOB_STATUSES[0], initialPayment: "0" });
     setPaidBy(""); setCustomerId(undefined); setCart([]); setLoadedQuote(null); setQuoteInput("");
     setSelectedMaterialId(""); setJobDesc(""); setJobWidth(""); setJobHeight(""); setQty("1"); setCostOverride(""); setDimUnit("ft"); setNlText("");
     setFormTouched(false); setRestoredDraft(false);
-    toast.success("Started a new sale");
+    if (notify) toast.success("Started a new sale");
   };
   const isOwner = approvalRules?.isOwner ?? false;
   // Only the price rule is checked per item (the date is the same for the whole sale), and never for the owner.

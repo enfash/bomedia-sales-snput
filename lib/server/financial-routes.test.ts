@@ -91,3 +91,8 @@ it('removes roll costs from the stock records a cashier reads, and keeps them fo
   mocks.session.mockResolvedValue(null);mocks.admin.mockResolvedValue('owner@example.test');
   expect((await(await readFinancialRecords(request)).json()).data[0]).toMatchObject({purchase_cost_kobo:'6000000',cost_per_sqft_kobo_exact:'3896'});
 });
+it('does not expose the unfiltered expense list to cashiers',async()=>{
+ mocks.session.mockResolvedValue({staff_id:id});
+ expect((await readFinancialRecords(new Request('https://app.test/api/accounting/records?resource=expenses&limit=500'))).status).toBe(403);
+ expect(mocks.read).not.toHaveBeenCalled();
+});

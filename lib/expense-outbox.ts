@@ -24,10 +24,11 @@ export function readExpenses(storage: OutboxStorage): ExpenseEntry[] {
 }
 export function persistExpense(storage: OutboxStorage, expense: ExpenseRequest): ExpenseEntry {
   expenseContract(expense);
-  const {requestId: _id,...fields}=expense;
   for (const entry of readExpenses(storage)) {
-    const {requestId: _existing,...before}=entry.expense;
-    if (JSON.stringify(before)===JSON.stringify(fields)) return entry;
+    if (entry.expense.requestId === expense.requestId) {
+      if (JSON.stringify(entry.expense) !== JSON.stringify(expense)) throw new Error('This request ID is already in use for different values.');
+      return entry;
+    }
     if (expense.operation==='pay'&&entry.expense.operation==='pay'&&expense.expenseId===entry.expense.expenseId) throw new Error('Payment of this expense is already pending. Retry the saved payment.');
   }
   const key=EXPENSE_PREFIX+expense.requestId;

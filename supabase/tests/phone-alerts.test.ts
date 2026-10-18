@@ -128,3 +128,23 @@ it('queues a test alert for the person who asks, only once they have a phone on'
   expect(item).toMatchObject({ kind: 'test', title: 'Phone alerts are on', url: '/cashier/alerts' });
   expect(item.targets).toHaveLength(1);
 });
+
+it('retries only the failed target after a partially delivered alert',async()=>{
+ const a=await subscribe(owner,1), b=await subscribe(owner,2);await approval();
+ const [item]=await claim();
+ await call('select bomedia.api_push_report($1::jsonb) as r',[JSON.stringify([{id:item.id,delivered:1,delivered_to:[a.id],gone:[],error:'503'}])]);
+ expect((await outbox())[0].sent_at).toBeNull();
+ const [retry]=await claim();expect(retry.targets.map((t:any)=>t.id)).toEqual([b.id]);
+ await call('select bomedia.api_push_report($1::jsonb) as r',[JSON.stringify([{id:item.id,delivered:1,delivered_to:[b.id],gone:[],error:''}])]);
+ expect(await claim()).toEqual([]);expect((await outbox())[0].sent_at).not.toBeNull();
+});
+it('limits test alerts per person and bounds their active subscriptions',async()=>{
+ for(let n=1;n<=5;n++)await subscribe(ada,n);
+ await db.exec('savepoint limit_test');
+ await expect(subscribe(ada,6)).rejects.toMatchObject({code:'22023'});await db.exec('rollback to savepoint limit_test');
+ await call('select bomedia.api_push_test($1,$2::jsonb) as r',['test1',JSON.stringify({actor_id:ada})]);
+ await db.exec('savepoint cooldown');
+ await expect(call('select bomedia.api_push_test($1,$2::jsonb) as r',['test2',JSON.stringify({actor_id:ada})])).rejects.toMatchObject({code:'22023'});
+ await db.exec('rollback to savepoint cooldown');
+ expect((await owned("select count(*)::int n from bomedia.notification_outbox where kind='test'"))[0].n).toBe(1);
+});

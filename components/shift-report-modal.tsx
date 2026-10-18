@@ -1,5 +1,8 @@
 "use client";
 
+import { fetchShiftData, shiftTotals, formatKobo, type ShiftData } from "@/lib/shift-report";
+import { paymentContext } from "@/lib/payment-outbox";
+import { lagosBusinessDate } from "@/lib/accounting-entry";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -152,8 +155,12 @@ function PrintSheet({ report, pageRef }: { report: PrintReport; pageRef: React.R
 export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [loading, setLoading] = useState(true);
   const [reportDate, setReportDate] = useState(
-    new Date().toISOString().split("T")[0]
+    lagosBusinessDate()
   );
+  const [report, setReport] = useState<ShiftData | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const fetchSequence = useRef(0);
+  const [loadedDate, setLoadedDate] = useState("");
   const [sales, setSales] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -162,32 +169,39 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [making, setMaking] = useState(false);
 
   const fetchData = async () => {
-    setLoading(true);
+    const sequence = ++fetchSequence.current;
+    setLoading(true); setLoadError("");
     try {
-      const [sRes, eRes, pRes] = await Promise.all([
-        fetch("/api/sales"),
-        fetch("/api/expenses"),
-        fetch("/api/payments"),
-      ]);
-      const [sJson, eJson, pJson] = await Promise.all([
-        sRes.json(),
-        eRes.json(),
-        pRes.json(),
-      ]);
-      setSales(sJson.data || []);
-      setExpenses(eJson.data || []);
-      setPayments(pJson.data || []);
+      const context = await paymentContext();
+      if (context.backend === 'postgres') {
+        const data = await fetchShiftData(reportDate);
+        if (sequence !== fetchSequence.current) return;
+        setReport(data); setSales(data.sales); setExpenses(data.expenses); setPayments(data.payments);
+        setCashierFilter(current=>current==='All' || data.staff.some(s=>s.id===current) ? current : 'All');
+      } else {
+        const responses = await Promise.all(['/api/sales','/api/expenses','/api/payments'].map(url=>fetch(url)));
+        const data = await Promise.all(responses.map(async response => {
+          const body = await response.json();
+          if (!response.ok || !Array.isArray(body.data)) throw new Error('Incomplete report');
+          return body.data;
+        }));
+        if (sequence !== fetchSequence.current) return;
+        setReport(null); setSales(data[0]); setExpenses(data[1]); setPayments(data[2]);
+      }
+      setLoadedDate(reportDate);
     } catch {
-      toast.error("Failed to load report data");
-    } finally {
-      setLoading(false);
-    }
+      if (sequence !== fetchSequence.current) return;
+      setLoadError('The report could not be loaded completely. Retry before exporting.');
+      setReport(null); setSales([]); setExpenses([]); setPayments([]); setLoadedDate('');
+    } finally { if (sequence === fetchSequence.current) setLoading(false); }
   };
 
   useEffect(() => {
-    // Deferred one tick so the loading flag is not set synchronously inside the effect.
     if (isOpen) void Promise.resolve().then(fetchData);
-  }, [isOpen]);
+    return () => { fetchSequence.current += 1; };
+  }, [isOpen, reportDate]);
+  const complete = !loading && !loadError && loadedDate === reportDate;
+  const exact = report ? shiftTotals(report,cashierFilter) : null;
 
   const selectedDate = new Date(reportDate + "T12:00:00");
 
@@ -205,30 +219,31 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
     () =>
       expenses.filter((e) => {
         const d = new Date(e.DATE || e.Date || "");
-        return !isNaN(d.getTime()) && isSameDay(d, selectedDate);
+        return !isNaN(d.getTime()) && isSameDay(d, selectedDate) && (!report || cashierFilter === "All" || e._staffId === cashierFilter);
       }),
      
-    [expenses, reportDate]
+    [expenses, reportDate, cashierFilter, report]
   );
 
   const dayPayments = useMemo(
     () =>
       payments.filter((p) => {
         const d = new Date(p.DATE || "");
-        return !isNaN(d.getTime()) && isSameDay(d, selectedDate);
+        return !isNaN(d.getTime()) && isSameDay(d, selectedDate) && (!report || cashierFilter === "All" || p._staffId === cashierFilter);
       }),
      
-    [payments, reportDate]
+    [payments, reportDate, cashierFilter, report]
   );
 
   const cashiers = useMemo(() => {
+    if (report) return ["All",...report.staff.map(s=>s.id)];
     const names = new Set<string>(
       daySales
         .map((s) => s["LOGGED BY"] || s["Logged By"] || "Unknown")
         .filter(Boolean)
     );
     return ["All", ...Array.from(names)];
-  }, [daySales]);
+  }, [daySales, report]);
 
   const filteredSales = useMemo(
     () =>
@@ -236,16 +251,16 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         ? daySales
         : daySales.filter(
             (s) =>
-              (s["LOGGED BY"] || s["Logged By"]) === cashierFilter
+              (report ? s._staffId : (s["LOGGED BY"] || s["Logged By"])) === cashierFilter
           ),
-    [daySales, cashierFilter]
+    [daySales, cashierFilter, report]
   );
 
   const totalRevenue = filteredSales.reduce(
     (s, r) => s + parseAmt(r["AMOUNT (₦)"] || r["Amount (₦)"]),
     0
   );
-  const totalCollected = filteredSales.reduce(
+  const totalCollected = report ? 0 : filteredSales.reduce(
     (s, r) =>
       s +
       parseAmt(r["INITIAL PAYMENT (₦)"] || r["INITIAL PAYMENT"] || r["Initial Payment"]),
@@ -265,6 +280,14 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
     0
   );
   const netCash = totalCollected + totalPaymentsIn - totalExpenses;
+  const display = {
+    revenue: exact ? formatKobo(exact.revenue) : fmtMoney(totalRevenue),
+    collected: exact ? formatKobo(exact.receipts) : fmtMoney(totalCollected + totalPaymentsIn),
+    debt: exact ? formatKobo(exact.debt) : fmtMoney(totalDebt),
+    expenses: exact ? formatKobo(exact.spent) : fmtMoney(totalExpenses),
+    net: exact ? formatKobo(exact.netCash) : fmtMoney(netCash),
+  };
+  const cashierName = report?.staff.find(s=>s.id===cashierFilter)?.name ?? cashierFilter;
 
   const materialBreakdown = useMemo(() => {
     const map: Record<string, { count: number; revenue: number }> = {};
@@ -278,9 +301,10 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   }, [filteredSales]);
 
   const handleWhatsAppShare = () => {
+    if (!complete) return;
     const dateLabel = format(selectedDate, "EEEE, MMM d yyyy");
     const cashierLabel =
-      cashierFilter === "All" ? "All Staff" : cashierFilter;
+      cashierFilter === "All" ? "All Staff" : cashierName;
 
     const lines = [
       `📊 *BOMedia Shift Report — ${dateLabel}*`,
@@ -288,12 +312,13 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
       ``,
       `━━━━━━━━━━━━━━━`,
       `📦 *Jobs Logged:* ${filteredSales.length}`,
-      `💰 *Total Revenue:* ${fmtMoney(totalRevenue)}`,
-      `✅ *Cash Collected:* ${fmtMoney(totalCollected + totalPaymentsIn)}`,
-      `🔴 *Outstanding Debt:* ${fmtMoney(totalDebt)}`,
-      `📉 *Expenses:* ${fmtMoney(totalExpenses)}`,
+      `💰 *Total Revenue:* ${display.revenue}`,
+      `✅ *Collections (all methods):* ${display.collected}`,
+      `🔴 *Current debt on these sales:* ${display.debt}`,
+      `📉 *Expenses:* ${display.expenses}`,
       `━━━━━━━━━━━━━━━`,
-      `💵 *Net Cash Handled:* ${fmtMoney(netCash)}`,
+      `💵 *Net Cash Handled:* ${display.net}`,
+      ...(exact ? [`Cash: ${formatKobo(exact.cash)} · Transfer: ${formatKobo(exact.transfer)} · POS: ${formatKobo(exact.pos)}`, `Net all methods: ${formatKobo(exact.net)}`] : []),
       ``,
     ];
 
@@ -330,18 +355,18 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
 
   const stats = [
     { label: "Jobs Logged", val: String(filteredSales.length), icon: Package, tone: styles.tone.info, highlight: false },
-    { label: "Total Revenue", val: fmtMoney(totalRevenue), icon: TrendingUp, tone: styles.tone.primary, highlight: false },
-    { label: "Cash Collected", val: fmtMoney(totalCollected + totalPaymentsIn), icon: CheckCircle2, tone: styles.tone.success, highlight: false },
-    { label: "Outstanding", val: fmtMoney(totalDebt), icon: AlertTriangle, tone: totalDebt > 0 ? styles.tone.error : styles.tone.neutral, highlight: false },
-    { label: "Expenses", val: fmtMoney(totalExpenses), icon: Receipt, tone: styles.tone.warning, highlight: false },
-    { label: "Net Cash", val: fmtMoney(netCash), icon: TrendingUp, tone: netCash >= 0 ? styles.tone.success : styles.tone.error, highlight: true },
+    { label: "Total Revenue", val: display.revenue, icon: TrendingUp, tone: styles.tone.primary, highlight: false },
+    { label: "Collections (all methods)", val: display.collected, icon: CheckCircle2, tone: styles.tone.success, highlight: false },
+    { label: "Current debt on these sales", val: display.debt, icon: AlertTriangle, tone: totalDebt > 0 ? styles.tone.error : styles.tone.neutral, highlight: false },
+    { label: "Paid expenses less recoveries", val: display.expenses, icon: Receipt, tone: styles.tone.warning, highlight: false },
+    { label: "Net Cash", val: display.net, icon: TrendingUp, tone: netCash >= 0 ? styles.tone.success : styles.tone.error, highlight: true },
   ];
 
   const dateLabel = format(selectedDate, "EEEE, d MMMM yyyy");
   const printReport: PrintReport = {
     dateLabel,
-    cashierLabel: cashierFilter === "All" ? "All staff" : cashierFilter,
-    stats: stats.map(({ label, val }) => ({ label, val })),
+    cashierLabel: cashierFilter === "All" ? "All staff" : cashierName,
+    stats: [...stats.map(({ label, val }) => ({ label, val })), ...(exact ? [{label:"Cash receipts",val:formatKobo(exact.cash)},{label:"Transfer receipts",val:formatKobo(exact.transfer)},{label:"POS receipts",val:formatKobo(exact.pos)},{label:"Net all methods",val:formatKobo(exact.net)}] : [])],
     materials: materialBreakdown,
     jobs: filteredSales.map((s) => ({
       client: s["CLIENT NAME"] || s["Client Name"] || "—",
@@ -361,7 +386,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   // Same way the invoice does it: photograph the page, put it in a PDF and save the file.
   const downloadPdf = async () => {
     const page = pageRef.current;
-    if (!page || making) return;
+    if (!page || making || !complete) return;
     setMaking(true);
     const clone = page.cloneNode(true) as HTMLElement;
     clone.style.cssText = "display:block;position:fixed;top:0;left:0;width:794px;background:#ffffff;z-index:-9999;pointer-events:none";
@@ -389,7 +414,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         color="success"
         size="large"
         onClick={handleWhatsAppShare}
-        disabled={filteredSales.length === 0 && dayExpenses.length === 0}
+        disabled={!complete}
         startIcon={<Share2 size={16} />}
         sx={styles.share}
       >
@@ -400,7 +425,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         color="inherit"
         size="large"
         onClick={downloadPdf}
-        disabled={making || loading || (filteredSales.length === 0 && dayExpenses.length === 0)}
+        disabled={making || !complete}
         startIcon={making ? <Loader2 size={16} /> : <Download size={16} />}
       >
         {making ? "Making PDF..." : "PDF"}
@@ -410,7 +435,8 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
 
   return (
     <>
-      <ResponsiveSheet open={isOpen} onClose={onClose} title="Shift Report" description="Daily summary" maxWidth="md" footer={footer}>
+      <ResponsiveSheet open={isOpen} onClose={onClose} title="Shift Report" description="Collections and paid expenses by payment date; debt is the current balance of these sales." maxWidth="md" footer={footer}>
+      {exact && complete && <Typography variant="body2">Cash: {formatKobo(exact.cash)} · Transfer: {formatKobo(exact.transfer)} · POS: {formatKobo(exact.pos)} · Net all methods: {formatKobo(exact.net)}</Typography>}
       <Box sx={styles.controls}>
         <Box sx={styles.dateRow}>
           <Box sx={styles.muted}><Calendar size={16} /></Box>
@@ -431,7 +457,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
               sx={styles.select}
             >
               {cashiers.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>{report?.staff.find(s=>s.id===c)?.name ?? c}</option>
               ))}
             </Box>
             <Box sx={styles.selectChevron}>
@@ -454,7 +480,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
               <RefreshCw size={24} />
             </Box>
           </Box>
-        ) : (
+        ) : loadError ? <Typography role="alert" color="error">{loadError}</Typography> : (
           <Stack sx={{ gap: 2.5 }}>
             <Box sx={styles.statGrid}>
               {stats.map(({ label, val, icon: Icon, tone, highlight }) => (

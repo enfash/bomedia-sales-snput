@@ -1,5 +1,7 @@
 "use client";
 
+import { purgeSaleDrafts } from '@/lib/sale-draft';
+import { useSyncStore } from '@/lib/store';
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -7,6 +9,12 @@ import { isSignInRequired, loginFor, shellVisible } from '@/lib/session-view';
 
 /** Forget what the browser saved of the app's pages and data (so nothing of the business can be seen after sign-out or an ended session). */
 export async function clearSavedPages() {
+  try {
+    purgeSaleDrafts(localStorage);
+    for (const key of ['bomedia-payment-context-v1','bomedia-order-catalog','bomedia-approval-rules']) localStorage.removeItem(key);
+    await useSyncStore.persist.rehydrate();
+    useSyncStore.setState({cachedSales:[],cachedExpenses:[],cachedInventory:[],cachedPayments:[],cachedMaterials:[]});
+  } catch { /* Financial queues are never cleared here. */ }
   try { if ('caches' in window) await Promise.all((await caches.keys()).map((key) => caches.delete(key))); } catch { /* Nothing to clear. */ }
 }
 

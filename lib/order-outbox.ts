@@ -21,10 +21,11 @@ export function readOrders(storage: OutboxStorage): OrderEntry[] {
 }
 export function persistOrder(storage: OutboxStorage, order: ScreenOrder): OrderEntry {
   orderContract(order);
-  const {requestId: _id,...fields}=order;
   for (const entry of readOrders(storage)) {
-    const {requestId: _existing,...before}=entry.order;
-    if (JSON.stringify(before)===JSON.stringify(fields)) return entry;
+    if (entry.order.requestId === order.requestId) {
+      if (JSON.stringify(entry.order) !== JSON.stringify(order)) throw new Error('This request ID is already in use for different values.');
+      return entry;
+    }
     if (order.quoteId && entry.order.quoteId===order.quoteId) throw new Error('An order using this quote is already pending. Retry that saved order.');
   }
   const key=ORDER_PREFIX+order.requestId;

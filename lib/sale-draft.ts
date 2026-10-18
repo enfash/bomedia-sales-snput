@@ -1,3 +1,4 @@
+import { cachedPaymentContext } from './payment-outbox';
 import type { OrderCartRow } from './order-cart';
 
 // An unsaved sale is kept on this phone so leaving the page (or a refresh) does not lose it. Nothing here is sent anywhere.
@@ -24,7 +25,8 @@ export type SaleDraft = {
 
 /** Each signed-in person has their own draft on a shared phone. */
 export function draftKey(store: Pick<Storage, 'getItem'>) {
-  return `bomedia-sale-draft:${store.getItem('userName') || 'owner'}`;
+  const context = cachedPaymentContext(store);
+  return context?.backend === 'postgres' ? `bomedia-sale-draft:v2:postgres:${context.staffId}` : `bomedia-sale-draft:v2:sheets:${store.getItem('userName') || 'owner'}`;
 }
 
 /** True when there is nothing worth keeping (the form is as it starts). */
@@ -78,4 +80,9 @@ export function restoredDate(draft: SaleDraft, today: string) {
 
 function announce() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(DRAFT_EVENT));
+}
+
+/** On sign-out, remove unsaved personal drafts only; financial outboxes are separate and retained. */
+export function purgeSaleDrafts(store: Pick<Storage,'length'|'key'|'removeItem'>) {
+  for (let i=store.length-1;i>=0;i--) { const key=store.key(i); if (key?.startsWith('bomedia-sale-draft:')) store.removeItem(key); }
 }

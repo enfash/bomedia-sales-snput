@@ -24,7 +24,10 @@ it('stores before sending and retries exactly the original payload after a lost 
 });
 it('repeated saves reuse a pending request and quote conversion cannot be queued twice',()=>{
  const storage=new MemoryStorage(),saved=persistOrder(storage,order());
- expect(persistOrder(storage,{...order(),requestId:other})).toEqual(saved);
+ expect(persistOrder(storage,order())).toEqual(saved);
+ const second=persistOrder(storage,{...order(),requestId:other});
+ expect(second.order.requestId).toBe(other);expect(readOrders(storage)).toHaveLength(2);
+ expect(()=>persistOrder(storage,{...order(),contact:'changed'})).toThrow(/different values/);
  const quoted=new MemoryStorage();persistOrder(quoted,{...order(),quoteId:id});
  expect(()=>persistOrder(quoted,{...order(),requestId:other,quoteId:id,initialPaymentKobo:'0'})).toThrow(/already pending/);
 });

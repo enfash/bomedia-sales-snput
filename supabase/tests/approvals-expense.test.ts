@@ -135,3 +135,12 @@ it('keeps the held-expense function away from the runtime role', async () => {
   await failure(() => db.query("select bomedia.screen_expense_before_approvals('x','{}'::jsonb)"), '42501');
   await failure(() => db.query("select bomedia.expense_changes('{}'::jsonb)"), '42501');
 });
+
+it('does not post a declined expense after the spending limit increases',async()=>{
+ await rule(true);
+ const held=await cashier('rejected-limit');
+ await decide('reject-limit',held.approval_request_id,'decline');
+ await rule(true,10000000);
+ expect((await cashier('rejected-limit')).status).toBe('declined');
+ expect(await count('expenses')).toBe(0);
+});

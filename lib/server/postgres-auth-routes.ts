@@ -22,7 +22,7 @@ export async function verifiedAdminIdentity(): Promise<string | null> {
   const token = (await cookies()).get('admin_session')?.value;
   const payload = token ? await verifyToken(token) : null;
   const email = process.env.ADMIN_EMAIL || (process.env.NODE_ENV !== 'production' ? 'admin@bomedia.com' : null);
-  // A cookie from the Supabase sign-in must also have been confirmed recently (see admin-session.ts); old-style cookies are unaffected.
+  // Supabase mode requires a tracked, recently confirmed cookie; password-mode compatibility is explicit.
   return payload?.role === 'admin' && email && payload.email === email && withinGrace(payload) ? email : null;
 }
 async function requireAdmin() {
