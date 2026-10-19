@@ -27,7 +27,7 @@ Order agreed with the owner: **cutover first (customers, materials, opening debt
 
 2.2 **Paid Supabase plan** for the live project, so it never pauses.
 
-2.3 **Off-device backup destination** chosen (a second drive or cloud storage) and a place to keep `MIGRATION_ARCHIVE_PASSPHRASE` independently.
+2.3 **Off-device backup destination: Google Drive (decided 19 Oct)**, private folder `BOMedia backups`, not shared and a place to keep `MIGRATION_ARCHIVE_PASSPHRASE` independently.
 
 2.4 **Production environment variables** prepared in Vercel (Production target only; the owner enters them). Names only here:
 
@@ -97,7 +97,7 @@ Until the project moves to a paid plan, Supabase does not keep daily backups for
    npm run migration:verify-backup -- postgres-recovery-$(date +%Y%m%d)-01
    ```
    The first makes an encrypted copy of the whole database in `migration-data/postgres-recovery-YYYYMMDD-01/`; the second restores it into a throwaway database and checks it matches. Only trust a backup whose verify step passed. If a second backup is made on the same day, change `-01` to `-02`.
-2. **Copy that folder off this Mac** (the destination chosen in step 2.3: cloud drive or external disk). A copy that only lives on this Mac is lost with the Mac.
+2. **Copy that folder off this Mac to Google Drive** (decision 19 Oct: owner's Google Drive, in a private folder named `BOMedia backups` that is not shared with anyone). Drag the folder in with Google Drive for desktop or upload it in the browser, and check it appears in Drive. A copy that only lives on this Mac is lost with the Mac.
 3. **Keep `MIGRATION_ARCHIVE_PASSPHRASE` somewhere separate** from the backups (for example a password manager). The backup cannot be opened without it, and nobody can recover it.
 4. **Keep the last 14 daily copies**, plus the first backup of each month. Older ones may be deleted.
 5. **Keep the project awake**: the free plan pauses a project after about a week of no activity. Open the app at least every few days, including over holidays. If it pauses, restore it from the Supabase dashboard (data is kept) before opening the shop.
