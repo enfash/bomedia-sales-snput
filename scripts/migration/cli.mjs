@@ -10,6 +10,7 @@ import { buildPaymentReview, renderPaymentReview } from './review.mjs';
 import { importIndependentRecords } from './import-independent.mjs';
 import { importStockRecords } from './import-stock.mjs';
 import { importStaffRecords } from './import-staff.mjs';
+import { OpeningError, activateOpening, buildOpeningPlan, postOpening, summarizeOpening, verifyOpening } from './opening-balances.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 class CommandError extends Error {}
@@ -83,13 +84,32 @@ async function withMigrationDatabase(confirmedRef, callback) {
   finally { await sql.end({ timeout: 5 }); }
 }
 
+// Opening balances: customer debts and the loan, from the owner-approved CSV files in migration-data/<name>/.
+// opening-check reads files only. The other three change the database and need --confirm-project. Nothing starts the books except opening-activate.
+async function runOpening(command, name, options) {
+  const directory = await privateDirectory(name);
+  const read = file => readFile(join(directory, file), 'utf8');
+  const plan = buildOpeningPlan({ startDate: await read('1-start-date.csv'), owing: await read('3-customers-who-owe.csv'),
+    credits: await read('4-customers-paid-in-advance.csv'), loans: await read('6-loans-and-owner-money.csv') });
+  if (command === 'opening-check') {
+    if (options.length) throw new CommandError('opening-check takes only the folder name and changes nothing.');
+    console.log(JSON.stringify(summarizeOpening(plan), null, 2));
+    return;
+  }
+  if (options.length !== 2 || options[0] !== '--confirm-project') throw new CommandError('Hosted writes require --confirm-project <project-ref>.');
+  const actorId = requiredEnv('SUPABASE_ADMIN_STAFF_ID');
+  const result = await withMigrationDatabase(options[1], db => command === 'opening-post' ? postOpening(db, plan, { actorId })
+    : command === 'opening-verify' ? verifyOpening(db, plan) : activateOpening(db, plan));
+  console.log(JSON.stringify(result, null, 2));
+}
+
 async function main() {
   const [command, name, ...options] = process.argv.slice(2);
   if (command === 'help' || !command) {
-    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref>');
+    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref>');
     return;
   }
-  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
+  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
   if (command === 'apply') {
     if (name !== '--confirm-project' || options.length !== 1) throw new CommandError('Apply requires --confirm-project <project-ref>.');
     const directory = join(root, 'supabase/migrations');
@@ -120,6 +140,10 @@ async function main() {
     await writePrivate(directory, 'manifest.json', { version: 1, snapshotSha256: snapshotDigest(snapshot), archiveSha256: sha256(archiveBytes) });
     await writePrivate(directory, 'inspection.json', inspectSnapshot(snapshot).report);
     console.log(`Saved ${snapshot.sheets.length} tabs to ${relative(root, directory)}. Live Sheets were read only.`);
+    return;
+  }
+  if (command.startsWith('opening-')) {
+    try { await runOpening(command, name, options); } catch (error) { throw error instanceof OpeningError ? new CommandError(error.message) : error; }
     return;
   }
   const directory = await privateDirectory(name);
