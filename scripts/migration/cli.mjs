@@ -90,7 +90,8 @@ async function runOpening(command, name, options) {
   const directory = await privateDirectory(name);
   const read = file => readFile(join(directory, file), 'utf8');
   const plan = buildOpeningPlan({ startDate: await read('1-start-date.csv'), owing: await read('3-customers-who-owe.csv'),
-    credits: await read('4-customers-paid-in-advance.csv'), loans: await read('6-loans-and-owner-money.csv') });
+    credits: await read('4-customers-paid-in-advance.csv'), loans: await read('6-loans-and-owner-money.csv'),
+    names: await read('2-name-decisions.csv').catch(error => error.code === 'ENOENT' ? '' : Promise.reject(error)) });
   if (command === 'opening-check') {
     if (options.length) throw new CommandError('opening-check takes only the folder name and changes nothing.');
     console.log(JSON.stringify(summarizeOpening(plan), null, 2));

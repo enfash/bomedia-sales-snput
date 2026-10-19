@@ -51,7 +51,7 @@ Mark as Sensitive: every key, URL with a password, the VAPID private key, `SESSI
 
 ## 3. Build status
 
-1. **Opening-balance command: BUILT and tested (19 Oct), not yet run on any real database.** `scripts/migration/opening-balances.mjs`, wired into `cli.mjs`; tests in `supabase/tests/opening-balances.test.ts` (13). It reads the owner-approved CSV files in `migration-data/opening-balances/` (start date, customers who owe, credits, loans) and does four things:
+1. **Opening-balance command: BUILT and tested (19 Oct), not yet run on any real database.** `scripts/migration/opening-balances.mjs`, wired into `cli.mjs`; tests in `supabase/tests/opening-balances.test.ts` (13). It reads the owner-approved CSV files in `migration-data/opening-balances/` (start date, optional `2-name-decisions.csv` with the owner's same-person decisions, customers who owe, credits, loans) and does four things. A name decision (`name_in_sheet,same_person_as`) merges two spellings into one customer and is shown in the summary; without a decision, only spaces and capitals are ignored:
    - `npm run opening:check` reads the files only and prints the totals. It refuses anything unclear (blank or zero amounts, bad dates, clashing phone numbers, credits, other loan types).
    - `npm run opening:post -- --confirm-project <ref>` creates the customers, one order per Sales ID, one opening job per debt (the amount still owed), the opening entry (debit Customer receivables per job, credit Owner capital) and the loan entry (debit Owner capital, credit Loans payable). It creates the bookkeeping settings row in "setup" mode. Safe to repeat with the same files.
    - `npm run opening:verify -- --confirm-project <ref>` reads the database back and compares it with the files.

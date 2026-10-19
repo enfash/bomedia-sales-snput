@@ -58,7 +58,8 @@ const sha = text => createHash('sha256').update(text).digest('hex');
 
 /**
  * Turns the approved files into a plan. `files` holds the text of: startDate (1-start-date.csv), owing (3-customers-who-owe.csv),
- * credits (4-customers-paid-in-advance.csv) and loans (6-loans-and-owner-money.csv). Throws on anything unclear instead of guessing.
+ * credits (4-customers-paid-in-advance.csv), loans (6-loans-and-owner-money.csv) and, optionally, names (2-name-decisions.csv:
+ * name_in_sheet,same_person_as, the owner's decisions that two spellings are one person). Throws on anything unclear instead of guessing.
  */
 export function buildOpeningPlan(files) {
   const problems = [];
@@ -71,13 +72,26 @@ export function buildOpeningPlan(files) {
     throw new OpeningError('4-customers-paid-in-advance.csv has rows, but the app cannot use customer credits yet. Ask Claude before going further; nothing was posted.');
   }
 
+  // The owner's decisions that two spellings are one person. Only these merge names that differ beyond spaces and capitals.
+  const aliases = new Map();
+  for (const [index, row] of parseCsv(files.names ?? '').entries()) {
+    const from = (row.name_in_sheet ?? '').trim().replace(/\s+/g, ' '), to = (row.same_person_as ?? '').trim().replace(/\s+/g, ' ');
+    if (!from && !to) continue;
+    if (!from || !to) { problems.push(`2-name-decisions.csv line ${index + 2}: both name_in_sheet and same_person_as are needed.`); continue; }
+    if (nameKey(from) === nameKey(to)) continue; // already the same name once spaces and capitals are ignored
+    if (aliases.has(nameKey(from)) && aliases.get(nameKey(from)).name !== to) { problems.push(`2-name-decisions.csv: "${from}" is mapped to two different names.`); continue; }
+    aliases.set(nameKey(from), { name: to, used: 0 });
+  }
+  for (const [key, alias] of aliases) if (aliases.has(nameKey(alias.name))) problems.push(`2-name-decisions.csv: "${alias.name}" is itself renamed (from "${key}"). Point both spellings at the final name.`);
   const customers = new Map();
   const identical = new Map();
   const owing = parseCsv(files.owing).filter(r => Object.values(r).some(v => v));
   owing.forEach((row, index) => {
     const line = index + 2;
-    const name = (row.customer_name ?? '').trim().replace(/\s+/g, ' ');
+    let name = (row.customer_name ?? '').trim().replace(/\s+/g, ' ');
     if (!name) { problems.push(`3-customers-who-owe.csv line ${line}: customer_name is empty.`); return; }
+    const alias = aliases.get(nameKey(name));
+    if (alias) { name = alias.name; alias.used++; }
     let owed;
     try { owed = nairaToKobo(row.amount_owed_naira, 'amount_owed_naira'); } catch (error) { problems.push(`line ${line} (${name}): ${error.message} Leave nothing blank: an unknown balance must be resolved first.`); return; }
     if (BigInt(owed) <= 0n) { problems.push(`line ${line} (${name}): the amount owed must be more than zero.`); return; }
@@ -123,13 +137,14 @@ export function buildOpeningPlan(files) {
   if (!jobCount && !loans.length) throw new OpeningError('There is nothing to post: no owing customers and no loans.');
   if (jobCount > 998) throw new OpeningError(`${jobCount} debts do not fit in one opening entry (limit 998). Ask Claude to split it.`);
   const repeatedRows = [...identical.values()].filter(n => n > 1).reduce((sum, n) => sum + n - 1, 0);
+  const nameDecisions = [...aliases.entries()].map(([from, a]) => ({ from, to: a.name, rowsChanged: a.used })).sort((a, b) => a.from.localeCompare(b.from));
   const digest = sha(JSON.stringify({ openingDate, list, loans }));
   return {
-    openingDate, startsOn, customers: list, loans, digest, repeatedRows,
+    openingDate, startsOn, customers: list, loans, digest, repeatedRows, nameDecisions,
     totals: { customers: list.length, orders: list.reduce((n, c) => n + new Set(c.jobs.map(j => j.salesId)).size, 0), jobs: jobCount, debtsKobo: debtsKobo.toString(), loansKobo: loansKobo.toString(),
       // What is left for the owner's capital account so both entries balance: debts less the loan owed.
       capitalKobo: (debtsKobo - loansKobo).toString() },
-    inputSha256: sha(`${files.startDate}\n${files.owing}\n${files.credits}\n${files.loans}`),
+    inputSha256: sha(`${files.startDate}\n${files.owing}\n${files.credits}\n${files.loans}\n${files.names ?? ''}`),
   };
 }
 
@@ -139,6 +154,8 @@ export const formatKobo = value => { const n = BigInt(value), neg = n < 0n, abs 
 export function summarizeOpening(plan) {
   return { openingDate: plan.openingDate, booksStartOn: plan.startsOn, customers: plan.totals.customers, orders: plan.totals.orders, debts: plan.totals.jobs,
     rowsIdenticalToAnotherRow: plan.repeatedRows,
+    nameDecisionsApplied: plan.nameDecisions.filter(d => d.rowsChanged > 0).map(d => `${d.from} -> ${d.to} (${d.rowsChanged} rows)`),
+    nameDecisionsNotUsed: plan.nameDecisions.filter(d => d.rowsChanged === 0).map(d => d.from),
     totalOwed: formatKobo(plan.totals.debtsKobo), loansOwed: formatKobo(plan.totals.loansKobo), ownerCapitalEntry: formatKobo(plan.totals.capitalKobo),
     planSha256: plan.digest, inputFilesSha256: plan.inputSha256 };
 }

@@ -53,6 +53,20 @@ describe('opening balance planning', () => {
     expect(summarizeOpening(plan)).toMatchObject({ rowsIdenticalToAnotherRow: 1 });
   });
 
+  it('applies the owner name decisions, records them, and refuses chains, clashes and half-filled rows', () => {
+    const owing = OWING_HEADER + 'Kcool,,1000,2026-09-01,x,R1,\nK cool,,2000,2026-09-02,y,R2,\nkcool ,,500,2026-09-03,z,R3,\nOther,,100,2026-09-01,w,R4,\n';
+    const plan = buildOpeningPlan(files({ owing, names: 'name_in_sheet,same_person_as\nK cool,Kcool\nMr Kenny,Kenny Print\n' }));
+    expect(plan.totals).toMatchObject({ customers: 2, jobs: 4, debtsKobo: '360000' });
+    expect(summarizeOpening(plan)).toMatchObject({ nameDecisionsApplied: ['k cool -> Kcool (1 rows)'], nameDecisionsNotUsed: ['mr kenny'] });
+    // Without the decision, "Kcool" and "K cool" stay two people (only spaces and capitals are ignored).
+    expect(buildOpeningPlan(files({ owing })).totals.customers).toBe(3);
+    const names = (text: string) => () => buildOpeningPlan(files({ owing, names: `name_in_sheet,same_person_as\n${text}` }));
+    expect(names('K cool,\n')).toThrow(/both name_in_sheet and same_person_as/);
+    expect(names('K cool,Kcool\nK cool,Other\n')).toThrow(/two different names/);
+    expect(names('K cool,Kcool\nKcool,Other\n')).toThrow(/itself renamed/);
+    expect(buildOpeningPlan(files({ owing, names: 'name_in_sheet,same_person_as\nK cool,Kcool\n' })).digest).not.toBe(buildOpeningPlan(files({ owing })).digest);
+  });
+
   it('refuses credits and loan types the app cannot use yet, and an empty plan', () => {
     expect(() => buildOpeningPlan(files({ credits: CREDITS + 'Mum,,1000,2026-10-01,advance,r,\n' }))).toThrow(/cannot use customer credits/);
     expect(() => buildOpeningPlan(files({ loans: 'who,type,amount_naira,date,evidence,note\nx,owner capital,100,2026-01-01,,\n' }))).toThrow(/only "loan you owe"/);
