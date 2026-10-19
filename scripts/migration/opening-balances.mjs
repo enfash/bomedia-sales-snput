@@ -178,7 +178,7 @@ export async function postOpening(db, plan, { actorId }) {
     if (settings.length && (settings[0].state !== 'setup' || settings[0].starts_on !== plan.startsOn)) {
       throw new OpeningError('The books are already active or start on a different date. Nothing was posted.');
     }
-    const replay = (await tx.query("select 1 from bomedia.idempotency_requests where operation='journal' and request_key=$1", [debtsKey(plan)])).rows;
+    const replay = (await tx.query("select 1 from bomedia.idempotency_requests where operation='journal' and request_key = any($1::text[])", [[debtsKey(plan), loansKey(plan)]])).rows;
     if (replay.length) return { replay: true, ...summarizeOpening(plan) };
     if ((await tx.query('select count(*)::integer as n from bomedia.journal_entries')).rows[0].n) {
       throw new OpeningError('Other journal entries already exist, so opening balances cannot be posted. Nothing was posted.');
@@ -217,7 +217,17 @@ export async function postOpening(db, plan, { actorId }) {
         lines: [{ account_code: '3000', debit_kobo: loans.toString(), memo: 'Owner capital: loan owed at opening' },
           { account_code: '2200', credit_kobo: loans.toString(), memo: plan.loans.map(l => l.who).join(', ') }] })]);
     }
-    return { replay: false, ...summarizeOpening(plan) };
+    // The app takes the cost of material out of the Inventory account on every sale and refuses when that account holds too little, so the counted stock must be
+    // valued here (each roll's remaining length x its cost per foot, by the same function the app uses later). Load prices and the count first (stock-opening.mjs).
+    const stock = (await tx.query(`select coalesce(sum(bomedia.roll_value(r, r.remaining_length_ft)),0)::text as value, count(*)::integer as rolls,
+      encode(sha256(convert_to(coalesce(string_agg(r.id::text||':'||r.remaining_length_ft::text||':'||r.purchase_cost_kobo::text, ',' order by r.id),''),'UTF8')),'hex') as fingerprint
+      from bomedia.inventory_rolls r where r.remaining_length_ft>0`)).rows[0];
+    if (BigInt(stock.value) > 0n) {
+      await tx.query("select bomedia.post_journal($1,$2::jsonb)", [`opening-stock-${plan.digest}-${stock.fingerprint.slice(0, 16)}`, JSON.stringify({ actor_id: actorId, business_date: plan.openingDate,
+        kind: 'opening', memo: `Opening stock value: ${stock.rolls} rolls with counted length`, opening_confirmed: true, evidence_reference: `${evidence}; stock fingerprint ${stock.fingerprint.slice(0, 16)}`,
+        lines: [{ account_code: '1200', debit_kobo: stock.value, memo: 'Counted stock at cost' }, { account_code: '3000', credit_kobo: stock.value, memo: 'Owner capital: opening stock' }] })]);
+    }
+    return { replay: false, ...summarizeOpening(plan), stockValue: formatKobo(stock.value), stockRolls: stock.rolls };
   });
 }
 
@@ -236,7 +246,9 @@ export async function verifyOpening(db, plan) {
     where e.status='posted' and l.account_code=$1`, [code]))[0].n;
   check('customer receivables equal the approved total owed', (await net('1100')) === plan.totals.debtsKobo, formatKobo(await net('1100')));
   check('loan payable equals the approved loan', BigInt(await net('2200')) === -BigInt(plan.totals.loansKobo), formatKobo(await net('2200')));
-  check('owner capital balances the two entries', BigInt(await net('3000')) === -BigInt(plan.totals.capitalKobo), formatKobo(await net('3000')));
+  const stock = (await q('select coalesce(sum(bomedia.roll_value(r, r.remaining_length_ft)),0)::text as value from bomedia.inventory_rolls r where r.remaining_length_ft>0'))[0].value;
+  check('inventory equals the counted stock valued at cost', (await net('1200')) === stock, `${formatKobo(await net('1200'))} in the books, ${formatKobo(stock)} in stock`);
+  check('owner capital balances the entries', BigInt(await net('3000')) === -(BigInt(plan.totals.capitalKobo) + BigInt(stock)), formatKobo(await net('3000')));
   const unbalanced = (await q(`select count(*)::integer as n from (select entry_id from bomedia.journal_lines group by entry_id having sum(debit_kobo)<>sum(credit_kobo)) x`))[0].n;
   check('every entry balances', unbalanced === 0, `${unbalanced} unbalanced`);
   const unposted = (await q("select count(*)::integer as n from bomedia.journal_entries where status<>'posted' or not opening_confirmed or coalesce(btrim(evidence_reference),'')=''"))[0].n;

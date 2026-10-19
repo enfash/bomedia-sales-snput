@@ -58,7 +58,12 @@ Mark as Sensitive: every key, URL with a password, the VAPID private key, `SESSI
    - `npm run opening:activate -- --confirm-project <ref>` starts the books, only if every check passes. One way.
    Decisions applied: opening job = amount still owed; one combined debts entry. Not supported (it refuses): customer credits (nothing in the app uses account 2100 yet) and loan types other than "loan you owe".
 2. **Customer import**: done by the command above (customers come with their debts). Customers with no debt are NOT created; they arrive with history import "B" later.
-3. **Materials refresh: not built.** The existing `import-stock` refuses a second snapshot, and every importer is blocked once any runtime write exists. So materials must be refreshed BEFORE `opening:post`. The cheapest route is probably updating prices and remaining lengths on the existing rolls; needs a short plan and approval.
+3. **Opening stock: BUILT and tested (19 Oct), not yet run on any real database.** `scripts/migration/stock-opening.mjs` (14 tests in `supabase/tests/stock-opening.test.ts`). It loads current prices and the owner's physical count BEFORE the opening entries, because the app refuses every sale while the Inventory account is empty, and every importer stops once anything is posted. Files in `migration-data/stock-opening/`: `materials.csv` (`material_id,name,width_ft,selling_price_naira_per_sqft,low_stock_threshold_ft`) and `rolls.csv` (`roll_id,material_id,item_name,width_ft,raw_length_ft,total_length_ft,remaining_ft,purchase_cost_naira,selling_price_naira,date_added,note`; `remaining_ft` is the physical count, one row for every roll including empty ones). I produce both from the Sheet exports and your count.
+   - `npm run stock:check` reads the files only.
+   - `npm run stock:diff -- --confirm-project <ref>` compares with the database and changes nothing. Blocks on: a roll whose total length or purchase cost differs from the database (you decide which is right), a roll with stock that is not in `rolls.csv`, a roll with no purchase cost.
+   - `npm run stock:apply -- --confirm-project <ref>` updates prices and thresholds (the app's price guard is switched on for this step only), adds new materials and rolls, and sets counted lengths as dated "Opening count" movements. Nothing is posted to the books. A second run changes nothing. It refuses once any journal entry or runtime write exists.
+   - `opening:post` then adds the **opening stock entry** (debit Inventory, credit Owner capital) valued by the app's own roll-value function, and `opening:verify` checks Inventory equals the counted stock at cost.
+   Order on the day: `stock:diff`, `stock:apply`, `opening:check`, `opening:post`, `opening:verify`, `opening:activate`.
 4. **Final Sheet report from the exports**: to be produced on the day by me from the CSV exports (the owing file must contain only real debts, one row per owing sale).
 
 ## 4. The day (shop closed). Owner steps are marked (O), mine (C)
@@ -86,7 +91,7 @@ npm run migration:verify-financial
 ```
 The app checks the schema count itself (`EXPECTED_MIGRATION_COUNT = 52`).
 
-4.6 (O+C) Load the data, in this order, each step verified before the next: (1) materials and rolls refresh, FIRST, because importers stop working once anything is posted; (2) `opening:check`, then `opening:post`, then `opening:verify`, then `opening:activate` with `--confirm-project <live-project-ref>` (see section 3). The evidence reference is built from the fingerprints of the approved files. Compare totals against the approved report: number of customers, total owing (about ₦695,000 on 14 Oct, will differ), loan ₦670,000.
+4.6 (O+C) Load the data, in this order, each step verified before the next: (1) stock first (`stock:diff`, then `stock:apply`) because stock cannot be loaded once anything is posted; (2) `opening:check`, then `opening:post`, then `opening:verify`, then `opening:activate` with `--confirm-project <live-project-ref>` (see section 3). The evidence reference is built from the fingerprints of the approved files. Compare totals against the approved report: number of customers, total owing (about ₦695,000 on 14 Oct, will differ), loan ₦670,000.
 
 4.7 (O) Set the production environment variables (step 2.4) in Vercel, then release: merge `codex/supabase-migration` into `main` through a pull request (PR #2 exists). Vercel builds production. Wait for the build to be READY and for production to show the new login.
 
@@ -103,7 +108,7 @@ The app checks the schema count itself (`EXPECTED_MIGRATION_COUNT = 52`).
 
 ## 5. Owner decisions needed
 
-1. The cutover date (see the gates). 2. The look-alike customer yes/no list. 3. Confirm the ₦670,000 loan is still owed in full (14 Oct: yes). 4. Approve the materials refresh plan (section 3, item 3) when I send it. 5. Where the off-device backup goes. 6. Whether a short evening check-in on the first day is wanted.
+1. The cutover date (see the gates). 2. The look-alike customer yes/no list. 3. Confirm the ₦670,000 loan is still owed in full (14 Oct: yes). 4. Provide the physical stock count and decide any roll that has no purchase cost or whose length or cost differs between the Sheet and the database. 5. Where the off-device backup goes. 6. Whether a short evening check-in on the first day is wanted.
 
 ## 6. Rollback
 
