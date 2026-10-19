@@ -4,7 +4,6 @@ import { fetchShiftData, shiftTotals, formatKobo, type ShiftData } from "@/lib/s
 import { paymentContext } from "@/lib/payment-outbox";
 import { lagosBusinessDate } from "@/lib/accounting-entry";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import {
   FileText,
   Share2,
@@ -32,6 +31,7 @@ import dayjs from "dayjs";
 import { format, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
+import { ShiftReportPdfPages, type PdfReport } from "@/components/shift-report-pdf";
 import { dashboardStyles, shiftReportStyles as styles } from "@/app/theme";
 
 interface ShiftReportProps {
@@ -73,85 +73,6 @@ function SectionHeader({ icon: Icon, label, count }: { icon: any; label: string;
   );
 }
 
-type PrintReport = {
-  dateLabel: string;
-  cashierLabel: string;
-  stats: { label: string; val: string }[];
-  materials: [string, { count: number; revenue: number }][];
-  jobs: { client: string; desc: string; by: string; amount: number; paid: number; status: string }[];
-  expenses: { category: string; desc: string; amount: number }[];
-};
-
-/** The page the PDF is made from: plain black on white. It sits beside the app, never shown on screen. */
-function PrintSheet({ report, pageRef }: { report: PrintReport; pageRef: React.RefObject<HTMLDivElement | null> }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <Box ref={pageRef} sx={styles.print.host}>
-      <Box sx={styles.print.head}>
-        <Typography component="p" sx={styles.print.brand}>BOMedia</Typography>
-        <Box sx={{ textAlign: "right" }}>
-          <Typography component="p" sx={styles.print.title}>Shift Report</Typography>
-          <Typography component="p" sx={styles.print.meta}>{report.dateLabel} · {report.cashierLabel}</Typography>
-        </Box>
-      </Box>
-      <Box sx={styles.print.stats}>
-        {report.stats.map((stat) => (
-          <Box key={stat.label} sx={styles.print.stat}>
-            <Typography component="p" sx={styles.print.statLabel}>{stat.label}</Typography>
-            <Typography component="p" sx={styles.print.statValue}>{stat.val}</Typography>
-          </Box>
-        ))}
-      </Box>
-      {report.materials.length > 0 && (
-        <>
-          <Typography component="h2" sx={styles.print.heading}>Material breakdown</Typography>
-          <Box component="table" sx={styles.print.table}>
-            <tbody>
-              {report.materials.map(([mat, { count, revenue }]) => (
-                <tr key={mat}><td>{mat}</td><td>{count} job{count !== 1 ? "s" : ""}</td><Box component="td" sx={styles.print.num}>{fmtMoney(revenue)}</Box></tr>
-              ))}
-            </tbody>
-          </Box>
-        </>
-      )}
-      {report.jobs.length > 0 && (
-        <>
-          <Typography component="h2" sx={styles.print.heading}>Jobs ({report.jobs.length})</Typography>
-          <Box component="table" sx={styles.print.table}>
-            <thead>
-              <tr><th>#</th><th>Client</th><th>Job</th><th>By</th><Box component="th" sx={styles.print.num}>Amount</Box><Box component="th" sx={styles.print.num}>Paid</Box><th>Status</th></tr>
-            </thead>
-            <tbody>
-              {report.jobs.map((job, i) => (
-                <tr key={i}>
-                  <td>{i + 1}</td><td>{job.client}</td><td>{job.desc}</td><td>{job.by}</td>
-                  <Box component="td" sx={styles.print.num}>{fmtMoney(job.amount)}</Box>
-                  <Box component="td" sx={styles.print.num}>{fmtMoney(job.paid)}</Box>
-                  <td>{job.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Box>
-        </>
-      )}
-      {report.expenses.length > 0 && (
-        <>
-          <Typography component="h2" sx={styles.print.heading}>Expenses ({report.expenses.length})</Typography>
-          <Box component="table" sx={styles.print.table}>
-            <tbody>
-              {report.expenses.map((e, i) => (
-                <tr key={i}><td>{e.category}</td><td>{e.desc}</td><Box component="td" sx={styles.print.num}>−{fmtMoney(e.amount)}</Box></tr>
-              ))}
-            </tbody>
-          </Box>
-        </>
-      )}
-      <Typography component="p" sx={styles.print.foot}>Printed {format(new Date(), "d MMM yyyy, h:mm a")} · BOMedia Sales System</Typography>
-    </Box>,
-    document.body,
-  );
-}
-
 export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [loading, setLoading] = useState(true);
   const [reportDate, setReportDate] = useState(
@@ -165,7 +86,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [cashierFilter, setCashierFilter] = useState("All");
-  const pageRef = useRef<HTMLDivElement>(null);
+  const pdfHostRef = useRef<HTMLDivElement>(null);
   const [making, setMaking] = useState(false);
 
   const fetchData = async () => {
@@ -363,46 +284,70 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
   ];
 
   const dateLabel = format(selectedDate, "EEEE, d MMMM yyyy");
-  const printReport: PrintReport = {
+  const share = (part: bigint, total: bigint) => (total > BigInt(0) ? Number((part * BigInt(10000)) / total) / 100 : 0);
+  const pdfReport: PdfReport = {
     dateLabel,
     cashierLabel: cashierFilter === "All" ? "All staff" : cashierName,
-    stats: [...stats.map(({ label, val }) => ({ label, val })), ...(exact ? [{label:"Cash receipts",val:formatKobo(exact.cash)},{label:"Transfer receipts",val:formatKobo(exact.transfer)},{label:"POS receipts",val:formatKobo(exact.pos)},{label:"Net all methods",val:formatKobo(exact.net)}] : [])],
-    materials: materialBreakdown,
+    printedAt: format(new Date(), "d MMM yyyy, h:mm a"),
+    collected: display.collected,
+    net: display.net,
+    netNote: exact ? `Cash received ${formatKobo(exact.cash)} less cash expenses ${formatKobo(exact.cash - exact.netCash)}` : "Collected less expenses",
+    split: exact ? (() => {
+      const total = exact.cash + exact.transfer + exact.pos;
+      return [
+        { label: "Cash", value: formatKobo(exact.cash), percent: share(exact.cash, total), color: "#2e388d" },
+        { label: "Transfer", value: formatKobo(exact.transfer), percent: share(exact.transfer, total), color: "#4a56b0" },
+        { label: "POS", value: formatKobo(exact.pos), percent: share(exact.pos, total), color: "#CBD5E1" },
+      ];
+    })() : null,
+    facts: [
+      { label: "Jobs logged", value: String(filteredSales.length) },
+      { label: "Total revenue", value: display.revenue },
+      { label: "Paid expenses", value: display.expenses },
+      { label: "Still owed on these", value: display.debt, danger: totalDebt > 0 },
+    ],
     jobs: filteredSales.map((s) => ({
       client: s["CLIENT NAME"] || s["Client Name"] || "—",
       desc: s["JOB DESCRIPTION"] || s["Job Description"] || "—",
       by: s["LOGGED BY"] || s["Logged By"] || "—",
-      amount: parseAmt(s["AMOUNT (₦)"] || s["Amount (₦)"]),
-      paid: parseAmt(s["INITIAL PAYMENT (₦)"] || s["INITIAL PAYMENT"] || s["Initial Payment"]),
+      amount: fmtMoney(parseAmt(s["AMOUNT (₦)"] || s["Amount (₦)"])),
+      paid: fmtMoney(parseAmt(s["INITIAL PAYMENT (₦)"] || s["INITIAL PAYMENT"] || s["Initial Payment"])),
       status: s["PAYMENT STATUS"] || "Unpaid",
     })),
+    materials: materialBreakdown.map(([name, { count, revenue }]) => ({ name, count, revenue: fmtMoney(revenue) })),
     expenses: dayExpenses.map((e) => ({
       category: e.CATEGORY || e.Category || "General",
       desc: e.DESCRIPTION || e.Description || "—",
-      amount: parseAmt(e.AMOUNT || e.Amount),
+      amount: fmtMoney(parseAmt(e.AMOUNT || e.Amount)),
     })),
   };
 
-  // Same way the invoice does it: photograph the page, put it in a PDF and save the file.
+  // Same way the invoice does it: photograph each A4 page, put them in a PDF and save the file. A long report simply gets more pages.
   const downloadPdf = async () => {
-    const page = pageRef.current;
-    if (!page || making || !complete) return;
+    const host = pdfHostRef.current;
+    if (!host || making || !complete) return;
     setMaking(true);
-    const clone = page.cloneNode(true) as HTMLElement;
-    clone.style.cssText = "display:block;position:fixed;top:0;left:0;width:794px;background:#ffffff;z-index:-9999;pointer-events:none";
-    document.body.appendChild(clone);
+    const holder = document.createElement("div");
+    holder.style.cssText = "position:fixed;top:0;left:0;width:794px;background:#ffffff;z-index:-9999;pointer-events:none";
+    document.body.appendChild(holder);
     try {
       if ("fonts" in document) await document.fonts.ready;
       const [{ default: html2canvas }, { default: JsPdf }] = await Promise.all([import("html2canvas"), import("jspdf")]);
-      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff", windowWidth: 794 });
-      if (canvas.width === 0 || canvas.height === 0) throw new Error("The report page is empty.");
-      const pdf = new JsPdf({ orientation: "portrait", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-      pdf.addImage(canvas.toDataURL("image/jpeg", 0.85), "JPEG", 0, 0, canvas.width / 2, canvas.height / 2);
+      const pages = Array.from(host.querySelectorAll<HTMLElement>("[data-pdf-page]"));
+      if (pages.length === 0) throw new Error("The report has no pages.");
+      const pdf = new JsPdf({ orientation: "portrait", unit: "px", format: [794, 1123] });
+      for (let i = 0; i < pages.length; i++) {
+        holder.replaceChildren(pages[i].cloneNode(true));
+        const canvas = await html2canvas(holder, { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff", width: 794, height: 1123, windowWidth: 794 });
+        if (canvas.width === 0 || canvas.height === 0) throw new Error("A report page is empty.");
+        if (i > 0) pdf.addPage([794, 1123], "portrait");
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.9), "JPEG", 0, 0, 794, 1123);
+      }
       pdf.save(`Shift_Report_${reportDate}.pdf`);
     } catch {
       toast.error("Could not make the PDF. Try again.");
     } finally {
-      document.body.removeChild(clone);
+      document.body.removeChild(holder);
       setMaking(false);
     }
   };
@@ -590,7 +535,7 @@ export function ShiftReportModal({ isOpen, onClose }: ShiftReportProps) {
         )}
       </Box>
       </ResponsiveSheet>
-      <PrintSheet report={printReport} pageRef={pageRef} />
+      <ShiftReportPdfPages report={pdfReport} hostRef={pdfHostRef} />
     </>
   );
 }
