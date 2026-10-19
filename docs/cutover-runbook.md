@@ -88,6 +88,22 @@ The whole data sequence was run on a fresh test project (Ireland, nothing shared
 - Previews use the sandbox project. Pausing the sandbox (free-plan limit of 2 active projects) takes Previews down until it is restored.
 - When running rehearsal commands, load `.env.local` first and `.env.rehearsal.local` second so the rehearsal project wins, and always pass its own `--confirm-project`.
 
+## 3c. Daily backup routine (free Supabase plan has no automatic backups)
+
+Until the project moves to a paid plan, Supabase does not keep daily backups for us, so the owner makes one each working day. Takes about a minute.
+1. **At the end of each working day** (after the last sale), in the project folder:
+   ```sh
+   npm run migration:backup-db -- postgres-recovery-$(date +%Y%m%d)-01 --confirm-project <live-project-ref>
+   npm run migration:verify-backup -- postgres-recovery-$(date +%Y%m%d)-01
+   ```
+   The first makes an encrypted copy of the whole database in `migration-data/postgres-recovery-YYYYMMDD-01/`; the second restores it into a throwaway database and checks it matches. Only trust a backup whose verify step passed. If a second backup is made on the same day, change `-01` to `-02`.
+2. **Copy that folder off this Mac** (the destination chosen in step 2.3: cloud drive or external disk). A copy that only lives on this Mac is lost with the Mac.
+3. **Keep `MIGRATION_ARCHIVE_PASSPHRASE` somewhere separate** from the backups (for example a password manager). The backup cannot be opened without it, and nobody can recover it.
+4. **Keep the last 14 daily copies**, plus the first backup of each month. Older ones may be deleted.
+5. **Keep the project awake**: the free plan pauses a project after about a week of no activity. Open the app at least every few days, including over holidays. If it pauses, restore it from the Supabase dashboard (data is kept) before opening the shop.
+6. **Restore** is described in `docs/database-recovery.md`. Do a practice restore once a month so the routine is proven before it is needed.
+7. Move to a paid plan when the shop can afford it; daily backups then come from Supabase as well, and this routine stays as a second copy.
+
 ## 4. The day (shop closed). Owner steps are marked (O), mine (C)
 
 4.1 (O) Tell all cashiers to stop. Make sure every phone shows nothing waiting to sync ("saved on this device" queue empty). Lock the Sheet by agreement: nobody edits it from now.
