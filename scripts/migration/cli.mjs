@@ -10,7 +10,7 @@ import { buildPaymentReview, renderPaymentReview } from './review.mjs';
 import { importIndependentRecords } from './import-independent.mjs';
 import { importStockRecords } from './import-stock.mjs';
 import { importStaffRecords } from './import-staff.mjs';
-import { OpeningError, activateOpening, buildOpeningPlan, postOpening, summarizeOpening, verifyOpening } from './opening-balances.mjs';
+import { OpeningError, activateOpening, buildOpeningPlan, createOwner, postOpening, summarizeOpening, verifyOpening } from './opening-balances.mjs';
 import { applyStock, buildStockPlan, diffStock, summarizeStock } from './stock-opening.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -111,15 +111,18 @@ async function runStock(command, name, options) {
   const directory = await privateDirectory(name);
   const read = file => readFile(join(directory, file), 'utf8');
   // A preview (check or diff) may use --date <YYYY-MM-DD> before the opening date is decided. The real apply always uses the opening date in 1-start-date.csv.
+  const startAt = options.indexOf('--start-from');
+  const startFolder = startAt >= 0 ? options[startAt + 1] : 'opening-balances'; // the folder that holds 1-start-date.csv (a rehearsal uses its own)
   const dateAt = options.indexOf('--date');
   if (dateAt >= 0 && command === 'stock-apply') throw new CommandError('stock-apply uses the opening date from 1-start-date.csv; --date is only for previews.');
-  const startRows = (await readFile(join(await privateDirectory('opening-balances'), '1-start-date.csv'), 'utf8')).split(/\r?\n/).map(l => l.split(','));
+  const startRows = (await readFile(join(await privateDirectory(startFolder), '1-start-date.csv'), 'utf8')).split(/\r?\n/).map(l => l.split(','));
   const countDate = dateAt >= 0 ? options[dateAt + 1] : startRows.find(r => r[0]?.trim() === 'opening_date')?.[1]?.trim();
   if (!countDate) throw new CommandError('1-start-date.csv in opening-balances needs opening_date, which is also the stock count date.');
   const plan = buildStockPlan({ materials: await read('materials.csv'), rolls: await read('rolls.csv') }, countDate);
   const allowUncounted = options.includes('--allow-uncounted');
   const zeroUnlisted = options.includes('--zero-unlisted');
-  const rest = options.filter((o, i) => o !== '--allow-uncounted' && o !== '--zero-unlisted' && o !== '--date' && !(i > 0 && options[i - 1] === '--date'));
+  const valueOptions = ['--date', '--start-from'];
+  const rest = options.filter((o, i) => o !== '--allow-uncounted' && o !== '--zero-unlisted' && !valueOptions.includes(o) && !(i > 0 && valueOptions.includes(options[i - 1])));
   if (command === 'stock-check') {
     if (rest.length) throw new CommandError('stock-check takes only the folder name and does not open the database.');
     console.log(JSON.stringify({ countDate: plan.countDate, materials: plan.materials.length, rolls: plan.rolls.length, fileSha256: plan.digest }, null, 2));
@@ -137,10 +140,10 @@ async function runStock(command, name, options) {
 async function main() {
   const [command, name, ...options] = process.argv.slice(2);
   if (command === 'help' || !command) {
-    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted]');
+    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | owner-create --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted] [--start-from <folder>]');
     return;
   }
-  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-diff', 'stock-apply'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
+  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-diff', 'stock-apply', 'owner-create'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
   if (command === 'apply') {
     if (name !== '--confirm-project' || options.length !== 1) throw new CommandError('Apply requires --confirm-project <project-ref>.');
     const directory = join(root, 'supabase/migrations');
@@ -171,6 +174,13 @@ async function main() {
     await writePrivate(directory, 'manifest.json', { version: 1, snapshotSha256: snapshotDigest(snapshot), archiveSha256: sha256(archiveBytes) });
     await writePrivate(directory, 'inspection.json', inspectSnapshot(snapshot).report);
     console.log(`Saved ${snapshot.sheets.length} tabs to ${relative(root, directory)}. Live Sheets were read only.`);
+    return;
+  }
+  if (command === 'owner-create') {
+    // owner-create --confirm-project <ref>  (the folder name slot holds the flag, so read it from the whole argument list)
+    const args = process.argv.slice(3);
+    if (args.length !== 2 || args[0] !== '--confirm-project') throw new CommandError('owner-create needs --confirm-project <project-ref>.');
+    console.log(JSON.stringify(await withMigrationDatabase(args[1], db => createOwner(db)), null, 2));
     return;
   }
   if (command.startsWith('stock-')) {

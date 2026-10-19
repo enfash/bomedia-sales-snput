@@ -2,7 +2,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { testDatabase, insertId } from './helpers';
-import { activateOpening, buildOpeningPlan, formatKobo, nairaToKobo, parseCsv, postOpening, summarizeOpening, verifyOpening } from '../../scripts/migration/opening-balances.mjs';
+import { activateOpening, buildOpeningPlan, createOwner, formatKobo, nairaToKobo, parseCsv, postOpening, summarizeOpening, verifyOpening } from '../../scripts/migration/opening-balances.mjs';
 
 const START = 'item,value,note\nopening_date,2026-10-18,"last day before the books start"\nopening_time,18:00,\n';
 const OWING_HEADER = 'customer_name,phone,amount_owed_naira,sale_date,job_description,sheet_row_or_receipt,note\n';
@@ -166,6 +166,15 @@ describe('opening balance posting', () => {
        where o.legacy_sales_id in ('BOM-A1','BOM-A2') group by o.legacy_sales_id order by o.legacy_sales_id`)).rows;
     // 8,000 + 7,000 owed; a 10,000 payment settles the older debt first and leaves 5,000 on the newer one.
     expect(left).toEqual([{ sales_id: 'BOM-A1', owed: '0' }, { sales_id: 'BOM-A2', owed: '500000' }]);
+  });
+
+  it('creates the owner staff record once and returns the same id on a repeat', async () => {
+    db = await testDatabase();
+    const first = await createOwner(db);
+    expect(first.created).toBe(true);
+    expect(first.ownerStaffId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await createOwner(db)).toEqual({ created: false, ownerStaffId: first.ownerStaffId });
+    expect((await db.query<{ n: number }>("select count(*)::integer n from bomedia.staff where login_name='owner'")).rows[0].n).toBe(1);
   });
 
   it('does not start the books when a check fails', async () => {

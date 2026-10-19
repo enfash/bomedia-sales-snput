@@ -66,6 +66,22 @@ Mark as Sensitive: every key, URL with a password, the VAPID private key, `SESSI
    Order on the day: `stock:diff`, `stock:apply`, `opening:check`, `opening:post`, `opening:verify`, `opening:activate`.
 4. **Final Sheet report from the exports**: to be produced on the day by me from the CSV exports (the owing file must contain only real debts, one row per owing sale).
 
+## 3b. Rehearsal result (19 Oct 2026) and what it taught us
+
+The whole data sequence was run on a fresh test project (Ireland, nothing shared with live or the sandbox) and passed:
+1. All 52 migrations applied. 2. The 3 Oct snapshot staged and the 4 Oct imports loaded (146 expenses, 3 estimates, 14 materials, 176 rolls, 31 stock movements, 2 staff), with the same numbers as the live project. 3. Owner staff record created. 4. `stock:apply` with the count (4 new rolls, 25 recounts including 22 set to zero, value ₦770,835.30). 5. `opening:post`: 65 customers, 140 orders, 166 debts (₦695,075.99), the ₦670,000 loan, and the stock value. 6. `opening:verify`: all 10 checks passed. 7. `opening:activate`. 8. Real activity: a ₦10,000 cash payment against a customer's old debts reduced receivables by exactly ₦10,000; a new ₦1,080 Flex sale took ₦1,038.69 out of Inventory (2 ft of roll 004, 23.06 to 21.06 ft); no unbalanced entries; the Shift Report showed ₦10,500 of receipts as expected.
+
+**Facts about the LIVE project found while preparing (read-only checks, 19 Oct):**
+- Only **9 of 52 migrations** are applied (latest `202610040007_payment_methods.sql`). `apply` must bring it to 52 before anything else. This can be done days ahead, because it touches no business data.
+- There is **no owner staff record** (only the two cashiers, Itunu and Lateef). Run `npm run owner:create -- --confirm-project <live-project-ref>` once; it prints the id to use as `SUPABASE_ADMIN_STAFF_ID` in Vercel. Safe to repeat.
+- No bookkeeping settings and no journal entries yet, as expected.
+- It was **paused** (free plan) and had to be restored; move it to a paid plan before cutover so it cannot pause again.
+
+**Traps to avoid**
+- `provision-auth` and `provision-financial` write the two generated database logins into `.env.local` (live) unless pointed at the sandbox file. Run them only on purpose for the live project, then copy the two URLs into Vercel (marked Sensitive). The rehearsal skipped them.
+- Previews use the sandbox project. Pausing the sandbox (free-plan limit of 2 active projects) takes Previews down until it is restored.
+- When running rehearsal commands, load `.env.local` first and `.env.rehearsal.local` second so the rehearsal project wins, and always pass its own `--confirm-project`.
+
 ## 4. The day (shop closed). Owner steps are marked (O), mine (C)
 
 4.1 (O) Tell all cashiers to stop. Make sure every phone shows nothing waiting to sync ("saved on this device" queue empty). Lock the Sheet by agreement: nobody edits it from now.
@@ -81,9 +97,10 @@ Copy the encrypted folder off this Mac (step 2.3). This is a local encrypted cop
 
 4.4 (C) From the exports, produce the final owing list, mismatch report and customer list. (O) review and confirm every figure before anything is loaded. Unknown amounts stay blank with a note; they are never treated as zero.
 
-4.5 (O) Apply migrations to the live project (target: 52, latest `202610170050_review_safety.sql`), then re-provision the two restricted database logins and verify:
+4.5 (O) Migrations should already be applied (see section 3b: the live project had only 9). Confirm 52, create the owner record, then provision the two restricted database logins and verify:
 ```sh
-npm run migration:apply -- --confirm-project <live-project-ref>
+npm run migration:apply -- --confirm-project <live-project-ref>   # skip if already at 52
+npm run owner:create -- --confirm-project <live-project-ref>
 npm run migration:provision-auth
 npm run migration:provision-financial
 npm run migration:verify-auth

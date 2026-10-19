@@ -269,3 +269,17 @@ export async function activateOpening(db, plan) {
     return { activated: true, booksStartOn: plan.startsOn };
   });
 }
+
+/**
+ * The owner needs a staff record before anything is posted (journals and orders are created by a staff member, and SUPABASE_ADMIN_STAFF_ID points at it).
+ * The 4 October import loaded only the cashiers. Creates "Owner" with no PIN if it does not exist; safe to repeat. Returns the id to use as SUPABASE_ADMIN_STAFF_ID.
+ */
+export async function createOwner(db) {
+  return db.transaction(async tx => {
+    await tx.query(LOCK);
+    const existing = (await tx.query("select id::text as id from bomedia.staff where login_name='owner'")).rows[0];
+    if (existing) return { created: false, ownerStaffId: existing.id };
+    const row = (await tx.query("insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id::text as id")).rows[0];
+    return { created: true, ownerStaffId: row.id };
+  });
+}

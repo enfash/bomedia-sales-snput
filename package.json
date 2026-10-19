@@ -29,6 +29,7 @@
     "migration:provision-financial": "node --env-file-if-exists=.env.local scripts/migration/provision-financial.mjs",
     "migration:verify-financial": "node --env-file-if-exists=.env.local scripts/migration/verify-financial.mjs",
     "migration:backup-db": "node --env-file-if-exists=.env.local scripts/migration/backup-database.mjs",
+    "owner:create": "node --env-file-if-exists=.env.local scripts/migration/cli.mjs owner-create",
     "stock:check": "node scripts/migration/cli.mjs stock-check stock-opening",
     "stock:diff": "node --env-file-if-exists=.env.local scripts/migration/cli.mjs stock-diff stock-opening",
     "stock:apply": "node --env-file-if-exists=.env.local scripts/migration/cli.mjs stock-apply stock-opening",
