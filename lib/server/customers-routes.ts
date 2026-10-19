@@ -10,6 +10,9 @@ export function readCustomers() {
 export function readCustomerProfile(request: Request) {
   return financialHandler(async () => { await financialIdentity(false); return customers.profile(new URL(request.url).searchParams.get('id')); });
 }
+export function readCustomerHistory(request: Request) {
+  return financialHandler(async () => { await financialIdentity(false); return customers.history(new URL(request.url).searchParams.get('id')); });
+}
 export function saveCustomer(request: Request) {
   return financialHandler(async () => {
     const owner = Boolean(await verifiedAdminIdentity());

@@ -13,10 +13,11 @@ import { StatTile } from '@/components/stat-tile';
 import { WhatsAppReminder } from '@/components/whatsapp-reminder';
 import { koboNaira } from '@/lib/approvals-view';
 import { FIELD_LABEL, dayLabel, shortNaira, timeLabel, type CustomerItem } from '@/lib/customers-view';
-import type { CustomerProfile } from '@/lib/server/customers';
+import type { CustomerHistory, CustomerProfile } from '@/lib/server/customers';
 import { LoadingState } from '@/components/loading-state';
 
-type Tab = 'sales' | 'payments' | 'changes';
+type Tab = 'sales' | 'payments' | 'changes' | 'before';
+const HISTORY_PAGE = 50;
 const money = (kobo: string | number) => koboNaira(Number(kobo) || 0);
 const message = (error: unknown) => (error instanceof Error ? error.message : 'Something went wrong. Try again.');
 
@@ -31,6 +32,9 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
   const [paying, setPaying] = useState(false);
   const [version, setVersion] = useState(0);
   const [saved, setSaved] = useState('');
+  const [history, setHistory] = useState<CustomerHistory | null>(null);
+  const [historyError, setHistoryError] = useState('');
+  const [historyShown, setHistoryShown] = useState(HISTORY_PAGE);
   const owner = role === 'owner';
   const base = owner ? '/bom03' : '/cashier';
 
@@ -46,6 +50,20 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
     });
     return () => { active = false; };
   }, [customer.id, version]);
+  // The old Google Sheet sales load only when that tab is opened; they are read-only and never part of what the customer owes today.
+  useEffect(() => {
+    if (tab !== 'before' || history) return;
+    let active = true;
+    void Promise.resolve().then(async () => {
+      try {
+        const response = await fetch(`/api/accounting/customer-history?id=${encodeURIComponent(customer.id)}`, { cache: 'no-store' });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.summary) throw new Error(result?.error || 'The earlier sales could not be loaded.');
+        if (active) { setHistory(result); setHistoryError(''); }
+      } catch (cause) { if (active) setHistoryError(message(cause)); }
+    });
+    return () => { active = false; };
+  }, [tab, history, customer.id]);
   useFloatingNotice('customer-saved', saved ? { tone: 'success', text: saved } : null);
 
   const refresh = () => { setVersion((v) => v + 1); onChanged(); };
@@ -81,7 +99,7 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
         </Box>
 
         <Box role="group" aria-label="Show" sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {([['sales', `Sales · ${profile?.sales.length ?? shown.orders}`], ['payments', `Payments · ${profile?.payments.length ?? 0}`], ['changes', `Changes · ${profile?.changes.length ?? 0}`]] as [Tab, string][]).map(([id, label]) =>
+          {([['sales', `Sales · ${profile?.sales.length ?? shown.orders}`], ['payments', `Payments · ${profile?.payments.length ?? 0}`], ['changes', `Changes · ${profile?.changes.length ?? 0}`], ['before', 'Before the new app']] as [Tab, string][]).map(([id, label]) =>
             <Button key={id} variant={tab === id ? 'contained' : 'outlined'} color={tab === id ? 'primary' : 'inherit'} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</Button>)}
         </Box>
 
@@ -121,6 +139,31 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
             </Box>)}
           </Box>)}
         </Box> : <Typography color="text.secondary">Nothing has been changed on this profile yet.</Typography>)}
+        {tab === 'before' && <>
+          {historyError && <Alert severity="error">{historyError}</Alert>}
+          {!history && !historyError && <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Loading earlier sales" />}
+          {history && (history.summary.rows ? <Box>
+            <Box sx={styles.historyNote}>
+              Sales from the old Google Sheet, for reference only. They are not counted in what this customer owes today.
+              {' '}{history.summary.orders} order{history.summary.orders === 1 ? '' : 's'}, {money(history.summary.total_kobo)} sold, {money(history.summary.paid_kobo)} paid
+              {Number(history.summary.owed_kobo) > 0 ? `, ${money(history.summary.owed_kobo)} was unpaid in the Sheet` : ''}
+              {history.summary.first_date ? ` · ${dayLabel(history.summary.first_date)} to ${dayLabel(history.summary.last_date ?? history.summary.first_date)}` : ''}.
+            </Box>
+            {history.rows.slice(0, historyShown).map((row) => <Box key={row.sheet_row} sx={styles.line}>
+              <Box sx={styles.lineMain}>
+                <Typography sx={styles.lineName}>{row.what}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {row.sales_id ? <><Box component="span" sx={styles.ref}>{row.sales_id}</Box> · </> : null}{dayLabel(row.date)}{row.material ? ` · ${row.material}` : ''}{row.quantity ? ` · qty ${row.quantity}` : ''}{row.note ? ` · ${row.note}` : ''}
+                </Typography>
+              </Box>
+              <Box sx={styles.lineEnd}>
+                <Typography sx={{ fontWeight: 700 }}>{money(row.amount_kobo)}</Typography>
+                <Box component="span" sx={[styles.tag, Number(row.owed_kobo) > 0 ? styles.tagOwes : styles.tagPaid]}>{Number(row.owed_kobo) > 0 ? `Owed ${shortNaira(Number(row.owed_kobo))}` : 'Paid'}</Box>
+              </Box>
+            </Box>)}
+            {historyShown < history.rows.length && <Button variant="outlined" color="inherit" fullWidth onClick={() => setHistoryShown((n) => n + HISTORY_PAGE)}>Show more ({history.rows.length - historyShown} left)</Button>}
+          </Box> : <Typography color="text.secondary">No sales from before the new app.</Typography>)}
+        </>}
       </Box>
     </ResponsiveSheet>
 

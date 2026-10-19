@@ -21,12 +21,23 @@ function mapError(error: unknown): never {
   throw error;
 }
 
+export type CustomerHistory = {
+  summary: { rows: number; orders: number; total_kobo: string; paid_kobo: string; owed_kobo: string; first_date: string | null; last_date: string | null };
+  rows: { sheet_row: number; sales_id: string | null; date: string; what: string; material: string | null; quantity: string | null; amount_kobo: string;
+    paid_kobo: string; owed_kobo: string; status: string | null; job_status: string | null; logged_by: string | null; note: string | null }[];
+};
+
 export type RecentCustomerChange = { id: string; at: string; customer_id: string; reference: string; name: string; by_id: string; by: string; changes: Record<string, { from: string | null; to: string | null }> };
 
 export function createCustomers(call: FinancialCall = callFinancial) {
   return {
     async recentChanges(days = 14) { return call<RecentCustomerChange[]>('api_recent_customer_changes', String(days), {}); },
     async list() { return (await call<{ data: CustomerRow[] }>('api_customers', '', {})).data; },
+    // Old sales from the Google Sheet, kept as read-only history. Never part of what the customer owes today.
+    async history(id: unknown) {
+      if (!validUUID(id)) throw invalid('Choose a customer.');
+      try { return await call<CustomerHistory>('api_customer_history', String(id).toLowerCase(), {}); } catch (error) { return mapError(error); }
+    },
     async profile(id: unknown) {
       if (!validUUID(id)) throw invalid('Choose a customer.');
       try { return await call<CustomerProfile>('api_customer_profile', String(id).toLowerCase(), {}); } catch (error) { return mapError(error); }

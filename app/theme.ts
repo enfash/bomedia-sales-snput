@@ -1534,6 +1534,7 @@ export const customerStyles = {
   actions: { display: "flex", gap: 1, flexWrap: "wrap" },
   actionGrow: { flex: 1, minWidth: 140 },
   tiles: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  historyNote: { p: 1.5, mb: 1, borderRadius: 2, bgcolor: "action.hover", color: "text.secondary", fontSize: "0.875rem" },
   details: { p: 1.5, borderRadius: 2, bgcolor: "action.hover", display: "flex", flexDirection: "column", gap: 0.75 },
   detailLine: { display: "flex", justifyContent: "space-between", gap: 2 },
   detailValue: { fontWeight: 600, textAlign: "right", overflowWrap: "anywhere" },
