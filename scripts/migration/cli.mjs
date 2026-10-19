@@ -12,6 +12,7 @@ import { importStockRecords } from './import-stock.mjs';
 import { importStaffRecords } from './import-staff.mjs';
 import { OpeningError, activateOpening, buildOpeningPlan, createOwner, postOpening, summarizeOpening, verifyOpening } from './opening-balances.mjs';
 import { applyStock, buildStockPlan, diffStock, summarizeStock } from './stock-opening.mjs';
+import { RehearsalError, assertRehearsalTarget, resetRehearsal } from './rehearsal-reset.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 class CommandError extends Error {}
@@ -140,10 +141,10 @@ async function runStock(command, name, options) {
 async function main() {
   const [command, name, ...options] = process.argv.slice(2);
   if (command === 'help' || !command) {
-    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | owner-create --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted] [--start-from <folder>]');
+    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | rehearsal-reset --confirm-project <rehearsal-ref> | owner-create --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted] [--start-from <folder>]');
     return;
   }
-  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-diff', 'stock-apply', 'owner-create'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
+  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-diff', 'stock-apply', 'owner-create', 'rehearsal-reset'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
   if (command === 'apply') {
     if (name !== '--confirm-project' || options.length !== 1) throw new CommandError('Apply requires --confirm-project <project-ref>.');
     const directory = join(root, 'supabase/migrations');
@@ -174,6 +175,18 @@ async function main() {
     await writePrivate(directory, 'manifest.json', { version: 1, snapshotSha256: snapshotDigest(snapshot), archiveSha256: sha256(archiveBytes) });
     await writePrivate(directory, 'inspection.json', inspectSnapshot(snapshot).report);
     console.log(`Saved ${snapshot.sheets.length} tabs to ${relative(root, directory)}. Live Sheets were read only.`);
+    return;
+  }
+  if (command === 'rehearsal-reset') {
+    // rehearsal-reset --confirm-project <ref>: wipes ONLY the project named in .env.rehearsal.local; refuses the live project and the old sandbox.
+    const args = process.argv.slice(3);
+    if (args.length !== 2 || args[0] !== '--confirm-project') throw new CommandError('rehearsal-reset needs --confirm-project <rehearsal-project-ref>.');
+    const { parseEnv } = await import('node:util');
+    const envRef = async file => { try { const e = parseEnv(await readFile(join(root, file), 'utf8')); return [e.SUPABASE_MIGRATION_PROJECT_REF, e.SUPABASE_PROJECT_REF]; } catch { return []; } };
+    const [rehearsalRef] = await envRef('.env.rehearsal.local');
+    const protectedRefs = [...await envRef('.env.local'), ...await envRef('.env.sandbox.paused.local')];
+    try { assertRehearsalTarget({ confirmedRef: args[1], rehearsalRef, protectedRefs }); } catch (error) { throw error instanceof RehearsalError ? new CommandError(error.message) : error; }
+    console.log(JSON.stringify(await withMigrationDatabase(args[1], db => resetRehearsal(db)), null, 2));
     return;
   }
   if (command === 'owner-create') {
