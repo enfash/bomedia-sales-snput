@@ -108,6 +108,8 @@ Until the project moves to a paid plan, Supabase does not keep daily backups for
 
 ## 4. The day (shop closed). Owner steps are marked (O), mine (C)
 
+> The click-by-click version with exact commands is `docs/cutover-day-runsheet.md`. Use that on the day.
+
 4.1 (O) Tell all cashiers to stop. Make sure every phone shows nothing waiting to sync ("saved on this device" queue empty). Lock the Sheet by agreement: nobody edits it from now.
 
 4.2 (O) Export the Sheet tabs Sales, Payments, Expenses, Inventory, Materials as CSV into the private folder `migration-data/` (git-ignored). Keep a dated copy.
@@ -121,7 +123,7 @@ Copy the encrypted folder off this Mac (step 2.3). This is a local encrypted cop
 
 4.4 (C) From the exports, produce the final owing list, mismatch report and customer list. (O) review and confirm every figure before anything is loaded. Unknown amounts stay blank with a note; they are never treated as zero.
 
-4.5 (O) Migrations should already be applied (see section 3b: the live project had only 9). Confirm 52, create the owner record, then provision the two restricted database logins and verify:
+4.5 (O) **DONE on 20 Oct (all 53 applied, owner record and both logins created on live).** Migrations should already be applied (see section 3b: the live project had only 9). Confirm 53, create the owner record, then provision the two restricted database logins and verify:
 ```sh
 npm run migration:apply -- --confirm-project <live-project-ref>   # skip if already at 52
 npm run owner:create -- --confirm-project <live-project-ref>
@@ -130,9 +132,9 @@ npm run migration:provision-financial
 npm run migration:verify-auth
 npm run migration:verify-financial
 ```
-The app checks the schema count itself (`EXPECTED_MIGRATION_COUNT = 52`).
+The app checks the schema count itself (`EXPECTED_MIGRATION_COUNT = 53`).
 
-4.6 (O+C) Load the data, in this order, each step verified before the next: (1) stock first (`stock:diff`, then `stock:apply`) because stock cannot be loaded once anything is posted; (2) `opening:check`, then `opening:post`, then `opening:verify`, then `opening:activate` with `--confirm-project <live-project-ref>` (see section 3). The evidence reference is built from the fingerprints of the approved files. Compare totals against the approved report: number of customers, total owing (about ₦695,000 on 14 Oct, will differ), loan ₦670,000.
+4.6 (O+C) Load the data, in this order, each step verified before the next: (1) stock first (`stock:diff`, then `stock:apply`) because stock cannot be loaded once anything is posted; (2) `opening:check`, then `opening:post`, then `history-import` and `history-verify` (section 3b), then `opening:verify`, then `opening:activate` with `--confirm-project <live-project-ref>` (see section 3). The evidence reference is built from the fingerprints of the approved files. Compare totals against the approved report: number of customers, total owing (about ₦695,000 on 14 Oct, will differ), loan ₦670,000.
 
 4.7 (O) Set the production environment variables (step 2.4) in Vercel, then release: merge `codex/supabase-migration` into `main` through a pull request (PR #2 exists). Vercel builds production. Wait for the build to be READY and for production to show the new login.
 
@@ -161,6 +163,6 @@ The app checks the schema count itself (`EXPECTED_MIGRATION_COUNT = 52`).
 
 1. Watch the first day: Vercel logs, phone alerts, queue status, speed.
 2. Remove `ADMIN_PASSWORD` (after the authenticator login is proven) and, once the final Sheet read is archived, the Google variables. Rotate any secret that was ever pasted into a chat or terminal.
-3. **History import "B"** (read-only history of old sales and payments on each customer's profile, plus a lifetime-spend figure). Separate plan and approval; never posted to the books.
+3. ~~History import "B"~~ built and rehearsed (section 3b); runs in step 4.6 on the day.
 4. Cleanup: remove the old Sheets code, Tailwind and unused pages; archive the three planning notes into `docs/archive/`; rewrite `README.md`.
 5. Money boxes with thousands commas on the remaining screens.

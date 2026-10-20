@@ -1,0 +1,82 @@
+# Cutover day run-sheet (Sunday 25 Oct 2026)
+
+Follow it top to bottom. Each step says who does it, the exact command, and what a good result looks like. Stop at the first thing that does not match and tell Claude; do not retry in a loop (repeated failed database logins make Supabase block connections for ~5 minutes).
+
+`(O)` = owner, `(C)` = Claude. Commands are run by the owner in the project folder, in one terminal tab.
+
+## Before you start (Friday or Saturday)
+
+- [ ] Supabase Auth set up on the live project (owner user = `elijahfasugba@gmail.com`; email on, sign-ups off, owner user created and auto-confirmed, authenticator on, redirect `https://bomedia-sales.vercel.app/bom03/login/reset`).
+- [ ] Vercel Production variables entered (runbook 2.4) and checked against the list: the three mode flags, `SUPABASE_ADMIN_STAFF_ID`, `SUPABASE_PROJECT_REF`, `SUPABASE_CA_CERT_PEM`, both database URLs, publishable and storage keys, the four `PUSH_` values, `SESSION_SECRET` (new), `GEMINI_API_KEY`.
+- [ ] `.env.local` has `SUPABASE_ADMIN_STAFF_ID` (once) and no mode flags.
+- [ ] Google Drive folder `BOMedia backups` exists; passphrase kept separately.
+- [ ] Cashiers' PINs tested on live (they are imported staff; reset any that fail).
+- [ ] Cashiers told: the Sheet stops Sunday evening; the new app starts Monday 9:00.
+
+## 1. Stop and export (O)
+
+1. Cashiers stop. Every phone shows nothing waiting to sync. Nobody edits the Sheet from now.
+2. Export the Sheet tabs Sales, Payments, Expenses into a NEW folder `migration-data/sheet-export-20261025/` (Sales.csv, Payments.csv, Expenses.csv).
+3. Final physical roll count: give Claude the counts (the rolls list in `migration-data/stock-opening/rolls.csv` is updated from it).
+
+## 2. Backup (O)
+
+```sh
+LIVE=rozlwzhwrbbrwtzfvjxc
+npm run migration:backup-db -- postgres-recovery-20261025-01 --confirm-project "$LIVE"
+npm run migration:verify-backup -- postgres-recovery-20261025-01
+```
+Good: verify says the restore matched. Then copy the folder to Google Drive.
+
+## 3. Prepare the files (C, owner reviews)
+
+Claude builds, from the export: `3-customers-who-owe.csv` (only real debts, one row per owing sale), `1-start-date.csv` (`opening_date` 2026-10-25, so the books start 26 Oct), refreshed `stock-opening` files, and copies `2-name-decisions.csv` and `ignore-payments.csv` into the export folder (Sheet rows 2762 and 2948 must still be those two rows; Claude checks).
+Owner reviews and approves: customers, total owing, the ₦670,000 loan, stock value. Nothing is loaded before this OK.
+
+## 4. Load the data (O, in this order)
+
+Each command must succeed before the next. `--confirm-project "$LIVE"` is required on all.
+
+```sh
+npm run stock:diff -- --confirm-project "$LIVE"            # shows what will change; blockers must be empty
+npm run stock:apply -- --confirm-project "$LIVE"           # (the rehearsal also used --zero-unlisted; Claude confirms the flags with you)
+npm run opening:check                                       # files only; totals match the approved report
+npm run opening:post -- --confirm-project "$LIVE"
+node --env-file=.env.local scripts/migration/cli.mjs history-check sheet-export-20261025
+node --env-file=.env.local scripts/migration/cli.mjs history-import sheet-export-20261025 --confirm-project "$LIVE"
+node --env-file=.env.local scripts/migration/cli.mjs history-verify sheet-export-20261025 --confirm-project "$LIVE"
+npm run opening:verify -- --confirm-project "$LIVE"         # all 10 checks pass
+npm run opening:activate -- --confirm-project "$LIVE"       # point of no return for the books: they start 26 Oct
+```
+Good: `history-verify` says verified; `opening:verify` says 10 of 10; the activate result shows `"activated": true`. History import takes about a minute.
+
+## 5. Release (O)
+
+0. **First, in Vercel (Production):** set `ADMIN_EMAIL` to `elijahfasugba@gmail.com` (the owner's email; it must be exactly the email of the owner user in Supabase Auth, auto-confirmed). Do this right before the merge, not earlier: a production redeploy of the old app before then would start requiring the new email. Keep `ADMIN_PASSWORD` until the authenticator login is proven on production.
+1. Merge `codex/supabase-migration` into `main` through the pull request. Vercel builds production.
+2. Wait until the deployment is READY and `https://bomedia-sales.vercel.app` shows the new login.
+
+## 6. Smoke test on production (O with C)
+
+Use clearly named test records ("ZZ TEST") and reverse them straight away.
+- [ ] Owner signs in with email, password and authenticator code; signs out; "forgot password" opens the production reset page.
+- [ ] Each real cashier signs in with name and PIN.
+- [ ] A cashier makes a small cash sale; the record, the customer's debt and the Shift Report agree.
+- [ ] A payment against one real old debt of a test customer; the debt falls by exactly that amount; then reverse it.
+- [ ] An expense with a receipt photo; the photo opens for the owner.
+- [ ] A correction of the test sale; an approval request and the owner's decision.
+- [ ] Customer profile: "Before the new app" tab shows old sales (try a name from the merge list, e.g. Old square).
+- [ ] Job board status change; stock screen shows the counted lengths.
+- [ ] Owner's phone: alerts on, test alert received.
+- [ ] Vercel runtime logs: no errors; pages answer quickly.
+
+## 7. Open the shop (O)
+
+If every box is ticked, tell the cashiers. Monday 9:00. Keep the first trading day closely watched (Vercel logs, phone alerts, nothing stuck waiting to sync).
+
+## If something goes wrong
+
+- **Before the shop reopens:** in Vercel promote the previous production deployment (the old Sheets app). The Sheet was not changed. The new database can be reset from the backup in step 2.
+- **After reopening:** rolling back loses what was entered in the new app; those entries would go back into the Sheet by hand. The point of no return is the end of the first trading day.
+- Never switch off database guards to "fix" something.
+- A "too many authentication failures" message is Supabase's temporary connection block: stop, wait 5 minutes, then try once.
