@@ -43,6 +43,8 @@ Order agreed with the owner: **cutover first (customers, materials, opening debt
 
 Mark as Sensitive: every key, URL with a password, the VAPID private key, `SESSION_SECRET`, `GOOGLE_PRIVATE_KEY`, `GEMINI_API_KEY`. A new `SESSION_SECRET` signs everyone out once, which also kills any old password-only owner cookie. Remove `ADMIN_PASSWORD` only after the owner login with the authenticator code is proven on production. `NEXT_PUBLIC_ACCOUNTING_LIVE` appears only in older notes and is not referenced by the current code: confirm before relying on it.
 
+2.4b **Receipt storage on live: DONE (20 Oct).** `npm run receipts:setup-live -- --confirm-project <live-ref>` created the private `expense-receipts` bucket (1 MB, jpeg/png/webp). It only reads and creates, never changes or deletes a bucket, and is safe to repeat.
+
 2.5 **Supabase Auth settings** (owner, in the Supabase dashboard): the redirect URL for `/bom03/login/reset` on the production domain; email confirmation and authenticator (MFA) on; the owner account exists and its authenticator is set up.
 
 2.6 **Physical stock count** (rule from 14 Oct: hand-edited sizes do not move stock, so confirm stock against a count, not against the Sheet).
