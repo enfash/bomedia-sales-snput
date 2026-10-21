@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useId } from "react";
-import { TrendingUp, TrendingDown, ShoppingBag } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2, Percent } from "lucide-react";
 import { motion, animate } from "framer-motion";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -17,7 +17,7 @@ const cardItemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: string }) {
+function Sparkline({ data, color = "currentColor", classic = false }: { data: number[]; color?: string; classic?: boolean }) {
   const uid = useId();
   const gradId = `spark-fill-${uid.replace(/:/g, "")}`;
   if (!data || data.length < 2) return null;
@@ -37,7 +37,7 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
   const fill = `M${pts[0]} L${pts.join(" L")} L${w},${h} L0,${h} Z`;
 
   return (
-    <Box component="svg" viewBox={`0 0 ${w} ${h}`} sx={styles.sparkSvg} preserveAspectRatio="none">
+    <Box component="svg" viewBox={`0 0 ${w} ${h}`} sx={[styles.sparkSvg, classic && styles.sparkSvgClassic]} preserveAspectRatio="none">
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -103,6 +103,8 @@ interface MetricCardProps {
   sparkData?: number[];
   /** Small figures shown along the bottom of the headline card. */
   stats?: HeroStat[];
+  /** The desktop look of the headline card: light tint, dark figures, no stats footer. */
+  classic?: boolean;
 }
 
 export function MetricCard({
@@ -116,8 +118,10 @@ export function MetricCard({
   subLabel,
   sparkData,
   stats,
+  classic = false,
 }: MetricCardProps) {
   const isHero = variant === 'hero';
+  const modern = isHero && !classic;
   const isAlert = variant === 'alert' && value > 0;
 
   const animatedNum = useCountUp(value);
@@ -129,8 +133,8 @@ export function MetricCard({
   const trendIcon = isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />;
 
   return (
-    <Box sx={[styles.card, isHero && styles.cardHero, isAlert && styles.cardAlert]}>
-      {isHero && <Box sx={styles.glow} />}
+    <Box sx={[styles.card, modern && styles.cardHero, isHero && classic && styles.cardHeroClassic, isAlert && styles.cardAlert]}>
+      {isHero && <Box sx={[styles.glow, classic && styles.glowClassic]} />}
 
       <Box sx={styles.header}>
         <Box sx={styles.titleRow}>
@@ -142,22 +146,22 @@ export function MetricCard({
               sx={styles.alertDot}
             />
           )}
-          <Typography variant="overline" sx={[styles.title, isHero && styles.titleHero]}>
+          <Typography variant="overline" sx={[styles.title, modern && styles.titleHero]}>
             {title}
           </Typography>
         </Box>
-        <Box sx={[styles.icon, isHero ? styles.iconHero : isAlert ? styles.iconAlert : styles.iconDefault]}>
+        <Box sx={[styles.icon, modern ? styles.iconHero : isHero ? styles.iconHeroClassic : isAlert ? styles.iconAlert : styles.iconDefault]}>
           <Icon size={isHero ? 20 : 16} />
         </Box>
       </Box>
 
       <Box sx={styles.body}>
-        <Typography component="p" sx={[styles.value, isHero ? styles.valueHero : styles.valueDefault]}>
+        <Typography component="p" sx={[styles.value, isHero ? styles.valueHero : styles.valueDefault, isHero && classic && styles.valueHeroClassic]}>
           {animatedDisplay}
         </Typography>
         {(isHero && change) && (
           <Box sx={styles.trendRow}>
-            <Box sx={[styles.trendChip, isPositive ? styles.trendUp : styles.trendDown, isHero && styles.trendHero]}>
+            <Box sx={[styles.trendChip, isPositive ? styles.trendUp : styles.trendDown, modern && styles.trendHero]}>
               {trendIcon}
               {change}
             </Box>
@@ -166,12 +170,12 @@ export function MetricCard({
       </Box>
 
       {isHero && sparkData && sparkData.length >= 2 && (
-        <Box sx={styles.spark}>
-          <Sparkline data={sparkData} />
+        <Box sx={[styles.spark, classic && styles.sparkClassic]}>
+          <Sparkline data={sparkData} classic={classic} />
         </Box>
       )}
 
-      {isHero && stats && stats.length > 0 && (
+      {modern && stats && stats.length > 0 && (
         <Box sx={styles.stats}>
           {stats.map((stat) => <StatFigure key={stat.label} stat={stat} />)}
         </Box>
@@ -238,41 +242,65 @@ export function DashboardMetrics({
   const marginChange = `${Math.abs(Math.round(grossMarginPct - prevGrossMarginPct))}pp`;
   const isMarginUp = grossMarginPct >= prevGrossMarginPct;
 
+  const marginHint = totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet";
+  const marginDisplay = totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%";
+  const marginDelta = totalSales > 0 ? marginChange : undefined;
+  const salesCard = (classic: boolean) => (
+    <MetricCard
+      variant="hero"
+      title="Total Sales"
+      value={totalSales}
+      change={salesChange}
+      isPositive={isSalesUp}
+      icon={ShoppingBag}
+      sparkData={sparkData}
+      classic={classic}
+      stats={classic ? undefined : [
+        { label: "Expenses", value: totalExpenses, change: expensesChange, isPositive: isExpensesDown },
+        { label: "Net profit", value: netProfit, change: profitChange, isPositive: isProfitUp },
+        { label: "Margin", value: grossMarginPct, displayValue: marginDisplay, change: marginDelta, isPositive: isMarginUp, hint: marginHint },
+      ]}
+    />
+  );
+
   return (
-    <Box
-      component={motion.div}
-      variants={cardContainerVariants}
-      initial="hidden"
-      animate="show"
-      sx={styles.grid}
-    >
-      <Box component={motion.div} variants={cardItemVariants} sx={styles.heroCell}>
-        <MetricCard
-          variant="hero"
-          title="Total Sales"
-          value={totalSales}
-          change={salesChange}
-          isPositive={isSalesUp}
-          icon={ShoppingBag}
-          sparkData={sparkData}
-          stats={[
-            { label: "Expenses", value: totalExpenses, change: expensesChange, isPositive: isExpensesDown },
-            { label: "Net profit", value: netProfit, change: profitChange, isPositive: isProfitUp },
-            {
-              label: "Margin", value: grossMarginPct, displayValue: totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%",
-              change: totalSales > 0 ? marginChange : undefined, isPositive: isMarginUp,
-              hint: totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet",
-            },
-          ]}
-        />
+    <>
+      {/* Below 1200px: the headline card with the owed row. */}
+      <Box sx={styles.compactOnly}>
+        <Box component={motion.div} variants={cardContainerVariants} initial="hidden" animate="show" sx={styles.grid}>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.heroCell}>{salesCard(false)}</Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.owedRow}>
+            <StatTile compact tone={outstandingDebt > 0 ? "error" : "neutral"} label="Total owed" value={naira(outstandingDebt)}
+              caption={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"} />
+            <StatTile compact tone={owedToday.amount > 0 ? "warning" : "neutral"} label="Owed today" value={naira(owedToday.amount)} caption={customers(owedToday.customers)} />
+            <StatTile compact tone={owedWeek.amount > 0 ? "error" : "neutral"} label="Owed 7 days" value={naira(owedWeek.amount)} caption={customers(owedWeek.customers)} />
+          </Box>
+        </Box>
       </Box>
 
-      <Box component={motion.div} variants={cardItemVariants} sx={styles.owedRow}>
-        <StatTile compact tone={outstandingDebt > 0 ? "error" : "neutral"} label="Total owed" value={naira(outstandingDebt)}
-          caption={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"} />
-        <StatTile compact tone={owedToday.amount > 0 ? "warning" : "neutral"} label="Owed today" value={naira(owedToday.amount)} caption={customers(owedToday.customers)} />
-        <StatTile compact tone={owedWeek.amount > 0 ? "error" : "neutral"} label="Owed 7 days" value={naira(owedWeek.amount)} caption={customers(owedWeek.customers)} />
+      {/* 1200px and up: the classic row of separate cards, with the two debt tiles under it. */}
+      <Box sx={styles.desktopOnly}>
+        <Box component={motion.div} variants={cardContainerVariants} initial="hidden" animate="show" sx={styles.classicGrid}>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicHeroCell}>{salesCard(true)}</Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard title="Expenses" value={totalExpenses} change={expensesChange} isPositive={isExpensesDown} icon={DollarSign} />
+          </Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard title="Net Profit" value={netProfit} change={profitChange} isPositive={isProfitUp} icon={BarChart2} />
+          </Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard variant="alert" title="Outstanding Debt" value={outstandingDebt} icon={AlertCircle}
+              subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"} />
+          </Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard title="Gross Margin" value={grossMarginPct} displayValue={marginDisplay} change={marginDelta} isPositive={isMarginUp} icon={Percent} subLabel={marginHint} />
+          </Box>
+        </Box>
+        <Box sx={styles.classicDebtTiles}>
+          <StatTile tone={owedToday.amount > 0 ? "warning" : "neutral"} label="Owed from today's jobs" value={naira(owedToday.amount)} caption={customers(owedToday.customers)} />
+          <StatTile tone={owedWeek.amount > 0 ? "error" : "neutral"} label="Owed from the last 7 days" value={naira(owedWeek.amount)} caption={customers(owedWeek.customers)} />
+        </Box>
       </Box>
-    </Box>
+    </>
   );
 }
