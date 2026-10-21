@@ -167,7 +167,7 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
                         {c.Status === "Online" && (
                           <Typography
                             component="span"
-                            sx={{ ml: 1, fontSize: "0.625rem", color: "warning.main", fontWeight: 700 }}
+                            sx={{ ml: 1, fontSize: "0.75rem", color: "warning.main", fontWeight: 700 }}
                           >
                             ● active
                           </Typography>
@@ -192,7 +192,7 @@ export function NamePrompt({ isAdmin = false }: { isAdmin?: boolean }) {
                   onClick={() => { setApiFailed(true); setError(""); }}
                   sx={{
                     mt: 0.75,
-                    fontSize: "0.6875rem",
+                    fontSize: "0.75rem",
                     color: "text.secondary",
                     background: "none",
                     border: "none",

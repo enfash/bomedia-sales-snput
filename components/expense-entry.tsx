@@ -360,7 +360,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
   };
 
   const fieldLabelSx = {
-    fontSize: "0.625rem",
+    fontSize: "0.75rem",
     fontWeight: 900,
     textTransform: "uppercase" as const,
     letterSpacing: "0.06em",
@@ -659,11 +659,11 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
             >
               <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                 <Box component="span" sx={expenseStyles.sessionIcon}><Receipt style={{ width: 14, height: 14 }} /></Box>
-                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
                   This Session
                 </Typography>
               </Stack>
-              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.disabled" }}>
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.disabled" }}>
                 {recentExpenses.length} logged
               </Typography>
             </Box>
@@ -685,7 +685,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                     <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {exp.category}
                     </Typography>
-                    <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
+                    <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
                       {exp.description}{exp.paidTo ? ` · ${exp.paidTo}` : ""} · {exp.paymentMethod}
                     </Typography>
                   </Box>
@@ -753,7 +753,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                       <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {b.CATEGORY}
                       </Typography>
-                      <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
                         {b.DESCRIPTION}
                       </Typography>
                     </Box>

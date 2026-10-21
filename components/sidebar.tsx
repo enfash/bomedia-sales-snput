@@ -205,7 +205,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         ) : (
           <>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.1em", color: whiteTint(0.4), textTransform: "uppercase", fontSize: "0.6rem" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.1em", color: whiteTint(0.4), textTransform: "uppercase", fontSize: "0.75rem" }}>
                 Sync Status
               </Typography>
               {syncStatus === "syncing" ? (
@@ -225,7 +225,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               )}
             </Box>
             {lastSyncTime && (
-              <Typography variant="caption" sx={{ color: whiteTint(0.3), fontSize: "0.625rem", display: "block", mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: whiteTint(0.3), fontSize: "0.75rem", display: "block", mt: 0.5 }}>
                 Last sync: {new Date(lastSyncTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </Typography>
             )}
@@ -268,7 +268,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
                   <Typography variant="body2" sx={{ color: "common.white", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {userName}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: whiteTint(0.4), fontSize: "0.625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  <Typography variant="caption" sx={{ color: whiteTint(0.4), fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {isAdmin ? "Admin" : "Cashier"}
                   </Typography>
                 </Box>

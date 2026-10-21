@@ -45,7 +45,7 @@ export function Logo({ showText = true }: LogoProps) {
           <Typography sx={{ fontSize: "1.125rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
             <Box component="span" sx={{ color: accent }}>BOMedia</Box>
           </Typography>
-          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", lineHeight: 1, mt: 0.25 }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", lineHeight: 1, mt: 0.25 }}>
             Sales Logs
           </Typography>
         </Box>

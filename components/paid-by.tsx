@@ -18,7 +18,7 @@ export function PaidBy({ value, onChange, required = true, disabled = false, met
 }) {
   return (
     <Box component="fieldset" sx={{ gridColumn: "1 / -1", m: 0, p: 1.5, border: "2px solid", borderColor: "primary.main", borderRadius: 3 }}>
-      <Typography component="legend" sx={{ px: 0.75, fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main" }}>
+      <Typography component="legend" sx={{ px: 0.75, fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main" }}>
         Payment method{required ? " *" : ""}
       </Typography>
       <ToggleButtonGroup exclusive fullWidth color="primary" value={value} disabled={disabled} aria-label="Payment method"

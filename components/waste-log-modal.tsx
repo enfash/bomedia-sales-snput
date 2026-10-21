@@ -94,18 +94,18 @@ function ModalBody({
           <Scissors size={20} color="#e11d48" />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "#e11d48" }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "#e11d48" }}>
             Logging waste against
           </Typography>
           <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {roll["Roll ID"]}
           </Typography>
-          <Typography sx={{ fontSize: "0.6rem", color: "text.disabled", fontWeight: 500 }}>
+          <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontWeight: 500 }}>
             {parseFloat(String(roll["Width (ft)"] || "0"))}ft wide · {remaining.toFixed(1)}ft remaining
           </Typography>
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-          <Typography sx={{ fontSize: "0.55rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled" }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled" }}>
             Prev. waste
           </Typography>
           <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#e11d48" }}>

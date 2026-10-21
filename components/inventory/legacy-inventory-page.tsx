@@ -62,7 +62,7 @@ function StatusPill({ status }: { status: string }) {
       label={status}
       size="small"
       sx={{
-        fontSize: "0.6rem",
+        fontSize: "0.75rem",
         fontWeight: 900,
         height: 20,
         px: 0.5,
@@ -217,7 +217,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
           <DialogTitle sx={{ p: 0, color: "white", fontWeight: 900, fontSize: "1.2rem" }}>
             Add Inventory Roll
           </DialogTitle>
-          <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.7rem", mt: 0.5 }}>
+          <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.75rem", mt: 0.5 }}>
             10ft reserved as upfront expected waste automatically.
           </Typography>
         </Box>
@@ -226,7 +226,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
           <Stack sx={{ gap: 2.5 }}>
             {/* Material Name */}
             <Box>
-              <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+              <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                 Material Name *
               </Typography>
               <Autocomplete
@@ -249,7 +249,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
             {/* Category / Quantity / Low Stock row */}
             <Grid container spacing={2}>
               <Grid size={4}>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                   Category
                 </Typography>
                 <TextField
@@ -261,7 +261,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                 />
               </Grid>
               <Grid size={4}>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                   Quantity
                 </Typography>
                 <TextField
@@ -275,7 +275,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                 />
               </Grid>
               <Grid size={4}>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                   Low Stock Alert (ft)
                 </Typography>
                 <TextField
@@ -291,13 +291,13 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
 
             {/* Roll Dimensions section */}
             <Box sx={{ p: 2, bgcolor: "rgba(200,71,46,0.04)", borderRadius: "16px", border: "1px solid rgba(200,71,46,0.12)" }}>
-              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main", borderBottom: "1px solid rgba(200,71,46,0.1)", pb: 1, mb: 1.5 }}>
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main", borderBottom: "1px solid rgba(200,71,46,0.1)", pb: 1, mb: 1.5 }}>
                 Roll Dimensions
               </Typography>
 
               {/* Width buttons */}
               <Box sx={{ mb: 1.5 }}>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
                   Roll Width (feet) *
                 </Typography>
                 <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
@@ -365,7 +365,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
 
               {/* Length input + unit toggle */}
               <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
                   Roll Length *
                 </Typography>
                 <Stack direction="row" sx={{ gap: 1 }}>
@@ -384,7 +384,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                     sx={{
                       px: 2,
                       fontWeight: 900,
-                      fontSize: "0.7rem",
+                      fontSize: "0.75rem",
                       height: 40,
                       borderRadius: 2,
                       textTransform: "uppercase",
@@ -419,7 +419,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                             ? (isDark ? "#f43f5e" : "#e11d48")
                             : "text.primary",
                       }}>
-                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", opacity: variant === "highlight" ? 0.7 : 0.6 }}>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", opacity: variant === "highlight" ? 0.7 : 0.6 }}>
                           {label}
                         </Typography>
                         <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, lineHeight: 1.2 }}>
@@ -435,7 +435,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
             {/* Price / Cost */}
             <Grid container spacing={2}>
               <Grid size={6}>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                   Selling Price (₦/sqft)
                 </Typography>
                 <TextField
@@ -449,7 +449,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                 />
               </Grid>
               <Grid size={6}>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                   Total Buy Cost (₦)
                 </Typography>
                 <TextField
@@ -466,12 +466,12 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
 
             {/* Auditing section */}
             <Box sx={{ p: 2, bgcolor: "rgba(0,0,0,0.02)", borderRadius: "16px", border: "1px solid", borderColor: "grey.100" }}>
-              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
                 Auditing & Purchase Details
               </Typography>
               <Stack sx={{ gap: 1.5 }}>
                 <Box>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Supplier / Vendor
                   </Typography>
                   <Autocomplete
@@ -492,7 +492,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                 </Box>
                 <Grid container spacing={2}>
                   <Grid size={6}>
-                    <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                       PO / Invoice Reference
                     </Typography>
                     <TextField
@@ -505,7 +505,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                     />
                   </Grid>
                   <Grid size={6}>
-                    <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                       Purchase Date
                     </Typography>
                     <DatePicker
@@ -516,7 +516,7 @@ function AddRollDialog({ onAdded }: { onAdded: () => void }) {
                   </Grid>
                 </Grid>
                 <Box>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Payment Method
                   </Typography>
                   <Autocomplete
@@ -628,7 +628,7 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
         <DialogTitle sx={{ p: 0, color: "white", fontWeight: 900, fontSize: "1.1rem" }}>
           Manual Adjustment
         </DialogTitle>
-        <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.7rem", mt: 0.5 }}>
+        <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.75rem", mt: 0.5 }}>
           {roll["Roll ID"]} — Current: <strong>{current.toFixed(1)}ft</strong>
         </Typography>
       </Box>
@@ -636,7 +636,7 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
       <DialogContent sx={{ p: 3 }}>
         <Stack sx={{ gap: 2 }}>
           <Box>
-            <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+            <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
               Adjustment (ft)
             </Typography>
             <TextField
@@ -649,13 +649,13 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, height: 48 } }}
             />
             {preview !== null && (
-              <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, mt: 0.5 }}>
+              <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", fontWeight: 500, mt: 0.5 }}>
                 After adjustment: <strong>{preview.toFixed(1)}ft remaining</strong>
               </Typography>
             )}
           </Box>
           <Box>
-            <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+            <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
               Reason (required for audit log) *
             </Typography>
             <TextField
@@ -667,7 +667,7 @@ function AdjustDialog({ roll, onClose, onDone }: { roll: Roll | null; onClose: (
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, height: 48 } }}
             />
           </Box>
-          <Typography sx={{ fontSize: "0.5625rem", color: "text.secondary", fontStyle: "italic" }}>
+          <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", fontStyle: "italic" }}>
             This adjustment will be logged to the Expenses sheet for audit purposes.
           </Typography>
         </Stack>
@@ -803,7 +803,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
         <DialogTitle sx={{ p: 0, color: "white", fontWeight: 900, fontSize: "1.2rem" }}>
           Restock Material
         </DialogTitle>
-        <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.7rem", mt: 0.5 }}>
+        <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.75rem", mt: 0.5 }}>
           Creates new rolls inheriting parent material properties.
         </Typography>
       </Box>
@@ -812,12 +812,12 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
         <Stack sx={{ gap: 2.5 }}>
           {/* Inherited Properties */}
           <Box sx={{ p: 2, bgcolor: "rgba(0,0,0,0.02)", borderRadius: "16px", border: "1px solid", borderColor: "grey.100" }}>
-            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
               Inherited Profile Properties
             </Typography>
             <Stack sx={{ gap: 1.5 }}>
               <Box>
-                <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                   Material Name
                 </Typography>
                 <TextField
@@ -830,7 +830,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
               </Box>
               <Grid container spacing={2}>
                 <Grid size={6}>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Category
                   </Typography>
                   <TextField
@@ -842,7 +842,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                   />
                 </Grid>
                 <Grid size={6}>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Width (ft)
                   </Typography>
                   <TextField
@@ -854,7 +854,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                   />
                 </Grid>
                 <Grid size={6}>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Selling Price (₦/sqft)
                   </Typography>
                   <TextField
@@ -866,7 +866,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                   />
                 </Grid>
                 <Grid size={6}>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Low Stock Threshold (ft)
                   </Typography>
                   <TextField
@@ -883,13 +883,13 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
 
           {/* New Roll Details */}
           <Box>
-            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main", borderBottom: "1px solid rgba(200,71,46,0.1)", pb: 1, mb: 1.5 }}>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "primary.main", borderBottom: "1px solid rgba(200,71,46,0.1)", pb: 1, mb: 1.5 }}>
               New Roll Details
             </Typography>
             <Stack sx={{ gap: 1.5 }}>
               <Grid container spacing={2}>
                 <Grid size={6}>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Quantity of Rolls *
                   </Typography>
                   <TextField
@@ -903,7 +903,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                   />
                 </Grid>
                 <Grid size={6}>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                     Total Buy Cost (₦) *
                   </Typography>
                   <TextField
@@ -921,7 +921,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
               {/* Length section */}
               <Box sx={{ p: 2, bgcolor: "rgba(200,71,46,0.04)", borderRadius: "16px", border: "1px solid rgba(200,71,46,0.12)" }}>
                 <Box sx={{ mb: 1 }}>
-                  <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "primary.main", display: "block", mb: 0.75 }}>
                     Roll Length *
                   </Typography>
                   <Stack direction="row" sx={{ gap: 1 }}>
@@ -940,7 +940,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                       sx={{
                         px: 2,
                         fontWeight: 900,
-                        fontSize: "0.7rem",
+                        fontSize: "0.75rem",
                         height: 40,
                         borderRadius: 2,
                         textTransform: "uppercase",
@@ -974,7 +974,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                               ? (isDark ? "#f43f5e" : "#e11d48")
                               : "text.primary",
                         }}>
-                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", opacity: variant === "highlight" ? 0.7 : 0.6 }}>
+                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", opacity: variant === "highlight" ? 0.7 : 0.6 }}>
                             {label}
                           </Typography>
                           <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, lineHeight: 1.2 }}>
@@ -989,12 +989,12 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
 
               {/* Auditing section */}
               <Box sx={{ p: 2, bgcolor: "rgba(0,0,0,0.02)", borderRadius: "16px", border: "1px solid", borderColor: "grey.100" }}>
-                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
                   Auditing & Purchase Details
                 </Typography>
                 <Stack sx={{ gap: 1.5 }}>
                   <Box>
-                    <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                    <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                       Supplier / Vendor
                     </Typography>
                     <TextField
@@ -1008,7 +1008,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                   </Box>
                   <Grid container spacing={2}>
                     <Grid size={6}>
-                      <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                      <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                         PO / Invoice Reference
                       </Typography>
                       <TextField
@@ -1021,7 +1021,7 @@ function RestockDialog({ material, onClose, onDone }: { material: Material | nul
                       />
                     </Grid>
                     <Grid size={6}>
-                      <Typography variant="caption" sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
+                      <Typography variant="caption" sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", display: "block", mb: 0.75 }}>
                         Purchase Date
                       </Typography>
                       <DatePicker
@@ -1237,7 +1237,7 @@ export function LegacyInventoryPage() {
           <Grid size={{ xs: 12, md: 4 }}>
             <Card sx={{ border: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", height: "100%" }}>
               <CardContent sx={{ p: 2.5 }}>
-                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", borderBottom: "1px solid", borderColor: "grey.100", pb: 1, mb: 1.5 }}>
                   Warehouse Health
                 </Typography>
                 <Grid container spacing={1} sx={{ textAlign: "center", mb: 2 }}>
@@ -1249,7 +1249,7 @@ export function LegacyInventoryPage() {
                     <Grid size={4} key={s.label}>
                       <Box sx={{ p: 1, borderRadius: 2, bgcolor: s.bgcolor, color: s.color }}>
                         <Typography sx={{ fontSize: "1.25rem", fontWeight: 900 }}>{s.val}</Typography>
-                        <Typography sx={{ fontSize: "0.5rem", fontWeight: 900, textTransform: "uppercase", mt: 0.25, opacity: 0.8 }}>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", mt: 0.25, opacity: 0.8 }}>
                           {s.label}
                         </Typography>
                       </Box>
@@ -1258,7 +1258,7 @@ export function LegacyInventoryPage() {
                 </Grid>
 
                 <Box sx={{ pt: 1.5, borderTop: "1px solid", borderColor: "grey.100" }}>
-                  <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 1.5 }}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 1.5 }}>
                     Live Roll Analytics
                   </Typography>
                   <Grid container spacing={1.5}>
@@ -1287,7 +1287,7 @@ export function LegacyInventoryPage() {
                       >
                         <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, lineHeight: 1 }}>{totalActiveRollsCount}</Typography>
                         <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 0.5 }}>
-                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9 }}>
+                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9 }}>
                             Active Rolls
                           </Typography>
                           <ChevronDown size={10} />
@@ -1320,7 +1320,7 @@ export function LegacyInventoryPage() {
                       >
                         <Typography sx={{ fontSize: "1.5rem", fontWeight: 900, lineHeight: 1 }}>{totalDepletedRollsCount}</Typography>
                         <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 0.5 }}>
-                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9 }}>
+                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9 }}>
                             Used Rolls
                           </Typography>
                           <ChevronDown size={10} />
@@ -1358,13 +1358,13 @@ export function LegacyInventoryPage() {
                   <Card sx={{ border: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", height: "100%" }}>
                     <CardContent sx={{ p: 2.5, display: "flex", alignItems: "center", justifyContent: "space-between", height: "100%" }}>
                       <Box>
-                        <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.75 }}>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.75 }}>
                           {s.title}
                         </Typography>
                         <Typography sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" }, fontWeight: 900, color: "text.primary", lineHeight: 1.1 }}>
                           {s.val}
                         </Typography>
-                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mt: 0.75 }}>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mt: 0.75 }}>
                           {s.sub}
                         </Typography>
                       </Box>
@@ -1419,13 +1419,13 @@ export function LegacyInventoryPage() {
                     }}
                   >
                     <Box>
-                      <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.75 }}>
+                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.75 }}>
                         {s.title}
                       </Typography>
                       <Typography sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" }, fontWeight: 900, color: "text.primary", lineHeight: 1.1 }}>
                         {s.val}
                       </Typography>
-                      <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mt: 0.75 }}>
+                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mt: 0.75 }}>
                         {s.sub}
                       </Typography>
                     </Box>
@@ -1452,7 +1452,7 @@ export function LegacyInventoryPage() {
               <Box sx={{ position: "absolute", bottom: -40, left: -40, width: 96, height: 96, bgcolor: "rgba(0,0,0,0.1)", borderRadius: "50%", filter: "blur(16px)", pointerEvents: "none" }} />
               <CardContent sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", position: "relative", zIndex: 1 }}>
                 <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
-                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.8)" }}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.8)" }}>
                     Total Est. Revenue
                   </Typography>
                   <Box sx={{ p: 1, bgcolor: "rgba(255,255,255,0.15)", borderRadius: 2 }}>
@@ -1464,7 +1464,7 @@ export function LegacyInventoryPage() {
                 </Typography>
                 <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                   <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#34d399", animation: "pulse 2s infinite" }} />
-                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.7)" }}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.7)" }}>
                     Realised + Expected
                   </Typography>
                 </Stack>
@@ -1530,7 +1530,7 @@ export function LegacyInventoryPage() {
                     key={h.label}
                     align={h.align}
                     sx={{
-                      fontSize: "0.625rem",
+                      fontSize: "0.75rem",
                       fontWeight: 900,
                       textTransform: "uppercase",
                       color: "text.secondary",
@@ -1599,7 +1599,7 @@ export function LegacyInventoryPage() {
                             <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary" }}>
                               {mat["Material Name"]}
                             </Typography>
-                            <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontFamily: "monospace" }}>
+                            <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontFamily: "monospace" }}>
                               {matId}
                             </Typography>
                             {mat.Available === "No" && <Chip label="Turned off" size="small" />}
@@ -1617,7 +1617,7 @@ export function LegacyInventoryPage() {
                           label={`${rollCountDisplay} ${rollCountDisplay === 1 ? "Roll" : "Rolls"}`}
                           variant="outlined"
                           size="small"
-                          sx={{ fontSize: "0.625rem", fontWeight: 700, borderColor: "grey.200" }}
+                          sx={{ fontSize: "0.75rem", fontWeight: 700, borderColor: "grey.200" }}
                         />
                       </TableCell>
                       <TableCell align="center" sx={{ border: "none" }}>
@@ -1634,7 +1634,7 @@ export function LegacyInventoryPage() {
                               transition: "width 500ms ease-out",
                             }} />
                           </Box>
-                          <Typography sx={{ fontSize: "0.5625rem", color: "text.disabled" }}>
+                          <Typography sx={{ fontSize: "0.75rem", color: "text.disabled" }}>
                              {pct.toFixed(0)}% left
                           </Typography>
                         </Stack>
@@ -1651,7 +1651,7 @@ export function LegacyInventoryPage() {
                             {/* Material Valuation Sub-Panel */}
                             <Grid container spacing={2} sx={{ mb: 3, p: 2, bgcolor: "grey.50", border: "1px solid", borderColor: "grey.100", borderRadius: 3 }}>
                               <Grid size={{ xs: 12, sm: 4 }}>
-                                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
+                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
                                   Spent on Material
                                 </Typography>
                                 <Typography sx={{ fontWeight: 900, fontSize: "1rem", color: "text.primary" }}>
@@ -1659,7 +1659,7 @@ export function LegacyInventoryPage() {
                                 </Typography>
                               </Grid>
                               <Grid size={{ xs: 12, sm: 4 }}>
-                                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
+                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
                                   Remaining Cost Value
                                 </Typography>
                                 <Typography sx={{ fontWeight: 900, fontSize: "1rem", color: "#7c3aed" }}>
@@ -1667,7 +1667,7 @@ export function LegacyInventoryPage() {
                                 </Typography>
                               </Grid>
                               <Grid size={{ xs: 12, sm: 4 }}>
-                                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
+                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", display: "block", mb: 0.5 }}>
                                   Expected Sales Revenue
                                 </Typography>
                                 <Typography sx={{ fontWeight: 900, fontSize: "1rem", color: "#059669" }}>
@@ -1680,15 +1680,15 @@ export function LegacyInventoryPage() {
                             <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
                               <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                                 <Package size={12} style={{ color: "#9ca3af" }} />
-                                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary" }}>
+                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary" }}>
                                   Physical Roll Log
                                 </Typography>
                               </Stack>
                               <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                                 {activeRollId && (
-                                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, fontSize: "0.5625rem", fontWeight: 900, color: "#059669", bgcolor: "#d1fae5", px: 1.5, py: 0.5, borderRadius: 99, border: "1px solid #a7f3d0" }}>
+                                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, fontSize: "0.75rem", fontWeight: 900, color: "#059669", bgcolor: "#d1fae5", px: 1.5, py: 0.5, borderRadius: 99, border: "1px solid #a7f3d0" }}>
                                     <Zap size={10} />
-                                    <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900 }}>Active: {activeRollId}</Typography>
+                                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 900 }}>Active: {activeRollId}</Typography>
                                   </Stack>
                                 )}
                                 <Button
@@ -1698,7 +1698,7 @@ export function LegacyInventoryPage() {
                                   sx={{
                                     height: 28,
                                     borderRadius: 2,
-                                    fontSize: "0.625rem",
+                                    fontSize: "0.75rem",
                                     fontWeight: 900,
                                     borderColor: "#fcd34d",
                                     color: "#d97706",
@@ -1763,12 +1763,12 @@ export function LegacyInventoryPage() {
                                               {roll["Roll ID"]}
                                             </Typography>
                                             {isActiveRoll && (
-                                              <Typography sx={{ fontSize: "0.5rem", fontWeight: 900, color: "#059669", bgcolor: "#d1fae5", px: 1, py: 0.25, borderRadius: 99, border: "1px solid #a7f3d0", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "#059669", bgcolor: "#d1fae5", px: 1, py: 0.25, borderRadius: 99, border: "1px solid #a7f3d0", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                                 Active
                                               </Typography>
                                             )}
                                           </Stack>
-                                          <Typography sx={{ fontSize: "0.625rem", color: "text.disabled" }}>
+                                          <Typography sx={{ fontSize: "0.75rem", color: "text.disabled" }}>
                                             {roll["Date Added"] || "—"}
                                           </Typography>
                                         </Box>
@@ -1779,10 +1779,10 @@ export function LegacyInventoryPage() {
                                     {/* Progress bar */}
                                     <Box sx={{ mb: 1.5 }}>
                                       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
-                                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary" }}>
+                                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary" }}>
                                           Remaining
                                         </Typography>
-                                        <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.primary" }}>
+                                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary" }}>
                                           {rRem.toFixed(1)}ft <Box component="span" sx={{ color: "text.disabled", fontWeight: 400 }}>of {rTotal.toFixed(0)}ft</Box>
                                         </Typography>
                                       </Stack>
@@ -1800,7 +1800,7 @@ export function LegacyInventoryPage() {
                                     {/* Actions */}
                                     <Stack direction="row" sx={{ alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
                                       {isFinished ? (
-                                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.disabled" }}>
+                                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.disabled" }}>
                                           Roll Complete
                                         </Typography>
                                       ) : (
@@ -1809,7 +1809,7 @@ export function LegacyInventoryPage() {
                                             variant="outlined"
                                             size="small"
                                             onClick={(e) => { e.stopPropagation(); setWasteTarget(roll); setWasteOpen(true); }}
-                                            sx={{ height: 32, borderRadius: 2, fontSize: "0.625rem", fontWeight: 900, borderColor: "#fecaca", color: "#dc2626", "&:hover": { bgcolor: "#fff1f2" } }}
+                                            sx={{ height: 32, borderRadius: 2, fontSize: "0.75rem", fontWeight: 900, borderColor: "#fecaca", color: "#dc2626", "&:hover": { bgcolor: "#fff1f2" } }}
                                           >
                                             Log Waste
                                           </Button>
@@ -1817,7 +1817,7 @@ export function LegacyInventoryPage() {
                                             variant="outlined"
                                             size="small"
                                             onClick={(e) => { e.stopPropagation(); setAdjustTarget(roll); }}
-                                            sx={{ height: 32, borderRadius: 2, fontSize: "0.625rem", fontWeight: 900, borderColor: "grey.200", color: "text.primary", "&:hover": { bgcolor: "grey.50" } }}
+                                            sx={{ height: 32, borderRadius: 2, fontSize: "0.75rem", fontWeight: 900, borderColor: "grey.200", color: "text.primary", "&:hover": { bgcolor: "grey.50" } }}
                                           >
                                             Adjust Stock
                                           </Button>
@@ -1857,12 +1857,12 @@ export function LegacyInventoryPage() {
             <Chip
               label={`${totalActiveRollsCount} total`}
               size="small"
-              sx={{ fontSize: "0.625rem", fontWeight: 900, bgcolor: "#d1fae5", color: "#065f46", border: "none" }}
+              sx={{ fontSize: "0.75rem", fontWeight: 900, bgcolor: "#d1fae5", color: "#065f46", border: "none" }}
             />
           </Stack>
           <Box sx={{ maxHeight: 192, overflowY: "auto" }}>
             {activeRollGroups.length === 0 ? (
-              <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontStyle: "italic", py: 2, textAlign: "center" }}>
+              <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontStyle: "italic", py: 2, textAlign: "center" }}>
                 No active rolls.
               </Typography>
             ) : activeRollGroups.map(([key, count]) => (
@@ -1894,12 +1894,12 @@ export function LegacyInventoryPage() {
             <Chip
               label={`${totalDepletedRollsCount} total`}
               size="small"
-              sx={{ fontSize: "0.625rem", fontWeight: 900, bgcolor: "grey.100", color: "text.secondary", border: "none" }}
+              sx={{ fontSize: "0.75rem", fontWeight: 900, bgcolor: "grey.100", color: "text.secondary", border: "none" }}
             />
           </Stack>
           <Box sx={{ maxHeight: 192, overflowY: "auto" }}>
             {depletedRollGroups.length === 0 ? (
-              <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontStyle: "italic", py: 2, textAlign: "center" }}>
+              <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontStyle: "italic", py: 2, textAlign: "center" }}>
                 No depleted rolls.
               </Typography>
             ) : depletedRollGroups.map(([key, count]) => (

@@ -26,6 +26,9 @@ export const dateRangeStyles = {
 // White at a given strength, for controls that sit on the brand gradient or the always-dark side panel.
 export const whiteTint = (opacity: number) => (theme: Theme) => alpha(theme.palette.common.white, opacity);
 
+// Where something fixed to the bottom of a phone screen must sit to clear the floating nav: its gap, its 64px bar, the phone's home-indicator inset and 16px of air.
+const ABOVE_BOTTOM_NAV = "calc(24px + 64px + 16px + env(safe-area-inset-bottom, 0px))";
+
 // Sync-status icons in the side panel (cloud icons take their colour from the text colour).
 export const syncIconStyles = {
   waiting: { display: "flex", color: "warning.main" },
@@ -89,7 +92,7 @@ export const businessDetailsStyles = {
   digitsInput: { letterSpacing: "0.08em" },
   previewTitle: { fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.secondary", mb: 1.5 },
   previewBox: { bgcolor: "action.hover", borderRadius: 2, p: 2, mb: 2.5 },
-  previewLabel: { fontSize: "0.625rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 },
+  previewLabel: { fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "text.disabled", mb: 1 },
   previewRow: { display: "flex", justifyContent: "space-between", gap: 1.5, fontSize: "0.75rem", py: 0.5 },
   previewValue: { fontWeight: 700, textAlign: "right", overflowWrap: "anywhere" },
   previewFooter: { borderTop: "1px solid", borderColor: "divider", pt: 2, textAlign: "center" },
@@ -109,7 +112,7 @@ export const paymentMethodStyles = {
   pillOn: { bgcolor: (theme: Theme) => alpha(theme.palette.success.main, 0.12), color: (theme: Theme) => theme.palette.mode === "dark" ? theme.palette.success.light : theme.palette.success.dark },
   pillOff: { bgcolor: (theme: Theme) => alpha(theme.palette.warning.main, 0.14), color: (theme: Theme) => theme.palette.mode === "dark" ? theme.palette.warning.light : theme.palette.warning.dark },
   account: { bgcolor: "action.hover", borderRadius: 2, p: 1.5 },
-  accountLabel: { fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 0.5 },
+  accountLabel: { fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled", mb: 0.5 },
   switchRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 },
   footer: { p: 2, display: "flex", gap: 1, justifyContent: "flex-end" },
   form: { p: { xs: 2, sm: 3 } },
@@ -214,7 +217,7 @@ export const staffManagerStyles = {
   pinNone: { color: "warning.dark", bgcolor: tint("warning", 0.12), borderRadius: 1, px: 0.75, fontWeight: 700 },
   pinAction: { color: "text.disabled", flexShrink: 0, "&:hover": { color: "warning.main", bgcolor: tint("warning", 0.08) } },
   hideAction: { color: "text.disabled", flexShrink: 0, "&:hover": { color: "primary.light", bgcolor: tint("primary", 0.08) } },
-  hiddenTag: { fontSize: "0.7rem", fontWeight: 700, px: 0.75, py: 0.125, borderRadius: 100, bgcolor: tint("primary", 0.12), color: "primary.light" },
+  hiddenTag: { fontSize: "0.75rem", fontWeight: 700, px: 0.75, py: 0.125, borderRadius: 100, bgcolor: tint("primary", 0.12), color: "primary.light" },
   removeAction: { color: "text.disabled", flexShrink: 0, "&:hover": { color: "error.main", bgcolor: tint("error", 0.08) } },
   rulesCard: { p: 2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 },
   rulesLabel: { display: "block", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "text.disabled" },
@@ -323,7 +326,7 @@ export const metricsStyles = {
   header: { display: "flex", alignItems: "center", justifyContent: "space-between", mb: { xs: 0.5, lg: 2 }, gap: 0.5 },
   titleRow: { display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 },
   alertDot: { width: { xs: 6, sm: 8 }, height: { xs: 6, sm: 8 }, borderRadius: "50%", bgcolor: "error.main", flexShrink: 0, boxShadow: (theme: Theme) => `0 0 4px ${alpha(theme.palette.error.main, 0.5)}` },
-  title: { fontSize: { xs: "0.625rem", lg: "0.6875rem" }, color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  title: { fontSize: { xs: "0.75rem", lg: "0.75rem" }, color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   titleHero: { color: whiteTint(0.75) },
   icon: { display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderRadius: { xs: 1.5, lg: 2 }, width: { xs: 24, lg: 40 }, height: { xs: 24, lg: 40 } },
   iconDefault: { bgcolor: "action.hover", color: "text.primary" },
@@ -334,7 +337,7 @@ export const metricsStyles = {
   valueDefault: { fontSize: { xs: "1.0625rem", lg: "1.5rem" } },
   valueHero: { fontSize: { xs: "1.75rem", sm: "2.25rem" }, color: "common.white" },
   trendRow: { display: "flex", alignItems: "center", gap: 1, mt: { xs: 0.5, sm: 1 } },
-  trendChip: { display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.6875rem", fontWeight: 700, px: 1, py: 0.25, borderRadius: 10, border: "1px solid" },
+  trendChip: { display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", fontWeight: 700, px: 1, py: 0.25, borderRadius: 10, border: "1px solid" },
   trendUp: trendChip("success"),
   trendDown: trendChip("error"),
   // On the brand card the growth chip is white-on-brand whichever way the change goes; the arrow carries the direction.
@@ -344,14 +347,14 @@ export const metricsStyles = {
   stats: { mt: 2, pt: 1.5, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", borderTop: "1px solid", borderColor: whiteTint(0.22) },
   stat: { minWidth: 0, pr: 1, "& + &": { pl: 1.5, pr: 1, borderLeft: "1px solid", borderColor: whiteTint(0.22) } },
   statValue: { fontWeight: 700, fontSize: { xs: "0.9375rem", sm: "1.0625rem" }, lineHeight: 1.25, overflowWrap: "anywhere", color: "common.white" },
-  statLabel: { display: "block", fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: whiteTint(0.72) },
-  statChange: { display: "inline-flex", alignItems: "center", gap: 0.25, mt: 0.25, fontSize: "0.6875rem", fontWeight: 700 },
+  statLabel: { display: "block", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: whiteTint(0.72) },
+  statChange: { display: "inline-flex", alignItems: "center", gap: 0.25, mt: 0.25, fontSize: "0.75rem", fontWeight: 700 },
   statUp: { color: "#9BE3BE" },
   statDown: { color: "#FFB9AE" },
-  statHint: { display: "block", mt: 0.25, fontSize: "0.6875rem", color: whiteTint(0.72) },
+  statHint: { display: "block", mt: 0.25, fontSize: "0.75rem", color: whiteTint(0.72) },
   footer: { mt: { xs: 0.75, lg: 2 }, pt: { xs: 0.75, lg: 2 }, borderTop: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" },
-  subLabel: { fontSize: { xs: "0.625rem", lg: "0.6875rem" }, color: "text.secondary" },
-  change: { display: "flex", alignItems: "center", gap: { xs: 0.25, sm: 0.5 }, fontSize: { xs: "0.625rem", lg: "0.75rem" }, fontWeight: 700 },
+  subLabel: { fontSize: { xs: "0.75rem", lg: "0.75rem" }, color: "text.secondary" },
+  change: { display: "flex", alignItems: "center", gap: { xs: 0.25, sm: 0.5 }, fontSize: { xs: "0.75rem", lg: "0.75rem" }, fontWeight: 700 },
 } as const;
 
 const tileTone = (color: (theme: Theme) => string) => ({
@@ -367,7 +370,7 @@ export const todayStyles = {
   heading: { display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 },
   date: { color: "text.secondary", display: "block", mb: 0.5 },
   title: { lineHeight: 1, fontSize: { xs: "1.5rem", sm: "1.875rem" } },
-  badge: { display: "flex", alignItems: "center", gap: 0.75, px: 1.5, py: 0.75, borderRadius: 99, fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid", transition: "all 0.2s ease" },
+  badge: { display: "flex", alignItems: "center", gap: 0.75, px: 1.5, py: 0.75, borderRadius: 99, fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid", transition: "all 0.2s ease" },
   badgeSyncing: { bgcolor: tint("info", 0.1), color: "info.main", borderColor: tint("info", 0.2) },
   badgePending: { bgcolor: tint("warning", 0.12), color: "warning.dark", borderColor: tint("warning", 0.3) },
   badgeLive: { bgcolor: tint("primary", 0.1), color: accent, borderColor: tint("primary", 0.2) },
@@ -507,14 +510,14 @@ export const pulseStyles = {
   who: { display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 },
   avatar: { width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "common.white", fontSize: "0.75rem", fontWeight: 700, lineHeight: 1 },
   minZero: { minWidth: 0 },
-  typeChip: { display: "inline-block", mt: 0.25, px: 0.75, py: 0.25, borderRadius: 1, fontSize: "0.6875rem", fontWeight: 700 },
+  typeChip: { display: "inline-block", mt: 0.25, px: 0.75, py: 0.25, borderRadius: 1, fontSize: "0.75rem", fontWeight: 700 },
   mono: { fontFamily: "monospace" },
   amount: { fontWeight: 700, color: "success.main", flexShrink: 0, fontFamily: "monospace" },
   indent: { pl: 6 },
   batchToggle: { display: "flex", alignItems: "center", gap: 0.5, p: 0, color: "text.secondary", borderRadius: 1, "&.Mui-focusVisible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } },
   subList: { display: "flex", flexDirection: "column", gap: 0.5, mt: 0.75 },
   subRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, bgcolor: "action.hover", borderRadius: 1.5, px: 1, py: 0.5 },
-  subChip: { flexShrink: 0, px: 0.5, borderRadius: 0.75, fontSize: "0.6875rem", fontWeight: 700 },
+  subChip: { flexShrink: 0, px: 0.5, borderRadius: 0.75, fontSize: "0.75rem", fontWeight: 700 },
   subText: { color: "text.secondary", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   debtRow: { display: "flex", alignItems: "center", gap: 0.5, mt: 1 },
   iconMuted: { display: "flex", color: "text.disabled" },
@@ -536,7 +539,7 @@ export const debtorModalStyles = {
   previewList: { maxHeight: 200, overflowY: "auto", border: "1px solid", borderColor: "divider", borderRadius: 3 },
   previewRow: { display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 1.5, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: "none" } },
   previewLead: { display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 },
-  badge: { width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, bgcolor: tint("primary", 0.1), color: accent, fontSize: "0.6875rem", fontWeight: 700 },
+  badge: { width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, bgcolor: tint("primary", 0.1), color: accent, fontSize: "0.75rem", fontWeight: 700 },
   previewAmount: { textAlign: "right", ml: 1, flexShrink: 0 },
   ellipsis: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   note: { display: "flex", alignItems: "center", gap: 0.5, mt: 1, color: "success.main" },
@@ -586,7 +589,7 @@ export const shiftReportStyles = {
   right: { textAlign: "right", flexShrink: 0 },
   expenseRow: { display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.5, borderRadius: 2 },
   empty: { alignItems: "center", justifyContent: "center", py: 8, color: "text.disabled", gap: 1 },
-  pill: { display: "inline-block", px: 0.75, py: 0.25, borderRadius: 1, fontSize: "0.6875rem", fontWeight: 700 },
+  pill: { display: "inline-block", px: 0.75, py: 0.25, borderRadius: 1, fontSize: "0.75rem", fontWeight: 700 },
   pillPaid: softTone("success"),
   pillPart: softTone("warning"),
   pillUnpaid: softTone("error"),
@@ -599,7 +602,7 @@ export const shiftReportStyles = {
 // splits rows over pages using the same numbers (HEAD, ROW, PAGE), so change them together.
 const PDF_INK = "#0F172A", PDF_MUTED = "#64748B", PDF_LINE = "#E2E8F0", PDF_BRAND = "#2e388d";
 const PDF_JOB_COLUMNS = "22px minmax(0, 1.25fr) minmax(0, 1.7fr) 78px 74px 74px 86px";
-const PDF_TAG = { display: "inline-block", px: "8px", py: "2px", borderRadius: "99px", fontSize: "10px", fontWeight: 700 } as const;
+const PDF_TAG = { display: "inline-block", px: "8px", py: "2px", borderRadius: "99px", fontSize: "12px", fontWeight: 700 } as const;
 export const shiftReportPdfStyles = {
   host: { display: "none", fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', color: PDF_INK, fontSize: "12px", lineHeight: 1.4, "& *": { boxSizing: "border-box" } },
   page: { position: "relative", width: "794px", height: "1123px", p: "44px 48px 36px", bgcolor: "#ffffff", overflow: "hidden", fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', color: PDF_INK, fontSize: "12px", lineHeight: 1.4, "& *": { boxSizing: "border-box" } },
@@ -608,40 +611,40 @@ export const shiftReportPdfStyles = {
   logo: { display: "block", height: "46px", width: "auto" },
   logoSmall: { display: "block", height: "28px", width: "auto" },
   headRight: { textAlign: "right" },
-  kicker: { fontSize: "10px", fontWeight: 700, letterSpacing: "0.14em", color: PDF_MUTED, m: 0 },
+  kicker: { fontSize: "12px", fontWeight: 700, letterSpacing: "0.14em", color: PDF_MUTED, m: 0 },
   date: { fontSize: "18px", fontWeight: 700, m: 0, mt: "2px" },
   dateSmall: { fontSize: "13px", fontWeight: 700, m: 0 },
-  who: { fontSize: "11px", color: PDF_MUTED, m: 0, mt: "2px" },
+  who: { fontSize: "12px", color: PDF_MUTED, m: 0, mt: "2px" },
   hero: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", height: "104px", mb: "20px", border: `1px solid ${PDF_LINE}`, borderRadius: "14px", overflow: "hidden" },
   heroCell: { p: "18px 22px" },
   heroCellLeft: { bgcolor: "#F4F5FB" },
   heroCellRight: { borderLeft: `1px solid ${PDF_LINE}` },
-  heroLabel: { fontSize: "10px", fontWeight: 700, letterSpacing: "0.1em", color: "#475569", m: 0 },
+  heroLabel: { fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", color: "#475569", m: 0 },
   heroValue: { fontSize: "30px", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1, m: 0, mt: "4px" },
-  heroNote: { fontSize: "11px", color: "#475569", m: 0, mt: "4px" },
+  heroNote: { fontSize: "12px", color: "#475569", m: 0, mt: "4px" },
   split: { height: "36px", mb: "20px" },
   splitBar: { display: "flex", height: "10px", borderRadius: "99px", overflow: "hidden", bgcolor: PDF_LINE },
-  legend: { display: "flex", gap: "28px", mt: "8px", fontSize: "11px" },
+  legend: { display: "flex", gap: "28px", mt: "8px", fontSize: "12px" },
   legendItem: { display: "flex", alignItems: "center", gap: "6px" },
   dot: { width: "9px", height: "9px", borderRadius: "50%" },
   facts: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", height: "64px", mb: "20px", borderTop: `1px solid ${PDF_LINE}`, borderBottom: `1px solid ${PDF_LINE}`, py: "12px" },
   fact: { px: "14px", borderLeft: `1px solid ${PDF_LINE}`, "&:first-of-type": { pl: 0, borderLeft: 0 } },
-  factLabel: { fontSize: "9.5px", fontWeight: 700, letterSpacing: "0.08em", color: PDF_MUTED, m: 0 },
+  factLabel: { fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: PDF_MUTED, m: 0 },
   factValue: { fontSize: "18px", fontWeight: 800, m: 0, mt: "2px" },
   danger: { color: "#8b2a1f" },
   section: {},
   sectionGap: { mt: "20px" },
   sectionTitle: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", height: "24px", pb: "6px" },
   sectionName: { fontSize: "12px", fontWeight: 800, letterSpacing: "0.08em", m: 0 },
-  sectionNote: { fontSize: "11px", color: PDF_MUTED, m: 0 },
-  tableHead: { display: "grid", gridTemplateColumns: PDF_JOB_COLUMNS, columnGap: "10px", alignItems: "center", height: "28px", borderBottom: `1.5px solid ${PDF_INK}`, fontSize: "9.5px", fontWeight: 700, letterSpacing: "0.07em", color: PDF_MUTED },
+  sectionNote: { fontSize: "12px", color: PDF_MUTED, m: 0 },
+  tableHead: { display: "grid", gridTemplateColumns: PDF_JOB_COLUMNS, columnGap: "10px", alignItems: "center", height: "28px", borderBottom: `1.5px solid ${PDF_INK}`, fontSize: "12px", fontWeight: 700, letterSpacing: "0.07em", color: PDF_MUTED },
   jobRow: { display: "grid", gridTemplateColumns: PDF_JOB_COLUMNS, columnGap: "10px", alignItems: "center", height: "44px", borderBottom: `1px solid ${PDF_LINE}`, overflow: "hidden" },
   clip: { maxHeight: "34px", overflow: "hidden", wordBreak: "break-word" },
   right: { textAlign: "right" },
   center: { textAlign: "center" },
   strong: { fontWeight: 700 },
   muted: { color: PDF_MUTED },
-  pairHead: { display: "flex", alignItems: "center", justifyContent: "space-between", height: "28px", borderBottom: `1.5px solid ${PDF_INK}`, fontSize: "9.5px", fontWeight: 700, letterSpacing: "0.07em", color: PDF_MUTED },
+  pairHead: { display: "flex", alignItems: "center", justifyContent: "space-between", height: "28px", borderBottom: `1.5px solid ${PDF_INK}`, fontSize: "12px", fontWeight: 700, letterSpacing: "0.07em", color: PDF_MUTED },
   line: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", height: "34px", borderBottom: `1px solid ${PDF_LINE}` },
   lineMain: { minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" },
   negative: { color: "#8b2a1f", fontWeight: 700, whiteSpace: "nowrap" },
@@ -650,9 +653,9 @@ export const shiftReportPdfStyles = {
   tagUnpaid: { ...PDF_TAG, bgcolor: "#FBE4E1", color: "#8b2a1f" },
   tagOther: { ...PDF_TAG, bgcolor: "#EEF2F6", color: "#475569" },
   signoff: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: "40px", height: "70px", alignItems: "end", mt: "20px" },
-  signLine: { borderTop: "1px solid #94A3B8", pt: "5px", fontSize: "10px", color: PDF_MUTED },
+  signLine: { borderTop: "1px solid #94A3B8", pt: "5px", fontSize: "12px", color: PDF_MUTED },
   empty: { fontSize: "12px", color: PDF_MUTED, py: "12px" },
-  foot: { position: "absolute", left: "48px", right: "48px", bottom: "36px", height: "34px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", pt: "8px", borderTop: `1px solid ${PDF_LINE}`, fontSize: "9.5px", color: "#94A3B8" },
+  foot: { position: "absolute", left: "48px", right: "48px", bottom: "36px", height: "34px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", pt: "8px", borderTop: `1px solid ${PDF_LINE}`, fontSize: "12px", color: "#94A3B8" },
 } as const;
 
 export const headerHomeLinkStyles = {
@@ -786,7 +789,7 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
       body1:  { fontSize: "0.95rem" },
       body2:  { fontSize: "0.875rem" },
       caption: { fontSize: "0.75rem", letterSpacing: "0.02em" },
-      overline: { fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" },
+      overline: { fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" },
       button: { fontWeight: 600, textTransform: "none" },
     },
     shape: { borderRadius: 10 },
@@ -854,6 +857,8 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
           },
         },
       },
+      // A floating label shrinks to 75% of the input text (about 11px); 80% keeps it at 12px or more.
+      MuiInputLabel: { styleOverrides: { outlined: { "&.MuiInputLabel-shrink": { transform: "translate(14px, -9px) scale(0.8)" } } } },
       MuiTextField: {
         defaultProps: { variant: "outlined", size: "small" },
       },
@@ -883,7 +888,7 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
           },
           sizeSmall: {
             height: 22,
-            fontSize: "0.6875rem",
+            fontSize: "0.75rem",
           },
         },
       },
@@ -1042,9 +1047,9 @@ export const statTileStyles = {
   wide: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 },
   // The small version: three of these fit in one row on a phone, and long amounts wrap instead of being cut off.
   tileCompact: { p: { xs: 1.25, sm: 1.75 }, borderRadius: "12px" },
-  labelCompact: { fontSize: { xs: "0.625rem", sm: "0.6875rem" }, letterSpacing: "0.04em", lineHeight: 1.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  labelCompact: { fontSize: { xs: "0.75rem", sm: "0.75rem" }, letterSpacing: "0.04em", lineHeight: 1.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   valueCompact: { fontSize: { xs: "0.9375rem", sm: "1.25rem" }, lineHeight: 1.3, overflowWrap: "anywhere" },
-  captionCompact: { fontSize: { xs: "0.6875rem", sm: "0.75rem" }, lineHeight: 1.4 },
+  captionCompact: { fontSize: { xs: "0.75rem", sm: "0.75rem" }, lineHeight: 1.4 },
   grid3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
   grid4: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.25 },
 } as const;
@@ -1097,7 +1102,7 @@ export const auditLogStyles = {
   rowTop: { display: "flex", alignItems: "center", gap: { xs: 1, sm: 2 }, flexWrap: { xs: "wrap", sm: "nowrap" } },
   time: { width: { xs: "auto", sm: 72 }, flexShrink: 0, color: "text.secondary", fontVariantNumeric: "tabular-nums" },
   text: { flex: { xs: "1 1 100%", sm: 1 }, minWidth: 0, overflowWrap: "anywhere", order: { xs: 3, sm: 0 } },
-  tag: { flexShrink: 0, fontSize: "0.6875rem", fontWeight: 700, lineHeight: 1.5, px: 1.25, py: 0.25, borderRadius: 100, ml: { xs: "auto", sm: 0 } },
+  tag: { flexShrink: 0, fontSize: "0.75rem", fontWeight: 700, lineHeight: 1.5, px: 1.25, py: 0.25, borderRadius: 100, ml: { xs: "auto", sm: 0 } },
   tagSignins: { bgcolor: "action.hover", color: "text.secondary" },
   tagStaff: auditTag("primary"),
   tagSales: auditTag("success"),
@@ -1150,8 +1155,8 @@ const toneAction = (tone: StatusTone) => ({
 
 // Status badge (components/status-badge.tsx): the Paid/Unpaid pill on expenses and the status pill on sales and records.
 export const statusBadgeStyles = {
-  expense: { fontWeight: 800, fontSize: "0.6875rem", height: 22, "& .MuiChip-icon": { color: "inherit" } },
-  sale: { fontWeight: 700, fontSize: "0.625rem", height: 20, borderRadius: 99 },
+  expense: { fontWeight: 800, fontSize: "0.75rem", height: 22, "& .MuiChip-icon": { color: "inherit" } },
+  sale: { fontWeight: 700, fontSize: "0.75rem", height: 20, borderRadius: 99 },
   pulse: { animation: "pulse 2s infinite" },
   tone: { success: tonePill("success"), error: tonePill("error"), warning: tonePill("warning"), info: tonePill("info") },
 } as const;
@@ -1232,7 +1237,7 @@ const hueBadge = (base: string) => ({
 }) as const;
 const toneBadge = (tone: StatusTone) => ({ ...tonePill(tone), borderColor: tint(tone, 0.3) }) as const;
 export const materialBadgeStyles = {
-  chip: { fontSize: "9px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", borderRadius: "6px", height: "18px", minWidth: "32px", "& .MuiChip-label": { px: "6px", py: 0 } },
+  chip: { fontSize: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", borderRadius: "6px", height: "18px", minWidth: "32px", "& .MuiChip-label": { px: "6px", py: 0 } },
   flex: toneBadge("info"),
   sav: toneBadge("error"),
   vinyl: { bgcolor: tint("primary", 0.12), color: accent, borderColor: tint("primary", 0.3) },
@@ -1304,7 +1309,7 @@ export const boardStyles = {
   tick: { width: 28, height: 28, borderRadius: "8px", border: "2px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, mt: 0.25 },
   tickOn: { bgcolor: "primary.main", borderColor: "primary.main", color: "primary.contrastText" },
   selectBar: {
-    position: "fixed", left: 0, right: 0, bottom: { xs: 96, md: 0 }, zIndex: 1100, px: 2, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5,
+    position: "fixed", left: 0, right: 0, bottom: { xs: ABOVE_BOTTOM_NAV, md: 0 }, zIndex: 1100, px: 2, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5,
     bgcolor: "background.paper", borderTop: "1px solid", borderColor: "divider",
   },
   selectActions: { display: "flex", gap: 1 },
@@ -1343,14 +1348,14 @@ export const sidePanelStyles = {
 } as const;
 
 // Notifications (components/activity-feed.tsx): recent updates and system alerts.
-const monoTag = { px: 1, py: 0.5, borderRadius: "6px", fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", fontFamily: "monospace" } as const;
-const sectionPill = { display: "inline-flex", alignItems: "center", gap: 0.75, fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", px: 1.5, py: 0.5, borderRadius: 100, mb: 1.5 } as const;
+const monoTag = { px: 1, py: 0.5, borderRadius: "6px", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", fontFamily: "monospace" } as const;
+const sectionPill = { display: "inline-flex", alignItems: "center", gap: 0.75, fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", px: 1.5, py: 0.5, borderRadius: 100, mb: 1.5 } as const;
 const stockLook = (tone: "error" | "warning") => ({
   card: { p: 2, borderRadius: "16px", border: "1px solid", borderColor: tint(tone, 0.3), bgcolor: tint(tone, 0.04) },
   dot: { width: 8, height: 8, borderRadius: "50%", bgcolor: `${tone}.main`, ...(tone === "error" && { animation: "ping 1s infinite" }) },
-  tag: { mt: 1.5, display: "inline-block", px: 1, py: 0.25, borderRadius: "6px", fontSize: "0.55rem", fontWeight: 900, textTransform: "uppercase", ...tonePill(tone) },
+  tag: { mt: 1.5, display: "inline-block", px: 1, py: 0.25, borderRadius: "6px", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", ...tonePill(tone) },
   button: {
-    flexShrink: 0, height: 32, px: 1.5, borderRadius: "8px", fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em",
+    flexShrink: 0, height: 32, px: 1.5, borderRadius: "8px", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em",
     borderColor: tint(tone, 0.4), color: toneText(tone), "&:hover": { bgcolor: `${tone}.main`, color: `${tone}.contrastText`, borderColor: "transparent" },
   },
 }) as const;
@@ -1359,18 +1364,18 @@ export const activityStyles = {
     position: "relative", width: 40, height: 40, borderRadius: "50%", color: "text.secondary",
     "&:hover": { color: accent, bgcolor: tint("primary", 0.1) }, transition: "background-color 0.2s, color 0.2s, transform 0.2s", "&:active": { transform: "scale(0.97)" },
   },
-  bellCount: { position: "absolute", top: 2, right: 2, minWidth: 18, height: 18, px: 0.5, borderRadius: 9, bgcolor: "warning.main", color: "warning.contrastText", fontSize: "0.6875rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid", borderColor: "background.paper", boxSizing: "content-box" },
+  bellCount: { position: "absolute", top: 2, right: 2, minWidth: 18, height: 18, px: 0.5, borderRadius: 9, bgcolor: "warning.main", color: "warning.contrastText", fontSize: "0.75rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid", borderColor: "background.paper", boxSizing: "content-box" },
   bellDot: { position: "absolute", top: 8, right: 8, width: 10, height: 10, borderRadius: "50%", bgcolor: "error.main", border: "2px solid", borderColor: "background.paper", animation: "bounce 1s infinite" },
   tabsWrap: { px: 2, pt: 2, flexShrink: 0 },
   tabs: {
     bgcolor: "grey.100", borderRadius: "16px", p: 0.5, minHeight: 0, "& .MuiTabs-indicator": { display: "none" },
     "& .MuiTab-root": {
-      minHeight: 36, borderRadius: "12px", fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary",
+      minHeight: 36, borderRadius: "12px", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", color: "text.secondary",
       "&.Mui-selected": { bgcolor: "background.paper", color: "text.primary", boxShadow: softShadow(0.1) },
     },
   },
   tabLabel: { display: "flex", alignItems: "center", gap: 0.5 },
-  countChip: { height: 16, fontSize: "0.55rem", fontWeight: 900, "& .MuiChip-label": { px: 0.75 } },
+  countChip: { height: 16, fontSize: "0.75rem", fontWeight: 900, "& .MuiChip-label": { px: 0.75 } },
   countCritical: { bgcolor: "error.main", color: "error.contrastText", animation: "pulse 2s infinite" },
   countWarning: { bgcolor: "warning.main", color: "warning.contrastText" },
   scroll: { flex: 1, overflowY: "auto", p: 2 },
@@ -1382,7 +1387,7 @@ export const activityStyles = {
   day: { mb: 3 },
   dayHead: { display: "flex", alignItems: "center", gap: 1, position: "sticky", top: 0, zIndex: 10, bgcolor: "background.paper", py: 0.5 },
   dayRule: { flex: 1, height: 1, bgcolor: "divider" },
-  dayLabel: { fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.6rem" },
+  dayLabel: { fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.75rem" },
   list: { display: "flex", flexDirection: "column", gap: 1.5, mt: 1 },
   openLink: { flexShrink: 0, alignSelf: "center", fontWeight: 700, color: accent },
   itemTap: { width: "100%", textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer", "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } },
@@ -1392,9 +1397,9 @@ export const activityStyles = {
   itemIconExpense: { bgcolor: tint("warning", 0.1), color: toneText("warning") },
   itemBody: { flex: 1, minWidth: 0 },
   itemTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
-  metaLabel: { fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", fontSize: "0.6rem" },
+  metaLabel: { fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", fontSize: "0.75rem" },
   userPill: { display: "flex", alignItems: "center", gap: 0.5, bgcolor: tint("primary", 0.06), color: accent, px: 1, py: 0.25, borderRadius: 100 },
-  userName: { fontWeight: 700, fontSize: "0.6rem", color: "inherit" },
+  userName: { fontWeight: 700, fontSize: "0.75rem", color: "inherit" },
   itemTitle: { fontWeight: 900, fontSize: "0.875rem", mt: 0.5, lineHeight: 1.3, letterSpacing: "-0.01em", color: "text.primary" },
   itemNote: { color: "text.secondary", mt: 0.5, display: "block", fontStyle: "italic", fontWeight: 500 },
   tags: { display: "flex", alignItems: "center", gap: 1, mt: 1.5 },
@@ -1407,19 +1412,19 @@ export const activityStyles = {
   stack15: { display: "flex", flexDirection: "column", gap: 1.5 },
   pendingRow: { display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.75, borderRadius: "16px", border: "1px solid", borderColor: tint("warning", 0.3), bgcolor: tint("warning", 0.04) },
   pendingTitle: { fontSize: "0.75rem", fontWeight: 700, color: "text.primary" },
-  pendingTime: { fontSize: "0.55rem", fontFamily: "monospace", color: "text.disabled", mt: 0.25 },
-  pendingBadge: { ...tonePill("warning"), fontSize: "0.55rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", px: 1, py: 0.25, borderRadius: 100, animation: "pulse 2s infinite" },
+  pendingTime: { fontSize: "0.75rem", fontFamily: "monospace", color: "text.disabled", mt: 0.25 },
+  pendingBadge: { ...tonePill("warning"), fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", px: 1, py: 0.25, borderRadius: 100, animation: "pulse 2s infinite" },
   stockRow: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1.5 },
   stockName: { display: "flex", alignItems: "center", gap: 1 },
   stockTitle: { fontSize: "0.75rem", fontWeight: 900, color: "text.primary" },
-  stockDesc: { fontSize: "0.7rem", color: "text.secondary", fontWeight: 500, mt: 0.5, lineHeight: 1.5 },
+  stockDesc: { fontSize: "0.75rem", color: "text.secondary", fontWeight: 500, mt: 0.5, lineHeight: 1.5 },
   stock: { critical: stockLook("error"), low: stockLook("warning") },
 } as const;
 
 // The floating "entries failed to sync" card (components/sync-manager.tsx). It sits above the bottom nav on a phone.
 export const syncFailureStyles = {
   card: {
-    position: "fixed", bottom: { xs: 104, md: 16 }, left: { xs: 12, md: "auto" }, right: { xs: 12, md: 16 }, width: { md: 380 }, zIndex: 1400,
+    position: "fixed", bottom: { xs: ABOVE_BOTTOM_NAV, md: 16 }, left: { xs: 12, md: "auto" }, right: { xs: 12, md: 16 }, width: { md: 380 }, zIndex: 1400,
     borderRadius: "16px", bgcolor: "error.main", color: "error.contrastText", p: 2, boxShadow: (theme: Theme) => `0 20px 40px ${alpha(theme.palette.error.main, 0.3)}`,
   },
   row: { display: "flex", alignItems: "flex-start", gap: 1.5 },
@@ -1431,7 +1436,7 @@ export const syncFailureStyles = {
   errorLabel: { opacity: 0.8 },
   note: { color: whiteTint(0.7), display: "block", mt: 1, fontStyle: "italic" },
   retry: {
-    mt: 1.5, height: 32, px: 2, borderRadius: "12px", bgcolor: "common.white", color: "error.main", fontWeight: 900, fontSize: "0.6875rem", textTransform: "uppercase",
+    mt: 1.5, height: 32, px: 2, borderRadius: "12px", bgcolor: "common.white", color: "error.main", fontWeight: 900, fontSize: "0.75rem", textTransform: "uppercase",
     letterSpacing: 1, "&:hover": { bgcolor: whiteTint(0.9) },
   },
   dismiss: { color: "common.white", flexShrink: 0, "&:hover": { bgcolor: whiteTint(0.2) } },
@@ -1447,9 +1452,9 @@ export const approvalInboxStyles = {
   amount: { fontWeight: 700, fontFamily: "monospace", flexShrink: 0 },
   amountOut: { color: toneText("error") },
   titleRow: { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" },
-  kindSale: { ...toneNeutralPill, fontSize: "0.6875rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
-  kindChange: { ...tonePill("warning"), fontSize: "0.6875rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
-  kindExpense: { ...tonePill("info"), fontSize: "0.6875rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  kindSale: { ...toneNeutralPill, fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  kindChange: { ...tonePill("warning"), fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  kindExpense: { ...tonePill("info"), fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
   sub: { color: "text.secondary", fontSize: "0.8125rem", mt: 0.25, overflowWrap: "anywhere" },
   changes: { display: "flex", flexDirection: "column", gap: 1 },
   reason: { px: 1.5, py: 1.25, borderRadius: 1, borderLeft: "3px solid", borderColor: "divider", bgcolor: "action.hover", fontSize: "0.875rem" },
@@ -1517,7 +1522,7 @@ export const newSaleStyles = {
   orderMain: { flex: 1, minWidth: 0 },
   orderName: { fontWeight: 600, overflowWrap: "anywhere" },
   orderEnd: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5, flexShrink: 0 },
-  orderFlag: { ...tonePill("warning"), alignSelf: "flex-start", mt: 0.75, fontSize: "0.6875rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
+  orderFlag: { ...tonePill("warning"), alignSelf: "flex-start", mt: 0.75, fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
   orderFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid", borderColor: "divider" },
   orderTotal: { fontWeight: 700, fontFamily: "monospace", fontSize: "1.375rem" },
   reviewButtonDesktop: { display: { xs: "none", lg: "inline-flex" } },
@@ -1607,7 +1612,7 @@ export const saleChangeStyles = {
   footer: { p: 2, display: "flex", flexDirection: "column", gap: 1 },
   actionsRow: { display: "flex", gap: 1, flexWrap: "wrap" },
   historyHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 },
-  correctedSmall: { ...tonePill("warning"), fontSize: "0.6875rem", fontWeight: 700, px: 1, py: 0.125, borderRadius: 100 },
+  correctedSmall: { ...tonePill("warning"), fontSize: "0.75rem", fontWeight: 700, px: 1, py: 0.125, borderRadius: 100 },
   corrected: { ...tonePill("warning"), alignSelf: "flex-start", fontSize: "0.75rem", fontWeight: 700, px: 1.5, py: 0.5, borderRadius: 100 },
   cancelled: { ...toneNeutralPill, alignSelf: "flex-start", fontSize: "0.75rem", fontWeight: 700, px: 1.5, py: 0.5, borderRadius: 100 },
 } as const;
@@ -1866,7 +1871,7 @@ export const bottomNavStyles = {
   },
   tabActive: { color: accent, "& .bottom-nav-icon": { bgcolor: tint("primary", 0.12) } },
   tabIcon: { width: 48, height: 28, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color .15s ease" },
-  tabLabel: { fontSize: "0.6875rem", fontWeight: 600, lineHeight: 1.1 },
+  tabLabel: { fontSize: "0.75rem", fontWeight: 600, lineHeight: 1.1 },
   tabLabelActive: { fontWeight: 700 },
   newSlot: { position: "relative", flex: 1, minWidth: 64, display: "flex", justifyContent: "center", alignSelf: "flex-start", transform: "translateY(-20px)", textDecoration: "none", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" },
   // Shown while an unsaved sale is waiting on this phone.
@@ -1888,7 +1893,7 @@ export const phoneAlertsStyles = {
   switchRow: { p: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   deviceRow: { p: 1.75, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   deviceName: { display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", fontWeight: 700 },
-  thisPill: { ...tonePill("info"), fontSize: "0.6875rem", fontWeight: 700, px: 1, py: 0.125, borderRadius: 100 },
+  thisPill: { ...tonePill("info"), fontSize: "0.75rem", fontWeight: 700, px: 1, py: 0.125, borderRadius: 100 },
   steps: { display: "flex", flexDirection: "column", gap: 1.25, m: 0, p: 0, listStyle: "none" },
   step: { display: "flex", gap: 1.5, alignItems: "flex-start" },
   stepNumber: { width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, bgcolor: tint("primary", 0.12), color: "primary.main" },

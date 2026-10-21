@@ -131,14 +131,14 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
       >
         <Toolbar sx={{ justifyContent: "space-between", minHeight: 64 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton edge="start" onClick={() => setIsOpen(true)} sx={{ color: "text.secondary" }}>
+            <IconButton edge="start" onClick={() => setIsOpen(true)} aria-label="Open menu" sx={{ color: "text.secondary" }}>
               <Menu size={24} />
             </IconButton>
             <Box component={Link} href={isInCashierView ? "/cashier" : "/bom03"} aria-label="BOMedia home" sx={headerHomeLinkStyles}>
               <Typography variant="caption" sx={{ fontWeight: 900, color: accent, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1, display: "block", fontSize: "0.875rem" }}>
                 BOMedia
               </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1, fontSize: "0.6rem" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1, fontSize: "0.75rem" }}>
                 {isAdmin ? "Admin" : "Cashier"}
               </Typography>
             </Box>
@@ -146,14 +146,13 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Tooltip title="Refresh data">
-              <IconButton onClick={handleRefresh} size="small" aria-label="Refresh data" sx={{ color: "text.secondary", "&:hover": { color: accent } }}>
+              <IconButton onClick={handleRefresh} aria-label="Refresh data" sx={{ color: "text.secondary", "&:hover": { color: accent } }}>
                 <RefreshCw size={16} />
               </IconButton>
             </Tooltip>
             <Tooltip title={hasHydrated && isMuted ? "Unmute notifications" : "Mute notifications"}>
               <IconButton
                 onClick={toggleMute}
-                size="small"
                 aria-label={hasHydrated && isMuted ? "Unmute notifications" : "Mute notifications"}
                 sx={{
                   color: hasHydrated && isMuted ? "error.main" : "text.secondary",
@@ -224,7 +223,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
             {/* Sync status */}
             <Box sx={{ p: 1.5, bgcolor: whiteTint(0.05), borderRadius: 2, border: "1px solid", borderColor: whiteTint(0.08), mb: 2 }}>
               <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: whiteTint(0.4), textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.6rem" }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: whiteTint(0.4), textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.75rem" }}>
                   Sync Queue
                 </Typography>
                 {syncStatus === "syncing" ? (

@@ -135,7 +135,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
   const activeDays = data.filter(d => d.sales > 0).length;
   const totalSalesSum = data.reduce((s, d) => s + d.sales, 0);
   const avgDailySales = activeDays > 0 ? Math.round(totalSalesSum / activeDays) : 0;
-  const axisTick = { fontSize: 11, fill: kit.tick, fontWeight: 600 };
+  const axisTick = { fontSize: 12, fill: kit.tick, fontWeight: 600 };
 
   return (
     <Card sx={styles.card}>
@@ -193,7 +193,7 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
                     strokeDasharray="5 4"
                     strokeOpacity={0.5}
                     strokeWidth={1.5}
-                    label={{ value: `Avg ₦${avgDailySales >= 1000 ? (avgDailySales / 1000).toFixed(0) + "k" : avgDailySales}`, position: "insideTopRight", fontSize: 10, fontWeight: 700, fill: kit.sales, opacity: 0.8 }}
+                    label={{ value: `Avg ₦${avgDailySales >= 1000 ? (avgDailySales / 1000).toFixed(0) + "k" : avgDailySales}`, position: "insideTopRight", fontSize: 12, fontWeight: 700, fill: kit.sales, opacity: 0.8 }}
                   />
                 )}
               </AreaChart>
@@ -264,7 +264,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
                     itemStyle={kit.tooltip.itemStyle}
                     formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, "Amount"]}
                   />
-                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: 600 }} />
+                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "12px", fontWeight: 600 }} />
                 </PieChart>
               </ResponsiveContainer>
               <Box sx={styles.donutCenter}>
@@ -318,7 +318,7 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
                     itemStyle={kit.tooltip.itemStyle}
                     formatter={(value: any) => [Number(value).toLocaleString(), "Jobs"]}
                   />
-                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "11px", fontWeight: 600 }} />
+                  <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: "12px", fontWeight: 600 }} />
                 </PieChart>
               </ResponsiveContainer>
               <Box sx={styles.donutCenter}>
@@ -399,7 +399,7 @@ export function OutstandingDebtChart({ data, onClientClick, ageMap }: Outstandin
                   type="number"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: kit.tick, fontWeight: 600 }}
+                  tick={{ fontSize: 12, fill: kit.tick, fontWeight: 600 }}
                   tickFormatter={(val) => `₦${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
                 />
                 <YAxis

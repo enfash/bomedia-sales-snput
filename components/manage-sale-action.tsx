@@ -226,7 +226,7 @@ export function ManageSaleAction({
         variant="outlined"
         size="small"
         onClick={() => setIsOpen(true)}
-        sx={{ borderRadius: 2, fontSize: "0.625rem", fontWeight: 900, letterSpacing: "0.05em" }}
+        sx={{ borderRadius: 2, fontSize: "0.75rem", fontWeight: 900, letterSpacing: "0.05em" }}
       >
         Manage
       </Button>
@@ -302,7 +302,7 @@ function ContentBody({
                 borderRadius: 2,
                 bgcolor: "primary.main",
                 color: "white",
-                fontSize: "0.625rem",
+                fontSize: "0.75rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
@@ -324,7 +324,7 @@ function ContentBody({
           <Box sx={{ flex: 1 }}>
             <Typography
               sx={{
-                fontSize: "0.625rem",
+                fontSize: "0.75rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
@@ -342,7 +342,7 @@ function ContentBody({
           <Box sx={{ flex: 1 }}>
             <Typography
               sx={{
-                fontSize: "0.625rem",
+                fontSize: "0.75rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
@@ -406,7 +406,7 @@ function ContentBody({
           <Box>
             <Typography
               sx={{
-                fontSize: "0.625rem",
+                fontSize: "0.75rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
@@ -431,7 +431,7 @@ function ContentBody({
           <Box>
             <Typography
               sx={{
-                fontSize: "0.625rem",
+                fontSize: "0.75rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
@@ -461,7 +461,7 @@ function ContentBody({
           <FormControl fullWidth size="medium">
             <InputLabel
               sx={{
-                fontSize: "0.625rem",
+                fontSize: "0.75rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",

@@ -178,7 +178,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
         height: 28,
         px: 1.5,
         borderRadius: 2,
-        fontSize: "0.625rem",
+        fontSize: "0.75rem",
         fontWeight: 900,
         letterSpacing: "0.08em",
         borderColor: accent,
@@ -204,7 +204,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5 }}>
         {summaryCards.map((m) => (
           <Box key={m.label} sx={{ bgcolor: "grey.100", borderRadius: 2.5, p: 1.5 }}>
-            <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.5 }}>
+            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.5 }}>
               {m.label}
             </Typography>
             <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: m.color }}>
@@ -224,7 +224,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       ) : (
         <>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-            <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
+            <Typography sx={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
               Lump-Sum Payment (₦)
             </Typography>
             <MoneyField
@@ -235,7 +235,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
             />
             {lumpSum > totalBalance && (
-              <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Typography sx={{ fontSize: "0.75rem", color: "success.main", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5 }}>
                 <CheckCircle2 style={{ width: 12, height: 12 }} />
                 Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
               </Typography>
@@ -246,7 +246,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
 
           {preview.length > 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
+              <Typography sx={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
                 Distribution Preview
               </Typography>
               <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2.5, overflow: "hidden" }}>
@@ -277,7 +277,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
                           flexShrink: 0,
                         }}
                       >
-                        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: "primary.contrastText" }}>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "primary.contrastText" }}>
                           {idx + 1}
                         </Typography>
                       </Box>
@@ -285,7 +285,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
                         <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary", lineHeight: 1 }}>
                           {step.record.description}
                         </Typography>
-                        <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", mt: 0.5 }}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mt: 0.5 }}>
                           Slot {step.slot}{step.mode === "append" ? " · added to existing" : ""}
                         </Typography>
                       </Box>
