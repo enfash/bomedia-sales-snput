@@ -101,6 +101,22 @@ describe('opening stock', () => {
     expect((await rows('select count(*)::text n from bomedia.journal_entries'))[0].n).toBe('0');
   });
 
+  it('refuses stock the app could not sell: wrong status or a roll narrower than its material, before and after posting', async () => {
+    await imported();
+    await applyStock(db, buildStockPlan(stockFiles(), DATE), { actorId: owner });
+    await db.exec("update bomedia.inventory_rolls set status='Out of Stock' where legacy_roll_id='ROLL-1'");
+    await expect(postOpening(db, buildOpeningPlan(OPENING), { actorId: owner })).rejects.toThrow(/cannot be sold/);
+    await db.exec("update bomedia.inventory_rolls set status='Active' where legacy_roll_id='ROLL-1'");
+    const plan = buildOpeningPlan(OPENING);
+    await postOpening(db, plan, { actorId: owner });
+    await db.exec("update bomedia.inventory_rolls set status='Out of Stock' where legacy_roll_id='ROLL-1'");
+    await expect(verifyOpening(db, plan)).rejects.toThrow(/cannot be sold/);
+    await expect(activateOpening(db, plan)).rejects.toThrow(/cannot be sold/);
+    await db.exec("update bomedia.inventory_rolls set status='Active' where legacy_roll_id='ROLL-1'");
+    await db.exec("update bomedia.materials set width_ft = width_ft + 1 where id=(select material_id from bomedia.inventory_rolls where legacy_roll_id='ROLL-1')");
+    await expect(activateOpening(db, plan)).rejects.toThrow(/cannot be sold/);
+  });
+
   it('shows what would change, applies prices, the count and a new roll, and a second run changes nothing', async () => {
     await imported();
     const plan = buildStockPlan(stockFiles(), DATE);

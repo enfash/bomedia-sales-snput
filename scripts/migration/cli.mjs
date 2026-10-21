@@ -143,12 +143,12 @@ async function runStock(command, name, options) {
   console.log(JSON.stringify(result, null, 2));
 }
 
-// Customer history: the Sheet's Sales tab as read-only history, from migration-data/<name>/Sales.csv (+ optional 2-name-decisions.csv and ignore-payments.csv).
+// Customer history: the Sheet's Sales tab as read-only history, from migration-data/<name>/Sales.csv (+ 2-name-decisions.csv and the required ignore-payments.csv; headers only when the owner approved no exceptions).
 // history-check reads files only. history-import and history-verify need --confirm-project. Run history-import AFTER opening-post and BEFORE opening-activate.
 async function runHistory(command, name, options) {
   const directory = await privateDirectory(name);
   const read = (file, optional) => readFile(join(directory, file), 'utf8').catch(error => optional && error.code === 'ENOENT' ? '' : Promise.reject(error));
-  const plan = buildHistoryPlan({ sales: await read('Sales.csv'), names: await read('2-name-decisions.csv'), ignore: await read('ignore-payments.csv', true) });
+  const plan = buildHistoryPlan({ sales: await read('Sales.csv'), names: await read('2-name-decisions.csv'), ignore: await read('ignore-payments.csv') });
   if (command === 'history-check') {
     if (options.length) throw new CommandError('history-check takes only the folder name and changes nothing.');
     console.log(JSON.stringify(summarizeHistory(plan), null, 2));

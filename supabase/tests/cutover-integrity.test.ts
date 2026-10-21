@@ -1,7 +1,7 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterEach, expect, it } from 'vitest';
 import { testDatabase, insertId } from './helpers';
-import { activateOpening, buildOpeningPlan, postOpening, verifyOpening } from '../../scripts/migration/opening-balances.mjs';
+import { activateOpening, buildOpeningPlan, createOwner, postOpening, verifyOpening } from '../../scripts/migration/opening-balances.mjs';
 import { applyStock } from '../../scripts/migration/stock-opening.mjs';
 import { buildHistoryPlan, importHistory, verifyHistory } from '../../scripts/migration/sales-history.mjs';
 import { CUTOVER_LOCK, CUTOVER_LOCK_TIMEOUT } from '../../scripts/migration/cutover-shared.mjs';
@@ -10,8 +10,8 @@ let db: PGlite;
 afterEach(async () => { await db?.close(); db = undefined!; });
 const debtHeader = 'customer_name,amount_owed_naira,sale_date,sales_id,sheet_row,job_description\n';
 const debtRows = 'Alpha,100,2026-10-01,A1,2,Banner\nBeta,200,2026-10-01,B1,3,Sticker\n';
-const plan = (owing = debtRows) => buildOpeningPlan({ startDate: 'item,value\nopening_date,2026-10-25\n', owing: debtHeader + owing, credits: '', loans: '' });
-const history = () => buildHistoryPlan({ sales: 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n2026-10-01,Alpha,100,0,,,A1\n2026-10-01,Beta,200,0,,,B1\n' });
+const plan = (owing = debtRows) => buildOpeningPlan({ startDate: 'item,value\nopening_date,2026-10-25\n', owing: debtHeader + owing, credits: 'customer_name,amount_in_credit_naira\n', loans: 'who,type,amount_naira,date\n' });
+const history = () => buildHistoryPlan({ ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n', sales: 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n2026-10-01,Alpha,100,0,,,A1\n2026-10-01,Beta,200,0,,,B1\n' });
 async function fresh() {
   db = await testDatabase();
   return insertId(db, "insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id");
@@ -106,4 +106,22 @@ it('turns a lock wait that times out into a plain message telling the owner to w
     await expect(postOpening(fake, plan(), { actorId })).rejects.toThrow(/Another cutover command is still running/);
     await expect(importHistory(fake, history())).rejects.toThrow(/Another cutover command is still running/);
   }
+});
+
+it('keeps the lock timeout on for the whole transaction and words a later row or table lock timeout the same way', async () => {
+  const actorId = await fresh();
+  for (const operation of [(fake: unknown) => postOpening(fake, plan(), { actorId }), (fake: unknown) => importHistory(fake, history()),
+    (fake: unknown) => activateOpening(fake, plan()), (fake: unknown) => applyStock(fake, {}, { actorId })]) {
+    const queries: string[] = [];
+    const fake = { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({ query: async (sql: string) => {
+      queries.push(sql);
+      if (queries.length === 3) throw Object.assign(new Error('internal text that must not be shown'), { code: '55P03' });
+      return { rows: [{ state: 'setup' }] };
+    } }) };
+    await expect(operation(fake)).rejects.toThrow(/Another cutover command is still running/);
+    expect(queries.some(sql => /lock_timeout\s*(=|to)\s*(0|'0|default)/i.test(sql) || /reset\s+lock_timeout/i.test(sql))).toBe(false);
+  }
+  // Only a lock timeout is reworded; any other failure after the lock is passed on unchanged.
+  const other = { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({ query: async () => { throw Object.assign(new Error('boom'), { code: '23505' }); } }) };
+  await expect(createOwner(other)).rejects.toThrow(/boom/);
 });

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { OpeningError, cleanName, indexCustomers, nameKey, resolveNameDecisions, takeCutoverLock } from './cutover-shared.mjs';
+import { OpeningError, cleanName, indexCustomers, nameKey, resolveNameDecisions, cutoverTransaction } from './cutover-shared.mjs';
 import { readOpeningStock, readStockApproval, stockApprovalMatches, stockEvidence } from './opening-stock-evidence.mjs';
 
 // Opening balances for the cutover: customer debts and one loan, taken from the owner-approved CSV files.
@@ -43,7 +43,25 @@ export function parseCsvDocument(text) {
   const headers = rows[0].cells.map(h => h.trim());
   if (headers.some((h, i) => h && headers.indexOf(h) !== i)) throw new OpeningError('A CSV file has duplicate column headers.');
   return { headers, records: rows.slice(1).map(({ cells, line, recordIndex }) => ({ line, recordIndex,
-    blank: cells.every(cell => cell.trim() === ''), values: Object.fromEntries(headers.map((h, i) => [h, (cells[i] ?? '').trim()])) })) };
+    blank: cells.every(cell => cell.trim() === ''), cellCount: cells.length, values: Object.fromEntries(headers.map((h, i) => [h, (cells[i] ?? '').trim()])) })) };
+}
+
+/**
+ * Reads a file that must have its header row and whole records: every required header present and every non-blank record with exactly as many cells as the header,
+ * so a truncated or mislabelled file is refused instead of being read as "empty". `exempt` lets a caller skip the width check for a known explanation row.
+ */
+export function readTable(text, required, file, exempt = () => false) {
+  const document = parseCsvDocument(text);
+  if (!document.headers.length) throw new OpeningError(`${file} is empty; it needs its header row (${required.join(', ')}).`);
+  const missing = required.filter(header => !document.headers.includes(header));
+  if (missing.length) throw new OpeningError(`${file} is missing required columns: ${missing.join(', ')}. Nothing was loaded.`);
+  const records = document.records.filter(record => !record.blank);
+  for (const record of records) {
+    if (record.cellCount !== document.headers.length && !exempt(record.values)) {
+      throw new OpeningError(`${file} line ${record.line}: ${record.cellCount} cells but the header has ${document.headers.length}. The record looks cut short or has an extra comma. Nothing was loaded.`);
+    }
+  }
+  return records.map(record => record.values);
 }
 
 /** Compatibility reader for plans that do not need physical source positions. */
@@ -74,21 +92,21 @@ const sha = text => createHash('sha256').update(text).digest('hex');
  */
 export function buildOpeningPlan(files) {
   const problems = [];
-  const start = parseCsv(files.startDate).find(r => r.item === 'opening_date');
+  const start = readTable(files.startDate, ['item', 'value'], '1-start-date.csv').find(r => r.item === 'opening_date');
   if (!start?.value) throw new OpeningError('1-start-date.csv needs opening_date (the last day before the new books start).');
   const openingDate = isoDate(start.value, 'opening_date');
   const startsOn = nextDay(openingDate);
 
-  if (parseCsv(files.credits).some(r => Object.values(r).some(v => v))) {
+  if (readTable(files.credits, ['customer_name', 'amount_in_credit_naira'], '4-customers-paid-in-advance.csv').some(r => Object.values(r).some(v => v))) {
     throw new OpeningError('4-customers-paid-in-advance.csv has rows, but the app cannot use customer credits yet. Ask Claude before going further; nothing was posted.');
   }
 
   // The owner's decisions that two spellings are one person. Only these merge names that differ beyond spaces and capitals.
-  const names = resolveNameDecisions(parseCsv(files.names ?? ''));
+  const names = resolveNameDecisions(files.names?.trim() ? readTable(files.names, ['name_in_sheet', 'same_person_as'], '2-name-decisions.csv') : []);
   const customers = new Map();
   const identical = new Map();
   const sheetRows = new Set();
-  const owing = parseCsv(files.owing).filter(r => Object.values(r).some(v => v));
+  const owing = readTable(files.owing, ['customer_name', 'amount_owed_naira', 'sale_date', 'sheet_row'], '3-customers-who-owe.csv').filter(r => Object.values(r).some(v => v));
   owing.forEach((row, index) => {
     const line = index + 2;
     const sheetRow = Number(row.sheet_row);
@@ -123,7 +141,8 @@ export function buildOpeningPlan(files) {
   });
 
   const loans = [];
-  for (const [index, row] of parseCsv(files.loans).entries()) {
+  const loanRows = readTable(files.loans, ['who', 'type', 'amount_naira', 'date'], '6-loans-and-owner-money.csv', row => !(row.who ?? '').trim() && !(row.amount_naira ?? '').trim());
+  for (const [index, row] of loanRows.entries()) {
     if (!(row.who ?? '').trim() && !(row.amount_naira ?? '').trim()) continue; // the template's explanation row
     const line = index + 2;
     const who = (row.who ?? '').trim();
@@ -178,8 +197,7 @@ const loansKey = plan => `opening-loans-${plan.digest}`;
  */
 export async function postOpening(db, plan, { actorId }) {
   if (!/^[0-9a-f-]{36}$/.test(String(actorId))) throw new OpeningError('The owner staff id is required.');
-  return db.transaction(async tx => {
-    await takeCutoverLock(tx);
+  return cutoverTransaction(db, OpeningError, async tx => {
     const staff = (await tx.query('select id from bomedia.staff where id=$1 and disabled_at is null', [actorId])).rows;
     if (!staff.length) throw new OpeningError('The owner staff account was not found or is disabled.');
     const settings = (await tx.query('select starts_on::text as starts_on, state from bomedia.bookkeeping_settings where singleton')).rows;
@@ -276,6 +294,23 @@ export async function verifyOpening(db, plan) {
   check('counted stock matches the approved fingerprint', stockApprovalMatches(stockState, stockApproval, plan.openingDate) &&
     entries.every(e => e.evidence_reference?.includes(`; ${stockEvidence(stockState, stockApproval)}`)), 'Counted roll identities, lengths, costs and approval');
   const byKey = indexCustomers(await q('select id::text as id, display_name from bomedia.customers'), plan.nameDecisions);
+  // The ledger must hold exactly the approved entries: no extra entry, account, line or amount, whatever its net effect.
+  const evidence = `${evidenceFor(plan)}; ${stockEvidence(stockState, stockApproval)}`;
+  const line = (account, debit, credit, memo, customerId = null) => ({ account, debit: String(debit), credit: String(credit), memo, customerId });
+  const expected = [];
+  const debtLines = plan.customers.flatMap(c => c.jobs.map(j => line('1100', j.owedKobo, 0, `Sheet row ${j.sheetRow}`, byKey.get(c.key) ?? null)));
+  if (debtLines.length) expected.push({ memo: 'Opening customer balances from the Google Sheet', evidence, lines: [...debtLines, line('3000', 0, plan.totals.debtsKobo, 'Owner capital: opening position')] });
+  if (plan.loans.length) expected.push({ memo: `Loan owed: ${plan.loans.map(l => l.who).join(', ')}`, evidence: `${evidence}; ${plan.loans.map(l => l.evidence).filter(Boolean).join('; ')}`,
+    lines: [line('3000', plan.totals.loansKobo, 0, 'Owner capital: loan owed at opening'), line('2200', 0, plan.totals.loansKobo, plan.loans.map(l => l.who).join(', '))] });
+  if (BigInt(stockState.valueKobo) > 0n) expected.push({ memo: `Opening stock value: ${stockState.rolls} rolls with counted length`, evidence,
+    lines: [line('1200', stockState.valueKobo, 0, 'Counted stock at cost'), line('3000', 0, stockState.valueKobo, 'Owner capital: opening stock')] });
+  const signature = (e, kind = 'opening', date = plan.openingDate) => JSON.stringify({ kind, date, memo: e.memo, evidence: e.evidence, lines: e.lines.map(l => JSON.stringify(l)).sort() });
+  const storedLines = await q(`select entry_id::text, account_code, debit_kobo::text as debit, credit_kobo::text as credit, memo, customer_id::text as customer_id
+    from bomedia.journal_lines`);
+  const stored = (await q('select id::text, kind, business_date::text as business_date, memo, evidence_reference from bomedia.journal_entries')).map(e => signature({ memo: e.memo, evidence: e.evidence_reference,
+    lines: storedLines.filter(l => l.entry_id === e.id).map(l => line(l.account_code, l.debit, l.credit, l.memo, l.customer_id)) }, e.kind, e.business_date));
+  const wanted = expected.map(e => signature(e)).sort();
+  check('the ledger holds exactly the approved entries and lines', JSON.stringify(stored.sort()) === JSON.stringify(wanted), `${stored.length} entries in the books, ${wanted.length} approved`);
   const actual = await q(`select j.id::text, j.customer_id::text, o.customer_id::text as order_customer_id, o.id::text as order_id,
     o.legacy_sales_id as sales_id, j.business_date::text as sale_date, j.amount_kobo::text as amount,
     l.customer_id::text as ledger_customer_id, l.debit_kobo::text as debit, l.credit_kobo::text as credit, l.memo, e.kind, e.status
@@ -295,8 +330,7 @@ export async function verifyOpening(db, plan) {
 
 /** Starts the books, but only when every check above passes. One way: active books cannot return to setup. */
 export async function activateOpening(db, plan) {
-  return db.transaction(async tx => {
-    await takeCutoverLock(tx);
+  return cutoverTransaction(db, OpeningError, async tx => {
     const report = await verifyOpening(tx, plan);
     if (!report.ok) throw new OpeningError(`Not activated. Failed checks: ${report.checks.filter(c => !c.ok).map(c => c.name).join('; ')}`);
     await tx.query("update bomedia.bookkeeping_settings set state='active' where singleton and state='setup'");
@@ -309,8 +343,7 @@ export async function activateOpening(db, plan) {
  * The 4 October import loaded only the cashiers. Creates "Owner" with no PIN if it does not exist; safe to repeat. Returns the id to use as SUPABASE_ADMIN_STAFF_ID.
  */
 export async function createOwner(db) {
-  return db.transaction(async tx => {
-    await takeCutoverLock(tx);
+  return cutoverTransaction(db, OpeningError, async tx => {
     const existing = (await tx.query("select id::text as id from bomedia.staff where login_name='owner'")).rows[0];
     if (existing) return { created: false, ownerStaffId: existing.id };
     const row = (await tx.query("insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id::text as id")).rows[0];

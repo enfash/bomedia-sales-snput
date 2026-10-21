@@ -12,14 +12,14 @@ const SALES = HEADER
   + '2026-09-03,K cool,Poster,,Flex,180,,,,,,,,,1,₦500.00,₦0.00,₦900.00,₦100.00,₦50.00,0,Part,Delivered,Ada,BOM-3,,\n'
   + '2026-09-04,,No name,,Flex,180,,,,,,,,,1,₦1.00,₦0.00,₦1.00,,,0,Paid,Delivered,Ada,BOM-4,,\n';
 const NAMES = 'name_in_sheet,same_person_as\nK cool,Kcool\n';
-const files = (over: Record<string, string> = {}) => ({ sales: SALES, names: NAMES, ignore: '', ...over });
+const files = (over: Record<string, string> = {}) => ({ sales: SALES, names: NAMES, ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n', ...over });
 
 let db: PGlite;
 afterEach(async () => { await db?.close(); });
 const rows = async (sql: string, params: unknown[] = []) => (await db.query<Record<string, string>>(sql, params)).rows;
 async function opening() {
   const owner = (await rows("insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id"))[0].id;
-  await postOpening(db, buildOpeningPlan({ startDate: 'item,value\nopening_date,2026-10-18\n', owing: '', credits: '',
+  await postOpening(db, buildOpeningPlan({ startDate: 'item,value\nopening_date,2026-10-18\n', owing: 'customer_name,amount_owed_naira,sale_date,sheet_row\n', credits: 'customer_name,amount_in_credit_naira\n',
     loans: 'who,type,amount_naira,date\nLender,loan you owe,100,2026-09-01\n', names: NAMES }), { actorId: owner });
 }
 
@@ -27,27 +27,44 @@ describe('history plan', () => {
   const simpleHeader = 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n';
   it('requires all identity/money headers and a known sale amount while blank initial payment means nothing paid', () => {
     const sale = '2026-10-01,Alpha,100,,,,A1\n';
-    expect(buildHistoryPlan({ sales: simpleHeader + sale }).rows[0]).toMatchObject({ amountKobo: '10000', paidKobo: '0', owedKobo: '10000' });
-    expect(() => buildHistoryPlan({ sales: simpleHeader + sale.replace(',100,', ',,') })).toThrow(/exact naira amount/);
+    expect(buildHistoryPlan({ sales: simpleHeader + sale, ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n' }).rows[0]).toMatchObject({ amountKobo: '10000', paidKobo: '0', owedKobo: '10000' });
+    expect(() => buildHistoryPlan({ sales: simpleHeader + sale.replace(',100,', ',,'), ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n' })).toThrow(/exact naira amount/);
     for (const header of simpleHeader.trim().split(',')) {
-      expect(() => buildHistoryPlan({ sales: simpleHeader.replace(header, `wrong-${header}`) + sale })).toThrow(/missing required headers/);
+      expect(() => buildHistoryPlan({ sales: simpleHeader.replace(header, `wrong-${header}`) + sale, ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n' })).toThrow(/missing required headers/);
     }
   });
   it('keeps physical CSV positions across blank lines and quoted multiline cells', () => {
     const csv = 'a,b\r\n\r\n"two\r\nlines",x\r\nlast,y\r\n';
     expect(parseCsvDocument(csv).records.map((r: { line: number; recordIndex: number }) => [r.line, r.recordIndex])).toEqual([[2, 2], [3, 3], [5, 4]]);
     const sales = simpleHeader + '2026-10-01,Alpha,100,0,10,,A1\n\n2026-10-01,Beta,200,0,20,,B1\n2026-10-01,Gamma,300,0,30,,C1\n';
-    const result = buildHistoryPlan({ sales, ignore: 'sheet_row,payment,expected_amount_naira,reason\n4,1,20,owner confirmed\n' });
+    const result = buildHistoryPlan({ sales, ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n4,B1,1,20,owner confirmed\n' });
     expect(result.rows.map((r: { sheetRow: number; paidKobo: string }) => [r.sheetRow, r.paidKobo])).toEqual([[2, '1000'], [4, '0'], [5, '3000']]);
     expect(result.ignored).toEqual([expect.objectContaining({ sheetRow: 4, amount: '2000' })]);
   });
+  it('numbers rows like Google Sheets even when a quoted cell spans several file lines, and binds an exception to its Sales ID', () => {
+    const header = 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID,JOB DESCRIPTION\n';
+    // Sheet row 2 has a two-line description, so Sheet row 3 starts on file line 4 and Sheet row 4 on line 5.
+    const sales = header + '2026-10-01,Alpha,500,0,100,,A1,"two\nlines"\n2026-10-01,Beta,500,0,100,,B1,x\n2026-10-01,Gamma,500,0,100,,C1,y\n';
+    const ignore = (row: number, id: string) => `sheet_row,sales_id,payment,expected_amount_naira,reason\n${row},${id},1,100,owner confirmed\n`;
+    const plan = buildHistoryPlan({ sales, ignore: ignore(4, 'C1') });
+    expect(plan.rows.map((r: { sheetRow: number; paidKobo: string }) => [r.sheetRow, r.paidKobo])).toEqual([[2, '10000'], [3, '10000'], [4, '0']]);
+    expect(() => buildHistoryPlan({ sales, ignore: ignore(4, 'B1') })).toThrow(/Sales ID "C1".*expects "B1"/);
+    expect(() => buildHistoryPlan({ sales, ignore: ignore(5, 'C1') })).toThrow(/not a row with a customer name/);
+    expect(() => buildHistoryPlan({ sales, ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n4,,1,100,x\n' })).toThrow(/sales_id is required/);
+  });
+  it('refuses a cut-short Sales record and requires an explicit exception file', () => {
+    const header = 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n';
+    expect(() => buildHistoryPlan({ sales: header + '2026-10-01,Alpha,10000\n', ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n' })).toThrow(/3 cells but the header has 7/);
+    expect(() => buildHistoryPlan({ sales: header + '2026-10-01,Alpha,100,,,,A1\n' })).toThrow(/ignore-payments.csv is empty/);
+    expect(buildHistoryPlan({ sales: header + '2026-10-01,Alpha,100,,,,A1\n', ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n' }).ignored).toEqual([]);
+  });
   it('requires the expected ignored amount and refuses a mismatch or duplicate exception', () => {
     const sales = simpleHeader + '2026-10-01,Alpha,100,0,20,,A1\n';
-    expect(() => buildHistoryPlan({ sales, ignore: 'sheet_row,payment,reason\n2,1,owner confirmed\n' })).toThrow(/expected_amount_naira/);
+    expect(() => buildHistoryPlan({ sales, ignore: 'sheet_row,sales_id,payment,reason\n2,A1,1,owner confirmed\n' })).toThrow(/expected_amount_naira/);
     for (const expected of ['', '10']) {
-      expect(() => buildHistoryPlan({ sales, ignore: `sheet_row,payment,expected_amount_naira,reason\n2,1,${expected},owner confirmed\n` })).toThrow(/expected_amount_naira/);
+      expect(() => buildHistoryPlan({ sales, ignore: `sheet_row,sales_id,payment,expected_amount_naira,reason\n2,A1,1,${expected},owner confirmed\n` })).toThrow(/expected_amount_naira/);
     }
-    expect(() => buildHistoryPlan({ sales, ignore: 'sheet_row,payment,expected_amount_naira,reason\n2,1,20,yes\n2,1,20,yes\n' })).toThrow(/repeats/);
+    expect(() => buildHistoryPlan({ sales, ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n2,A1,1,20,yes\n2,A1,1,20,yes\n' })).toThrow(/repeats/);
   });
   it('groups by name ignoring spaces and capitals, applies the owner decisions and reports rows it cannot place', () => {
     const plan = buildHistoryPlan(files());
@@ -58,12 +75,12 @@ describe('history plan', () => {
     expect(plan.rows[2]).toMatchObject({ paidKobo: '15000', owedKobo: '75000' });
   });
   it('leaves out a payment the owner called a mistake, and says so', () => {
-    const plan = buildHistoryPlan(files({ ignore: 'sheet_row,payment,expected_amount_naira,reason\n4,2,50,mistake\n' }));
+    const plan = buildHistoryPlan(files({ ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n4,BOM-3,2,50,mistake\n' }));
     expect(plan.rows[2]).toMatchObject({ paidKobo: '10000', owedKobo: '80000' });
     expect(plan.ignored).toEqual([expect.objectContaining({ sheetRow: 4, payment: '2', amount: '5000' })]);
   });
   it('refuses an ignore decision that points at nothing, and a bad amount', () => {
-    expect(() => buildHistoryPlan(files({ ignore: 'sheet_row,payment,expected_amount_naira,reason\n5,1,0,x\n' }))).toThrow(/not a row with a customer name/);
+    expect(() => buildHistoryPlan(files({ ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n5,BOM-4,1,0,x\n' }))).toThrow(/not a row with a customer name/);
     expect(() => buildHistoryPlan(files({ sales: SALES.replace('₦500.00,₦500.00,₦500.00', '₦500.00,₦500.00,five') }))).toThrow(/exact naira amount/);
   });
   it('changes with the file, so a different export is never mixed in', () => {
@@ -75,7 +92,7 @@ describe('history import', () => {
   it('rolls back a failure after the first 400-row batch, then imports read-only history with capped, zero-owed overpayments', async () => {
     db = await testDatabase();
     await opening();
-    const plan = buildHistoryPlan({ sales: 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n' +
+    const plan = buildHistoryPlan({ ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n', sales: 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n' +
       Array.from({ length: 1001 }, (_, i) => `2026-10-01,New Customer,100,101,,,S${i}\n`).join(''), names: NAMES });
     let batches = 0;
     const faulty = { transaction: (work: (tx: unknown) => Promise<unknown>) => db.transaction(tx => work({ query: async (sql: string, params: unknown[] = []) => {
@@ -119,7 +136,14 @@ describe('history import', () => {
     db = await testDatabase();
     await opening();
     await importHistory(db, buildHistoryPlan(files()));
-    await expect(importHistory(db, buildHistoryPlan(files({ ignore: 'sheet_row,payment,expected_amount_naira,reason\n4,2,50,x\n' })))).rejects.toThrow(/different file/);
+    await expect(importHistory(db, buildHistoryPlan(files({ ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n4,BOM-3,2,50,x\n' })))).rejects.toThrow(/different file/);
+    for (const change of ["transaction_id = 'T-X'", "description = 'Changed'", "source = source || '{\"extra\":\"1\"}'::jsonb"]) {
+      await db.query(`update bomedia.legacy_sales set ${change} where sheet_row = 2`);
+      await expect(verifyHistory(db, buildHistoryPlan(files()))).rejects.toThrow(/retained Sheet fields/);
+      await db.query('update bomedia.legacy_sales set transaction_id = null, description = $1, source = $2::jsonb where sheet_row = 2',
+        [buildHistoryPlan(files()).rows[0].description, JSON.stringify(buildHistoryPlan(files()).rows[0].source)]);
+    }
+    expect((await verifyHistory(db, buildHistoryPlan(files()))).verified).toBe(true);
     await db.query('update bomedia.legacy_sales set paid_kobo = paid_kobo + 1 where sheet_row = 2');
     await expect(verifyHistory(db, buildHistoryPlan(files()))).rejects.toThrow(/paid/);
     await db.close();

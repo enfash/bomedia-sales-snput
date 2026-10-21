@@ -6,12 +6,23 @@ export const CUTOVER_LOCK = "select pg_advisory_xact_lock(hashtextextended('bome
 // Wait at most 30 seconds for another cutover command, then stop with a clear message instead of hanging until the database gives up.
 export const CUTOVER_LOCK_TIMEOUT = "set local lock_timeout = '30s'";
 export const CUTOVER_BUSY_MESSAGE = 'Another cutover command is still running or did not finish. Wait a few minutes and run this command once more. Do not repeat it quickly; tell Claude if it keeps happening. Nothing was changed.';
-/** Takes the shared cutover lock; a wait that times out (code 55P03 or 57014) becomes the plain message above. */
+const isLockTimeout = error => error?.code === '55P03';
+/** Takes the shared cutover lock; a wait that times out (code 55P03 or 57014) becomes the plain message above. The 30 second lock_timeout stays on for the rest of the transaction. */
 export async function takeCutoverLock(tx, ErrorClass = OpeningError) {
   await tx.query(CUTOVER_LOCK_TIMEOUT);
   try { await tx.query(CUTOVER_LOCK); }
-  catch (error) { if (error?.code === '55P03' || error?.code === '57014') throw new ErrorClass(CUTOVER_BUSY_MESSAGE); throw error; }
-  await tx.query("set local lock_timeout = 0");
+  catch (error) { if (isLockTimeout(error) || error?.code === '57014') throw new ErrorClass(CUTOVER_BUSY_MESSAGE); throw error; }
+}
+/**
+ * One transaction for a cutover command: takes the shared lock first, then runs `work`. Because lock_timeout stays set, any later row or table lock wait is also bounded,
+ * and its timeout (55P03) becomes the same plain message. Nothing is changed when this throws, because the transaction rolls back.
+ */
+export function cutoverTransaction(db, ErrorClass, work) {
+  return db.transaction(async tx => {
+    await takeCutoverLock(tx, ErrorClass);
+    try { return await work(tx); }
+    catch (error) { if (isLockTimeout(error)) throw new ErrorClass(CUTOVER_BUSY_MESSAGE); throw error; }
+  });
 }
 export const cleanName = name => String(name ?? '').trim().replace(/\s+/g, ' ');
 export const nameKey = name => cleanName(name).toLowerCase();

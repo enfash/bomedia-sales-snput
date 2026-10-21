@@ -37,7 +37,7 @@ Claude builds the approved files from the final export and puts them in these ex
 - `migration-data/stock-opening/`: `materials.csv` and `rolls.csv`, refreshed from the physical count.
 - `migration-data/sheet-export-YYYYMMDD/` (this run: `migration-data/sheet-export-20261025/`): `Sales.csv`, `2-name-decisions.csv` (the same decisions used for opening), and `ignore-payments.csv`.
 
-`ignore-payments.csv` needs `sheet_row,payment,expected_amount_naira,reason`. Claude checks that Sheet rows 2762 and 2948 are still the intended rows and records the exact payment amount the owner approved ignoring. An amount mismatch stops the import. Sheet row N means physical line N of `Sales.csv`, including blank lines; header = row 1.
+`ignore-payments.csv` needs `sheet_row,sales_id,payment,expected_amount_naira,reason`; the `sales_id` must be the one on that Sheet row, so an exception can never land on a different row. Claude checks that Sheet rows 2762 and 2948 are still the intended rows and records the exact payment amount the owner approved ignoring. The file is required: with headers only, the owner approved no exceptions; a missing or empty file stops the import. An amount or Sales ID mismatch also stops it. Every input file must have its header row and whole records (a record with fewer cells than the header is refused). Sheet row N is the Nth record of `Sales.csv` (header = row 1, blank records count), the same number Google Sheets shows. A cell with a line break inside quotes is still one row, so file line numbers can be higher; error messages show both.
 
 Owner reviews and approves: customers, total owing, the ₦670,000 loan, stock value. Nothing is loaded before this OK.
 
@@ -47,7 +47,7 @@ Each command must succeed before the next. `--confirm-project "$LIVE"` is requir
 
 ```sh
 npm run stock:diff -- --confirm-project "$LIVE"            # shows what will change; blockers must be empty
-npm run stock:apply -- --confirm-project "$LIVE"           # (the rehearsal also used --zero-unlisted; Claude confirms the flags with you)
+npm run stock:apply -- --confirm-project "$LIVE"           # (if --zero-unlisted is needed, add it to BOTH stock:diff and stock:apply; Claude confirms the flags with you)
 npm run opening:check                                       # files only; totals match the approved report
 npm run opening:post -- --confirm-project "$LIVE"
 node --env-file=.env.local scripts/migration/cli.mjs history-check sheet-export-20261025

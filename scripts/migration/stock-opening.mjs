@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { OpeningError, nairaToKobo, parseCsv } from './opening-balances.mjs';
-import { takeCutoverLock } from './cutover-shared.mjs';
+import { cutoverTransaction } from './cutover-shared.mjs';
 import { readOpeningStock, readStockApproval } from './opening-stock-evidence.mjs';
 
 // Opening stock for the cutover: current prices and the owner's physical count, applied BEFORE any opening entry is posted.
@@ -145,8 +145,7 @@ export const summarizeStock = (plan, diff) => ({ countDate: plan.countDate, mate
  */
 export async function applyStock(db, plan, { actorId, allowUncounted = false, zeroUnlisted = false }) {
   if (!/^[0-9a-f-]{36}$/.test(String(actorId))) throw new OpeningError('The owner staff id is required.');
-  return db.transaction(async tx => {
-    await takeCutoverLock(tx);
+  return cutoverTransaction(db, OpeningError, async tx => {
     if (!(await tx.query('select 1 from bomedia.staff where id=$1 and disabled_at is null', [actorId])).rows.length) throw new OpeningError('The owner staff account was not found or is disabled.');
     const books = (await tx.query('select state from bomedia.bookkeeping_settings where singleton')).rows[0];
     if (books && books.state !== 'setup') throw new OpeningError('The books are already active. Stock can no longer be loaded this way. Nothing was changed.');

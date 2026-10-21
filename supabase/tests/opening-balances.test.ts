@@ -42,7 +42,7 @@ describe('opening balance planning', () => {
     expect(bad('Kay,,500,01/09/2026,x,R1,,2\n')).toThrow(/YYYY-MM-DD/);
     expect(bad('Kay,,500,2026-10-30,x,R1,,2\n')).toThrow(/after the opening date/);
     expect(bad('Kay,0801,500,2026-09-01,x,R1,,2\nkay,0802,600,2026-09-02,y,R2,,3\n')).toThrow(/two different phone numbers/);
-    expect(bad('Kay,,500,2026-09-01,x,,\n')).toThrow(/sheet_row/);
+    expect(bad('Kay,,500,2026-09-01,x,,,\n')).toThrow(/sheet_row/);
     expect(bad('Kay,,0,2026-09-01,x,R1,,2\n')).toThrow(/more than zero/);
   });
 
@@ -67,6 +67,12 @@ describe('opening balance planning', () => {
     expect(buildOpeningPlan(files({ owing, names: 'name_in_sheet,same_person_as\nK cool,Kcool\n' })).digest).not.toBe(buildOpeningPlan(files({ owing })).digest);
   });
 
+  it('refuses a cut-short record, a mislabelled file and an empty file instead of reading them as nothing', () => {
+    expect(() => buildOpeningPlan(files({ owing: OWING_HEADER + 'Kay,,500,2026-09-01,x,R1\n' }))).toThrow(/6 cells but the header has 8/);
+    expect(() => buildOpeningPlan(files({ loans: 'lender,type,amount,date\neasemoni,loan you owe,670000,2026-06-30\n' }))).toThrow(/6-loans-and-owner-money.csv is missing required columns: who, amount_naira/);
+    expect(() => buildOpeningPlan(files({ credits: '' }))).toThrow(/4-customers-paid-in-advance.csv is empty/);
+    expect(() => buildOpeningPlan(files({ startDate: 'item,amount\nopening_date,2026-10-18\n' }))).toThrow(/1-start-date.csv is missing required columns/);
+  });
   it('refuses credits and loan types the app cannot use yet, and an empty plan', () => {
     expect(() => buildOpeningPlan(files({ credits: CREDITS + 'Mum,,1000,2026-10-01,advance,r,\n' }))).toThrow(/cannot use customer credits/);
     expect(() => buildOpeningPlan(files({ loans: 'who,type,amount_naira,date,evidence,note\nx,owner capital,100,2026-01-01,,\n' }))).toThrow(/only "loan you owe"/);
@@ -175,6 +181,19 @@ describe('opening balance posting', () => {
     expect(first.ownerStaffId).toMatch(/^[0-9a-f-]{36}$/);
     expect(await createOwner(db)).toEqual({ created: false, ownerStaffId: first.ownerStaffId });
     expect((await db.query<{ n: number }>("select count(*)::integer n from bomedia.staff where login_name='owner'")).rows[0].n).toBe(1);
+  });
+
+  it('refuses an extra opening entry even when it balances, such as opening cash', async () => {
+    await fresh();
+    const plan = buildOpeningPlan(files());
+    await postOpening(db, plan, { actorId: owner });
+    const evidence = (await db.query<{ e: string }>("select evidence_reference e from bomedia.journal_entries limit 1")).rows[0].e;
+    await db.query('select bomedia.post_journal($1,$2::jsonb)', ['extra-cash', JSON.stringify({ actor_id: owner, business_date: plan.openingDate, kind: 'opening', memo: 'Extra', opening_confirmed: true,
+      evidence_reference: evidence, lines: [{ account_code: '1000', debit_kobo: '5000000' }, { account_code: '4000', credit_kobo: '5000000' }] })]);
+    const report = await verifyOpening(db, plan);
+    expect(report.ok).toBe(false);
+    expect(report.checks.filter((c: { ok: boolean }) => !c.ok).map((c: { name: string }) => c.name)).toContain('the ledger holds exactly the approved entries and lines');
+    await expect(activateOpening(db, plan)).rejects.toThrow(/Not activated/);
   });
 
   it('does not start the books when a check fails', async () => {

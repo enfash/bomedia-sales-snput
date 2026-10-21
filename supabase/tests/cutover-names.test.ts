@@ -4,10 +4,10 @@ import { buildHistoryPlan } from '../../scripts/migration/sales-history.mjs';
 import { decisionsFingerprint, indexCustomers } from '../../scripts/migration/cutover-shared.mjs';
 
 const opening = (names: string) => buildOpeningPlan({
-  startDate: 'item,value\nopening_date,2026-10-25\n', credits: '', loans: '', names,
+  startDate: 'item,value\nopening_date,2026-10-25\n', credits: 'customer_name,amount_in_credit_naira\n', loans: 'who,type,amount_naira,date\n', names,
   owing: 'customer_name,amount_owed_naira,sale_date,sales_id,sheet_row\nAB,100,2026-10-01,S1,2\nA B,200,2026-10-01,S2,3\n a\u00a0\u2003B ,300,2026-10-01,S3,4\nAlias,400,2026-10-01,S4,5\n',
 });
-const history = (names: string) => buildHistoryPlan({ names, sales:
+const history = (names: string) => buildHistoryPlan({ names, ignore: 'sheet_row,sales_id,payment,expected_amount_naira,reason\n', sales:
   'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n2026-10-01,AB,100,0,,,S1\n2026-10-01,A B,200,0,,,S2\n2026-10-01, a\u00a0\u2003B ,300,0,,,S3\n2026-10-01,Alias,400,0,,,S4\n' });
 
 describe('one cutover name rule', () => {
@@ -31,8 +31,8 @@ describe('one cutover name rule', () => {
 
 describe('name decisions file safety', () => {
   it('refuses a decisions file with the wrong headers instead of silently ignoring it', () => {
-    expect(() => opening('from,to\nAlias,AB\n')).toThrow(/name_in_sheet and same_person_as/);
-    expect(() => history('from,to\nAlias,AB\n')).toThrow(/name_in_sheet and same_person_as/);
+    expect(() => opening('from,to\nAlias,AB\n')).toThrow(/name_in_sheet, same_person_as/);
+    expect(() => history('from,to\nAlias,AB\n')).toThrow(/name_in_sheet, same_person_as/);
   });
   it('gives opening and history the same fingerprint for the same decisions, and a different one otherwise', () => {
     const names = 'name_in_sheet,same_person_as\nAlias,A B\n';

@@ -23,5 +23,5 @@ it('documents the actual CLI input folders and preserves the ordered cutover gat
   const ordered = ['stock:diff', 'stock:apply', 'opening:check', 'opening:post', 'history-check', 'history-import', 'history-verify', 'opening:verify', 'opening:activate'];
   expect(ordered.map(command => commands.indexOf(command))).toEqual(ordered.map(command => commands.indexOf(command)).sort((a, b) => a - b));
   expect(ordered.every(command => commands.includes(command))).toBe(true);
-  expect(doc).toContain('sheet_row,payment,expected_amount_naira,reason');
+  expect(doc).toContain('sheet_row,sales_id,payment,expected_amount_naira,reason');
 });
