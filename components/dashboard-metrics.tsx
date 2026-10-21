@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useId } from "react";
-import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChart2, Percent } from "lucide-react";
+import { TrendingUp, TrendingDown, ShoppingBag } from "lucide-react";
 import { motion, animate } from "framer-motion";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { StatTile } from "@/components/stat-tile";
 import { metricsStyles as styles } from "@/app/theme";
 
 const cardContainerVariants = {
@@ -25,9 +26,11 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
   const range = max - min || 1;
   const w = 100;
   const h = 32;
+  // Keep the line a few units inside the box, so its thickness is never cut off at the top or bottom.
+  const pad = 3;
   const pts = data.map((v, i) => {
     const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * h;
+    const y = pad + (1 - (v - min) / range) * (h - 2 * pad);
     return `${x},${y}`;
   });
   const polyline = pts.join(" ");
@@ -42,7 +45,48 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
         </linearGradient>
       </defs>
       <path d={fill} fill={`url(#${gradId})`} />
-      <polyline points={polyline} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={polyline} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </Box>
+  );
+}
+
+/** Counts a number up from zero, the same way the headline figure does. */
+function useCountUp(value: number) {
+  const [animated, setAnimated] = useState(0);
+  useEffect(() => {
+    const controls = animate(0, value, { duration: 0.8, ease: [0.16, 1, 0.3, 1], onUpdate: (v) => setAnimated(v) });
+    return () => controls.stop();
+  }, [value]);
+  return animated;
+}
+
+/** One of the small figures along the bottom of the headline card. */
+export interface HeroStat {
+  label: string;
+  value: number;
+  /** Shown instead of the money format, for example a percentage. */
+  displayValue?: string;
+  change?: string;
+  isPositive?: boolean;
+  hint?: string;
+}
+
+function StatFigure({ stat }: { stat: HeroStat }) {
+  const animated = useCountUp(stat.value);
+  const shown = stat.displayValue
+    ? (/^[\d.]+%$/.test(stat.displayValue) ? `${animated.toFixed(1)}%` : stat.displayValue)
+    : `₦${Math.round(animated).toLocaleString()}`;
+  return (
+    <Box sx={styles.stat}>
+      <Typography component="span" sx={styles.statLabel}>{stat.label}</Typography>
+      <Typography component="p" sx={styles.statValue}>{shown}</Typography>
+      {stat.change && (
+        <Box component="span" sx={[styles.statChange, stat.isPositive ? styles.statUp : styles.statDown]}>
+          {stat.isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+          {stat.change}
+        </Box>
+      )}
+      {stat.hint && <Typography component="span" sx={styles.statHint}>{stat.hint}</Typography>}
     </Box>
   );
 }
@@ -57,6 +101,8 @@ interface MetricCardProps {
   variant?: 'default' | 'hero' | 'alert';
   subLabel?: string;
   sparkData?: number[];
+  /** Small figures shown along the bottom of the headline card. */
+  stats?: HeroStat[];
 }
 
 export function MetricCard({
@@ -69,19 +115,12 @@ export function MetricCard({
   variant = 'default',
   subLabel,
   sparkData,
+  stats,
 }: MetricCardProps) {
   const isHero = variant === 'hero';
   const isAlert = variant === 'alert' && value > 0;
 
-  const [animatedNum, setAnimatedNum] = useState(0);
-  useEffect(() => {
-    const controls = animate(0, value, {
-      duration: 0.8,
-      ease: [0.16, 1, 0.3, 1],
-      onUpdate: (v) => setAnimatedNum(v),
-    });
-    return () => controls.stop();
-  }, [value]);
+  const animatedNum = useCountUp(value);
 
   const animatedDisplay = displayValue
     ? (/^[\d.]+%$/.test(displayValue) ? `${animatedNum.toFixed(1)}%` : displayValue)
@@ -103,7 +142,7 @@ export function MetricCard({
               sx={styles.alertDot}
             />
           )}
-          <Typography variant="overline" sx={styles.title}>
+          <Typography variant="overline" sx={[styles.title, isHero && styles.titleHero]}>
             {title}
           </Typography>
         </Box>
@@ -118,7 +157,7 @@ export function MetricCard({
         </Typography>
         {(isHero && change) && (
           <Box sx={styles.trendRow}>
-            <Box sx={[styles.trendChip, isPositive ? styles.trendUp : styles.trendDown]}>
+            <Box sx={[styles.trendChip, isPositive ? styles.trendUp : styles.trendDown, isHero && styles.trendHero]}>
               {trendIcon}
               {change}
             </Box>
@@ -129,6 +168,12 @@ export function MetricCard({
       {isHero && sparkData && sparkData.length >= 2 && (
         <Box sx={styles.spark}>
           <Sparkline data={sparkData} />
+        </Box>
+      )}
+
+      {isHero && stats && stats.length > 0 && (
+        <Box sx={styles.stats}>
+          {stats.map((stat) => <StatFigure key={stat.label} stat={stat} />)}
         </Box>
       )}
 
@@ -149,6 +194,9 @@ export function MetricCard({
   );
 }
 
+const naira = (amount: number) => `₦${Math.round(amount).toLocaleString()}`;
+const customers = (count: number) => `${count} customer${count === 1 ? "" : "s"}`;
+
 interface DashboardMetricsProps {
   totalSales: number;
   totalExpenses: number;
@@ -164,6 +212,9 @@ interface DashboardMetricsProps {
   grossMarginPct: number;
   prevGrossMarginPct: number;
   sparkData?: number[];
+  /** What is owed from today's jobs and from the last 7 days. */
+  owedToday: { amount: number; customers: number };
+  owedWeek: { amount: number; customers: number };
 }
 
 export function DashboardMetrics({
@@ -181,6 +232,8 @@ export function DashboardMetrics({
   grossMarginPct,
   prevGrossMarginPct,
   sparkData,
+  owedToday,
+  owedWeek,
 }: DashboardMetricsProps) {
   const marginChange = `${Math.abs(Math.round(grossMarginPct - prevGrossMarginPct))}pp`;
   const isMarginUp = grossMarginPct >= prevGrossMarginPct;
@@ -202,49 +255,23 @@ export function DashboardMetrics({
           isPositive={isSalesUp}
           icon={ShoppingBag}
           sparkData={sparkData}
+          stats={[
+            { label: "Expenses", value: totalExpenses, change: expensesChange, isPositive: isExpensesDown },
+            { label: "Net profit", value: netProfit, change: profitChange, isPositive: isProfitUp },
+            {
+              label: "Margin", value: grossMarginPct, displayValue: totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%",
+              change: totalSales > 0 ? marginChange : undefined, isPositive: isMarginUp,
+              hint: totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet",
+            },
+          ]}
         />
       </Box>
 
-      <Box component={motion.div} variants={cardItemVariants} sx={styles.cell}>
-        <MetricCard
-          title="Expenses"
-          value={totalExpenses}
-          change={expensesChange}
-          isPositive={isExpensesDown}
-          icon={DollarSign}
-        />
-      </Box>
-
-      <Box component={motion.div} variants={cardItemVariants} sx={styles.cell}>
-        <MetricCard
-          title="Net Profit"
-          value={netProfit}
-          change={profitChange}
-          isPositive={isProfitUp}
-          icon={BarChart2}
-        />
-      </Box>
-
-      <Box component={motion.div} variants={cardItemVariants} sx={styles.cell}>
-        <MetricCard
-          variant="alert"
-          title="Outstanding Debt"
-          value={outstandingDebt}
-          icon={AlertCircle}
-          subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
-        />
-      </Box>
-
-      <Box component={motion.div} variants={cardItemVariants} sx={styles.cell}>
-        <MetricCard
-          title="Gross Margin"
-          value={grossMarginPct}
-          displayValue={totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%"}
-          change={totalSales > 0 ? marginChange : undefined}
-          isPositive={isMarginUp}
-          icon={Percent}
-          subLabel={totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet"}
-        />
+      <Box component={motion.div} variants={cardItemVariants} sx={styles.owedRow}>
+        <StatTile compact tone={outstandingDebt > 0 ? "error" : "neutral"} label="Total owed" value={naira(outstandingDebt)}
+          caption={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"} />
+        <StatTile compact tone={owedToday.amount > 0 ? "warning" : "neutral"} label="Owed today" value={naira(owedToday.amount)} caption={customers(owedToday.customers)} />
+        <StatTile compact tone={owedWeek.amount > 0 ? "error" : "neutral"} label="Owed 7 days" value={naira(owedWeek.amount)} caption={customers(owedWeek.customers)} />
       </Box>
     </Box>
   );

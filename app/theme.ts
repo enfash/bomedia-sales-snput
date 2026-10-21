@@ -288,35 +288,53 @@ const trendChip = (tone: "success" | "error") => ({
 
 // Dashboard KPI cards (components/dashboard-metrics.tsx).
 export const metricsStyles = {
-  sparkSvg: { width: "100%", height: 32, overflow: "visible" },
+  // The chart is stretched to the card width, so its line uses a non-scaling stroke to stay the same thickness on every slope.
+  sparkSvg: { display: "block", width: "100%", height: 56, overflow: "visible" },
   grid: { display: "grid", gridTemplateColumns: { xs: "repeat(2, 1fr)", lg: "repeat(6, 1fr)" }, gap: { xs: 0.75, sm: 2 } },
-  heroCell: { gridColumn: { xs: "span 2", lg: "span 2" } },
-  cell: { gridColumn: "span 1" },
+  heroCell: { gridColumn: "1 / -1" },
+  // What is owed: total, today and the last 7 days, always in one row.
+  owedRow: { gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: { xs: 0.75, sm: 2 } },
   card: {
     position: "relative", overflow: "hidden", height: "100%", bgcolor: "background.paper", borderRadius: "16px", border: "1px solid", borderColor: "divider",
     p: { xs: 1.25, lg: 2.5 }, display: "flex", flexDirection: "column", justifyContent: "space-between", transition: "box-shadow 0.3s, transform 0.3s",
     "&:hover": { "@media (hover: hover)": { boxShadow: softShadow(0.08), transform: "translateY(-4px)" } },
   },
-  cardHero: { bgcolor: tint("primary", 0.03), borderColor: tint("primary", 0.2) },
+  // The headline card is the one solid brand-colour block on the dashboard; everything on it is white.
+  cardHero: {
+    p: { xs: 2, lg: 2.5 }, borderColor: "transparent", color: "common.white",
+    background: (theme: Theme) => `linear-gradient(160deg, ${lighten(theme.palette.primary.main, 0.12)} 0%, ${theme.palette.primary.main} 55%, ${theme.palette.primary.dark} 100%)`,
+  },
   cardAlert: { borderColor: "error.main", outline: "2px solid", outlineColor: tint("error", 0.2) },
-  glow: { position: "absolute", right: -16, top: -16, height: 112, width: 112, borderRadius: "50%", bgcolor: tint("primary", 0.05), filter: "blur(24px)" },
+  glow: { position: "absolute", right: -16, top: -16, height: 112, width: 112, borderRadius: "50%", bgcolor: whiteTint(0.08), filter: "blur(24px)" },
   header: { display: "flex", alignItems: "center", justifyContent: "space-between", mb: { xs: 0.5, lg: 2 }, gap: 0.5 },
   titleRow: { display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 },
   alertDot: { width: { xs: 6, sm: 8 }, height: { xs: 6, sm: 8 }, borderRadius: "50%", bgcolor: "error.main", flexShrink: 0, boxShadow: (theme: Theme) => `0 0 4px ${alpha(theme.palette.error.main, 0.5)}` },
   title: { fontSize: { xs: "0.625rem", lg: "0.6875rem" }, color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  titleHero: { color: whiteTint(0.75) },
   icon: { display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderRadius: { xs: 1.5, lg: 2 }, width: { xs: 24, lg: 40 }, height: { xs: 24, lg: 40 } },
   iconDefault: { bgcolor: "action.hover", color: "text.primary" },
-  iconHero: { width: 40, height: 40, bgcolor: "primary.main", color: "primary.contrastText", boxShadow: (theme: Theme) => `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}` },
+  iconHero: { width: 40, height: 40, bgcolor: whiteTint(0.18), color: "common.white" },
   iconAlert: { bgcolor: tint("error", 0.1), color: "error.main" },
   body: { display: "flex", flexDirection: "column", gap: 0.5 },
   value: { fontWeight: 700, letterSpacing: "-0.02em", color: "text.primary", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   valueDefault: { fontSize: { xs: "1.0625rem", lg: "1.5rem" } },
-  valueHero: { fontSize: { xs: "1.5rem", sm: "2.25rem" } },
+  valueHero: { fontSize: { xs: "1.75rem", sm: "2.25rem" }, color: "common.white" },
   trendRow: { display: "flex", alignItems: "center", gap: 1, mt: { xs: 0.5, sm: 1 } },
   trendChip: { display: "flex", alignItems: "center", gap: 0.5, fontSize: "0.6875rem", fontWeight: 700, px: 1, py: 0.25, borderRadius: 10, border: "1px solid" },
   trendUp: trendChip("success"),
   trendDown: trendChip("error"),
-  spark: { mt: 1.5, opacity: 0.6, color: accent },
+  // On the brand card the growth chip is white-on-brand whichever way the change goes; the arrow carries the direction.
+  trendHero: { bgcolor: whiteTint(0.16), color: "common.white", borderColor: whiteTint(0.24) },
+  spark: { mt: 1.5, opacity: 0.9, color: "common.white" },
+  // Expenses, net profit and margin along the bottom of the headline card. Long figures wrap onto a second line instead of being cut off.
+  stats: { mt: 2, pt: 1.5, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", borderTop: "1px solid", borderColor: whiteTint(0.22) },
+  stat: { minWidth: 0, pr: 1, "& + &": { pl: 1.5, pr: 1, borderLeft: "1px solid", borderColor: whiteTint(0.22) } },
+  statValue: { fontWeight: 700, fontSize: { xs: "0.9375rem", sm: "1.0625rem" }, lineHeight: 1.25, overflowWrap: "anywhere", color: "common.white" },
+  statLabel: { display: "block", fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: whiteTint(0.72) },
+  statChange: { display: "inline-flex", alignItems: "center", gap: 0.25, mt: 0.25, fontSize: "0.6875rem", fontWeight: 700 },
+  statUp: { color: "#9BE3BE" },
+  statDown: { color: "#FFB9AE" },
+  statHint: { display: "block", mt: 0.25, fontSize: "0.6875rem", color: whiteTint(0.72) },
   footer: { mt: { xs: 0.75, lg: 2 }, pt: { xs: 0.75, lg: 2 }, borderTop: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" },
   subLabel: { fontSize: { xs: "0.625rem", lg: "0.6875rem" }, color: "text.secondary" },
   change: { display: "flex", alignItems: "center", gap: { xs: 0.25, sm: 0.5 }, fontSize: { xs: "0.625rem", lg: "0.75rem" }, fontWeight: 700 },
@@ -1008,6 +1026,11 @@ export const statTileStyles = {
   label: { fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary" },
   value: { fontWeight: 700 },
   wide: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 },
+  // The small version: three of these fit in one row on a phone, and long amounts wrap instead of being cut off.
+  tileCompact: { p: { xs: 1.25, sm: 1.75 }, borderRadius: "12px" },
+  labelCompact: { fontSize: { xs: "0.625rem", sm: "0.6875rem" }, letterSpacing: "0.04em", lineHeight: 1.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  valueCompact: { fontSize: { xs: "0.9375rem", sm: "1.25rem" }, lineHeight: 1.3, overflowWrap: "anywhere" },
+  captionCompact: { fontSize: { xs: "0.6875rem", sm: "0.75rem" }, lineHeight: 1.4 },
   grid3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
   grid4: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.25 },
 } as const;
@@ -1808,10 +1831,6 @@ export const loginStyles = {
 } as const;
 
 // The two debt tiles under the owner dashboard's numbers.
-export const dashboardDebtStyles = {
-  tiles: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5, mt: 2 },
-} as const;
-
 // Phone bottom navigation (the capsule). Nothing here scales or grows on press, so no highlight can spill past the capsule edge.
 const BOTTOM_NAV_GAP = "calc(24px + env(safe-area-inset-bottom, 0px))";
 export const bottomNavStyles = {

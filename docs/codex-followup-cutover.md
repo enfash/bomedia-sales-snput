@@ -6,7 +6,7 @@ Paste the prompt below into Codex on branch `codex/supabase-migration`. It revie
 
 You are doing a second, narrower review. Review only; do NOT edit files, connect to any hosted database, print secrets, commit or push.
 
-Scope: the changes in commit `e33ee55` ("Fix the cutover review findings from Codex and Antigravity") and anything it touches. See them with `git show e33ee55 --stat` and `git diff 88dd2db e33ee55`. Background: `docs/codex-review-cutover.md` (the first prompt and the owner's business rules) and `docs/cutover-day-runsheet.md`.
+Scope: the changes in commits `e33ee55` ("Fix the cutover review findings from Codex and Antigravity") and `8060180` (stock and name-decision binding, lock timeout, option A dates), and anything they touch. See them with `git diff 88dd2db 8060180`. Background: `docs/codex-review-cutover.md` (the first prompt and the owner's business rules) and `docs/cutover-day-runsheet.md`.
 
 These fixes load a small business's real money data into a live database on Sunday 25 October 2026, once, with no easy undo. Your job is to find mistakes INTRODUCED OR LEFT BY THE FIXES, not to repeat the first review.
 
