@@ -6,6 +6,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { GlobalStyles } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import "dayjs/locale/en-gb";
 import { getAppTheme } from "./theme";
 import { usePathname } from "next/navigation";
 
@@ -79,7 +80,7 @@ export function MuiProviders({
             }
           }}
         />
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           {children}
         </LocalizationProvider>
       </MuiThemeProvider>

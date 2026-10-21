@@ -1,6 +1,7 @@
 "use client";
 
-import { Box, FormControlLabel, Radio, RadioGroup, TextField, Typography } from '@mui/material';
+import { Box, TextField, Typography } from '@mui/material';
+import { SegmentedControl } from '@/components/segmented-control';
 import { choiceStyles as styles } from '@/app/theme';
 import { choiceForUnit, LENGTH_UNITS, OTHER_LENGTH, recordedAs, ROLL_LENGTH_PRESETS, rollRawFeet, SETUP_RESERVE_FT, usableFeet, type LengthUnit, type RollLengthChoice } from '@/lib/roll-length';
 
@@ -10,23 +11,16 @@ const feetLabel = (value: number) => `${value.toLocaleString('en-NG', { maximumF
 export function RollLengthPicker({ value, onChange, disabled = false }: { value: RollLengthChoice; onChange: (next: RollLengthChoice) => void; disabled?: boolean }) {
   const presets = ROLL_LENGTH_PRESETS[value.unit];
   const feet = rollRawFeet(value), usable = usableFeet(feet);
-  const choice = (key: string, label: string, selected: boolean) => (
-    <FormControlLabel key={key} value={key} disabled={disabled} control={<Radio />} label={label} sx={[styles.choice, selected && styles.choiceOn]} slotProps={{ typography: { sx: styles.label } }} />
-  );
   return <Box sx={styles.wrap}>
     <Box component="fieldset" sx={styles.fieldset}>
       <Typography component="legend" sx={styles.legend}>Measure the roll in</Typography>
-      <RadioGroup row sx={styles.group} name="roll-unit" value={value.unit}
-        onChange={(_, next) => { const unit = next as LengthUnit; onChange({ unit, choice: choiceForUnit(unit, value.choice), other: value.other }); }}>
-        {LENGTH_UNITS.map((unit) => choice(unit.value, unit.label, value.unit === unit.value))}
-      </RadioGroup>
+      <SegmentedControl label="Measure the roll in" disabled={disabled} value={value.unit} options={LENGTH_UNITS}
+        onChange={(unit: LengthUnit) => onChange({ unit, choice: choiceForUnit(unit, value.choice), other: value.other })} />
     </Box>
     <Box component="fieldset" sx={styles.fieldset}>
       <Typography component="legend" sx={styles.legend}>Roll length</Typography>
-      <RadioGroup row sx={styles.group} name="roll-length" value={value.choice} onChange={(_, next) => onChange({ ...value, choice: next })}>
-        {presets.map((preset) => choice(preset.value, preset.label, value.choice === preset.value))}
-        {choice(OTHER_LENGTH, 'Other', value.choice === OTHER_LENGTH)}
-      </RadioGroup>
+      <SegmentedControl label="Roll length" disabled={disabled} value={value.choice} options={[...presets, { value: OTHER_LENGTH, label: 'Other' }]}
+        onChange={(choice) => onChange({ ...value, choice })} />
       {value.choice === OTHER_LENGTH && <TextField label={`Length of each roll (${value.unit === 'm' ? 'm' : 'ft'})`} value={value.other} disabled={disabled}
         onChange={(event) => onChange({ ...value, other: event.target.value })} slotProps={{ htmlInput: { inputMode: 'decimal' } }} />}
       <Typography variant="caption" sx={styles.hint}>

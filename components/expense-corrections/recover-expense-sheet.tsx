@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from '@/components/date-field';
 import { useRef, useState } from 'react';
 import { Alert, Box, Button, TextField, Typography } from '@mui/material';
 import { toast } from 'sonner';
@@ -47,7 +48,7 @@ export function RecoverExpenseSheet({ reference, payee, toRecoverKobo, onClose, 
       {error && <Alert severity="error">{error}</Alert>}
       <TextField label="Amount received (₦)" type="number" value={amount} onChange={(event) => { requestId.current = null; setAmount(event.target.value); }}
         slotProps={{ htmlInput: { min: 0, step: '0.01', max: toRecoverKobo / 100 } }} helperText={`Up to ${koboNaira(toRecoverKobo)}`} />
-      <TextField label="Date received" type="date" value={date} onChange={(event) => { requestId.current = null; setDate(event.target.value); }} slotProps={{ inputLabel: { shrink: true } }} />
+      <DateField label="Date received" value={date} onChange={(next) => { requestId.current = null; setDate(next); }} />
       <PaidBy value={method} onChange={(next) => { requestId.current = null; setMethod(next); }} required />
     </Box>
   </ResponsiveSheet>;

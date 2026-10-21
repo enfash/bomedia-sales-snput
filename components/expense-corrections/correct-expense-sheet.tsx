@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from '@/components/date-field';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import { toast } from 'sonner';
@@ -94,7 +95,7 @@ export function CorrectExpenseSheet({ expense, owner, onClose, onDone }: { expen
         helperText={paid ? 'A paid expense can be lowered but not raised. Log any extra as a new expense.' : undefined} />
       <Box sx={styles.row2}>
         <TextField select label="Category" value={form.category} onChange={set('category')}>{categories.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}</TextField>
-        <TextField label="Date" type="date" value={form.date} onChange={set('date')} slotProps={{ inputLabel: { shrink: true } }} />
+        <DateField label="Date" value={form.date} onChange={(date) => set('date')({ target: { value: date } })} />
       </Box>
       <TextField label="Paid to" value={form.paidTo} onChange={set('paidTo')} slotProps={{ htmlInput: { maxLength: 200 } }} />
       <TextField label="What for" value={form.description} onChange={set('description')} slotProps={{ htmlInput: { maxLength: 1000 } }} />

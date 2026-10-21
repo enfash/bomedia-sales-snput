@@ -1012,6 +1012,19 @@ export const materialsStyles = {
 } as const;
 
 // Radio choices drawn as bordered cards (roll unit and length). Used wherever one option must be picked from a few.
+// Segmented control (components/segmented-control.tsx) and the payment-method box (components/paid-by.tsx).
+export const segmentedStyles = {
+  group: { "& .MuiToggleButton-root": { minHeight: 44, textTransform: "none", fontWeight: 600, whiteSpace: "nowrap" } },
+} as const;
+export const paidByStyles = {
+  // Plain until a method is chosen, then outlined in the brand colour, so an empty box never looks already answered.
+  box: { gridColumn: "1 / -1", m: 0, p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 3 },
+  boxChosen: { borderWidth: 2, borderColor: "primary.main" },
+  legend: { px: 0.75, fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary" },
+  legendChosen: { color: "primary.main" },
+  helper: { display: "block", mt: 1 },
+} as const;
+
 export const choiceStyles = {
   wrap: { display: "flex", flexDirection: "column", gap: 2 },
   fieldset: { border: 0, m: 0, p: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 },

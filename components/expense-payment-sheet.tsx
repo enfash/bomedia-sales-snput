@@ -1,4 +1,5 @@
 "use client";
+import { DateField } from '@/components/date-field';
 import { useRef, useState } from 'react';
 import { Alert, Box, Button, Stack, TextField, Typography } from '@mui/material';
 import { ResponsiveSheet } from './responsive-sheet';
@@ -30,7 +31,7 @@ export function ExpensePaymentSheet({expense,onClose}:{expense:Expense|null;onCl
     <Stack spacing={2} sx={settingsStyles.form}>
       {error&&<Alert severity="error">{error}</Alert>}
       <Typography>{expense?.['EXPENSE ID']} · ₦{expense?.AMOUNT} · {expense?.['PAID TO']||expense?.CATEGORY}</Typography>
-      <TextField label="Payment date" type="date" value={draft.date} onChange={e=>change({date:e.target.value})} slotProps={{inputLabel:{shrink:true}}}/>
+      <DateField label="Payment date" value={draft.date} onChange={date=>change({date})}/>
       <PaidBy value={draft.method} onChange={method=>change({method})} required/>
       <Typography variant="body2" color="text.secondary">This records the payment against the existing expense. It does not record the cost again.</Typography>
     </Stack>

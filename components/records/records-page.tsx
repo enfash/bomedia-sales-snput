@@ -7,6 +7,7 @@ import { LoadingState } from '@/components/loading-state';
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { recordsStyles as styles } from '@/app/theme';
 import { HomeBackLink } from '@/components/back-link';
+import { DateRangeFields } from '@/components/date-range-fields';
 import { HeldSales } from '@/components/records/held-sales';
 import { useFloatingNotice } from '@/components/floating-notice';
 import type { UnifiedRecord } from '@/components/manage-sale-action';
@@ -244,10 +245,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
       {RANGES[role].map((r) => <Button key={r.id} variant={range === r.id ? 'contained' : 'outlined'} color="primary" sx={styles.chip} aria-pressed={range === r.id} onClick={() => { setRange(r.id); setPage(1); }}>{r.label}</Button>)}
       <Button variant={range === 'custom' ? 'contained' : 'outlined'} color="primary" sx={styles.chip} aria-pressed={range === 'custom'} startIcon={<CalendarRange size={16} />} onClick={() => { setRange('custom'); setPage(1); }}>Dates</Button>
     </Box>
-    {range === 'custom' && <Box sx={styles.dateFields}>
-      <TextField label="From" type="date" value={customStart} onChange={(event) => { setCustomStart(event.target.value); setPage(1); }} slotProps={{ inputLabel: { shrink: true } }} />
-      <TextField label="To" type="date" value={customEnd} onChange={(event) => { setCustomEnd(event.target.value); setPage(1); }} slotProps={{ inputLabel: { shrink: true } }} />
-    </Box>}
+    {range === 'custom' && <DateRangeFields start={customStart} end={customEnd} onStartChange={(value) => { setCustomStart(value); setPage(1); }} onEndChange={(value) => { setCustomEnd(value); setPage(1); }} />}
 
     <TextField label="Search" placeholder={owner ? 'Customer, job or date' : 'Customer or job'} value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} type="search" slotProps={{ inputLabel: { shrink: true } }} />
 

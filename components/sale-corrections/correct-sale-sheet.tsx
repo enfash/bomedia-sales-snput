@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from '@/components/date-field';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import { toast } from 'sonner';
@@ -113,9 +114,9 @@ export function CorrectSaleSheet({ jobId, description, owner, onClose, onDone }:
         </Box>
         {!service && <Box sx={styles.row2}>
           <TextField label="Price per sq ft (₦)" type="number" value={form.price} onChange={set('price')} />
-          <TextField label="Sale date" type="date" value={form.date} onChange={set('date')} slotProps={{ inputLabel: { shrink: true } }} />
+          <DateField label="Sale date" value={form.date} onChange={(date) => set('date')({ target: { value: date } })} />
         </Box>}
-        {service && <TextField label="Sale date" type="date" value={form.date} onChange={set('date')} slotProps={{ inputLabel: { shrink: true } }} />}
+        {service && <DateField label="Sale date" value={form.date} onChange={(date) => set('date')({ target: { value: date } })} />}
         {!service && materials.length > 0 && <TextField select label="Material" value={form.materialId} onChange={set('materialId')}>
           {materials.map((m) => <MenuItem key={m.id} value={m.id}>{materialLabel(m)}</MenuItem>)}
         </TextField>}

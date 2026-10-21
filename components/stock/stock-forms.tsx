@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import NextLink from 'next/link';
 import { Alert, Box, Button, Link, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { DateField } from '@/components/date-field';
 import { PaidBy } from '@/components/paid-by';
 import { StockBar } from '@/components/stock-bar';
 import { RollLengthPicker } from '@/components/roll-length-picker';
@@ -36,9 +37,6 @@ const Actions = ({ stock, onCancel, label }: { stock: StockEntryState; onCancel?
     <Button type="submit" variant="contained" size="large" disabled={!stock.ready || stock.locked}>{stock.busy ? 'Saving…' : stock.pending ? 'Finish the saved entry first' : label}</Button>
   </Box>
 );
-const DateField = ({ label, value, onChange, disabled }: { label: string; value: string; onChange: (value: string) => void; disabled: boolean }) => (
-  <TextField type="date" label={label} value={value} required disabled={disabled} onChange={(event) => onChange(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth />
-);
 
 export function RestockForm({ stock, materialId = '', onSaved, onCancel }: FormProps & { materialId?: string }) {
   const [selected, setSelected] = useState(materialId), [rollCount, setRollCount] = useState('1'), [length, setLength] = useState<RollLengthChoice>(DEFAULT_ROLL_LENGTH);
@@ -66,7 +64,7 @@ export function RestockForm({ stock, materialId = '', onSaved, onCancel }: FormP
     <TextField label="Total paid for all rolls (₦)" value={cost} required disabled={stock.locked} onChange={(event) => setCost(event.target.value)} slotProps={{ htmlInput: { inputMode: 'decimal' } }} />
     <PaidBy value={method} onChange={setMethod} disabled={!stock.ready || stock.locked} methods={stock.methods.map((item) => ({ value: item.method, label: item.label }))} />
     <Box sx={styles.row}>
-      <DateField label="Date" value={businessDate} onChange={setBusinessDate} disabled={stock.locked} />
+      <DateField required label="Date" value={businessDate} onChange={setBusinessDate} disabled={stock.locked} />
       <TextField label="Supplier (optional)" value={supplier} disabled={stock.locked} onChange={(event) => setSupplier(event.target.value)} slotProps={{ htmlInput: { maxLength: 200 } }} fullWidth />
     </Box>
     <TextField label="Invoice or receipt number (optional)" value={reference} disabled={stock.locked} onChange={(event) => setReference(event.target.value)} slotProps={{ htmlInput: { maxLength: 100 } }} />
@@ -107,7 +105,7 @@ export function WasteForm({ stock, rollId = '', onSaved, onCancel }: FormProps &
       {WASTE_REASONS.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
     </TextField>
     <Box sx={styles.row}>
-      <DateField label="Date" value={businessDate} onChange={setBusinessDate} disabled={stock.locked} />
+      <DateField required label="Date" value={businessDate} onChange={setBusinessDate} disabled={stock.locked} />
       <TextField label="Responsible (optional)" value={responsible} disabled={stock.locked} onChange={(event) => setResponsible(event.target.value)} slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth />
     </Box>
     <TextField label="Job or note (optional)" value={note} disabled={stock.locked} onChange={(event) => setNote(event.target.value)} slotProps={{ htmlInput: { maxLength: 500 } }} />
@@ -141,7 +139,7 @@ export function CountForm({ stock, rollId = '', onSaved, onCancel }: FormProps &
     {preview?.kind === 'too-long' && <Alert severity="warning">The measured length cannot be more than this roll&apos;s usable length ({ft(preview.limit)}).</Alert>}
     <TextField label="Why is it different?" value={reason} required multiline minRows={3} disabled={stock.locked} onChange={(event) => setReason(event.target.value)}
       helperText="Required. A correction cannot be edited later; a mistake is fixed with another correction." slotProps={{ htmlInput: { maxLength: 500 } }} />
-    <DateField label="Count date" value={businessDate} onChange={setBusinessDate} disabled={stock.locked} />
+    <DateField required label="Count date" value={businessDate} onChange={setBusinessDate} disabled={stock.locked} />
     <Actions stock={stock} onCancel={onCancel} label="Save correction" />
   </Box>;
 }

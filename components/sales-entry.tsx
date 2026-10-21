@@ -1,5 +1,6 @@
 "use client";
 
+import { SegmentedControl } from '@/components/segmented-control';
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, PenLine, Plus, RefreshCw, Sparkles } from "lucide-react";
@@ -766,13 +767,7 @@ export function SalesEntry() {
                   </Typography>}
                 </Box>
                 <TextField fullWidth label="What is it? (optional)" placeholder="Event banner, sticker label, window graphic" value={jobDesc} onChange={(e) => setJobDesc(e.target.value)} />
-                <Box sx={styles.stageChips} role="group" aria-label="Size unit">
-                  {(["ft", "in"] as const).map((u) => (
-                    <Button key={u} size="small" variant={dimUnit === u ? "contained" : "outlined"} color={dimUnit === u ? "primary" : "inherit"} aria-pressed={dimUnit === u} onClick={() => setDimUnit(u)}>
-                      {u === "ft" ? "Feet" : "Inches"}
-                    </Button>
-                  ))}
-                </Box>
+                <SegmentedControl label="Size unit" value={dimUnit} options={[{ value: "ft", label: "Feet" }, { value: "in", label: "Inches" }]} onChange={setDimUnit} />
                 <Box sx={styles.grid3}>
                   <TextField fullWidth required type="number" label={`Width (${dimUnit})`} placeholder={dimUnit === "ft" ? "4" : "48"} value={jobWidth}
                     error={formTouched && !jobWidth} onChange={(e) => { setJobWidth(e.target.value); setFormTouched(true); }} />
