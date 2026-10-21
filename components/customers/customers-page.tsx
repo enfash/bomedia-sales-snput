@@ -34,6 +34,7 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [owingOnly, setOwingOnly] = useState(false);
+  const [noPhoneOnly, setNoPhoneOnly] = useState(false);
   const [sortBy, setSortBy] = useState<CustomerSort>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [page, setPage] = useState(1);
@@ -68,11 +69,12 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
   }, [load]);
 
   const all = backend === 'postgres' ? rows : backend === 'sheets' ? fromSales(cachedSales as Record<string, string>[]) : null;
-  const sorted = all ? sortCustomers(filterCustomers(all, search, owingOnly), sortBy, sortOrder) : [];
+  const sorted = all ? sortCustomers(filterCustomers(all, search, owingOnly, noPhoneOnly), sortBy, sortOrder) : [];
   const totalPages = Math.max(1, Math.ceil(sorted.length / perPage));
   const currentPage = Math.min(page, totalPages);
   const shown = sorted.slice((currentPage - 1) * perPage, currentPage * perPage);
   const stats = all ? summarise(all) : null;
+  const noPhoneCount = all ? all.filter((c) => !c.contact.trim()).length : 0;
   const key = (c: CustomerItem) => c.id ?? c.name;
   const open = all?.find((c) => key(c) === openKey) ?? (wanted && wanted !== dismissed ? all?.find((c) => c.reference === wanted) ?? null : null);
 
@@ -99,8 +101,9 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
 
     <TextField type="search" label="Search" placeholder="Name, phone or customer ID" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
     <Box sx={styles.chips} role="group" aria-label="Show">
-      <Button variant={!owingOnly ? 'contained' : 'outlined'} color={!owingOnly ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={!owingOnly} onClick={() => { setOwingOnly(false); setPage(1); }}>All · {stats?.count ?? 0}</Button>
-      <Button variant={owingOnly ? 'contained' : 'outlined'} color={owingOnly ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={owingOnly} onClick={() => { setOwingOnly(true); setPage(1); }}>Debtors only · {stats?.owingCount ?? 0}</Button>
+      <Button variant={!owingOnly && !noPhoneOnly ? 'contained' : 'outlined'} color={!owingOnly && !noPhoneOnly ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={!owingOnly && !noPhoneOnly} onClick={() => { setOwingOnly(false); setNoPhoneOnly(false); setPage(1); }}>All · {stats?.count ?? 0}</Button>
+      <Button variant={owingOnly ? 'contained' : 'outlined'} color={owingOnly ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={owingOnly} onClick={() => { setOwingOnly(true); setNoPhoneOnly(false); setPage(1); }}>Debtors only · {stats?.owingCount ?? 0}</Button>
+      <Button variant={noPhoneOnly ? 'contained' : 'outlined'} color={noPhoneOnly ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={noPhoneOnly} onClick={() => { setNoPhoneOnly(true); setOwingOnly(false); setPage(1); }}>No phone · {noPhoneCount}</Button>
     </Box>
     <Box sx={styles.sortRow}>
       <Typography variant="body2" sx={styles.sortNote}>Sorted by <strong>{SORT_LABEL[sortBy]}</strong>, {orderText(sortBy, sortOrder)}</Typography>
@@ -112,9 +115,9 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
 
     {!all ? <LoadingState pieces={[{ k: 'list', n: 6 }]} label="Loading customers" /> : !sorted.length ? <Box sx={styles.emptyBox}>
       <Box sx={styles.emptyIcon}><Users size={22} /></Box>
-      <Typography sx={styles.emptyTitle}>{search.trim() ? `No customer matches "${search.trim()}"` : owingOnly ? 'No debtors' : 'No customers yet'}</Typography>
-      <Typography variant="body2" sx={styles.emptyText}>{search.trim() ? 'Try a shorter word, or clear the search.' : owingOnly ? 'Every customer has paid in full.' : 'Customers appear here once you record a sale.'}</Typography>
-      {(search.trim() || owingOnly) && <Button variant="outlined" onClick={() => { setSearch(''); setOwingOnly(false); setPage(1); }}>Show everyone</Button>}
+      <Typography sx={styles.emptyTitle}>{search.trim() ? `No customer matches "${search.trim()}"` : owingOnly ? 'No debtors' : noPhoneOnly ? 'Every customer has a phone number' : 'No customers yet'}</Typography>
+      <Typography variant="body2" sx={styles.emptyText}>{search.trim() ? 'Try a shorter word, or clear the search.' : owingOnly ? 'Every customer has paid in full.' : noPhoneOnly ? 'Nothing to fix here.' : 'Customers appear here once you record a sale.'}</Typography>
+      {(search.trim() || owingOnly || noPhoneOnly) && <Button variant="outlined" onClick={() => { setSearch(''); setOwingOnly(false); setNoPhoneOnly(false); setPage(1); }}>Show everyone</Button>}
     </Box> : <Paper variant="outlined" sx={styles.group}>
       {shown.map((c) => <Box key={key(c)} sx={styles.row}>
         <ButtonBase onClick={() => setOpenKey(key(c))} sx={styles.rowButton} aria-label={`${c.name}${c.reference ? `, ${c.reference}` : ''}. ${c.owedKobo > 0 ? `Owes ${shortNaira(c.owedKobo)}` : 'Paid up'}. Open profile`}>

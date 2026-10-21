@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Alert, Box, Button, ButtonBase, IconButton, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, ButtonBase, FormControlLabel, IconButton, Paper, Switch, TextField, Typography } from '@mui/material';
 import { LoadingState } from '@/components/loading-state';
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { recordsStyles as styles } from '@/app/theme';
@@ -217,14 +217,15 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
 
   return <Box sx={styles.screen}>
     <HomeBackLink />
-    <Box sx={styles.heading}>
-      <Typography variant="h3" component="h1">Records</Typography>
-      <Typography color="text.secondary">{COPY[role]}</Typography>
+    <Box sx={styles.headingRow}>
+      <Box sx={styles.heading}>
+        <Typography variant="h3" component="h1">Records</Typography>
+        <Typography color="text.secondary">{COPY[role]}</Typography>
+      </Box>
+      <IconButton aria-label={loading ? 'Loading records' : refreshing ? 'Updating records' : 'Refresh records'} aria-busy={loading || refreshing} disabled={loading || refreshing} sx={styles.refreshIcon} onClick={() => void fetchData()}>
+        <RefreshCw size={18} />
+      </IconButton>
     </Box>
-
-    <Button variant="outlined" color="primary" size="large" startIcon={<RefreshCw size={18} />} disabled={loading || refreshing} onClick={() => void fetchData()}>
-      {loading ? 'Loading…' : refreshing ? 'Updating…' : 'Refresh'}
-    </Button>
 
     {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void fetchData()}>Try again</Button>}>
       {error} Sales waiting on this phone are safe and will send later.
@@ -255,14 +256,10 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
         {name === 'Pending' ? 'Waiting' : name} · {count(name)}
       </Button>)}
     </Box>}
-    <Box sx={styles.chips}>
-      <Button variant={showCancelled ? 'contained' : 'outlined'} color={showCancelled ? 'primary' : 'inherit'} sx={styles.chip} aria-pressed={showCancelled}
-        onClick={() => { const next = !showCancelled; showCancelledRef.current = next; setShowCancelled(next); setPage(1); if (next) void loadCancelled(); }}>Show cancelled sales</Button>
-    </Box>
 
     <Box sx={styles.sortRow}>
-      <Typography variant="body2" sx={styles.sortNote}>Sorted by <strong>{SORT_LABEL[sortBy]}</strong>, {orderText(sortBy, sortOrder)}</Typography>
-      <Button variant="outlined" color="inherit" onClick={() => setSorting(true)}>Sort</Button>
+      <Typography variant="body2" sx={styles.sortNote}>Sorted by <strong>{SORT_LABEL[sortBy]}</strong>, {orderText(sortBy, sortOrder)}{showCancelled ? ' · cancelled sales shown' : ''}</Typography>
+      <Button variant="outlined" color="inherit" onClick={() => setSorting(true)}>Sort &amp; view</Button>
     </Box>
 
     {loading && records.length === 0 ? <LoadingState pieces={[{ k: 'list', n: 6 }]} label="Loading records" /> : sorted.length === 0 ? <Box sx={styles.emptyBox}>
@@ -291,7 +288,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
       <IconButton aria-label="Next page" disabled={currentPage === totalPages} sx={styles.pagerButton} onClick={() => setPage(Math.min(totalPages, currentPage + 1))}><ChevronRight size={18} /></IconButton>
     </Box>}
 
-    <ResponsiveSheet open={sorting} onClose={() => setSorting(false)} title="Sort records">
+    <ResponsiveSheet open={sorting} onClose={() => setSorting(false)} title="Sort and view">
       <Box sx={styles.sheetBody}>
         <Box sx={styles.choices3} role="group" aria-label="Sort by">
           {(['date', 'name', 'debt'] as SortBy[]).map((by) => <Button key={by} variant={sortBy === by ? 'contained' : 'outlined'} color="primary" sx={styles.choice} aria-pressed={sortBy === by}
@@ -303,6 +300,8 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
           </Button>)}
         </Box>
         {sortBy === 'debt' && <Typography variant="body2" sx={styles.sortNote}>Showing only sales that still owe. {owner ? 'Expenses and settled sales are hidden.' : 'Settled sales are hidden.'}</Typography>}
+        <FormControlLabel sx={styles.switchRow} labelPlacement="start" label="Show cancelled sales" control={<Switch checked={showCancelled}
+          onChange={() => { const next = !showCancelled; showCancelledRef.current = next; setShowCancelled(next); setPage(1); if (next) void loadCancelled(); }} />} />
         <Button variant="contained" sx={styles.fullWidth} onClick={() => setSorting(false)}>Done</Button>
       </Box>
     </ResponsiveSheet>

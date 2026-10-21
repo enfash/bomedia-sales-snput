@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Box, Button, ButtonBase, IconButton, Typography, useMediaQuery } from '@mui/material';
 import { LoadingState } from '@/components/loading-state';
 import { useTheme } from '@mui/material/styles';
@@ -21,6 +21,7 @@ interface JobBoardProps {
   filterClient?: string | null;
 }
 
+const DELIVERED_PAGE = 20;
 const dateOf = (job: UnifiedRecord) => { const day = dayFromText(job.date); return day ? shortDay(day) : job.date; };
 const jobName = (job: UnifiedRecord) => `${job.description}, ${job.client}`;
 
@@ -28,7 +29,7 @@ function JobCardBody({ job, stage, showClient = true }: { job: UnifiedRecord; st
   return <>
     <Box>
       {showClient && <Typography variant="body2" sx={styles.jobClient}>{job.client}</Typography>}
-      <Typography variant="h6" component="p" sx={styles.jobTitle}>{job.description}</Typography>
+      <Typography variant="h6" component="p" title={job.description} sx={styles.jobTitle}>{job.description}</Typography>
     </Box>
     <Box sx={styles.jobMeta}>
       <Box>{job.material && <MaterialBadge material={job.material} />}</Box>
@@ -48,8 +49,13 @@ function PhoneCard({ job, selecting, selected, onToggle, onMoveNext, onMoveOther
   return <Box sx={[styles.jobCard, selected && styles.jobCardSelected]}>
     {selecting && <ButtonBase aria-pressed={selected} aria-label={`Select ${jobName(job)}`} onClick={onToggle} sx={[styles.tick, selected && styles.tickOn]}>{selected && <Check size={16} />}</ButtonBase>}
     <Box sx={styles.jobBody} onClick={selecting ? onToggle : undefined}>
-      <JobCardBody job={job} stage={stage} />
-      {!selecting && <Box sx={styles.jobActions}>
+      {/* A delivered job has nowhere to go next, so its menu sits beside the customer name instead of taking a row of its own. */}
+      {stage === 'Delivered' && !selecting && <Box sx={styles.jobMeta}>
+        <Typography variant="body2" sx={styles.jobClient}>{job.client}</Typography>
+        <IconButton aria-label={`Move ${jobName(job)} to another stage`} sx={styles.moveOther} onClick={onMoveOther}><MoreVertical size={18} /></IconButton>
+      </Box>}
+      <JobCardBody job={job} stage={stage} showClient={!(stage === 'Delivered' && !selecting)} />
+      {!selecting && stage !== 'Delivered' && <Box sx={styles.jobActions}>
         {next && <Button variant="contained" sx={styles.moveNext} onClick={() => onMoveNext(next)}>Move to {next.id}</Button>}
         <IconButton aria-label={`Move ${jobName(job)} to another stage`} sx={styles.moveOther} onClick={onMoveOther}><MoreVertical size={18} /></IconButton>
       </Box>}
@@ -85,6 +91,9 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
   const updateSaleStatus = useSyncStore((s) => s.updateSaleStatus);
 
   const [chosen, setChosen] = useState<StageId | null>(null);
+  const [deliveredShown, setDeliveredShown] = useState(DELIVERED_PAGE);
+  const chipsRef = useRef<HTMLDivElement | null>(null);
+  const [moreChips, setMoreChips] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragged, setDragged] = useState<UnifiedRecord | null>(null);
@@ -106,6 +115,20 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
   const columns = boardColumns(jobs);
   const active: StageId = chosen ?? columns.find((c) => c.items.length > 0)?.stage.id ?? 'Quoted';
   const activeColumn = columns.find((c) => c.stage.id === active)!;
+  // The phone list shows the newest delivered jobs first, a page at a time, so 200+ finished jobs never become one endless scroll.
+  const ordered = active === 'Delivered' ? [...activeColumn.items].sort((a, b) => dayFromText(b.date).localeCompare(dayFromText(a.date))) : activeColumn.items;
+  const visible = active === 'Delivered' ? ordered.slice(0, deliveredShown) : ordered;
+
+  // Keeps the chosen stage chip in view and fades the right edge only while more chips are hidden there.
+  useEffect(() => {
+    const row = chipsRef.current;
+    if (!row) return;
+    const update = () => setMoreChips(row.scrollLeft + row.clientWidth < row.scrollWidth - 4);
+    row.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    update();
+    row.addEventListener('scroll', update, { passive: true });
+    return () => row.removeEventListener('scroll', update);
+  }, [active, mounted, desktop, jobs.length]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -183,7 +206,7 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
         </Box>)}
       </Box>
     </> : <>
-      <Box sx={styles.stageChips} role="group" aria-label="Stage">
+      <Box ref={chipsRef} sx={[styles.stageChips, moreChips && styles.stageChipsMore]} role="group" aria-label="Stage">
         {columns.map(({ stage, items }) => <Button key={stage.id} variant="outlined" color="inherit" sx={[styles.stageChip, active === stage.id && stageStyles[stage.id].active]} aria-pressed={active === stage.id}
           startIcon={<Box component="span" sx={stageStyles[stage.id].dot} />} onClick={() => { setChosen(stage.id); setSelecting(false); clearSelection(); }}>
           {stage.id} · {items.length}
@@ -197,9 +220,10 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
         <Typography sx={styles.emptyTitle}>Nothing is {activeColumn.stage.id} yet</Typography>
         <Typography variant="body2" sx={styles.emptyText}>Jobs you move here will show up in this list.</Typography>
       </Box> : <Box sx={styles.jobList}>
-        {activeColumn.items.map((job) => <PhoneCard key={job.id} job={job} selecting={selecting} selected={selected.has(job.id)} onToggle={() => toggle(job.id)}
+        {visible.map((job) => <PhoneCard key={job.id} job={job} selecting={selecting} selected={selected.has(job.id)} onToggle={() => toggle(job.id)}
           onMoveNext={(stage) => move(job, stage)} onMoveOther={() => setMoving([job])} />)}
       </Box>}
+      {visible.length < ordered.length && <Button variant="outlined" color="inherit" onClick={() => setDeliveredShown((n) => n + DELIVERED_PAGE)}>Show {Math.min(DELIVERED_PAGE, ordered.length - visible.length)} more · {ordered.length - visible.length} not shown</Button>}
       {!selecting && activeColumn.items.length > 1 && <Typography variant="body2" sx={styles.hint}>Tap <strong>Select</strong> to move several jobs to a stage at once.</Typography>}
       {selecting && selected.size > 0 && <Box sx={styles.selectBar}>
         <Box>

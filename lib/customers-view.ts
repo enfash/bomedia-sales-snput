@@ -38,9 +38,9 @@ export function fromSales(sales: Record<string, string>[]): CustomerItem[] {
 }
 
 /** Name, phone digits or customer ID, ignoring case; optionally only those who still owe. */
-export function filterCustomers(rows: CustomerItem[], search: string, owingOnly: boolean): CustomerItem[] {
+export function filterCustomers(rows: CustomerItem[], search: string, owingOnly: boolean, noPhoneOnly = false): CustomerItem[] {
   const q = search.trim().toLowerCase(), digits = q.replace(/\D/g, '');
-  return rows.filter((c) => (!owingOnly || c.owedKobo > 0)
+  return rows.filter((c) => (!owingOnly || c.owedKobo > 0) && (!noPhoneOnly || !c.contact.trim())
     && (!q || c.name.toLowerCase().includes(q) || (c.reference ?? '').toLowerCase().includes(q) || (digits.length >= 3 && c.contact.replace(/\D/g, '').includes(digits))));
 }
 

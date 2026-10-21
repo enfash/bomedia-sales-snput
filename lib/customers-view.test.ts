@@ -9,6 +9,11 @@ const rows = [
 ];
 
 describe('filter and sort', () => {
+  it('lists only customers with no phone number, and combines that with search', () => {
+    expect(filterCustomers(rows, '', false, true).map((r) => r.name)).toEqual(['Zed Events']);
+    expect(filterCustomers(rows, 'adeola', false, true)).toEqual([]);
+    expect(filterCustomers(rows, '', false, false)).toHaveLength(3);
+  });
   it('finds by name, customer ID or phone digits, ignoring case and spacing', () => {
     expect(filterCustomers(rows, 'adeola', false).map((r) => r.reference)).toEqual(['CUS-0001']);
     expect(filterCustomers(rows, 'cus-0007', false).map((r) => r.name)).toEqual(['Zed Events']);
