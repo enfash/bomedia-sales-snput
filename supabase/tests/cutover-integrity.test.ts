@@ -4,7 +4,7 @@ import { testDatabase, insertId } from './helpers';
 import { activateOpening, buildOpeningPlan, postOpening, verifyOpening } from '../../scripts/migration/opening-balances.mjs';
 import { applyStock } from '../../scripts/migration/stock-opening.mjs';
 import { buildHistoryPlan, importHistory, verifyHistory } from '../../scripts/migration/sales-history.mjs';
-import { CUTOVER_LOCK } from '../../scripts/migration/cutover-shared.mjs';
+import { CUTOVER_LOCK, CUTOVER_LOCK_TIMEOUT } from '../../scripts/migration/cutover-shared.mjs';
 
 let db: PGlite;
 afterEach(async () => { await db?.close(); db = undefined!; });
@@ -88,10 +88,22 @@ it('history, stock apply, opening post and activation acquire the same transacti
     const queries: string[] = [];
     const fake = { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({ query: async (sql: string) => {
       queries.push(sql);
-      if (queries.length > 1) throw new Error('stop after lock');
+      if (queries.length > 2) throw new Error('stop after lock');
       return { rows: [] };
     } }) };
     await expect(operation(fake)).rejects.toThrow(/stop after lock/);
-    expect(queries[0]).toBe(CUTOVER_LOCK);
+    expect(queries.slice(0, 2)).toEqual([CUTOVER_LOCK_TIMEOUT, CUTOVER_LOCK]);
+  }
+});
+
+it('turns a lock wait that times out into a plain message telling the owner to wait, not repeat', async () => {
+  const actorId = await fresh();
+  for (const code of ['55P03', '57014']) {
+    const fake = { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({ query: async (sql: string) => {
+      if (sql === CUTOVER_LOCK) throw Object.assign(new Error('internal text that must not be shown'), { code });
+      return { rows: [] };
+    } }) };
+    await expect(postOpening(fake, plan(), { actorId })).rejects.toThrow(/Another cutover command is still running/);
+    await expect(importHistory(fake, history())).rejects.toThrow(/Another cutover command is still running/);
   }
 });

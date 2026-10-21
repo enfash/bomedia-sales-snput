@@ -82,6 +82,17 @@ describe('opening stock', () => {
     expect((await rows("select count(*)::text n from bomedia.audit_events where action='opening_stock_approved'"))[0].n).toBe('1');
   });
 
+  it('blocks a roll whose width differs from the file, and notices a selling price changed after approval', async () => {
+    await imported();
+    const width = buildStockPlan(stockFiles({ rolls: ROLLS.replace('ROLL-1,MAT-FLEX,Flex Roll 1,5,', 'ROLL-1,MAT-FLEX,Flex Roll 1,3,') }), DATE);
+    expect((await diffStock(db, width)).blocked.join()).toMatch(/width is/);
+    await applyStock(db, buildStockPlan(stockFiles(), DATE), { actorId: owner });
+    await db.query("select set_config('bomedia.material_price_edit','on',false)");
+    await db.exec("update bomedia.materials set selling_price_per_sqft_kobo=50000 where legacy_material_id='MAT-FLEX'");
+    await expect(postOpening(db, buildOpeningPlan(OPENING), { actorId: owner })).rejects.toThrow(/approved count/);
+    expect((await rows('select count(*)::text n from bomedia.journal_entries'))[0].n).toBe('0');
+  });
+
   it('refuses stock changed after its approval before posting', async () => {
     await imported();
     await applyStock(db, buildStockPlan(stockFiles(), DATE), { actorId: owner });

@@ -5,8 +5,9 @@ import { OpeningError } from './cutover-shared.mjs';
 export async function readOpeningStock(db) {
   const rolls = (await db.query(`select r.id::text, r.material_id::text, r.legacy_roll_id,
     r.width_ft::text, r.total_length_ft::text, r.remaining_length_ft::text, r.purchase_cost_kobo::text,
+    r.selling_price_kobo::text as roll_price_kobo, m.selling_price_per_sqft_kobo::text as material_price_kobo, m.low_stock_threshold_ft::text as material_threshold_ft,
     case when r.purchase_cost_kobo > 0 and r.total_length_ft > 0 then bomedia.roll_value(r,r.remaining_length_ft)::text end as value_kobo
-    from bomedia.inventory_rolls r where r.remaining_length_ft>0 order by r.id`)).rows;
+    from bomedia.inventory_rolls r join bomedia.materials m on m.id=r.material_id where r.remaining_length_ft>0 order by r.id`)).rows;
   if (rolls.some(r => r.value_kobo == null)) throw new OpeningError('Every roll with stock needs a positive purchase cost and total length before opening.');
   return { fingerprint: createHash('sha256').update(JSON.stringify(rolls)).digest('hex'),
     valueKobo: rolls.reduce((total, r) => total + BigInt(r.value_kobo), 0n).toString(), rolls: rolls.length };

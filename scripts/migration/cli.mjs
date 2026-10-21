@@ -17,6 +17,10 @@ import { RehearsalError, rehearsalTargetFromFiles, resetRehearsal } from './rehe
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 class CommandError extends Error {}
+// The owner's name decisions must be a real file (only its header line when there are none), so a missing file is never mistaken for "no decisions".
+const missingDecisions = error => error.code === 'ENOENT'
+  ? Promise.reject(new CommandError('2-name-decisions.csv is missing in this folder. Copy it in (a file with only the header line name_in_sheet,same_person_as is fine when there are no decisions).'))
+  : Promise.reject(error);
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -94,7 +98,7 @@ async function runOpening(command, name, options) {
   const read = file => readFile(join(directory, file), 'utf8');
   const plan = buildOpeningPlan({ startDate: await read('1-start-date.csv'), owing: await read('3-customers-who-owe.csv'),
     credits: await read('4-customers-paid-in-advance.csv'), loans: await read('6-loans-and-owner-money.csv'),
-    names: await read('2-name-decisions.csv').catch(error => error.code === 'ENOENT' ? '' : Promise.reject(error)) });
+    names: await read('2-name-decisions.csv').catch(missingDecisions) });
   if (command === 'opening-check') {
     if (options.length) throw new CommandError('opening-check takes only the folder name and changes nothing.');
     console.log(JSON.stringify(summarizeOpening(plan), null, 2));
@@ -144,7 +148,7 @@ async function runStock(command, name, options) {
 async function runHistory(command, name, options) {
   const directory = await privateDirectory(name);
   const read = (file, optional) => readFile(join(directory, file), 'utf8').catch(error => optional && error.code === 'ENOENT' ? '' : Promise.reject(error));
-  const plan = buildHistoryPlan({ sales: await read('Sales.csv'), names: await read('2-name-decisions.csv', true), ignore: await read('ignore-payments.csv', true) });
+  const plan = buildHistoryPlan({ sales: await read('Sales.csv'), names: await read('2-name-decisions.csv'), ignore: await read('ignore-payments.csv', true) });
   if (command === 'history-check') {
     if (options.length) throw new CommandError('history-check takes only the folder name and changes nothing.');
     console.log(JSON.stringify(summarizeHistory(plan), null, 2));

@@ -1484,7 +1484,8 @@ export const newSaleStyles = {
   orderFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid", borderColor: "divider" },
   orderTotal: { fontWeight: 700, fontFamily: "monospace", fontSize: "1.375rem" },
   reviewButtonDesktop: { display: { xs: "none", lg: "inline-flex" } },
-  bar: { display: { xs: "flex", lg: "none" }, position: "fixed", left: 12, right: 12, bottom: "calc(96px + env(safe-area-inset-bottom, 0px))", zIndex: "appBar", alignItems: "center", gap: 1.5, px: 2, py: 1.25, borderRadius: "16px", border: "1px solid", borderColor: "divider", bgcolor: "background.paper" },
+  // Stuck to the bottom edge of the screen (the bottom menu is not shown on this page); the safe-area padding keeps it clear of a phone's home bar.
+  bar: { display: { xs: "flex", lg: "none" }, position: "fixed", left: 0, right: 0, bottom: 0, zIndex: "appBar", alignItems: "center", gap: 1.5, px: 2, pt: 1.25, pb: "calc(10px + env(safe-area-inset-bottom, 0px))", borderRadius: "16px 16px 0 0", border: "1px solid", borderBottom: 0, borderColor: "divider", bgcolor: "background.paper" },
   barMain: { flex: 1, minWidth: 0 },
   reviewBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
   reviewSummary: { p: 2, borderRadius: 2, bgcolor: "action.hover", display: "flex", flexDirection: "column", gap: 0.75 },
@@ -1836,7 +1837,7 @@ export const bottomNavStyles = {
   tabLabelActive: { fontWeight: 700 },
   newSlot: { position: "relative", flex: 1, minWidth: 64, display: "flex", justifyContent: "center", alignSelf: "flex-start", transform: "translateY(-20px)", textDecoration: "none", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" },
   // Shown while an unsaved sale is waiting on this phone.
-  draftDot: { position: "absolute", top: -2, left: "calc(50% + 14px)", width: 16, height: 16, borderRadius: "50%", bgcolor: "error.main", border: "2px solid", borderColor: "background.paper", zIndex: 1 },
+  draftDot: { position: "absolute", top: -2, left: "calc(50% + 14px)", width: 16, height: 16, borderRadius: "50%", bgcolor: "error.main", border: "2px solid", borderColor: "background.paper", zIndex: (theme: Theme) => theme.zIndex.fab + 1 }, // MUI floats the button at zIndex.fab, so the dot must sit above it
   fab: {
     width: 56, height: 56, border: "4px solid", borderColor: "background.default", transition: "filter .15s ease", "&:active": { filter: "brightness(0.92)" },
     boxShadow: (theme: Theme) => `0 8px 20px ${alpha(theme.palette.primary.main, 0.4)}`,

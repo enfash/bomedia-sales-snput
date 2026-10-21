@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { OpeningError, nairaToKobo, parseCsv } from './opening-balances.mjs';
-import { CUTOVER_LOCK } from './cutover-shared.mjs';
+import { takeCutoverLock } from './cutover-shared.mjs';
 import { readOpeningStock, readStockApproval } from './opening-stock-evidence.mjs';
 
 // Opening stock for the cutover: current prices and the owner's physical count, applied BEFORE any opening entry is posted.
@@ -99,6 +99,7 @@ export async function diffStock(db, plan, { allowUncounted = false, zeroUnlisted
     out.valueKobo += (micros(r.remainingFt) * BigInt(r.costKobo) * 2n + micros(r.totalFt)) / (micros(r.totalFt) * 2n); // remaining / total x cost, rounded half up
     if (!have) { out.rollsNew.push(r.id); continue; }
     if (have.legacy_material_id !== r.materialId) out.blocked.push(`Roll ${r.id}: belongs to material ${have.legacy_material_id} in the database but ${r.materialId} in the file.`);
+    if (micros(decimal6(have.width_ft, 'db')) !== micros(r.widthFt)) out.blocked.push(`Roll ${r.id}: width is ${have.width_ft} ft in the database but ${r.widthFt} in the file. The owner must decide which is right.`);
     if (micros(decimal6(have.total, 'db')) !== micros(r.totalFt)) out.blocked.push(`Roll ${r.id}: total length is ${have.total} ft in the database but ${r.totalFt} in the file. The owner must decide which is right.`);
     if (have.cost !== r.costKobo) out.blocked.push(`Roll ${r.id}: purchase cost is ${kobo(have.cost)} in the database but ${kobo(r.costKobo)} in the file. The owner must decide which is right.`);
     if (micros(decimal6(have.remaining, 'db')) !== micros(r.remainingFt)) out.rollsRecounted.push({ id: r.id, from: have.remaining, to: r.remainingFt }); else out.rollsUnchanged++;
@@ -145,7 +146,7 @@ export const summarizeStock = (plan, diff) => ({ countDate: plan.countDate, mate
 export async function applyStock(db, plan, { actorId, allowUncounted = false, zeroUnlisted = false }) {
   if (!/^[0-9a-f-]{36}$/.test(String(actorId))) throw new OpeningError('The owner staff id is required.');
   return db.transaction(async tx => {
-    await tx.query(CUTOVER_LOCK);
+    await takeCutoverLock(tx);
     if (!(await tx.query('select 1 from bomedia.staff where id=$1 and disabled_at is null', [actorId])).rows.length) throw new OpeningError('The owner staff account was not found or is disabled.');
     const books = (await tx.query('select state from bomedia.bookkeeping_settings where singleton')).rows[0];
     if (books && books.state !== 'setup') throw new OpeningError('The books are already active. Stock can no longer be loaded this way. Nothing was changed.');

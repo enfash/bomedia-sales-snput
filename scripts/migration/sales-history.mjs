@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { parseCsv, parseCsvDocument, nairaToKobo, formatKobo } from './opening-balances.mjs';
-import { CUTOVER_LOCK, indexCustomers, nameKey, resolveNameDecisions } from './cutover-shared.mjs';
+import { indexCustomers, nameKey, resolveNameDecisions, takeCutoverLock } from './cutover-shared.mjs';
 
 // Customer history: every row of the Google Sheet's Sales tab, kept as READ-ONLY history on the customer ("Before the new app").
 // It never touches the books, stock or what a customer owes today. Rules (owner): never merge customers beyond an exact name match that ignores
@@ -74,7 +74,7 @@ export function buildHistoryPlan(files) {
   const batch = createHash('sha256').update(JSON.stringify([files.sales, names.decisions, [...ignored]])).digest('hex');
   const sum = field => rows.reduce((t, r) => t + BigInt(r[field]), 0n);
   const orders = new Set(rows.map(r => `${r.customerKey}|${r.salesId ?? `row-${r.sheetRow}`}`));
-  return { batch, rows, customers: [...customers.values()], skipped, ignored: ignoredUsed, nameDecisions: names.decisions,
+  return { batch, rows, customers: [...customers.values()], skipped, ignored: ignoredUsed, nameDecisions: names.decisions, nameDecisionsSha256: names.fingerprint,
     totals: { rows: rows.length, customers: customers.size, orders: orders.size, totalKobo: sum('amountKobo').toString(), paidKobo: sum('paidKobo').toString() } };
 }
 
@@ -86,11 +86,16 @@ export function summarizeHistory(plan) {
 /** Existing customers (from the opening balances or the app) are matched by name ignoring spaces and capitals; the rest are created. Safe to repeat. */
 export async function importHistory(db, plan) {
   return db.transaction(async tx => {
-    await tx.query(CUTOVER_LOCK);
+    await takeCutoverLock(tx, HistoryError);
     const state = (await tx.query('select state from bomedia.bookkeeping_settings where singleton for update')).rows[0]?.state;
     if (state !== 'setup') throw new HistoryError('History requires setup books; they are missing or already active. Nothing was imported.');
     if (!(await tx.query("select 1 from bomedia.journal_entries where kind='opening' and status='posted' limit 1")).rows.length) {
       throw new HistoryError('Post the opening entries before loading history. Nothing was imported.');
+    }
+    // The same owner decisions must have been used when the opening posted, or one person could end up on two profiles.
+    const evidence = (await tx.query("select evidence_reference from bomedia.journal_entries where kind='opening' and status='posted' and evidence_reference like '%name decisions %' limit 1")).rows[0]?.evidence_reference ?? '';
+    if (!evidence.includes(`name decisions ${plan.nameDecisionsSha256}`)) {
+      throw new HistoryError('The name decisions file differs from the one the opening balances were posted with. Use the same 2-name-decisions.csv. Nothing was imported.');
     }
     const existing = (await tx.query('select batch, count(*)::integer as n from bomedia.legacy_sales group by batch')).rows;
     if (existing.some(e => e.batch !== plan.batch)) throw new HistoryError('History from a different file is already loaded. Nothing was imported.');

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { CUTOVER_LOCK, OpeningError, cleanName, indexCustomers, nameKey, resolveNameDecisions } from './cutover-shared.mjs';
+import { OpeningError, cleanName, indexCustomers, nameKey, resolveNameDecisions, takeCutoverLock } from './cutover-shared.mjs';
 import { readOpeningStock, readStockApproval, stockApprovalMatches, stockEvidence } from './opening-stock-evidence.mjs';
 
 // Opening balances for the cutover: customer debts and one loan, taken from the owner-approved CSV files.
@@ -148,7 +148,7 @@ export function buildOpeningPlan(files) {
   const nameDecisions = names.decisions;
   const digest = sha(JSON.stringify({ openingDate, list, loans }));
   return {
-    openingDate, startsOn, customers: list, loans, digest, repeatedRows, nameDecisions,
+    openingDate, startsOn, customers: list, loans, digest, repeatedRows, nameDecisions, nameDecisionsSha256: names.fingerprint,
     totals: { customers: list.length, orders: list.reduce((n, c) => n + new Set(c.jobs.map(j => j.salesId)).size, 0), jobs: jobCount, debtsKobo: debtsKobo.toString(), loansKobo: loansKobo.toString(),
       // What is left for the owner's capital account so both entries balance: debts less the loan owed.
       capitalKobo: (debtsKobo - loansKobo).toString() },
@@ -168,7 +168,7 @@ export function summarizeOpening(plan) {
     planSha256: plan.digest, inputFilesSha256: plan.inputSha256 };
 }
 
-const evidenceFor = plan => `Owner-approved opening files, sha256 ${plan.inputSha256}, plan ${plan.digest}`;
+const evidenceFor = plan => `Owner-approved opening files, sha256 ${plan.inputSha256}, plan ${plan.digest}, name decisions ${plan.nameDecisionsSha256}`;
 const debtsKey = plan => `opening-debts-${plan.digest}`;
 const loansKey = plan => `opening-loans-${plan.digest}`;
 
@@ -179,7 +179,7 @@ const loansKey = plan => `opening-loans-${plan.digest}`;
 export async function postOpening(db, plan, { actorId }) {
   if (!/^[0-9a-f-]{36}$/.test(String(actorId))) throw new OpeningError('The owner staff id is required.');
   return db.transaction(async tx => {
-    await tx.query(CUTOVER_LOCK);
+    await takeCutoverLock(tx);
     const staff = (await tx.query('select id from bomedia.staff where id=$1 and disabled_at is null', [actorId])).rows;
     if (!staff.length) throw new OpeningError('The owner staff account was not found or is disabled.');
     const settings = (await tx.query('select starts_on::text as starts_on, state from bomedia.bookkeeping_settings where singleton')).rows;
@@ -296,7 +296,7 @@ export async function verifyOpening(db, plan) {
 /** Starts the books, but only when every check above passes. One way: active books cannot return to setup. */
 export async function activateOpening(db, plan) {
   return db.transaction(async tx => {
-    await tx.query(CUTOVER_LOCK);
+    await takeCutoverLock(tx);
     const report = await verifyOpening(tx, plan);
     if (!report.ok) throw new OpeningError(`Not activated. Failed checks: ${report.checks.filter(c => !c.ok).map(c => c.name).join('; ')}`);
     await tx.query("update bomedia.bookkeeping_settings set state='active' where singleton and state='setup'");
@@ -310,7 +310,7 @@ export async function activateOpening(db, plan) {
  */
 export async function createOwner(db) {
   return db.transaction(async tx => {
-    await tx.query(CUTOVER_LOCK);
+    await takeCutoverLock(tx);
     const existing = (await tx.query("select id::text as id from bomedia.staff where login_name='owner'")).rows[0];
     if (existing) return { created: false, ownerStaffId: existing.id };
     const row = (await tx.query("insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id::text as id")).rows[0];

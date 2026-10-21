@@ -20,7 +20,7 @@ const rows = async (sql: string, params: unknown[] = []) => (await db.query<Reco
 async function opening() {
   const owner = (await rows("insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id"))[0].id;
   await postOpening(db, buildOpeningPlan({ startDate: 'item,value\nopening_date,2026-10-18\n', owing: '', credits: '',
-    loans: 'who,type,amount_naira,date\nLender,loan you owe,100,2026-09-01\n' }), { actorId: owner });
+    loans: 'who,type,amount_naira,date\nLender,loan you owe,100,2026-09-01\n', names: NAMES }), { actorId: owner });
 }
 
 describe('history plan', () => {
@@ -76,7 +76,7 @@ describe('history import', () => {
     db = await testDatabase();
     await opening();
     const plan = buildHistoryPlan({ sales: 'DATE,CLIENT NAME,AMOUNT (₦),INITIAL PAYMENT (₦),ADDITIONAL PAYMENT 1,ADDITIONAL PAYMENT 2,Sales ID\n' +
-      Array.from({ length: 1001 }, (_, i) => `2026-10-01,New Customer,100,101,,,S${i}\n`).join('') });
+      Array.from({ length: 1001 }, (_, i) => `2026-10-01,New Customer,100,101,,,S${i}\n`).join(''), names: NAMES });
     let batches = 0;
     const faulty = { transaction: (work: (tx: unknown) => Promise<unknown>) => db.transaction(tx => work({ query: async (sql: string, params: unknown[] = []) => {
       if (sql.startsWith('insert into bomedia.legacy_sales') && ++batches === 2) throw new Error('synthetic interruption after 400 rows');
@@ -129,6 +129,12 @@ describe('history import', () => {
     await expect(importHistory(db, buildHistoryPlan(files()))).rejects.toThrow(/already active/);
   });
 
+  it('refuses history whose name decisions differ from the ones the opening was posted with', async () => {
+    db = await testDatabase();
+    await opening();
+    await expect(importHistory(db, buildHistoryPlan(files({ names: 'name_in_sheet,same_person_as\nK cool,Beta\n' })))).rejects.toThrow(/name decisions file differs/);
+    expect((await rows('select count(*)::int n from bomedia.legacy_sales'))[0].n).toBe(0);
+  });
   it('refuses missing books and setup without a posted opening entry', async () => {
     db = await testDatabase();
     const plan = buildHistoryPlan(files());

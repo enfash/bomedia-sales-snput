@@ -11,11 +11,12 @@ Follow it top to bottom. Each step says who does it, the exact command, and what
 - [ ] `.env.local` keeps `SUPABASE_MIGRATION_DATABASE_URL`, `SUPABASE_MIGRATION_PROJECT_REF`, and `SUPABASE_ADMIN_STAFF_ID` (once). It has no mode flags.
 - [ ] Google Drive folder `BOMedia backups` exists; passphrase kept separately.
 - [ ] Cashiers' PINs tested on live (they are imported staff; reset any that fail).
-- [ ] Cashiers told: the Sheet stops Sunday evening; the new app starts Monday 9:00.
+- [ ] Cashiers told: Saturday 24 Oct is the last trading day on the Sheet, the shop is closed Sunday, and the new app starts Monday 9:00.
+- [ ] `MIGRATION_ARCHIVE_PASSPHRASE` (at least 32 characters) is set privately in `.env.local` so the backup and verify commands can run. It is never shown or typed on a command line.
 
 ## 1. Stop and export (O)
 
-1. Cashiers stop. Every phone shows nothing waiting to sync. Nobody edits the Sheet from now.
+1. After Saturday's last sale (owner decision 21 Oct: Saturday 24 Oct is the last trading day and the shop is closed Sunday), cashiers stop. Every phone shows nothing waiting to sync. Nobody edits the Sheet from now.
 2. Export the Sheet tabs Sales, Payments, Expenses into a NEW folder `migration-data/sheet-export-20261025/` (Sales.csv, Payments.csv, Expenses.csv).
 3. Final physical roll count: give Claude the counts (the rolls list in `migration-data/stock-opening/rolls.csv` is updated from it).
 
@@ -32,7 +33,7 @@ Good: verify says the restore matched. Then copy the folder to Google Drive.
 
 Claude builds the approved files from the final export and puts them in these exact folders:
 
-- `migration-data/opening-balances/`: `1-start-date.csv`, `2-name-decisions.csv`, `3-customers-who-owe.csv`, `4-customers-paid-in-advance.csv`, `6-loans-and-owner-money.csv`. Set `opening_date` to 2026-10-25, so the books start 26 Oct. The owing file contains only real debts, with a required, unique `sheet_row` for each debt. Rows 3665 and 3669 are separate debts even though their content is identical; keep both. Leave the credits file with headers only, because customer credits are unsupported.
+- `migration-data/opening-balances/`: `1-start-date.csv`, `2-name-decisions.csv`, `3-customers-who-owe.csv`, `4-customers-paid-in-advance.csv`, `6-loans-and-owner-money.csv`. Set `opening_date` to 2026-10-24 (the last trading day), so the books start Sunday 25 Oct and Sunday's smoke tests are inside the books. The owing file contains only real debts, with a required, unique `sheet_row` for each debt. Rows 3665 and 3669 are separate debts even though their content is identical; keep both. Leave the credits file with headers only, because customer credits are unsupported.
 - `migration-data/stock-opening/`: `materials.csv` and `rolls.csv`, refreshed from the physical count.
 - `migration-data/sheet-export-YYYYMMDD/` (this run: `migration-data/sheet-export-20261025/`): `Sales.csv`, `2-name-decisions.csv` (the same decisions used for opening), and `ignore-payments.csv`.
 
@@ -53,7 +54,7 @@ node --env-file=.env.local scripts/migration/cli.mjs history-check sheet-export-
 node --env-file=.env.local scripts/migration/cli.mjs history-import sheet-export-20261025 --confirm-project "$LIVE"
 node --env-file=.env.local scripts/migration/cli.mjs history-verify sheet-export-20261025 --confirm-project "$LIVE"
 npm run opening:verify -- --confirm-project "$LIVE"         # every check must pass
-npm run opening:activate -- --confirm-project "$LIVE"       # point of no return for the books: they start 26 Oct
+npm run opening:activate -- --confirm-project "$LIVE"       # point of no return for the books: they start 25 Oct
 ```
 Good: `history-verify` says verified; `opening:verify` shows `"ok": true` with every check passing; the activate result shows `"activated": true`. `stock:apply` records the approved stock fingerprint; opening-post refuses stock that has changed since that count. History import takes about a minute.
 
@@ -65,7 +66,7 @@ Good: `history-verify` says verified; `opening:verify` shows `"ok": true` with e
 
 ## 6. Smoke test on production (O with C)
 
-Use clearly named test records ("ZZ TEST") and reverse them straight away.
+Use clearly named test records ("ZZ TEST") and reverse them straight away. They are dated Sunday 25 Oct, which is why the opening date is Saturday 24 Oct: the books must already be running for the money tests to be accepted.
 - [ ] Owner signs in with email, password and authenticator code; signs out; "forgot password" opens the production reset page.
 - [ ] Each real cashier signs in with name and PIN.
 - [ ] A cashier makes a small cash sale; the record, the customer's debt and the Shift Report agree.

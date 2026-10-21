@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildOpeningPlan } from '../../scripts/migration/opening-balances.mjs';
 import { buildHistoryPlan } from '../../scripts/migration/sales-history.mjs';
-import { indexCustomers } from '../../scripts/migration/cutover-shared.mjs';
+import { decisionsFingerprint, indexCustomers } from '../../scripts/migration/cutover-shared.mjs';
 
 const opening = (names: string) => buildOpeningPlan({
   startDate: 'item,value\nopening_date,2026-10-25\n', credits: '', loans: '', names,
@@ -26,5 +26,18 @@ describe('one cutover name rule', () => {
     expect(() => indexCustomers([{ id: '1', display_name: 'A B' }, { id: '2', display_name: ' a\u00a0B ' }])).toThrow(/Ambiguous/);
     expect(() => indexCustomers([{ id: '1', display_name: 'Alias' }, { id: '2', display_name: 'A B' }], [{ from: 'alias', to: 'A B' }])).toThrow(/Ambiguous/);
     expect(indexCustomers([{ id: '1', display_name: 'AB' }, { id: '2', display_name: 'A B' }]).size).toBe(2);
+  });
+});
+
+describe('name decisions file safety', () => {
+  it('refuses a decisions file with the wrong headers instead of silently ignoring it', () => {
+    expect(() => opening('from,to\nAlias,AB\n')).toThrow(/name_in_sheet and same_person_as/);
+    expect(() => history('from,to\nAlias,AB\n')).toThrow(/name_in_sheet and same_person_as/);
+  });
+  it('gives opening and history the same fingerprint for the same decisions, and a different one otherwise', () => {
+    const names = 'name_in_sheet,same_person_as\nAlias,A B\n';
+    expect(opening(names).nameDecisionsSha256).toBe(history(names).nameDecisionsSha256);
+    expect(opening(names).nameDecisionsSha256).not.toBe(opening('name_in_sheet,same_person_as\nAlias,AB\n').nameDecisionsSha256);
+    expect(opening('').nameDecisionsSha256).toBe(decisionsFingerprint([]));
   });
 });
