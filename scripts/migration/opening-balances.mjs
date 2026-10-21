@@ -1,41 +1,53 @@
 import { createHash } from 'node:crypto';
+import { CUTOVER_LOCK, OpeningError, cleanName, indexCustomers, nameKey, resolveNameDecisions } from './cutover-shared.mjs';
+import { readOpeningStock, readStockApproval, stockApprovalMatches, stockEvidence } from './opening-stock-evidence.mjs';
 
 // Opening balances for the cutover: customer debts and one loan, taken from the owner-approved CSV files.
 // Pure planning first (no database), then three database steps: post, verify, activate.
 // Rules (owner, 14 Oct 2026): the Sales row decides what a customer owes; never merge customers by name beyond an exact match
 // that ignores spaces and capitals; never treat an unknown balance as zero; no invented payments; no opening cash or bank counts.
 
-export class OpeningError extends Error {}
+export { OpeningError } from './cutover-shared.mjs';
 
-const LOCK = "select pg_advisory_xact_lock(hashtextextended('bomedia:opening-balances',0))";
-
-/** Minimal CSV reader: quoted fields, doubled quotes, CRLF and a leading byte-order mark. Returns rows as objects keyed by the header. */
-export function parseCsv(text) {
+/** CSV records keep their physical starting line and record index, including blank records. */
+export function parseCsvDocument(text) {
   const rows = [];
   let row = [], field = '', quoted = false;
+  let line = 1, recordLine = 1, recordIndex = 1;
   const input = String(text).replace(/^﻿/, '');
+  const finish = () => {
+    row.push(field);
+    rows.push({ cells: row, line: recordLine, recordIndex });
+    row = []; field = ''; recordIndex++;
+  };
   for (let i = 0; i < input.length; i++) {
     const c = input[i];
     if (quoted) {
       if (c === '"' && input[i + 1] === '"') { field += '"'; i++; }
       else if (c === '"') quoted = false;
-      else field += c;
+      else {
+        field += c;
+        if (c === '\n' || (c === '\r' && input[i + 1] !== '\n')) line++;
+      }
     } else if (c === '"') quoted = true;
     else if (c === ',') { row.push(field); field = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && input[i + 1] === '\n') i++;
-      row.push(field); field = '';
-      if (row.some(cell => cell.trim() !== '')) rows.push(row);
-      row = [];
+      finish();
+      line++; recordLine = line;
     } else field += c;
   }
   if (quoted) throw new OpeningError('A CSV file has an unclosed quote.');
-  row.push(field);
-  if (row.some(cell => cell.trim() !== '')) rows.push(row);
-  if (!rows.length) return [];
-  const header = rows[0].map(h => h.trim());
-  return rows.slice(1).map(cells => Object.fromEntries(header.map((h, i) => [h, (cells[i] ?? '').trim()])));
+  if (row.length || field || (input.length && !/[\r\n]$/.test(input))) finish();
+  if (!rows.length) return { headers: [], records: [] };
+  const headers = rows[0].cells.map(h => h.trim());
+  if (headers.some((h, i) => h && headers.indexOf(h) !== i)) throw new OpeningError('A CSV file has duplicate column headers.');
+  return { headers, records: rows.slice(1).map(({ cells, line, recordIndex }) => ({ line, recordIndex,
+    blank: cells.every(cell => cell.trim() === ''), values: Object.fromEntries(headers.map((h, i) => [h, (cells[i] ?? '').trim()])) })) };
 }
+
+/** Compatibility reader for plans that do not need physical source positions. */
+export function parseCsv(text) { return parseCsvDocument(text).records.filter(r => !r.blank).map(r => r.values); }
 
 /** Exact money in naira (up to two decimals, commas and a naira sign allowed) to a kobo string. Anything else is refused, never guessed. */
 export function nairaToKobo(value, label = 'amount') {
@@ -52,7 +64,6 @@ const isoDate = (value, label) => {
   return value;
 };
 const nextDay = date => new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
-const nameKey = name => name.trim().replace(/\s+/g, ' ').toLowerCase();
 const phoneDigits = phone => String(phone ?? '').replace(/\D/g, '');
 const sha = text => createHash('sha256').update(text).digest('hex');
 
@@ -73,25 +84,22 @@ export function buildOpeningPlan(files) {
   }
 
   // The owner's decisions that two spellings are one person. Only these merge names that differ beyond spaces and capitals.
-  const aliases = new Map();
-  for (const [index, row] of parseCsv(files.names ?? '').entries()) {
-    const from = (row.name_in_sheet ?? '').trim().replace(/\s+/g, ' '), to = (row.same_person_as ?? '').trim().replace(/\s+/g, ' ');
-    if (!from && !to) continue;
-    if (!from || !to) { problems.push(`2-name-decisions.csv line ${index + 2}: both name_in_sheet and same_person_as are needed.`); continue; }
-    if (nameKey(from) === nameKey(to)) continue; // already the same name once spaces and capitals are ignored
-    if (aliases.has(nameKey(from)) && aliases.get(nameKey(from)).name !== to) { problems.push(`2-name-decisions.csv: "${from}" is mapped to two different names.`); continue; }
-    aliases.set(nameKey(from), { name: to, used: 0 });
-  }
-  for (const [key, alias] of aliases) if (aliases.has(nameKey(alias.name))) problems.push(`2-name-decisions.csv: "${alias.name}" is itself renamed (from "${key}"). Point both spellings at the final name.`);
+  const names = resolveNameDecisions(parseCsv(files.names ?? ''));
   const customers = new Map();
   const identical = new Map();
+  const sheetRows = new Set();
   const owing = parseCsv(files.owing).filter(r => Object.values(r).some(v => v));
   owing.forEach((row, index) => {
     const line = index + 2;
-    let name = (row.customer_name ?? '').trim().replace(/\s+/g, ' ');
+    const sheetRow = Number(row.sheet_row);
+    if (!/^\d+$/.test(row.sheet_row ?? '') || !Number.isSafeInteger(sheetRow) || sheetRow < 2 || sheetRow > 2147483647) {
+      problems.push(`3-customers-who-owe.csv line ${line}: a valid sheet_row (at least 2) is required.`); return;
+    }
+    if (sheetRows.has(sheetRow)) { problems.push(`3-customers-who-owe.csv: Sheet row ${sheetRow} appears twice.`); return; }
+    sheetRows.add(sheetRow);
+    let name = cleanName(row.customer_name);
     if (!name) { problems.push(`3-customers-who-owe.csv line ${line}: customer_name is empty.`); return; }
-    const alias = aliases.get(nameKey(name));
-    if (alias) { name = alias.name; alias.used++; }
+    name = names.resolve(name);
     let owed;
     try { owed = nairaToKobo(row.amount_owed_naira, 'amount_owed_naira'); } catch (error) { problems.push(`line ${line} (${name}): ${error.message} Leave nothing blank: an unknown balance must be resolved first.`); return; }
     if (BigInt(owed) <= 0n) { problems.push(`line ${line} (${name}): the amount owed must be more than zero.`); return; }
@@ -110,7 +118,7 @@ export function buildOpeningPlan(files) {
     // One Sales ID can cover several items (a multi-item order), so a repeated ID is normal. Rows identical in every figure are only reported.
     const same = `${key}|${salesId}|${saleDate}|${owed}|${(row.job_description ?? '').trim()}`;
     identical.set(same, (identical.get(same) ?? 0) + 1);
-    customer.jobs.push({ salesId, saleDate, description: (row.job_description || 'Sheet sale').trim(), owedKobo: owed, note: (row.note ?? '').trim() });
+    customer.jobs.push({ sheetRow, salesId, saleDate, description: (row.job_description || 'Sheet sale').trim(), owedKobo: owed, note: (row.note ?? '').trim() });
     customers.set(key, customer);
   });
 
@@ -130,14 +138,14 @@ export function buildOpeningPlan(files) {
   }
 
   const list = [...customers.values()].sort((a, b) => a.key.localeCompare(b.key));
-  for (const customer of list) customer.jobs.sort((a, b) => a.saleDate.localeCompare(b.saleDate) || a.salesId.localeCompare(b.salesId));
+  for (const customer of list) customer.jobs.sort((a, b) => a.saleDate.localeCompare(b.saleDate) || a.salesId.localeCompare(b.salesId) || a.sheetRow - b.sheetRow);
   const debtsKobo = list.reduce((sum, c) => sum + c.jobs.reduce((s, j) => s + BigInt(j.owedKobo), 0n), 0n);
   const loansKobo = loans.reduce((sum, l) => sum + BigInt(l.amountKobo), 0n);
   const jobCount = list.reduce((n, c) => n + c.jobs.length, 0);
   if (!jobCount && !loans.length) throw new OpeningError('There is nothing to post: no owing customers and no loans.');
   if (jobCount > 998) throw new OpeningError(`${jobCount} debts do not fit in one opening entry (limit 998). Ask Claude to split it.`);
   const repeatedRows = [...identical.values()].filter(n => n > 1).reduce((sum, n) => sum + n - 1, 0);
-  const nameDecisions = [...aliases.entries()].map(([from, a]) => ({ from, to: a.name, rowsChanged: a.used })).sort((a, b) => a.from.localeCompare(b.from));
+  const nameDecisions = names.decisions;
   const digest = sha(JSON.stringify({ openingDate, list, loans }));
   return {
     openingDate, startsOn, customers: list, loans, digest, repeatedRows, nameDecisions,
@@ -160,7 +168,7 @@ export function summarizeOpening(plan) {
     planSha256: plan.digest, inputFilesSha256: plan.inputSha256 };
 }
 
-const evidenceFor = plan => `Owner-approved opening files, sha256 ${plan.inputSha256.slice(0, 16)}, plan ${plan.digest.slice(0, 16)}`;
+const evidenceFor = plan => `Owner-approved opening files, sha256 ${plan.inputSha256}, plan ${plan.digest}`;
 const debtsKey = plan => `opening-debts-${plan.digest}`;
 const loansKey = plan => `opening-loans-${plan.digest}`;
 
@@ -171,7 +179,7 @@ const loansKey = plan => `opening-loans-${plan.digest}`;
 export async function postOpening(db, plan, { actorId }) {
   if (!/^[0-9a-f-]{36}$/.test(String(actorId))) throw new OpeningError('The owner staff id is required.');
   return db.transaction(async tx => {
-    await tx.query(LOCK);
+    await tx.query(CUTOVER_LOCK);
     const staff = (await tx.query('select id from bomedia.staff where id=$1 and disabled_at is null', [actorId])).rows;
     if (!staff.length) throw new OpeningError('The owner staff account was not found or is disabled.');
     const settings = (await tx.query('select starts_on::text as starts_on, state from bomedia.bookkeeping_settings where singleton')).rows;
@@ -179,15 +187,22 @@ export async function postOpening(db, plan, { actorId }) {
       throw new OpeningError('The books are already active or start on a different date. Nothing was posted.');
     }
     const replay = (await tx.query("select 1 from bomedia.idempotency_requests where operation='journal' and request_key = any($1::text[])", [[debtsKey(plan), loansKey(plan)]])).rows;
-    if (replay.length) return { replay: true, ...summarizeOpening(plan) };
+    if (replay.length) {
+      if (!(await verifyOpening(tx, plan)).ok) throw new OpeningError('The posted opening does not match the approved files. Nothing was posted.');
+      return { replay: true, ...summarizeOpening(plan) };
+    }
     if ((await tx.query('select count(*)::integer as n from bomedia.journal_entries')).rows[0].n) {
       throw new OpeningError('Other journal entries already exist, so opening balances cannot be posted. Nothing was posted.');
     }
+    const stock = await readOpeningStock(tx);
+    const stockApproval = await readStockApproval(tx);
+    if (!stockApprovalMatches(stock, stockApproval, plan.openingDate)) throw new OpeningError('Stock does not match an approved count. Run stock:diff and stock:apply before opening-post.');
     if (!settings.length) await tx.query("insert into bomedia.bookkeeping_settings(starts_on,state) values($1,'setup')", [plan.startsOn]);
 
     const lines = [];
+    const byKey = indexCustomers((await tx.query('select id::text as id, display_name from bomedia.customers')).rows, plan.nameDecisions);
     for (const customer of plan.customers) {
-      const customerId = (await tx.query('insert into bomedia.customers(display_name,contact,notes) values($1,$2,$3) returning id::text as id',
+      const customerId = byKey.get(customer.key) ?? (await tx.query('insert into bomedia.customers(display_name,contact,notes) values($1,$2,$3) returning id::text as id',
         [customer.name, customer.phone || null, 'Opening balance from the Google Sheet'])).rows[0].id;
       const orders = new Map();
       for (const job of customer.jobs) {
@@ -196,14 +211,14 @@ export async function postOpening(db, plan, { actorId }) {
             [customerId, job.salesId, actorId])).rows[0].id);
         }
         const orderId = orders.get(job.salesId);
-        const description = `Opening balance from Sheet: ${job.description} (${job.salesId}, sold ${job.saleDate})`;
+        const description = `Opening balance from Sheet row ${job.sheetRow}: ${job.description} (${job.salesId}, sold ${job.saleDate})`;
         const jobId = (await tx.query(`insert into bomedia.jobs(order_id,customer_id,description,client_name_snapshot,contact_snapshot,quantity,unit_price_kobo,amount_kobo,
           job_status,business_date,logged_by_snapshot) values($1,$2,$3,$4,$5,1,$6,$6,'Delivered',$7,'Sheet opening balance') returning id::text as id`,
           [orderId, customerId, description, customer.name, customer.phone || null, job.owedKobo, job.saleDate])).rows[0].id;
-        lines.push({ account_code: '1100', debit_kobo: job.owedKobo, customer_id: customerId, job_id: jobId, memo: `${job.salesId}` });
+        lines.push({ account_code: '1100', debit_kobo: job.owedKobo, customer_id: customerId, job_id: jobId, memo: `Sheet row ${job.sheetRow}` });
       }
     }
-    const evidence = evidenceFor(plan);
+    const evidence = `${evidenceFor(plan)}; ${stockEvidence(stock, stockApproval)}`;
     if (lines.length) {
       const debts = BigInt(plan.totals.debtsKobo);
       await tx.query("select bomedia.post_journal($1,$2::jsonb)", [debtsKey(plan), JSON.stringify({ actor_id: actorId, business_date: plan.openingDate,
@@ -219,15 +234,12 @@ export async function postOpening(db, plan, { actorId }) {
     }
     // The app takes the cost of material out of the Inventory account on every sale and refuses when that account holds too little, so the counted stock must be
     // valued here (each roll's remaining length x its cost per foot, by the same function the app uses later). Load prices and the count first (stock-opening.mjs).
-    const stock = (await tx.query(`select coalesce(sum(bomedia.roll_value(r, r.remaining_length_ft)),0)::text as value, count(*)::integer as rolls,
-      encode(sha256(convert_to(coalesce(string_agg(r.id::text||':'||r.remaining_length_ft::text||':'||r.purchase_cost_kobo::text, ',' order by r.id),''),'UTF8')),'hex') as fingerprint
-      from bomedia.inventory_rolls r where r.remaining_length_ft>0`)).rows[0];
-    if (BigInt(stock.value) > 0n) {
-      await tx.query("select bomedia.post_journal($1,$2::jsonb)", [`opening-stock-${plan.digest}-${stock.fingerprint.slice(0, 16)}`, JSON.stringify({ actor_id: actorId, business_date: plan.openingDate,
-        kind: 'opening', memo: `Opening stock value: ${stock.rolls} rolls with counted length`, opening_confirmed: true, evidence_reference: `${evidence}; stock fingerprint ${stock.fingerprint.slice(0, 16)}`,
-        lines: [{ account_code: '1200', debit_kobo: stock.value, memo: 'Counted stock at cost' }, { account_code: '3000', credit_kobo: stock.value, memo: 'Owner capital: opening stock' }] })]);
+    if (BigInt(stock.valueKobo) > 0n) {
+      await tx.query("select bomedia.post_journal($1,$2::jsonb)", [`opening-stock-${plan.digest}-${stock.fingerprint}`, JSON.stringify({ actor_id: actorId, business_date: plan.openingDate,
+        kind: 'opening', memo: `Opening stock value: ${stock.rolls} rolls with counted length`, opening_confirmed: true, evidence_reference: evidence,
+        lines: [{ account_code: '1200', debit_kobo: stock.valueKobo, memo: 'Counted stock at cost' }, { account_code: '3000', credit_kobo: stock.valueKobo, memo: 'Owner capital: opening stock' }] })]);
     }
-    return { replay: false, ...summarizeOpening(plan), stockValue: formatKobo(stock.value), stockRolls: stock.rolls };
+    return { replay: false, ...summarizeOpening(plan), stockValue: formatKobo(stock.valueKobo), stockRolls: stock.rolls };
   });
 }
 
@@ -238,7 +250,7 @@ export async function verifyOpening(db, plan) {
   const q = async (text, params = []) => (await db.query(text, params)).rows;
   const settings = (await q('select starts_on::text as starts_on, state from bomedia.bookkeeping_settings where singleton'))[0];
   check('books start on the planned date', settings?.starts_on === plan.startsOn, settings?.starts_on ?? 'no settings row');
-  const customers = (await q("select count(*)::integer as n from bomedia.customers where notes='Opening balance from the Google Sheet'"))[0].n;
+  const customers = (await q("select count(distinct customer_id)::integer as n from bomedia.jobs where logged_by_snapshot='Sheet opening balance'"))[0].n;
   check('customers created', customers === plan.totals.customers, `${customers} of ${plan.totals.customers}`);
   const jobs = (await q("select count(*)::integer as n, coalesce(sum(amount_kobo),0)::text as total from bomedia.jobs where logged_by_snapshot='Sheet opening balance'"))[0];
   check('opening jobs created', jobs.n === plan.totals.jobs && jobs.total === plan.totals.debtsKobo, `${jobs.n} jobs, ${formatKobo(jobs.total)}`);
@@ -246,7 +258,9 @@ export async function verifyOpening(db, plan) {
     where e.status='posted' and l.account_code=$1`, [code]))[0].n;
   check('customer receivables equal the approved total owed', (await net('1100')) === plan.totals.debtsKobo, formatKobo(await net('1100')));
   check('loan payable equals the approved loan', BigInt(await net('2200')) === -BigInt(plan.totals.loansKobo), formatKobo(await net('2200')));
-  const stock = (await q('select coalesce(sum(bomedia.roll_value(r, r.remaining_length_ft)),0)::text as value from bomedia.inventory_rolls r where r.remaining_length_ft>0'))[0].value;
+  const stockState = await readOpeningStock(db);
+  const stockApproval = await readStockApproval(db);
+  const stock = stockState.valueKobo;
   check('inventory equals the counted stock valued at cost', (await net('1200')) === stock, `${formatKobo(await net('1200'))} in the books, ${formatKobo(stock)} in stock`);
   check('owner capital balances the entries', BigInt(await net('3000')) === -(BigInt(plan.totals.capitalKobo) + BigInt(stock)), formatKobo(await net('3000')));
   const unbalanced = (await q(`select count(*)::integer as n from (select entry_id from bomedia.journal_lines group by entry_id having sum(debit_kobo)<>sum(credit_kobo)) x`))[0].n;
@@ -256,13 +270,33 @@ export async function verifyOpening(db, plan) {
   const perJob = (await q(`select count(*)::integer as n from bomedia.jobs j where j.logged_by_snapshot='Sheet opening balance'
     and (select coalesce(sum(l.debit_kobo-l.credit_kobo),0) from bomedia.journal_lines l join bomedia.journal_entries e on e.id=l.entry_id where e.status='posted' and l.account_code='1100' and l.job_id=j.id)<>j.amount_kobo`))[0].n;
   check('each debt matches its own opening job', perJob === 0, `${perJob} differ`);
+  const entries = await q("select id::text, kind, business_date::text, evidence_reference from bomedia.journal_entries where status='posted'");
+  check('opening entries contain the approved plan fingerprint', entries.length > 0 && entries.every(e =>
+    e.kind === 'opening' && e.business_date === plan.openingDate && e.evidence_reference?.startsWith(evidenceFor(plan))), 'Full plan and input-file fingerprints, entry kind and date');
+  check('counted stock matches the approved fingerprint', stockApprovalMatches(stockState, stockApproval, plan.openingDate) &&
+    entries.every(e => e.evidence_reference?.includes(`; ${stockEvidence(stockState, stockApproval)}`)), 'Counted roll identities, lengths, costs and approval');
+  const byKey = indexCustomers(await q('select id::text as id, display_name from bomedia.customers'), plan.nameDecisions);
+  const actual = await q(`select j.id::text, j.customer_id::text, o.customer_id::text as order_customer_id, o.id::text as order_id,
+    o.legacy_sales_id as sales_id, j.business_date::text as sale_date, j.amount_kobo::text as amount,
+    l.customer_id::text as ledger_customer_id, l.debit_kobo::text as debit, l.credit_kobo::text as credit, l.memo, e.kind, e.status
+    from bomedia.jobs j join bomedia.orders o on o.id=j.order_id
+    left join bomedia.journal_lines l on l.job_id=j.id and l.account_code='1100'
+    left join bomedia.journal_entries e on e.id=l.entry_id
+    where j.logged_by_snapshot='Sheet opening balance'`);
+  const expectedRows = plan.customers.flatMap(c => c.jobs.map(j => JSON.stringify([byKey.get(c.key) ?? null, j.salesId, j.saleDate, j.owedKobo, `Sheet row ${j.sheetRow}`]))).sort();
+  const actualRows = actual.map(r => JSON.stringify([r.customer_id, r.sales_id, r.sale_date, r.amount, r.memo])).sort();
+  const rowsMatch = JSON.stringify(expectedRows) === JSON.stringify(actualRows) && actual.every(r =>
+    r.customer_id === r.order_customer_id && r.customer_id === r.ledger_customer_id && r.debit === r.amount && r.credit === '0' && r.kind === 'opening' && r.status === 'posted');
+  check('each approved debt matches its customer, sale, date, amount and ledger line', rowsMatch, `${actual.length} ledger-linked rows, ${expectedRows.length} approved debts`);
+  check('one opening order per customer and Sales ID', new Set(actual.map(r => r.order_id)).size === plan.totals.orders &&
+    new Set(actual.map(r => JSON.stringify([r.customer_id, r.sales_id]))).size === plan.totals.orders, `${new Set(actual.map(r => r.order_id)).size} orders`);
   return { ok: checks.every(c => c.ok), state: settings?.state ?? null, checks };
 }
 
 /** Starts the books, but only when every check above passes. One way: active books cannot return to setup. */
 export async function activateOpening(db, plan) {
   return db.transaction(async tx => {
-    await tx.query(LOCK);
+    await tx.query(CUTOVER_LOCK);
     const report = await verifyOpening(tx, plan);
     if (!report.ok) throw new OpeningError(`Not activated. Failed checks: ${report.checks.filter(c => !c.ok).map(c => c.name).join('; ')}`);
     await tx.query("update bomedia.bookkeeping_settings set state='active' where singleton and state='setup'");
@@ -276,7 +310,7 @@ export async function activateOpening(db, plan) {
  */
 export async function createOwner(db) {
   return db.transaction(async tx => {
-    await tx.query(LOCK);
+    await tx.query(CUTOVER_LOCK);
     const existing = (await tx.query("select id::text as id from bomedia.staff where login_name='owner'")).rows[0];
     if (existing) return { created: false, ownerStaffId: existing.id };
     const row = (await tx.query("insert into bomedia.staff(display_name,login_name) values('Owner','owner') returning id::text as id")).rows[0];

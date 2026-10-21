@@ -13,7 +13,7 @@ import { importStaffRecords } from './import-staff.mjs';
 import { OpeningError, activateOpening, buildOpeningPlan, createOwner, postOpening, summarizeOpening, verifyOpening } from './opening-balances.mjs';
 import { HistoryError, buildHistoryPlan, importHistory, summarizeHistory, verifyHistory } from './sales-history.mjs';
 import { applyStock, buildStockPlan, diffStock, summarizeStock } from './stock-opening.mjs';
-import { RehearsalError, assertRehearsalTarget, resetRehearsal } from './rehearsal-reset.mjs';
+import { RehearsalError, rehearsalTargetFromFiles, resetRehearsal } from './rehearsal-reset.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 class CommandError extends Error {}
@@ -198,10 +198,8 @@ async function main() {
     const args = process.argv.slice(3);
     if (args.length !== 2 || args[0] !== '--confirm-project') throw new CommandError('rehearsal-reset needs --confirm-project <rehearsal-project-ref>.');
     const { parseEnv } = await import('node:util');
-    const envRef = async file => { try { const e = parseEnv(await readFile(join(root, file), 'utf8')); return [e.SUPABASE_MIGRATION_PROJECT_REF, e.SUPABASE_PROJECT_REF]; } catch { return []; } };
-    const [rehearsalRef] = await envRef('.env.rehearsal.local');
-    const protectedRefs = [...await envRef('.env.local'), ...await envRef('.env.sandbox.paused.local')];
-    try { assertRehearsalTarget({ confirmedRef: args[1], rehearsalRef, protectedRefs }); } catch (error) { throw error instanceof RehearsalError ? new CommandError(error.message) : error; }
+    try { await rehearsalTargetFromFiles(args[1], async file => parseEnv(await readFile(join(root, file), 'utf8'))); }
+    catch (error) { throw error instanceof RehearsalError ? new CommandError(error.message) : error; }
     console.log(JSON.stringify(await withMigrationDatabase(args[1], db => resetRehearsal(db)), null, 2));
     return;
   }
@@ -347,6 +345,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // Database/Google exceptions can contain credentials and row values. Never print them.
     console.error(error instanceof CommandError ? error.message
       : 'Migration command failed. Check the configuration, file permissions and snapshot format. No credentials or source data were logged.');
+    // Opt-in aid for rehearsals: the error's type and code only (never its message, which can hold row values or credentials).
+    if (process.env.BOMEDIA_MIGRATION_DEBUG === '1' && !(error instanceof CommandError)) console.error(`[debug] ${error?.name ?? 'Error'} ${error?.code ?? ''}`.trim());
     process.exitCode = 1;
   });
 }

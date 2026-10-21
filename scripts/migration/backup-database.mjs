@@ -4,6 +4,7 @@ import postgres from 'postgres';
 import { testConnection } from './cli.mjs';
 import { captureDatabase,restoreAndVerifyLocally } from './database-backup.mjs';
 import { encryptArchive,decryptArchive,sha256 } from './snapshot.mjs';
+import { migrationTlsOptions } from './migration-tls.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 let sql,phase='configuration';
 try {
@@ -17,7 +18,7 @@ try {
   const directory=`${base}/${name}`;await mkdir(directory,{mode:0o700});
   const files=await Promise.all((await readdir(`${root}supabase/migrations`)).filter(f=>f.endsWith('.sql')).sort()
     .map(async name=>({name,sql:await readFile(`${root}supabase/migrations/${name}`,'utf8')})));
-  sql=postgres(url,{ssl:{rejectUnauthorized:true,ca:await readFile(process.env.SUPABASE_CA_CERT_PATH,'utf8')},max:1,prepare:false,connect_timeout:15,onnotice:()=>{}});
+  sql=postgres(url,{ssl:await migrationTlsOptions(process.env.SUPABASE_CA_CERT_PATH),max:1,prepare:false,connect_timeout:15,onnotice:()=>{}});
   phase='consistent-read';
   const backup=await sql.begin('isolation level repeatable read read only',async tx=>{
     await tx`set local timezone to UTC`;

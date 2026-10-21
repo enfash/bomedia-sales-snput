@@ -5,11 +5,11 @@ import { testDatabase, insertId } from './helpers';
 import { activateOpening, buildOpeningPlan, createOwner, formatKobo, nairaToKobo, parseCsv, postOpening, summarizeOpening, verifyOpening } from '../../scripts/migration/opening-balances.mjs';
 
 const START = 'item,value,note\nopening_date,2026-10-18,"last day before the books start"\nopening_time,18:00,\n';
-const OWING_HEADER = 'customer_name,phone,amount_owed_naira,sale_date,job_description,sheet_row_or_receipt,note\n';
+const OWING_HEADER = 'customer_name,phone,amount_owed_naira,sale_date,job_description,sheet_row_or_receipt,note,sheet_row\n';
 const OWING = OWING_HEADER
-  + 'ade ogo,08011111111,"8,000",2026-09-03,"Flex banner, 10ft",BOM-A1,\n'
-  + 'Ade  Ogo,,7000,2026-10-10,Sticker,BOM-A2,\n'
-  + 'Grace,,2500.50,2026-10-12,Poster,BOM-G1,\n';
+  + 'ade ogo,08011111111,"8,000",2026-09-03,"Flex banner, 10ft",BOM-A1,,2\n'
+  + 'Ade  Ogo,,7000,2026-10-10,Sticker,BOM-A2,,3\n'
+  + 'Grace,,2500.50,2026-10-12,Poster,BOM-G1,,4\n';
 const CREDITS = 'customer_name,phone,amount_in_credit_naira,date_paid,reason,evidence,note\n';
 const LOANS = 'who,type,amount_naira,date,evidence,note\n,"loan you owe / loan owed to you / owner capital",,,\neasemoni,loan you owe,"670,000",2026-06-30,"Sheet Expenses tab, 30 Jun",\n';
 const files = (over: Record<string, string> = {}) => ({ startDate: START, owing: OWING, credits: CREDITS, loans: LOANS, ...over });
@@ -38,12 +38,12 @@ describe('opening balance planning', () => {
 
   it('refuses a blank or unknown balance, a bad date, a future sale, a repeated sale and clashing phone numbers', () => {
     const bad = (rows: string) => () => buildOpeningPlan(files({ owing: OWING_HEADER + rows }));
-    expect(bad('Kay,,,2026-09-01,x,R1,\n')).toThrow(/Leave nothing blank/);
-    expect(bad('Kay,,500,01/09/2026,x,R1,\n')).toThrow(/YYYY-MM-DD/);
-    expect(bad('Kay,,500,2026-10-30,x,R1,\n')).toThrow(/after the opening date/);
-    expect(bad('Kay,0801,500,2026-09-01,x,R1,\nkay,0802,600,2026-09-02,y,R2,\n')).toThrow(/two different phone numbers/);
-    expect(bad('Kay,,500,2026-09-01,x,,\n')).toThrow(/sales_id or sheet_row/);
-    expect(bad('Kay,,0,2026-09-01,x,R1,\n')).toThrow(/more than zero/);
+    expect(bad('Kay,,,2026-09-01,x,R1,,2\n')).toThrow(/Leave nothing blank/);
+    expect(bad('Kay,,500,01/09/2026,x,R1,,2\n')).toThrow(/YYYY-MM-DD/);
+    expect(bad('Kay,,500,2026-10-30,x,R1,,2\n')).toThrow(/after the opening date/);
+    expect(bad('Kay,0801,500,2026-09-01,x,R1,,2\nkay,0802,600,2026-09-02,y,R2,,3\n')).toThrow(/two different phone numbers/);
+    expect(bad('Kay,,500,2026-09-01,x,,\n')).toThrow(/sheet_row/);
+    expect(bad('Kay,,0,2026-09-01,x,R1,,2\n')).toThrow(/more than zero/);
   });
 
   it('keeps several items under one Sales ID as one order, falls back to the Sheet row number, and only reports identical rows', () => {
@@ -54,7 +54,7 @@ describe('opening balance planning', () => {
   });
 
   it('applies the owner name decisions, records them, and refuses chains, clashes and half-filled rows', () => {
-    const owing = OWING_HEADER + 'Kcool,,1000,2026-09-01,x,R1,\nK cool,,2000,2026-09-02,y,R2,\nkcool ,,500,2026-09-03,z,R3,\nOther,,100,2026-09-01,w,R4,\n';
+    const owing = OWING_HEADER + 'Kcool,,1000,2026-09-01,x,R1,,2\nK cool,,2000,2026-09-02,y,R2,,3\nkcool ,,500,2026-09-03,z,R3,,4\nOther,,100,2026-09-01,w,R4,,5\n';
     const plan = buildOpeningPlan(files({ owing, names: 'name_in_sheet,same_person_as\nK cool,Kcool\nMr Kenny,Kenny Print\n' }));
     expect(plan.totals).toMatchObject({ customers: 2, jobs: 4, debtsKobo: '360000' });
     expect(summarizeOpening(plan)).toMatchObject({ nameDecisionsApplied: ['k cool -> Kcool (1 rows)'], nameDecisionsNotUsed: ['mr kenny'] });
@@ -115,7 +115,7 @@ describe('opening balance posting', () => {
 
   it('posts a multi-item Sales ID as one order with several jobs', async () => {
     await fresh();
-    const plan = buildOpeningPlan(files({ owing: 'customer_name,phone,amount_owed_naira,sale_date,job_description,sales_id\nKay,,500,2026-09-01,Banner,BOM-K\nKay,,300,2026-09-01,Sticker,BOM-K\n', loans: 'who,type,amount_naira,date,evidence,note\n' }));
+    const plan = buildOpeningPlan(files({ owing: 'customer_name,phone,amount_owed_naira,sale_date,job_description,sales_id,sheet_row\nKay,,500,2026-09-01,Banner,BOM-K,2\nKay,,300,2026-09-01,Sticker,BOM-K,3\n', loans: 'who,type,amount_naira,date,evidence,note\n' }));
     await postOpening(db, plan, { actorId: owner });
     expect((await db.query<{ orders: number; jobs: number }>('select (select count(*)::integer from bomedia.orders) orders,(select count(*)::integer from bomedia.jobs) jobs')).rows[0]).toEqual({ orders: 1, jobs: 2 });
     expect(await net('1100')).toBe(80000);
@@ -131,7 +131,7 @@ describe('opening balance posting', () => {
     expect(again.replay).toBe(true);
     expect((await db.query<{ n: number }>('select count(*)::integer n from bomedia.customers')).rows[0].n).toBe(2);
     expect((await db.query<{ n: number }>('select count(*)::integer n from bomedia.journal_entries')).rows[0].n).toBe(2);
-    const other = buildOpeningPlan(files({ owing: OWING + 'Kay,,500,2026-09-01,x,R9,\n' }));
+    const other = buildOpeningPlan(files({ owing: OWING + 'Kay,,500,2026-09-01,x,R9,,5\n' }));
     await expect(postOpening(db, other, { actorId: owner })).rejects.toThrow(/already exist/);
   });
 

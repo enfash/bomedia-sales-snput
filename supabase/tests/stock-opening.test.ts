@@ -14,7 +14,7 @@ const stockFiles = (over: Record<string, string> = {}) => ({ materials: MATERIAL
 
 const OPENING = {
   startDate: 'item,value,note\nopening_date,2026-10-18,\n',
-  owing: 'customer_name,phone,amount_owed_naira,sale_date,job_description,sales_id\nKay,,5000,2026-09-01,Banner,BOM-K1\n',
+  owing: 'customer_name,phone,amount_owed_naira,sale_date,job_description,sales_id,sheet_row\nKay,,5000,2026-09-01,Banner,BOM-K1,2\n',
   credits: 'customer_name,phone,amount_in_credit_naira,date_paid,reason,evidence,note\n',
   loans: 'who,type,amount_naira,date,evidence,note\n',
 };
@@ -49,6 +49,47 @@ describe('stock files', () => {
 });
 
 describe('opening stock', () => {
+  it('blocks an unlisted native roll, includes its value when explicitly allowed, and binds posting to the approved stock set', async () => {
+    await imported();
+    await db.query(`insert into bomedia.inventory_rolls(material_id,item_name,width_ft,total_length_ft,remaining_length_ft,purchase_cost_kobo)
+      select id,'Native roll',5,100,100,1000000 from bomedia.materials where legacy_material_id='MAT-FLEX'`);
+    const stock = buildStockPlan(stockFiles(), DATE);
+    expect((await diffStock(db, stock)).blocked.join()).toMatch(/not counted|not in rolls.csv/);
+    await expect(applyStock(db, stock, { actorId: owner })).rejects.toThrow(/Blocked/);
+    const allowed = await diffStock(db, stock, { allowUncounted: true });
+    expect(summarizeStock(stock, allowed)).toMatchObject({ countedStockValue: '₦70,000.00', rollsNotInFile: 1, blockers: [] });
+    await expect(postOpening(db, buildOpeningPlan(OPENING), { actorId: owner })).rejects.toThrow(/approved count/);
+    await applyStock(db, stock, { actorId: owner, allowUncounted: true });
+    const approved = buildOpeningPlan(OPENING);
+    await postOpening(db, approved, { actorId: owner });
+    expect((await verifyOpening(db, approved)).ok).toBe(true);
+    // Preserve the value (50/50 of half the original cost), but change the approved cost/lengths.
+    await db.exec("update bomedia.inventory_rolls set total_length_ft=50,remaining_length_ft=50 where legacy_roll_id is null");
+    const report = await verifyOpening(db, approved);
+    expect(report.checks.find((c: { name: string }) => c.name === 'inventory equals the counted stock valued at cost').ok).toBe(true);
+    expect(report.checks.find((c: { name: string }) => c.name === 'counted stock matches the approved fingerprint').ok).toBe(false);
+    await expect(activateOpening(db, approved)).rejects.toThrow(/fingerprint/);
+  });
+
+  it('zero-unlisted includes rolls without a legacy ID and records their adjustments once', async () => {
+    await imported();
+    await db.query(`insert into bomedia.inventory_rolls(material_id,item_name,width_ft,total_length_ft,remaining_length_ft,purchase_cost_kobo)
+      select id,'Native roll',5,100,100,1000000 from bomedia.materials where legacy_material_id='MAT-FLEX'`);
+    const stock = buildStockPlan(stockFiles(), DATE);
+    await applyStock(db, stock, { actorId: owner, zeroUnlisted: true });
+    await applyStock(db, stock, { actorId: owner, zeroUnlisted: true });
+    expect((await rows('select remaining_length_ft::text r from bomedia.inventory_rolls where legacy_roll_id is null'))[0].r).toBe('0.000000');
+    expect((await rows("select count(*)::text n from bomedia.audit_events where action='opening_stock_approved'"))[0].n).toBe('1');
+  });
+
+  it('refuses stock changed after its approval before posting', async () => {
+    await imported();
+    await applyStock(db, buildStockPlan(stockFiles(), DATE), { actorId: owner });
+    await db.exec("update bomedia.inventory_rolls set remaining_length_ft=79 where legacy_roll_id='ROLL-1'");
+    await expect(postOpening(db, buildOpeningPlan(OPENING), { actorId: owner })).rejects.toThrow(/approved count/);
+    expect((await rows('select count(*)::text n from bomedia.journal_entries'))[0].n).toBe('0');
+  });
+
   it('shows what would change, applies prices, the count and a new roll, and a second run changes nothing', async () => {
     await imported();
     const plan = buildStockPlan(stockFiles(), DATE);

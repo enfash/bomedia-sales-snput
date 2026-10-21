@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { OpeningError, nairaToKobo, parseCsv } from './opening-balances.mjs';
+import { CUTOVER_LOCK } from './cutover-shared.mjs';
+import { readOpeningStock, readStockApproval } from './opening-stock-evidence.mjs';
 
 // Opening stock for the cutover: current prices and the owner's physical count, applied BEFORE any opening entry is posted.
 // materials.csv: material_id,name,width_ft,selling_price_naira_per_sqft,low_stock_threshold_ft   (one row per material in the Sheet)
@@ -8,7 +10,6 @@ import { OpeningError, nairaToKobo, parseCsv } from './opening-balances.mjs';
 // Existing rolls change ONLY in remaining length (a dated movement, no journal). Anything else that differs blocks the run for the owner to decide.
 // The opening command later values the counted stock (debit Inventory, credit Owner capital); the app cannot sell material without that value.
 
-const LOCK = "select pg_advisory_xact_lock(hashtextextended('bomedia:opening-balances',0))";
 const sha = text => createHash('sha256').update(text).digest('hex');
 
 const decimal6 = (value, label) => {
@@ -78,8 +79,13 @@ export async function diffStock(db, plan, { allowUncounted = false, zeroUnlisted
   const q = async (text, params = []) => (await db.query(text, params)).rows;
   const dbMaterials = new Map((await q(`select id::text, legacy_material_id, name, width_ft::text as width_ft, selling_price_per_sqft_kobo::text as price, low_stock_threshold_ft::text as threshold, active_roll_id::text as active_roll_id
     from bomedia.materials where legacy_material_id is not null`)).map(m => [m.legacy_material_id, m]));
-  const dbRolls = new Map((await q(`select r.id::text, r.legacy_roll_id, r.width_ft::text as width_ft, r.total_length_ft::text as total, r.remaining_length_ft::text as remaining, r.purchase_cost_kobo::text as cost, m.legacy_material_id
-    from bomedia.inventory_rolls r join bomedia.materials m on m.id=r.material_id where r.legacy_roll_id is not null`)).map(r => [r.legacy_roll_id, r]));
+  const allRolls = await q(`select r.id::text, r.legacy_roll_id, r.width_ft::text as width_ft, r.total_length_ft::text as total, r.remaining_length_ft::text as remaining, r.purchase_cost_kobo::text as cost, m.legacy_material_id
+    from bomedia.inventory_rolls r join bomedia.materials m on m.id=r.material_id`);
+  const dbRolls = new Map();
+  for (const roll of allRolls.filter(r => r.legacy_roll_id !== null)) {
+    if (dbRolls.has(roll.legacy_roll_id)) throw new OpeningError(`Ambiguous database roll ID ${roll.legacy_roll_id}. Nothing was changed.`);
+    dbRolls.set(roll.legacy_roll_id, roll);
+  }
   const out = { materialsNew: [], materialsChanged: [], materialsNameDiffers: [], rollsNew: [], rollsRecounted: [], rollsUnchanged: 0, blocked: [], uncounted: [], valueKobo: 0n };
   for (const m of plan.materials) {
     const have = dbMaterials.get(m.id);
@@ -98,14 +104,25 @@ export async function diffStock(db, plan, { allowUncounted = false, zeroUnlisted
     if (micros(decimal6(have.remaining, 'db')) !== micros(r.remainingFt)) out.rollsRecounted.push({ id: r.id, from: have.remaining, to: r.remainingFt }); else out.rollsUnchanged++;
   }
   const fileRolls = new Set(plan.rolls.map(r => r.id));
-  for (const [id, have] of dbRolls) if (!fileRolls.has(id) && micros(decimal6(have.remaining, 'db')) > 0n) out.uncounted.push(`${id} (${have.remaining} ft)`);
+  const omitted = allRolls.filter(r => !fileRolls.has(r.legacy_roll_id) && micros(decimal6(r.remaining, 'db')) > 0n);
+  for (const have of omitted) out.uncounted.push(`${have.legacy_roll_id ?? `database roll ${have.id}`} (${have.remaining} ft)`);
   // The owner says every roll not listed is gone: those rolls are set to zero (a dated movement) instead of blocking the run.
   if (zeroUnlisted) {
-    for (const [id, have] of dbRolls) {
-      if (!fileRolls.has(id) && micros(decimal6(have.remaining, 'db')) > 0n) out.rollsRecounted.push({ id, from: have.remaining, to: '0.000000', note: 'none found at the count' });
+    for (const have of omitted) {
+      out.rollsRecounted.push({ id: have.legacy_roll_id ?? `database roll ${have.id}`, databaseId: have.id, from: have.remaining, to: '0.000000', note: 'none found at the count' });
     }
     out.zeroed = out.uncounted.length;
     out.uncounted = [];
+  }
+  if (allowUncounted && !zeroUnlisted) {
+    for (const have of omitted) {
+      if (have.cost === null || BigInt(have.cost) <= 0n || micros(decimal6(have.total, 'db')) <= 0n) {
+        out.blocked.push(`Uncounted roll ${have.legacy_roll_id ?? have.id} needs a positive purchase cost and total length.`);
+        continue;
+      }
+      const remaining = micros(decimal6(have.remaining, 'db')), total = micros(decimal6(have.total, 'db'));
+      out.valueKobo += (remaining * BigInt(have.cost) * 2n + total) / (total * 2n);
+    }
   }
   if (out.uncounted.length && !allowUncounted) out.blocked.push(`${out.uncounted.length} roll(s) with stock in the database are not in rolls.csv, so they were not counted: ${out.uncounted.slice(0, 10).join(', ')}${out.uncounted.length > 10 ? ', ...' : ''}. List them with their counted length (0 if gone).`);
   const byGroup = new Map();
@@ -128,7 +145,7 @@ export const summarizeStock = (plan, diff) => ({ countDate: plan.countDate, mate
 export async function applyStock(db, plan, { actorId, allowUncounted = false, zeroUnlisted = false }) {
   if (!/^[0-9a-f-]{36}$/.test(String(actorId))) throw new OpeningError('The owner staff id is required.');
   return db.transaction(async tx => {
-    await tx.query(LOCK);
+    await tx.query(CUTOVER_LOCK);
     if (!(await tx.query('select 1 from bomedia.staff where id=$1 and disabled_at is null', [actorId])).rows.length) throw new OpeningError('The owner staff account was not found or is disabled.');
     const books = (await tx.query('select state from bomedia.bookkeeping_settings where singleton')).rows[0];
     if (books && books.state !== 'setup') throw new OpeningError('The books are already active. Stock can no longer be loaded this way. Nothing was changed.');
@@ -177,11 +194,18 @@ export async function applyStock(db, plan, { actorId, allowUncounted = false, ze
       const delta = micros(to) - micros(decimal6(change.from, 'db'));
       const abs = delta < 0n ? -delta : delta;
       const text = `${delta < 0n ? '-' : ''}${abs / 1000000n}.${(abs % 1000000n).toString().padStart(6, '0')}`;
-      await tx.query('update bomedia.inventory_rolls set remaining_length_ft=$2 where legacy_roll_id=$1', [change.id, to]);
-      await tx.query('update bomedia.inventory_rolls set status=bomedia.roll_status(remaining_length_ft, low_stock_threshold_ft) where legacy_roll_id=$1', [change.id]);
-      const rollId = (await tx.query('select id::text as id from bomedia.inventory_rolls where legacy_roll_id=$1', [change.id])).rows[0].id;
+      const rollId = change.databaseId ?? (await tx.query('select id::text as id from bomedia.inventory_rolls where legacy_roll_id=$1', [change.id])).rows[0].id;
+      await tx.query('update bomedia.inventory_rolls set remaining_length_ft=$2 where id=$1', [rollId, to]);
+      await tx.query('update bomedia.inventory_rolls set status=bomedia.roll_status(remaining_length_ft, low_stock_threshold_ft) where id=$1', [rollId]);
       await move(rollId, text, { kind: 'adjustment', reason: `${reason}${note ? ` - ${note}` : ''}`.slice(0, 300) });
     }
-    return { applied: true, ...summarizeStock(plan, diff) };
+    const stock = await readOpeningStock(tx);
+    if (stock.valueKobo !== diff.valueKobo.toString()) throw new OpeningError('Applied stock value differs from the preview. Nothing was changed.');
+    const details = { countDate: plan.countDate, planSha256: plan.digest, ...stock };
+    const previous = await readStockApproval(tx);
+    if (!previous || ['countDate', 'planSha256', 'fingerprint', 'valueKobo', 'rolls'].some(key => previous.details[key] !== details[key])) {
+      await tx.query("insert into bomedia.audit_events(actor_id,action,entity_type,details) values($1,'opening_stock_approved','cutover',$2::jsonb)", [actorId, JSON.stringify(details)]);
+    }
+    return { applied: true, ...summarizeStock(plan, diff), approvedStockFingerprint: stock.fingerprint };
   });
 }

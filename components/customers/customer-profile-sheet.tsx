@@ -15,6 +15,7 @@ import { koboNaira } from '@/lib/approvals-view';
 import { FIELD_LABEL, dayLabel, shortNaira, timeLabel, type CustomerItem } from '@/lib/customers-view';
 import type { CustomerHistory, CustomerProfile } from '@/lib/server/customers';
 import { LoadingState } from '@/components/loading-state';
+import { CustomerHistoryLimit } from './customer-history-limit';
 
 type Tab = 'sales' | 'payments' | 'changes' | 'before';
 const HISTORY_PAGE = 50;
@@ -149,6 +150,7 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
               {Number(history.summary.owed_kobo) > 0 ? `, ${money(history.summary.owed_kobo)} was unpaid in the Sheet` : ''}
               {history.summary.first_date ? ` · ${dayLabel(history.summary.first_date)} to ${dayLabel(history.summary.last_date ?? history.summary.first_date)}` : ''}.
             </Box>
+            <CustomerHistoryLimit total={history.summary.rows} returned={history.rows.length} />
             {history.rows.slice(0, historyShown).map((row) => <Box key={row.sheet_row} sx={styles.line}>
               <Box sx={styles.lineMain}>
                 <Typography sx={styles.lineName}>{row.what}</Typography>

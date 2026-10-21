@@ -5,6 +5,7 @@ vi.mock('./postgres-auth-routes', () => ({ verifiedAdminIdentity: mocks.admin })
 vi.mock('./postgres-auth', () => ({ postgresAuth: { session: mocks.session } }));
 vi.mock('./financial-db', async (original) => ({ ...(await original<object>()), callFinancial: mocks.call, financialApiEnabled: () => true }));
 import { readCustomerProfile, readCustomers, saveCustomer } from './customers-routes';
+import { GET as readHistory } from '../../app/api/accounting/customer-history/route';
 
 const owner = '00000000-0000-4000-8000-000000000001';
 const cashier = '00000000-0000-4000-8000-000000000002';
@@ -18,6 +19,21 @@ beforeEach(() => {
   mocks.call.mockResolvedValue({ data: [] });
 });
 afterEach(() => vi.unstubAllEnvs());
+
+it('GET /api/accounting/customer-history refuses anonymous requests before querying and permits owner/cashier reads', async () => {
+  const request = new Request(`https://app.example.test/api/accounting/customer-history?id=${customer}`);
+  mocks.session.mockResolvedValue(null);
+  const response = await readHistory(request);
+  expect(response.status).toBe(401);
+  expect(mocks.call).not.toHaveBeenCalled();
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  mocks.session.mockResolvedValue({ staff_id: cashier });
+  expect((await readHistory(request)).status).toBe(200);
+  mocks.session.mockResolvedValue(null);
+  mocks.admin.mockResolvedValue('owner@example.test');
+  expect((await readHistory(request)).status).toBe(200);
+  expect(mocks.call).toHaveBeenCalledWith('api_customer_history', customer, {});
+});
 
 it('lets a signed-in cashier read the list and a profile', async () => {
   expect((await readCustomers()).status).toBe(200);

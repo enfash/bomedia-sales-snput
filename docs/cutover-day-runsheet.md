@@ -8,7 +8,7 @@ Follow it top to bottom. Each step says who does it, the exact command, and what
 
 - [ ] Supabase Auth set up on the live project (owner user = `elijahfasugba@gmail.com`; email on, sign-ups off, owner user created and auto-confirmed, authenticator on, redirect `https://bomedia-sales.vercel.app/bom03/login/reset`).
 - [ ] Vercel Production variables entered (runbook 2.4) and checked against the list: the three mode flags, `SUPABASE_ADMIN_STAFF_ID`, `SUPABASE_PROJECT_REF`, `SUPABASE_CA_CERT_PEM`, both database URLs, publishable and storage keys, the four `PUSH_` values, `SESSION_SECRET` (new), `GEMINI_API_KEY`.
-- [ ] `.env.local` has `SUPABASE_ADMIN_STAFF_ID` (once) and no mode flags.
+- [ ] `.env.local` keeps `SUPABASE_MIGRATION_DATABASE_URL`, `SUPABASE_MIGRATION_PROJECT_REF`, and `SUPABASE_ADMIN_STAFF_ID` (once). It has no mode flags.
 - [ ] Google Drive folder `BOMedia backups` exists; passphrase kept separately.
 - [ ] Cashiers' PINs tested on live (they are imported staff; reset any that fail).
 - [ ] Cashiers told: the Sheet stops Sunday evening; the new app starts Monday 9:00.
@@ -30,7 +30,14 @@ Good: verify says the restore matched. Then copy the folder to Google Drive.
 
 ## 3. Prepare the files (C, owner reviews)
 
-Claude builds, from the export: `3-customers-who-owe.csv` (only real debts, one row per owing sale), `1-start-date.csv` (`opening_date` 2026-10-25, so the books start 26 Oct), refreshed `stock-opening` files, and copies `2-name-decisions.csv` and `ignore-payments.csv` into the export folder (Sheet rows 2762 and 2948 must still be those two rows; Claude checks).
+Claude builds the approved files from the final export and puts them in these exact folders:
+
+- `migration-data/opening-balances/`: `1-start-date.csv`, `2-name-decisions.csv`, `3-customers-who-owe.csv`, `4-customers-paid-in-advance.csv`, `6-loans-and-owner-money.csv`. Set `opening_date` to 2026-10-25, so the books start 26 Oct. The owing file contains only real debts, with a required, unique `sheet_row` for each debt. Rows 3665 and 3669 are separate debts even though their content is identical; keep both. Leave the credits file with headers only, because customer credits are unsupported.
+- `migration-data/stock-opening/`: `materials.csv` and `rolls.csv`, refreshed from the physical count.
+- `migration-data/sheet-export-YYYYMMDD/` (this run: `migration-data/sheet-export-20261025/`): `Sales.csv`, `2-name-decisions.csv` (the same decisions used for opening), and `ignore-payments.csv`.
+
+`ignore-payments.csv` needs `sheet_row,payment,expected_amount_naira,reason`. Claude checks that Sheet rows 2762 and 2948 are still the intended rows and records the exact payment amount the owner approved ignoring. An amount mismatch stops the import. Sheet row N means physical line N of `Sales.csv`, including blank lines; header = row 1.
+
 Owner reviews and approves: customers, total owing, the ₦670,000 loan, stock value. Nothing is loaded before this OK.
 
 ## 4. Load the data (O, in this order)
@@ -45,10 +52,10 @@ npm run opening:post -- --confirm-project "$LIVE"
 node --env-file=.env.local scripts/migration/cli.mjs history-check sheet-export-20261025
 node --env-file=.env.local scripts/migration/cli.mjs history-import sheet-export-20261025 --confirm-project "$LIVE"
 node --env-file=.env.local scripts/migration/cli.mjs history-verify sheet-export-20261025 --confirm-project "$LIVE"
-npm run opening:verify -- --confirm-project "$LIVE"         # all 10 checks pass
+npm run opening:verify -- --confirm-project "$LIVE"         # every check must pass
 npm run opening:activate -- --confirm-project "$LIVE"       # point of no return for the books: they start 26 Oct
 ```
-Good: `history-verify` says verified; `opening:verify` says 10 of 10; the activate result shows `"activated": true`. History import takes about a minute.
+Good: `history-verify` says verified; `opening:verify` shows `"ok": true` with every check passing; the activate result shows `"activated": true`. `stock:apply` records the approved stock fingerprint; opening-post refuses stock that has changed since that count. History import takes about a minute.
 
 ## 5. Release (O)
 

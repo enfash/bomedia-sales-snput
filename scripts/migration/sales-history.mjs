@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { parseCsv, nairaToKobo, formatKobo } from './opening-balances.mjs';
+import { parseCsv, parseCsvDocument, nairaToKobo, formatKobo } from './opening-balances.mjs';
+import { CUTOVER_LOCK, indexCustomers, nameKey, resolveNameDecisions } from './cutover-shared.mjs';
 
 // Customer history: every row of the Google Sheet's Sales tab, kept as READ-ONLY history on the customer ("Before the new app").
 // It never touches the books, stock or what a customer owes today. Rules (owner): never merge customers beyond an exact name match that ignores
@@ -7,41 +8,54 @@ import { parseCsv, nairaToKobo, formatKobo } from './opening-balances.mjs';
 
 export class HistoryError extends Error {}
 
-const LOCK = "select pg_advisory_xact_lock(hashtextextended('bomedia:sales-history',0))";
 const PAYMENT_COLUMNS = { 1: 'ADDITIONAL PAYMENT 1', 2: 'ADDITIONAL PAYMENT 2' };
 const SIZE_COLUMNS = ['3FT', '4FT', '5FT', '6FT', '7FT', '8FT', '10FT', 'custom'];
-const nameKey = name => String(name ?? '').replace(/\s+/g, '').toLowerCase();
 const clean = value => String(value ?? '').trim();
-const money = (value, label) => { const t = clean(value); if (!t) return 0n; const neg = /^-/.test(t); const kobo = BigInt(nairaToKobo(t.replace(/^-/, ''), label)); return neg ? -kobo : kobo; };
+const money = (value, label, blankIsZero = false) => {
+  const t = clean(value);
+  if (!t && blankIsZero) return 0n;
+  const neg = /^-/.test(t), kobo = BigInt(nairaToKobo(t.replace(/^-/, ''), label));
+  return neg ? -kobo : kobo;
+};
+const requireHeaders = (document, required, file) => {
+  const missing = required.filter(header => !document.headers.includes(header));
+  if (missing.length) throw new HistoryError(`${file} is missing required headers: ${missing.join(', ')}.`);
+};
 
 /**
- * `files`: sales (Sales.csv text), names (2-name-decisions.csv: name_in_sheet,same_person_as), ignore (ignore-payments.csv: sheet_row,payment 1 or 2,reason).
+ * `files`: sales (Sales.csv text), names (2-name-decisions.csv: name_in_sheet,same_person_as), ignore (ignore-payments.csv: sheet_row,payment 1 or 2,expected_amount_naira,reason).
  * Sheet row N is line N of the file (the header is row 1), so a row can always be found in the Sheet again.
  */
 export function buildHistoryPlan(files) {
-  const decisions = new Map();
-  for (const r of parseCsv(files.names ?? '')) if (r.name_in_sheet && r.same_person_as) decisions.set(nameKey(r.name_in_sheet), clean(r.same_person_as));
+  const names = resolveNameDecisions(parseCsv(files.names ?? ''));
   const ignored = new Map();
+  if (clean(files.ignore)) requireHeaders(parseCsvDocument(files.ignore), ['sheet_row', 'payment', 'expected_amount_naira', 'reason'], 'ignore-payments.csv');
   for (const r of parseCsv(files.ignore ?? '')) {
-    if (!r.sheet_row) continue;
+    if (!/^\d+$/.test(r.sheet_row ?? '') || !Number.isSafeInteger(Number(r.sheet_row)) || Number(r.sheet_row) < 2) throw new HistoryError('ignore-payments.csv needs a valid sheet_row of at least 2.');
     if (!PAYMENT_COLUMNS[r.payment]) throw new HistoryError(`ignore-payments.csv row ${r.sheet_row}: payment must be 1 or 2.`);
-    ignored.set(`${Number(r.sheet_row)}:${r.payment}`, clean(r.reason));
+    const key = `${Number(r.sheet_row)}:${r.payment}`;
+    if (ignored.has(key)) throw new HistoryError(`ignore-payments.csv repeats Sheet row ${r.sheet_row} payment ${r.payment}.`);
+    ignored.set(key, { expected: money(r.expected_amount_naira, 'expected_amount_naira').toString(), reason: clean(r.reason) });
   }
-  const sheet = parseCsv(files.sales);
+  const sheet = parseCsvDocument(files.sales);
+  requireHeaders(sheet, ['DATE', 'CLIENT NAME', 'Sales ID', 'AMOUNT (₦)', 'INITIAL PAYMENT (₦)', ...Object.values(PAYMENT_COLUMNS)], 'Sales.csv');
   const customers = new Map(); // key -> { name, contact, rows: [] }
   const rows = [], skipped = [], ignoredUsed = [];
-  sheet.forEach((r, index) => {
-    const sheetRow = index + 2;
+  sheet.records.forEach(({ values: r, line: sheetRow }) => {
     const rawName = clean(r['CLIENT NAME']);
     if (!rawName) { skipped.push({ sheetRow, reason: 'no customer name', date: r.DATE, amount: r['AMOUNT (₦)'] }); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(r.DATE)) throw new HistoryError(`Sheet row ${sheetRow}: date "${r.DATE}" is not YYYY-MM-DD.`);
-    const name = decisions.get(nameKey(rawName)) ?? rawName;
+    const name = names.resolve(rawName);
     const key = nameKey(name);
     const amount = money(r['AMOUNT (₦)'], `Sheet row ${sheetRow} amount`);
-    let paid = money(r['INITIAL PAYMENT (₦)'], `Sheet row ${sheetRow} initial payment`);
+    let paid = money(r['INITIAL PAYMENT (₦)'], `Sheet row ${sheetRow} initial payment`, true);
     for (const n of ['1', '2']) {
-      const value = money(r[PAYMENT_COLUMNS[n]], `Sheet row ${sheetRow} payment ${n}`);
-      if (ignored.has(`${sheetRow}:${n}`)) { ignoredUsed.push({ sheetRow, payment: n, amount: value.toString(), reason: ignored.get(`${sheetRow}:${n}`) }); continue; }
+      const value = money(r[PAYMENT_COLUMNS[n]], `Sheet row ${sheetRow} payment ${n}`, true);
+      const ignore = ignored.get(`${sheetRow}:${n}`);
+      if (ignore) {
+        if (value.toString() !== ignore.expected) throw new HistoryError(`Sheet row ${sheetRow} payment ${n} differs from expected_amount_naira. Nothing was imported.`);
+        ignoredUsed.push({ sheetRow, payment: n, amount: value.toString(), reason: ignore.reason }); continue;
+      }
       paid += value;
     }
     const sizes = SIZE_COLUMNS.filter(c => clean(r[c])).map(c => `${c}: ${clean(r[c])}`).join(', ');
@@ -57,10 +71,10 @@ export function buildHistoryPlan(files) {
     rows.push(row);
   });
   for (const k of ignored.keys()) if (!ignoredUsed.some(u => `${u.sheetRow}:${u.payment}` === k)) throw new HistoryError(`ignore-payments.csv names Sheet row ${k.split(':')[0]}, which is not a row with a customer name. Nothing was imported.`);
-  const batch = createHash('sha256').update(JSON.stringify([files.sales, [...decisions], [...ignored]])).digest('hex');
+  const batch = createHash('sha256').update(JSON.stringify([files.sales, names.decisions, [...ignored]])).digest('hex');
   const sum = field => rows.reduce((t, r) => t + BigInt(r[field]), 0n);
   const orders = new Set(rows.map(r => `${r.customerKey}|${r.salesId ?? `row-${r.sheetRow}`}`));
-  return { batch, rows, customers: [...customers.values()], skipped, ignored: ignoredUsed,
+  return { batch, rows, customers: [...customers.values()], skipped, ignored: ignoredUsed, nameDecisions: names.decisions,
     totals: { rows: rows.length, customers: customers.size, orders: orders.size, totalKobo: sum('amountKobo').toString(), paidKobo: sum('paidKobo').toString() } };
 }
 
@@ -72,17 +86,20 @@ export function summarizeHistory(plan) {
 /** Existing customers (from the opening balances or the app) are matched by name ignoring spaces and capitals; the rest are created. Safe to repeat. */
 export async function importHistory(db, plan) {
   return db.transaction(async tx => {
-    await tx.query(LOCK);
-    const state = (await tx.query('select state from bomedia.bookkeeping_settings where singleton')).rows[0]?.state;
-    if (state === 'active') throw new HistoryError('The books are already active. History is loaded before the cutover; nothing was imported.');
+    await tx.query(CUTOVER_LOCK);
+    const state = (await tx.query('select state from bomedia.bookkeeping_settings where singleton for update')).rows[0]?.state;
+    if (state !== 'setup') throw new HistoryError('History requires setup books; they are missing or already active. Nothing was imported.');
+    if (!(await tx.query("select 1 from bomedia.journal_entries where kind='opening' and status='posted' limit 1")).rows.length) {
+      throw new HistoryError('Post the opening entries before loading history. Nothing was imported.');
+    }
     const existing = (await tx.query('select batch, count(*)::integer as n from bomedia.legacy_sales group by batch')).rows;
     if (existing.some(e => e.batch !== plan.batch)) throw new HistoryError('History from a different file is already loaded. Nothing was imported.');
     if (existing.length) {
       if (existing[0].n !== plan.totals.rows) throw new HistoryError('Part of this history is already loaded but the count differs. Nothing was imported.');
+      await verifyHistory(tx, plan);
       return { replay: true, ...summarizeHistory(plan) };
     }
-    const byKey = new Map();
-    for (const c of (await tx.query('select id::text as id, display_name from bomedia.customers order by created_at, id')).rows) if (!byKey.has(nameKey(c.display_name))) byKey.set(nameKey(c.display_name), c.id);
+    const byKey = indexCustomers((await tx.query('select id::text as id, display_name from bomedia.customers')).rows, plan.nameDecisions);
     let created = 0;
     for (const c of plan.customers) {
       if (byKey.has(c.key)) continue;
@@ -115,6 +132,17 @@ export async function verifyHistory(db, plan) {
   if (got.total !== plan.totals.totalKobo) problems.push(`total: file ${formatKobo(plan.totals.totalKobo)}, database ${formatKobo(got.total)}`);
   if (got.paid !== plan.totals.paidKobo) problems.push(`paid: file ${formatKobo(plan.totals.paidKobo)}, database ${formatKobo(got.paid)}`);
   if (got.other_batch) problems.push(`${got.other_batch} rows came from a different file`);
+  const byKey = indexCustomers((await db.query('select id::text as id, display_name from bomedia.customers')).rows, plan.nameDecisions);
+  const actual = (await db.query(`select customer_id::text, sheet_row, sale_date::text, sales_id, amount_kobo::text, paid_kobo::text, owed_kobo::text, batch
+    from bomedia.legacy_sales order by sheet_row`)).rows;
+  const byRow = new Map(actual.map(row => [row.sheet_row, row]));
+  for (const row of plan.rows) {
+    const have = byRow.get(row.sheetRow);
+    if (!have || have.customer_id !== byKey.get(row.customerKey) || have.sale_date !== row.saleDate || have.sales_id !== row.salesId ||
+      have.amount_kobo !== row.amountKobo || have.paid_kobo !== row.paidKobo || have.owed_kobo !== row.owedKobo || have.batch !== plan.batch) {
+      problems.push(`Sheet row ${row.sheetRow}: customer, sale, amount, paid, owed or fingerprint differs`);
+    }
+  }
   if (problems.length) throw new HistoryError(`History does not match the file: ${problems.join('; ')}.`);
   return { verified: true, ...summarizeHistory(plan) };
 }
