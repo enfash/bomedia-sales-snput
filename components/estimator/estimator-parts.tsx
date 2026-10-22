@@ -1,9 +1,10 @@
 "use client";
 
+import { SegmentedControl } from '@/components/segmented-control';
 import type { ReactNode } from 'react';
 import NextLink from 'next/link';
 import { Box, Button, IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
-import { AlertTriangle, ChevronDown, ChevronUp, Plus, RefreshCw, Ruler, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import { estimatorStyles as styles } from '@/app/theme';
 import { BackLink } from '@/components/back-link';
@@ -47,11 +48,9 @@ export function SizeFields({ item, onChange, withMargin = false }: { item: SizeI
     ...(withMargin ? [{ key: 'margin', label: 'Margin %', placeholder: '0' }] : []),
   ] as const;
   return <Box>
-    <Box sx={styles.labelRow}>
-      <Typography component="div" sx={styles.labelFlush}><Ruler size={14} /> Size</Typography>
-      <Box sx={styles.unitToggle} role="group" aria-label="Unit">
-        {(['ft', 'in'] as const).map((unit) => <Button key={unit} size="small" aria-pressed={item.dimUnit === unit} sx={item.dimUnit === unit ? styles.unitButtonOn : styles.unitButton} onClick={() => onChange({ dimUnit: unit })}>{unit}</Button>)}
-      </Box>
+    <Typography component="div" sx={styles.label}>Size</Typography>
+    <Box sx={styles.unitSwitch}>
+      <SegmentedControl label="Size unit" value={item.dimUnit} options={[{ value: 'ft', label: 'Feet' }, { value: 'in', label: 'Inches' }]} onChange={(unit) => onChange({ dimUnit: unit })} />
     </Box>
     <Box sx={styles.shortcuts}>
       {SIZE_SHORTCUTS.map((shortcut) => <Button key={shortcutLabel(shortcut)} size="small" variant="outlined" sx={styles.shortcut} onClick={() => onChange(shortcutSize(shortcut, item.dimUnit))}>{shortcutLabel(shortcut)}</Button>)}

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, LinearProgress, Paper, TextField, Typography } from '@mui/material';
 import { LoadingState } from '@/components/loading-state';
 
-import { inventoryStyles as styles, settingsStyles, statTileStyles, systemStatusStyles as status } from '@/app/theme';
+import { inventoryStyles as styles, recordsStyles, settingsStyles, statTileStyles, systemStatusStyles as status } from '@/app/theme';
 import { MaterialSizeSummary, barColor } from '@/components/inventory/material-size-summary';
 import { StatTile } from '@/components/stat-tile';
 import { searchMaterials, summarizeInventory, toNumber, type FeedRow } from '@/lib/inventory-summary';
 import { BackLink } from '@/components/back-link';
+import { RefreshButton } from '@/components/refresh-button';
 
 const message = (error: unknown) => (error instanceof Error ? error.message : 'The stock could not be loaded. Try again.');
 const leftPercent = (row: FeedRow) => {
@@ -43,11 +44,13 @@ export function CashierInventoryPage() {
   return <Box sx={settingsStyles.page}>
     <Box sx={styles.page}>
       <BackLink href="/cashier" label="Home" />
-      <Box sx={styles.head}>
-        <Typography variant="h3" component="h1">Stock check</Typography>
-        <Typography color="text.secondary">What you can sell right now. Check here before logging a sale.</Typography>
+      <Box sx={recordsStyles.headingRow}>
+        <Box sx={styles.head}>
+          <Typography variant="h3" component="h1">Stock check</Typography>
+          <Typography color="text.secondary">What you can sell right now. Check here before logging a sale.</Typography>
+        </Box>
+        <RefreshButton label="stock" busy={refreshing} onClick={() => void refresh()} />
       </Box>
-      <Button variant="outlined" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Refreshing…' : 'Refresh'}</Button>
       {error && <Alert severity="error">{error}</Alert>}
       <TextField type="search" label="Search materials" placeholder="Name or code, e.g. Flex or SAV-4FT" value={search} onChange={(event) => setSearch(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
 

@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Alert, Box, Button, ButtonBase, FormControlLabel, IconButton, Paper, Switch, TextField, Typography } from '@mui/material';
 import { LoadingState } from '@/components/loading-state';
-import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { recordsStyles as styles } from '@/app/theme';
 import { HomeBackLink } from '@/components/back-link';
+import { RefreshButton } from '@/components/refresh-button';
 import { DateRangeFields } from '@/components/date-range-fields';
 import { HeldSales } from '@/components/records/held-sales';
 import { useFloatingNotice } from '@/components/floating-notice';
@@ -223,9 +224,7 @@ export function RecordsPage({ role }: { role: RecordsRole }) {
         <Typography variant="h3" component="h1">Records</Typography>
         <Typography color="text.secondary">{COPY[role]}</Typography>
       </Box>
-      <IconButton aria-label={loading ? 'Loading records' : refreshing ? 'Updating records' : 'Refresh records'} aria-busy={loading || refreshing} disabled={loading || refreshing} sx={styles.refreshIcon} onClick={() => void fetchData()}>
-        <RefreshCw size={18} />
-      </IconButton>
+      <RefreshButton label="records" busy={loading || refreshing} onClick={() => void fetchData()} />
     </Box>
 
     {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void fetchData()}>Try again</Button>}>

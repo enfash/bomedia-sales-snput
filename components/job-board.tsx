@@ -4,10 +4,11 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Box, Button, ButtonBase, IconButton, Typography, useMediaQuery } from '@mui/material';
 import { LoadingState } from '@/components/loading-state';
 import { useTheme } from '@mui/material/styles';
-import { Check, CheckCircle2, Clock, MoreVertical, RefreshCw } from 'lucide-react';
+import { Check, CheckCircle2, Clock, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { boardStyles as styles, stageStyles, settingsStyles } from '@/app/theme';
 import { HomeBackLink } from '@/components/back-link';
+import { RefreshButton } from '@/components/refresh-button';
 import { useFloatingNotice } from '@/components/floating-notice';
 import type { UnifiedRecord } from '@/components/manage-sale-action';
 import { MaterialBadge } from '@/components/material-badge';
@@ -170,14 +171,13 @@ export function JobBoard({ isAdmin = false, filterClient }: JobBoardProps) {
 
   return <Box sx={styles.screen}>
     <HomeBackLink />
-    <Box sx={styles.heading}>
-      <Typography variant="h3" component="h1">{isAdmin ? 'Production board' : 'Job board'}</Typography>
-      <Typography color="text.secondary">{desktop ? 'Drag a job to the next stage, or select several and drag one of them.' : 'Move jobs through the stages as they are done.'}</Typography>
+    <Box sx={styles.headingRow}>
+      <Box sx={styles.heading}>
+        <Typography variant="h3" component="h1">{isAdmin ? 'Production board' : 'Job board'}</Typography>
+        <Typography color="text.secondary">{desktop ? 'Drag a job to the next stage, or select several and drag one of them.' : 'Move jobs through the stages as they are done.'}</Typography>
+      </Box>
+      <RefreshButton label="board" busy={refreshing} onClick={() => void handleRefresh()} />
     </Box>
-
-    <Button variant="outlined" color="primary" size="large" startIcon={<RefreshCw size={18} />} disabled={refreshing} onClick={() => void handleRefresh()}>
-      {refreshing ? 'Refreshing…' : 'Refresh board'}
-    </Button>
 
 
     {!mounted || (refreshing && empty) ? <LoadingState pieces={[{ k: 'cards', n: 3 }]} label="Loading the board" /> : empty ? <Box sx={styles.emptyBox}>

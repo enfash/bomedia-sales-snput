@@ -35,6 +35,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Stack from "@mui/material/Stack";
+import { SegmentedControl } from "@/components/segmented-control";
 import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -393,7 +394,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
           <CardContent>
             {loadError&&<Alert severity="warning">{loadError}</Alert>}
             {receiptError&&<Alert severity="warning" action={<Button color="inherit" onClick={()=>setReceiptError('')}>Continue without receipt</Button>}>{receiptError} Retry the upload, or explicitly continue without it.</Alert>}
-            {postgres&&<Alert severity="info">Stock purchases belong in Restock. Equipment is recorded as an asset. Unpaid expenses receive a payment method when the owner pays them.</Alert>}
+            {postgres&&embedded&&<Alert severity="info">Stock purchases belong in Restock. Equipment is recorded as an asset. Unpaid expenses receive a payment method when the owner pays them.</Alert>}
             <Box
               sx={{
                 display: "grid",
@@ -401,58 +402,47 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                 gap: 2,
               }}
             >
-              <Box>
-                <Typography component="label" htmlFor="exp-date" sx={fieldLabelSx}>
-                  Date
-                </Typography>
-                <DatePicker
-                  value={formData.date ? dayjs(formData.date) : null}
-                  onChange={(val) => setFormData({ ...formData, date: val?.format("YYYY-MM-DD") ?? "" })}
-                  slotProps={{ textField: { size: "small", fullWidth: true, id: "exp-date" } }}
-                />
-              </Box>
+              <DatePicker
+                label="Date"
+                format="DD/MM/YYYY"
+                value={formData.date ? dayjs(formData.date) : null}
+                onChange={(val) => setFormData({ ...formData, date: val?.format("YYYY-MM-DD") ?? "" })}
+                slotProps={{ textField: { size: "small", fullWidth: true, id: "exp-date" } }}
+              />
 
-              <Box>
-                <Typography component="label" htmlFor="exp-amount" sx={fieldLabelSx}>
-                  Amount (₦)
-                </Typography>
-                <TextField
-                  id="exp-amount"
-                  type="number"
-                  fullWidth
-                  size="small"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
-                />
-              </Box>
+              <TextField
+                id="exp-amount"
+                label="Amount (₦)"
+                type="number"
+                fullWidth
+                size="small"
+                placeholder="0.00"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+              />
 
-              <Box>
-                <Typography component="label" sx={fieldLabelSx}>
-                  Category
-                </Typography>
-                <Autocomplete
-                  options={postgres?categories:EXPENSE_CATEGORIES}
-                  value={formData.category || null}
-                  onChange={(_, newValue) =>
-                    setFormData({ ...formData, category: newValue ?? "" })
-                  }
-                  size="small"
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder="Select category..." />
-                  )}
-                />
-              </Box>
+              <Autocomplete
+                options={postgres?categories:EXPENSE_CATEGORIES}
+                value={formData.category || null}
+                onChange={(_, newValue) =>
+                  setFormData({ ...formData, category: newValue ?? "" })
+                }
+                size="small"
+                renderInput={(params) => (
+                  <TextField {...params} label="Category" />
+                )}
+              />
 
               {postgres?<PaidBy value={normalizePaymentMethod(formData.paymentMethod)||''} onChange={paymentMethod=>setFormData({...formData,paymentMethod})} required={formData.status==='Paid'} disabled={formData.status==='Unpaid'} helperText="Choose a method when paying this expense. Unpaid expenses have no payment yet."/>:(
               <Box>
-                <Typography component="label" htmlFor="exp-method" sx={fieldLabelSx}>
-                  Method
-                </Typography>
                 <FormControl fullWidth size="small">
+                  <InputLabel id="exp-method-label" shrink>Method</InputLabel>
                   <Select
                     id="exp-method"
+                    labelId="exp-method-label"
+                    label="Method"
+                    notched
                     disabled={postgres&&formData.status==='Unpaid'}
                     displayEmpty
                     value={formData.paymentMethod}
@@ -471,64 +461,36 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                 </FormControl>
               </Box>)}
 
-              <Box>
-                <Typography component="label" sx={fieldLabelSx}>
-                  Payment Status
-                </Typography>
-                <Stack direction="row" sx={{ gap: 1, height: 40 }}>
-                  <Button
-                    fullWidth
-                    variant={formData.status === "Unpaid" ? "contained" : "outlined"}
-                    color={formData.status === "Unpaid" ? "primary" : "inherit"}
-                    onClick={() => setFormData({ ...formData, status: "Unpaid" })}
-                    sx={{ fontWeight: 900, fontSize: "0.85rem" }}
-                  >
-                    Unpaid
-                  </Button>
-                  <Button
-                    fullWidth
-                    variant={formData.status === "Paid" ? "contained" : "outlined"}
-                    color={formData.status === "Paid" ? "success" : "inherit"}
-                    onClick={() => setFormData({ ...formData, status: "Paid" })}
-                    sx={{ fontWeight: 900, fontSize: "0.85rem" }}
-                  >
-                    Paid
-                  </Button>
-                </Stack>
-              </Box>
+              <SegmentedControl label="Payment status" value={formData.status === "Paid" ? "Paid" : "Unpaid"}
+                options={[{ value: "Unpaid", label: "Unpaid" }, { value: "Paid", label: "Paid" }]}
+                onChange={(status) => setFormData({ ...formData, status })} />
 
-              <Box>
-                <Typography component="label" htmlFor="exp-paidto" sx={fieldLabelSx}>
-                  Paid To
-                </Typography>
-                <Autocomplete
-                  freeSolo
-                  options={uniqueVendors}
-                  value={formData.paidTo}
-                  onInputChange={(_, newValue) =>
-                    setFormData({ ...formData, paidTo: newValue })
-                  }
-                  onChange={(_, newValue) =>
-                    setFormData({ ...formData, paidTo: (newValue as string) ?? "" })
-                  }
-                  size="small"
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      id="exp-paidto"
-                      placeholder="Vendor/Person"
-                      sx={{ "& input": { fontWeight: 700 } }}
-                    />
-                  )}
-                />
-              </Box>
+              <Autocomplete
+                freeSolo
+                options={uniqueVendors}
+                value={formData.paidTo}
+                onInputChange={(_, newValue) =>
+                  setFormData({ ...formData, paidTo: newValue })
+                }
+                onChange={(_, newValue) =>
+                  setFormData({ ...formData, paidTo: (newValue as string) ?? "" })
+                }
+                size="small"
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    id="exp-paidto"
+                    label="Paid to"
+                    placeholder="Vendor or person"
+                    sx={{ "& input": { fontWeight: 700 } }}
+                  />
+                )}
+              />
 
               <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-                <Typography component="label" htmlFor="exp-desc" sx={fieldLabelSx}>
-                  Description
-                </Typography>
                 <TextField
                   id="exp-desc"
+                  label="Description"
                   fullWidth
                   size="small"
                   placeholder="Reason for expense"
