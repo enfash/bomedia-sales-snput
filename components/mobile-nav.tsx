@@ -5,7 +5,7 @@ import { clearSavedPages } from "@/components/session-guard";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ownerSettingsNav } from "@/components/settings-navigation";
-import { accent, headerHomeLinkStyles, syncIconStyles, whiteTint } from "@/app/theme";
+import { headerHomeLinkStyles, mobileNavStyles as styles, syncIconStyles } from "@/app/theme";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, LayoutDashboard, PlusCircle, Receipt, BarChart3,
@@ -117,36 +117,25 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
   return (
     <>
       {/* Fixed mobile header */}
-      <AppBar
-        position="fixed"
-        elevation={0}
-        sx={{
-          display: { md: "none" },
-          bgcolor: "background.paper",
-          borderBottom: "1px solid",
-          borderColor: "divider",
-          color: "text.primary",
-          paddingTop: "env(safe-area-inset-top)",
-        }}
-      >
-        <Toolbar sx={{ justifyContent: "space-between", minHeight: 64 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton edge="start" onClick={() => setIsOpen(true)} aria-label="Open menu" sx={{ color: "text.secondary" }}>
+      <AppBar position="fixed" elevation={0} sx={styles.appBar}>
+        <Toolbar sx={styles.toolbar}>
+          <Box sx={styles.left}>
+            <IconButton edge="start" onClick={() => setIsOpen(true)} aria-label="Open menu" sx={styles.menuButton}>
               <Menu size={24} />
             </IconButton>
             <Box component={Link} href={isInCashierView ? "/cashier" : "/bom03"} aria-label="BOMedia home" sx={headerHomeLinkStyles}>
-              <Typography variant="caption" sx={{ fontWeight: 900, color: accent, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1, display: "block", fontSize: "0.875rem" }}>
+              <Typography variant="caption" sx={styles.brand}>
                 BOMedia
               </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1, fontSize: "0.75rem" }}>
+              <Typography variant="caption" sx={styles.role}>
                 {isAdmin ? "Admin" : "Cashier"}
               </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Box sx={styles.actions}>
             <Tooltip title="Refresh data">
-              <IconButton onClick={handleRefresh} aria-label="Refresh data" sx={{ color: "text.secondary", "&:hover": { color: accent } }}>
+              <IconButton onClick={handleRefresh} aria-label="Refresh data" sx={styles.iconButton}>
                 <RefreshCw size={16} />
               </IconButton>
             </Tooltip>
@@ -154,11 +143,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
               <IconButton
                 onClick={toggleMute}
                 aria-label={hasHydrated && isMuted ? "Unmute notifications" : "Mute notifications"}
-                sx={{
-                  color: hasHydrated && isMuted ? "error.main" : "text.secondary",
-                  bgcolor: hasHydrated && isMuted ? "error.light" : "transparent",
-                  "&:hover": { color: accent },
-                }}
+                sx={[styles.muteButton, hasHydrated && isMuted && styles.muteButtonOn]}
               >
                 {hasHydrated && isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </IconButton>
@@ -170,24 +155,19 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
       </AppBar>
 
       {/* Spacer under fixed header */}
-      <Box sx={{ display: { md: "none" }, height: 64 }} />
+      <Box sx={styles.spacer} />
 
       {/* Mobile nav drawer */}
-      <Drawer
-        anchor="left"
-        open={isOpen}
-        onClose={() => setIsOpen(false)}
-        sx={{ display: { md: "none" }, "& .MuiDrawer-paper": { width: 280 } }}
-      >
-        <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-          <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+      <Drawer anchor="left" open={isOpen} onClose={() => setIsOpen(false)} sx={styles.drawer}>
+        <Box sx={styles.drawerBody}>
+          <Box sx={styles.drawerHead}>
             <Logo />
-            <Typography variant="caption" sx={{ color: whiteTint(0.5), mt: 0.5, ml: 6, display: "block" }}>
+            <Typography variant="caption" sx={styles.drawerTag}>
               Sales &amp; Expenses
             </Typography>
           </Box>
 
-          <List sx={{ flex: 1, px: 1.5, overflowY: "auto" }}>
+          <List sx={styles.navList}>
             {currentNavItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href || (href === ownerSettingsNav.href && pathname.startsWith(`${href}/`));
               return (
@@ -197,33 +177,22 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                   href={href}
                   onClick={() => setIsOpen(false)}
                   selected={active}
-                  sx={{
-                    borderRadius: 2.5,
-                    mb: 0.5,
-                    gap: 1,
-                    color: active ? "primary.contrastText" : whiteTint(0.65),
-                    "&.Mui-selected": {
-                      bgcolor: "primary.main",
-                      color: "primary.contrastText",
-                      "&:hover": { bgcolor: "primary.dark" },
-                    },
-                    "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" },
-                  }}
+                  sx={[styles.navItem, active && styles.navItemActive]}
                 >
-                  <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                  <ListItemIcon sx={styles.navIcon}>
                     <Icon size={20} />
                   </ListItemIcon>
-                  <ListItemText primary={label} sx={{ "& .MuiListItemText-primary": { fontSize: "0.9375rem", fontWeight: 500 } }} />
+                  <ListItemText primary={label} sx={styles.navText} />
                 </ListItemButton>
               );
             })}
           </List>
 
-          <Box sx={{ mt: "auto", px: 2, pb: 3 }}>
+          <Box sx={styles.foot}>
             {/* Sync status */}
-            <Box sx={{ p: 1.5, bgcolor: whiteTint(0.05), borderRadius: 2, border: "1px solid", borderColor: whiteTint(0.08), mb: 2 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: whiteTint(0.4), textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.75rem" }}>
+            <Box sx={styles.sync}>
+              <Box sx={styles.syncHead}>
+                <Typography variant="caption" sx={styles.syncLabel}>
                   Sync Queue
                 </Typography>
                 {syncStatus === "syncing" ? (
@@ -234,12 +203,12 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                   <Box component="span" sx={syncIconStyles.synced}><Cloud size={12} /></Box>
                 )}
               </Box>
-              <Typography variant="caption" sx={{ color: whiteTint(0.6) }}>
+              <Typography variant="caption" sx={styles.syncText}>
                 {pendingQueue.length} items waiting for network
               </Typography>
             </Box>
 
-            <Divider sx={{ borderColor: whiteTint(0.1), mb: 2 }} />
+            <Divider sx={styles.divider} />
 
             {isAdmin && (
               <Button
@@ -247,23 +216,17 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
                 fullWidth
                 startIcon={<ArrowLeftRight size={18} />}
                 onClick={() => { router.push(isInCashierView ? "/bom03" : "/cashier"); setIsOpen(false); }}
-                sx={{ justifyContent: "flex-start", color: whiteTint(0.5), "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" }, mb: 1, textTransform: "none" }}
+                sx={styles.switchButton}
               >
                 {isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"}
               </Button>
             )}
 
-            <Button
-              color="inherit"
-              fullWidth
-              startIcon={<LogOut size={18} />}
-              onClick={handleLogout}
-              sx={{ justifyContent: "flex-start", color: whiteTint(0.4), "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" }, textTransform: "none" }}
-            >
+            <Button color="inherit" fullWidth startIcon={<LogOut size={18} />} onClick={handleLogout} sx={styles.logoutButton}>
               Log Out
             </Button>
 
-            <Typography variant="caption" sx={{ display: "block", textAlign: "center", color: whiteTint(0.2), mt: 2 }}>
+            <Typography variant="caption" sx={styles.version}>
               BOMedia Management System
             </Typography>
           </Box>

@@ -664,6 +664,89 @@ export const headerHomeLinkStyles = {
   "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 4 },
 } as const;
 
+// The dark navigation menus (desktop sidebar and phone drawer): the item that is on, and how an item looks under the pointer.
+const navItemOn = { bgcolor: "primary.main", color: "primary.contrastText", "&:hover": { bgcolor: "primary.dark" } } as const;
+const navItemHover = { bgcolor: whiteTint(0.05), color: "common.white" } as const;
+const navItemQuietHover = { bgcolor: whiteTint(0.05), color: "common.white" } as const;
+
+// Desktop sidebar (components/sidebar.tsx). The "Collapsed" entries are added on top of the open look while the sidebar is narrow.
+export const sidebarStyles = {
+  drawer: (width: number) => ({
+    display: { xs: "none", md: "flex" }, width, flexShrink: 0, transition: "width 0.2s",
+    "& .MuiDrawer-paper": { width, boxSizing: "border-box", transition: "width 0.2s", overflowX: "hidden" },
+  }),
+  logoRow: { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", px: 2.5, py: 3, gap: 0, borderBottom: "1px solid", borderBottomColor: whiteTint(0.08) },
+  logoRowCollapsed: { flexDirection: "column", px: 1, py: 2, gap: 2 },
+  logoActions: { display: "flex", alignItems: "center", gap: 1 },
+  toggle: { color: whiteTint(0.7) },
+  toggleOpen: { mr: -1 },
+  navList: { flex: 1, px: 1, py: 1.5, overflowY: "auto" },
+  navItem: { mb: 0.5, gap: 1, justifyContent: "flex-start", px: 2, color: whiteTint(0.65), "&.Mui-selected": navItemOn, "&:hover": navItemHover },
+  navItemActive: { color: "primary.contrastText" },
+  navItemCollapsed: { justifyContent: "center", px: 1 },
+  navIcon: { minWidth: 32, mr: 1, justifyContent: "center", color: "inherit" },
+  navIconCollapsed: { minWidth: 0, mr: 0 },
+  navText: { "& .MuiListItemText-primary": { fontSize: "0.875rem", fontWeight: 500 } },
+  sync: { px: 2, py: 2, borderTop: "1px solid", borderTopColor: whiteTint(0.08), bgcolor: whiteTint(0.03) },
+  syncCollapsed: { px: 1 },
+  syncCentered: { display: "flex", justifyContent: "center" },
+  syncHead: { display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 },
+  syncLabel: { fontWeight: 700, letterSpacing: "0.1em", color: whiteTint(0.4), textTransform: "uppercase", fontSize: "0.75rem" },
+  syncRow: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  syncText: { color: whiteTint(0.6), fontSize: "0.75rem" },
+  syncTime: { color: whiteTint(0.3), fontSize: "0.75rem", display: "block", mt: 0.5 },
+  switcherWrap: { px: 1, pb: 1 },
+  switcher: { color: whiteTint(0.5), "&:hover": navItemQuietHover, justifyContent: "flex-start" },
+  switcherCollapsed: { justifyContent: "center" },
+  switcherIcon: { minWidth: 28, justifyContent: "center", color: "inherit" },
+  switcherIconCollapsed: { minWidth: 0 },
+  switcherText: { "& .MuiListItemText-primary": { fontSize: "0.75rem", fontWeight: 600 } },
+  divider: { borderColor: whiteTint(0.08) },
+  user: { px: 2, py: 2, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 0 },
+  userCollapsed: { px: 1, flexDirection: "column", justifyContent: "center", gap: 2 },
+  userInfo: { display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 },
+  userText: { minWidth: 0 },
+  avatar: { width: 32, height: 32, bgcolor: "primary.main", color: "primary.contrastText", fontSize: "0.875rem", fontWeight: 700 },
+  userName: { color: "common.white", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  userRole: { color: whiteTint(0.4), fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" },
+  userActions: { display: "flex", flexDirection: "row", gap: 0.5, alignItems: "center" },
+  userActionsCollapsed: { flexDirection: "column" },
+  logout: { color: whiteTint(0.4), "&:hover": { color: "common.white", bgcolor: whiteTint(0.08) } },
+} as const;
+
+// Phone header and menu drawer (components/mobile-nav.tsx).
+export const mobileNavStyles = {
+  appBar: { display: { md: "none" }, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", paddingTop: "env(safe-area-inset-top)" },
+  toolbar: { justifyContent: "space-between", minHeight: 64 },
+  left: { display: "flex", alignItems: "center", gap: 1 },
+  menuButton: { color: "text.secondary" },
+  brand: { fontWeight: 900, color: accent, textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1, display: "block", fontSize: "0.875rem" },
+  role: { fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1, fontSize: "0.75rem" },
+  actions: { display: "flex", alignItems: "center", gap: 0.5 },
+  iconButton: { color: "text.secondary", "&:hover": { color: accent } },
+  muteButton: { color: "text.secondary", bgcolor: "transparent", "&:hover": { color: accent } },
+  muteButtonOn: { color: "error.main", bgcolor: "error.light" },
+  spacer: { display: { md: "none" }, height: 64 },
+  drawer: { display: { md: "none" }, "& .MuiDrawer-paper": { width: 280 } },
+  drawerBody: { display: "flex", flexDirection: "column", height: "100%" },
+  drawerHead: { px: 3, pt: 3, pb: 2 },
+  drawerTag: { color: whiteTint(0.5), mt: 0.5, ml: 6, display: "block" },
+  navList: { flex: 1, px: 1.5, overflowY: "auto" },
+  navItem: { borderRadius: 2.5, mb: 0.5, gap: 1, color: whiteTint(0.65), "&.Mui-selected": navItemOn, "&:hover": navItemHover },
+  navItemActive: { color: "primary.contrastText" },
+  navIcon: { minWidth: 36, color: "inherit" },
+  navText: { "& .MuiListItemText-primary": { fontSize: "0.9375rem", fontWeight: 500 } },
+  foot: { mt: "auto", px: 2, pb: 3 },
+  sync: { p: 1.5, bgcolor: whiteTint(0.05), borderRadius: 2, border: "1px solid", borderColor: whiteTint(0.08), mb: 2 },
+  syncHead: { display: "flex", justifyContent: "space-between", mb: 0.5 },
+  syncLabel: { fontWeight: 700, color: whiteTint(0.4), textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.75rem" },
+  syncText: { color: whiteTint(0.6) },
+  divider: { borderColor: whiteTint(0.1), mb: 2 },
+  switchButton: { justifyContent: "flex-start", color: whiteTint(0.5), "&:hover": navItemQuietHover, mb: 1, textTransform: "none" },
+  logoutButton: { justifyContent: "flex-start", color: whiteTint(0.4), "&:hover": navItemQuietHover, textTransform: "none" },
+  version: { display: "block", textAlign: "center", color: whiteTint(0.2), mt: 2 },
+} as const;
+
 // Shared sheet geometry stays here so every consumer uses the same mobile layout.
 export const responsiveSheetStyles = {
   dialog: {

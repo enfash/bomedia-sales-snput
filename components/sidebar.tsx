@@ -19,7 +19,7 @@ import { ActivityFeed } from "./activity-feed";
 
 import Drawer from "@mui/material/Drawer";
 import Box from "@mui/material/Box";
-import { syncIconStyles, whiteTint } from "@/app/theme";
+import { sidebarStyles as styles, syncIconStyles } from "@/app/theme";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -107,39 +107,16 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       ];
 
   const DRAWER_WIDTH = isCollapsed ? 80 : 240;
+  const collapsed = isCollapsed;
 
   return (
-    <Drawer
-      variant="permanent"
-      anchor="left"
-      sx={{
-        display: { xs: "none", md: "flex" },
-        width: DRAWER_WIDTH,
-        flexShrink: 0,
-        transition: "width 0.2s",
-        "& .MuiDrawer-paper": { 
-          width: DRAWER_WIDTH, 
-          boxSizing: "border-box", 
-          transition: "width 0.2s",
-          overflowX: "hidden" 
-        },
-      }}
-    >
+    <Drawer variant="permanent" anchor="left" sx={styles.drawer(DRAWER_WIDTH)}>
       {/* Logo row */}
-      <Box sx={{ 
-        display: "flex", 
-        flexDirection: isCollapsed ? "column" : "row",
-        alignItems: "center", 
-        justifyContent: "space-between", 
-        px: isCollapsed ? 1 : 2.5, 
-        py: isCollapsed ? 2 : 3, 
-        gap: isCollapsed ? 2 : 0,
-        borderBottom: "1px solid", borderBottomColor: whiteTint(0.08) 
-      }}>
+      <Box sx={[styles.logoRow, collapsed && styles.logoRowCollapsed]}>
         {isCollapsed ? (
           <>
             <Tooltip title="Expand sidebar" placement="right" arrow>
-              <IconButton onClick={toggleSidebar} sx={{ color: whiteTint(0.7) }}>
+              <IconButton onClick={toggleSidebar} sx={styles.toggle}>
                 <Menu size={20} />
               </IconButton>
             </Tooltip>
@@ -148,10 +125,10 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
         ) : (
           <>
             <Logo />
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box sx={styles.logoActions}>
               <ActivityFeed />
               <Tooltip title="Collapse sidebar" placement="right" arrow>
-                <IconButton onClick={toggleSidebar} sx={{ color: whiteTint(0.7), mr: -1 }}>
+                <IconButton onClick={toggleSidebar} sx={[styles.toggle, styles.toggleOpen]}>
                   <ChevronLeft size={20} />
                 </IconButton>
               </Tooltip>
@@ -161,7 +138,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       </Box>
 
       {/* Nav links */}
-      <List sx={{ flex: 1, px: 1, py: 1.5, overflowY: "auto" }}>
+      <List sx={styles.navList}>
         {currentNavItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href === ownerSettingsNav.href && pathname.startsWith(`${href}/`));
           return (
@@ -170,24 +147,12 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
                 component={Link}
                 href={href}
                 selected={active}
-                sx={{
-                  mb: 0.5,
-                  gap: 1,
-                  justifyContent: isCollapsed ? "center" : "flex-start",
-                  px: isCollapsed ? 1 : 2,
-                  color: active ? "primary.contrastText" : whiteTint(0.65),
-                  "&.Mui-selected": {
-                    bgcolor: "primary.main",
-                    color: "primary.contrastText",
-                    "&:hover": { bgcolor: "primary.dark" },
-                  },
-                  "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" },
-                }}
+                sx={[styles.navItem, active && styles.navItemActive, collapsed && styles.navItemCollapsed]}
               >
-                <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 32, mr: isCollapsed ? 0 : 1, justifyContent: "center", color: "inherit" }}>
+                <ListItemIcon sx={[styles.navIcon, collapsed && styles.navIconCollapsed]}>
                   <Icon size={isCollapsed ? 22 : 16} />
                 </ListItemIcon>
-                {!isCollapsed && <ListItemText primary={label} sx={{ "& .MuiListItemText-primary": { fontSize: "0.875rem", fontWeight: 500 } }} />}
+                {!isCollapsed && <ListItemText primary={label} sx={styles.navText} />}
               </ListItemButton>
             </Tooltip>
           );
@@ -195,17 +160,17 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       </List>
 
       {/* Sync status */}
-      <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, borderTop: "1px solid", borderTopColor: whiteTint(0.08), bgcolor: whiteTint(0.03) }}>
+      <Box sx={[styles.sync, collapsed && styles.syncCollapsed]}>
         {isCollapsed ? (
           <Tooltip title={`${pendingQueue.length} pending items. Status: ${syncStatus}`} placement="right" arrow>
-            <Box sx={{ display: "flex", justifyContent: "center" }}>
+            <Box sx={styles.syncCentered}>
               {syncStatus === "syncing" ? <CircularProgress size={16} /> : pendingQueue.length > 0 ? <Box component="span" sx={syncIconStyles.waiting}><CloudOff size={16} /></Box> : <Box component="span" sx={syncIconStyles.synced}><Cloud size={16} /></Box>}
             </Box>
           </Tooltip>
         ) : (
           <>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.1em", color: whiteTint(0.4), textTransform: "uppercase", fontSize: "0.75rem" }}>
+            <Box sx={styles.syncHead}>
+              <Typography variant="caption" sx={styles.syncLabel}>
                 Sync Status
               </Typography>
               {syncStatus === "syncing" ? (
@@ -216,8 +181,8 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
                 <Box component="span" sx={syncIconStyles.synced}><Cloud size={12} /></Box>
               )}
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="caption" sx={{ color: whiteTint(0.6), fontSize: "0.75rem" }}>
+            <Box sx={styles.syncRow}>
+              <Typography variant="caption" sx={styles.syncText}>
                 {pendingQueue.length} pending items
               </Typography>
               {pendingQueue.length > 0 && (
@@ -225,7 +190,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               )}
             </Box>
             {lastSyncTime && (
-              <Typography variant="caption" sx={{ color: whiteTint(0.3), fontSize: "0.75rem", display: "block", mt: 0.5 }}>
+              <Typography variant="caption" sx={styles.syncTime}>
                 Last sync: {new Date(lastSyncTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </Typography>
             )}
@@ -235,16 +200,16 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
       {/* Portal switcher — admin only */}
       {isAdmin && (
-        <Box sx={{ px: 1, pb: 1 }}>
+        <Box sx={styles.switcherWrap}>
           <Tooltip title={isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"} placement="right" arrow disableHoverListener={!isCollapsed}>
             <ListItemButton
               onClick={() => router.push(isInCashierView ? "/bom03" : "/cashier")}
-              sx={{ color: whiteTint(0.5), "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" }, justifyContent: isCollapsed ? "center" : "flex-start" }}
+              sx={[styles.switcher, collapsed && styles.switcherCollapsed]}
             >
-              <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 28, justifyContent: "center", color: "inherit" }}>
+              <ListItemIcon sx={[styles.switcherIcon, collapsed && styles.switcherIconCollapsed]}>
                 <ArrowLeftRight size={isCollapsed ? 18 : 14} />
               </ListItemIcon>
-              {!isCollapsed && <ListItemText primary={isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"} sx={{ "& .MuiListItemText-primary": { fontSize: "0.75rem", fontWeight: 600 } }} />}
+              {!isCollapsed && <ListItemText primary={isInCashierView ? "Switch to Admin View" : "Switch to Cashier View"} sx={styles.switcherText} />}
             </ListItemButton>
           </Tooltip>
         </Box>
@@ -253,31 +218,31 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
       {/* User badge */}
       {userName && (
         <>
-          <Divider sx={{ borderColor: whiteTint(0.08) }} />
-          <Box sx={{ px: isCollapsed ? 1 : 2, py: 2, display: "flex", flexDirection: isCollapsed ? "column" : "row", alignItems: "center", justifyContent: isCollapsed ? "center" : "space-between", gap: isCollapsed ? 2 : 0 }}>
+          <Divider sx={styles.divider} />
+          <Box sx={[styles.user, collapsed && styles.userCollapsed]}>
             {isCollapsed ? (
-              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", color: "primary.contrastText", fontSize: "0.875rem", fontWeight: 700 }}>
+              <Avatar sx={styles.avatar}>
                 {userName[0]?.toUpperCase()}
               </Avatar>
             ) : (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
-                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", color: "primary.contrastText", fontSize: "0.875rem", fontWeight: 700 }}>
+              <Box sx={styles.userInfo}>
+                <Avatar sx={styles.avatar}>
                   {userName[0]?.toUpperCase()}
                 </Avatar>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ color: "common.white", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <Box sx={styles.userText}>
+                  <Typography variant="body2" sx={styles.userName}>
                     {userName}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: whiteTint(0.4), fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  <Typography variant="caption" sx={styles.userRole}>
                     {isAdmin ? "Admin" : "Cashier"}
                   </Typography>
                 </Box>
               </Box>
             )}
-            <Box sx={{ display: "flex", flexDirection: isCollapsed ? "column" : "row", gap: 0.5, alignItems: "center" }}>
+            <Box sx={[styles.userActions, collapsed && styles.userActionsCollapsed]}>
               <ThemeToggle />
               <Tooltip title="Log out" placement={isCollapsed ? "right" : "top"}>
-                <IconButton onClick={handleLogout} size="small" aria-label="Log out" sx={{ color: whiteTint(0.4), "&:hover": { color: "common.white", bgcolor: whiteTint(0.08) } }}>
+                <IconButton onClick={handleLogout} size="small" aria-label="Log out" sx={styles.logout}>
                   <LogOut size={isCollapsed ? 20 : 16} />
                 </IconButton>
               </Tooltip>
