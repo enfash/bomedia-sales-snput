@@ -132,7 +132,7 @@ npm run migration:provision-financial
 npm run migration:verify-auth
 npm run migration:verify-financial
 ```
-The app checks the schema count itself (`EXPECTED_MIGRATION_COUNT = 53`).
+The app checks the schema count itself (`EXPECTED_MIGRATION_COUNT = 54`). Migration 54 (variable service prices) is not on live yet: apply it before the release, or System status shows "behind".
 
 4.6 (O+C) Load the data, in this order, each step verified before the next: (1) stock first (`stock:diff`, then `stock:apply`) because stock cannot be loaded once anything is posted; (2) `opening:check`, then `opening:post`, then `history-import` and `history-verify` (section 3b), then `opening:verify`, then `opening:activate` with `--confirm-project <live-project-ref>` (see section 3). The evidence reference is built from the fingerprints of the approved files. Compare totals against the approved report: number of customers, total owing (about ₦695,000 on 14 Oct, will differ), loan ₦670,000.
 
