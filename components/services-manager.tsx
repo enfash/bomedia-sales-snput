@@ -13,10 +13,10 @@ import { ResponsiveSheet } from './responsive-sheet';
 import { BackLink } from '@/components/back-link';
 import { LoadingState } from '@/components/loading-state';
 
-type ServiceForm={id?:string;name:string;pricing:'fixed'|'per_job';price:string;visible:boolean;free:boolean};
+type ServiceForm={id?:string;name:string;pricing:JobService['pricing'];price:string;visible:boolean;free:boolean};
 const blank:ServiceForm={name:'',pricing:'fixed',price:'',visible:true,free:false};
 const message=(error:unknown)=>error instanceof Error?error.message:'Services could not be loaded. Try again.';
-const priceLabel=(service:JobService)=>service.pricing==='fixed'?(service.unit_price_kobo==='0'?'Free':`${formatKobo(service.unit_price_kobo!)} each`):'Priced per job · owner approval required';
+const priceLabel=(service:JobService)=>service.pricing==='variable'?'Enter amount · staff set the charge, no price approval needed':service.pricing==='fixed'?(service.unit_price_kobo==='0'?'Free · no charge':`Fixed price · ${formatKobo(service.unit_price_kobo!)} each · staff cannot change it`):'Owner approves · an approved quote is required';
 const priceInput=(kobo:string|null)=>kobo?`${BigInt(kobo)/BigInt(100)}.${(BigInt(kobo)%BigInt(100)).toString().padStart(2,'0')}`:'';
 
 /** Owner catalog control; uses the existing service API and durable accounting queue. */
@@ -151,11 +151,11 @@ export function ServicesManager({staffId}:{staffId:string|null}) {
           <TextField label="Service name" value={form.name} disabled={locked} onChange={event=>change({name:event.target.value})} slotProps={{htmlInput:{maxLength:100}}}/>
           <Box component="fieldset" sx={styles.fieldset}>
             <Typography component="legend" sx={styles.legend}>How is it priced?</Typography>
-            <ToggleButtonGroup fullWidth exclusive color="primary" sx={styles.pricingToggle} value={form.pricing==='fixed'&&form.free?'free':form.pricing} disabled={locked} onChange={(_,value:'free'|'fixed'|'per_job'|null)=>{if(value)change({pricing:value==='free'?'fixed':value,free:value==='free'});}}>
-              <ToggleButton value="free">Free</ToggleButton><ToggleButton value="fixed">Fixed price</ToggleButton><ToggleButton value="per_job">Owner approves</ToggleButton>
+            <ToggleButtonGroup fullWidth exclusive color="primary" aria-label="Service pricing" sx={[styles.pricingToggle,styles.servicePricingOptions]} value={form.pricing==='fixed'&&form.free?'free':form.pricing} disabled={locked} onChange={(_,value:'free'|JobService['pricing']|null)=>{if(value)change({pricing:value==='free'?'fixed':value,free:value==='free'});}}>
+              <ToggleButton value="fixed">Fixed price</ToggleButton><ToggleButton value="variable">Enter amount</ToggleButton><ToggleButton value="per_job">Owner approves</ToggleButton><ToggleButton value="free">Free</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-          {form.pricing==='fixed'?(form.free?<Alert severity="info">This service is free. It adds no charge to the order.</Alert>:<TextField label="Price each (₦)" value={form.price} disabled={locked} onChange={event=>change({price:event.target.value})} slotProps={{htmlInput:{inputMode:'decimal'}}}/>):<Alert severity="info">Staff must use an owner-approved quote to sell this service.</Alert>}
+          {form.pricing==='fixed'?(form.free?<Alert severity="info">This service is free. It adds no charge to the order.</Alert>:<TextField label="Fixed price each (₦)" helperText="Staff use this price and cannot edit it in New Sale." value={form.price} disabled={locked} onChange={event=>change({price:event.target.value})} slotProps={{htmlInput:{inputMode:'decimal'}}}/>):<Alert severity="info">{form.pricing==='variable'?'Staff enter the amount for each sale, for example a delivery fee. They can complete the sale without price approval.':'Staff must use an owner-approved quote to sell this service.'}</Alert>}
           {form.id&&<Box sx={styles.removeZone}>
             <Typography variant="subtitle2" color="warning.main">Remove from the list</Typography>
             <Typography variant="body2" color="text.secondary">Staff stop seeing <strong>{form.name||'this service'}</strong> when they make a sale. Every past sale and record keeps it, and you can put it back any time.</Typography>

@@ -1,5 +1,6 @@
 import { isUUID, validBusinessDate } from './payment-contract';
 import { normalizePaymentMethod, type PaymentMethod } from './payment-methods';
+import type { ServicePricing } from './service-pricing';
 export type OrderItem = { kind: 'print' | 'service'; ref: string; description: string; quantity: string;
   width?: string; height?: string; unit?: 'ft' | 'in'; priceKobo: string; priceRequestId?: string; approvedUnitKobo?: string };
 export type ScreenOrder = { version: 3; backend: 'postgres'; operation: 'sale' | 'quote'; requestId: string;
@@ -9,7 +10,7 @@ export type ScreenOrder = { version: 3; backend: 'postgres'; operation: 'sale' |
   approvalReason?: string };
 export type OrderCatalog = { customers: { id: string; name: string; contact: string | null }[];
   materials: { id: string; ref: string; name: string; width: string; priceKobo: string }[];
-  services: { id: string; name: string; pricing: 'fixed' | 'per_job'; priceKobo: string | null }[] };
+  services: { id: string; name: string; pricing: ServicePricing; priceKobo: string | null }[] };
 const integer = (x: unknown) => typeof x === 'string' && /^(0|[1-9][0-9]{0,15})$/.test(x);
 const dimension = (x: unknown) => typeof x === 'string' && /^[0-9]{1,6}(\.[0-9]{1,6})?$/.test(x) && Number(x) > 0;
 export function orderContract(value: unknown): ScreenOrder {

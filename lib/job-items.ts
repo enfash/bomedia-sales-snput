@@ -1,13 +1,14 @@
 // Exact item maths for the Job tab. Money is integer kobo (BigInt); sizes are
 // sent as feet with at most six decimals, matching the server's pricing.
 import { quotedUnitPrice } from './accounting-entry';
+import type { ServicePricing } from './service-pricing';
 
 export type JobItem={key:string;kind:'print'|'service';serviceId?:string;materialId:string;description:string;width:string;height:string;unit:'ft'|'in';quantity:string;
   ask?:{totalKobo:string;reason:string};
   // Set when the item came from a saved quote and is unchanged since loading.
   quoted?:{unitPriceKobo:string;currentUnitPriceKobo:string|null;request?:{id:string;status:string;requestedUnitPriceKobo:string;note:string|null}}};
 export type JobMaterial={id:string;name:string;width_ft:string;selling_price_per_sqft_kobo:string;remaining_length_ft?:string};
-export type JobService={id:string;name:string;pricing:'fixed'|'per_job';unit_price_kobo:string|null;visible:boolean};
+export type JobService={id:string;name:string;pricing:ServicePricing;unit_price_kobo:string|null;visible:boolean};
 const decimal=/^(0|[1-9][0-9]{0,5})(\.[0-9]{1,6})?$/;
 
 export function toFeet(value:string,unit:'ft'|'in'):string|null {

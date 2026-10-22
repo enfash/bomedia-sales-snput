@@ -118,3 +118,17 @@ it('refuses a disabled account when reordering',async()=>{
   const gone=(await owned<{id:string}>("insert into bomedia.staff(display_name,login_name,disabled_at) values ('Gone','gone',now()) returning id"))[0].id;
   await failure(()=>catalog.reorder({staffId:gone},{requestId:'g',serviceIds:[design]}),{status:403});
 });
+
+it('saves an explicit staff-entered pricing mode and sells or quotes exact amounts through the existing APIs',async()=>{
+ const input={requestId:'variable-catalog',name:'Delivery',pricing:'variable',visible:true};
+ const saved=await catalog.save({staffId:owner},input);
+ expect(await catalog.save({staffId:owner},input)).toEqual(saved);
+ expect((await catalog.list(false)).data).toEqual([expect.objectContaining({id:saved.service_id,pricing:'variable',unit_price_kobo:null})]);
+ await expect(catalog.save({staffId:owner},{...input,requestId:'bad',unitPriceKobo:'100'})).rejects.toMatchObject({status:400});
+ const item={serviceId:saved.service_id,description:'Delivery',quantity:'2',expectedUnitPriceKobo:'150025'};
+ const quote=await quotes.save({staffId:staff},{requestId:'variable-quote',customerId:customer,businessDate:'2026-10-05',items:[item]});
+ expect(quote).toMatchObject({total_kobo:'300050',pending_price_requests:0});
+ const sale=await sales.sale({staffId:staff},{requestId:'variable-sale',customerId:customer,businessDate:'2026-10-05',jobs:[item]});
+ expect(sale.total_kobo).toBe('300050');
+ await failure(()=>sales.sale({staffId:staff},{requestId:'variable-zero',customerId:customer,businessDate:'2026-10-05',jobs:[{...item,expectedUnitPriceKobo:'0'}]}),{status:409});
+});

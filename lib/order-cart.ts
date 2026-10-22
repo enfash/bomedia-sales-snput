@@ -26,7 +26,8 @@ export function quoteCart(quote:ScreenQuote,catalog:OrderCatalog):OrderCartRow[]
   if(line.service_id){
    const service=catalog.services.find(s=>s.id===line.service_id);
    if(!service||(!approved.priceRequestId&&service.pricing==='per_job'))throw new Error('This service needs an owner-approved quote.');
-   return serviceCartItem({kind:'service',ref:service.id,description:line.description,quantity:line.quantity,priceKobo:service.priceKobo||approved.approvedUnitKobo!,...approved},service.name);
+   const priceKobo=service.pricing==='variable'?line.unit_price_kobo:service.priceKobo||approved.approvedUnitKobo!;
+   return serviceCartItem({kind:'service',ref:service.id,description:line.description,quantity:line.quantity,priceKobo,...approved},service.name);
   }
   const material=catalog.materials.find(m=>m.id===line.material_id);
   if(!material)throw new Error('A quoted material is no longer available. No items were dropped.');

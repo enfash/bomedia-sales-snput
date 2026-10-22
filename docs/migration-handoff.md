@@ -387,3 +387,10 @@ Verified against the real sandbox before committing Materials. Two collisions we
 - One borrowed-money entry (about N670,000, 30 Jun) is still owed: record it as a loan owed, not as an expense.
 - Customer debts are still brought in as opening balances; they do not need cash to be counted.
 - Look-alike customer names are decided one by one by the owner (list in the private working folder); trailing spaces and capital letters alone do not make a different customer.
+
+## Staff-entered service amounts (22 Oct 2026)
+- Owner requested fixed-price services alongside amounts staff enter themselves (for example Delivery), and explicitly chose immediate sale completion without price approval.
+- Settings > Services now offers Fixed price, Enter amount, Owner approves and Free. Existing services retain their mode. New Sale shows the mode, accepts an exact positive amount per item for Enter amount, and preserves that charge in the existing durable order payload and quote conversion.
+- Migration `20261022184818_variable_service_prices.sql` adds `variable` pricing. Fixed/free prices and approved-quote requirements remain enforced; variable services consume no stock. Migration runner accepts both legacy 12-digit names and the CLI's 14-digit timestamps. App expects 54 migrations.
+- Applied only this migration to the guarded sandbox after checking the existing 53 migration checksums. The live database has not been updated. Include this migration in cutover before releasing the updated app.
+- During implementation the owner tried to save Delivery against sandbox version 53; its durable request was retained. Version 54 resolves that mismatch. The API now distinguishes that missing-update error from an invalid name/price.

@@ -105,3 +105,55 @@ it('requires an approved per-job service quote and consumes its approval once wi
  expect(await owned('select status from bomedia.price_requests')).toEqual([{status:'used'}]);
  expect(await owned('select remaining_length_ft::text as n from bomedia.inventory_rolls')).toEqual([{n:'100.000000'}]);
 });
+
+it('records an exact staff-entered service charge without price approval or stock, with stable replay',async()=>{
+ await owned("update bomedia.services set pricing='variable',unit_price_kobo=null");
+ await owned("update bomedia.approval_rules set enabled=true where kind='price'");
+ const item={kind:'service',ref:service,description:'Delivery to Ikeja',quantity:'2',priceKobo:'150025'};
+ const payload={items:[item],totalKobo:'300050',initialPaymentKobo:'300050',paymentMethod:'cash'};
+ const result=await call('delivery',payload);
+ expect(result).toMatchObject({total_kobo:'300050',initial_payment_kobo:'300050'});
+ expect(result.job_ids).toHaveLength(1);
+ expect(await owned('select amount_kobo::text as n from bomedia.jobs')).toEqual([{n:'300050'}]);
+ expect(await owned('select count(*)::text as n from bomedia.approval_requests')).toEqual([{n:'0'}]);
+ expect(await owned('select remaining_length_ft::text as n from bomedia.inventory_rolls')).toEqual([{n:'100.000000'}]);
+ expect(await owned("select sum(debit_kobo-credit_kobo)::text as n from bomedia.journal_lines where account_code='1000'")).toEqual([{n:'300050'}]);
+ // A lost acknowledgement returns the original order even if the owner then changes the service.
+ await owned("update bomedia.services set pricing='fixed',unit_price_kobo=99900,visible=false");
+ expect(await call('delivery',payload)).toEqual(result);
+ await failure(()=>call('delivery',{...payload,items:[{...item,priceKobo:'150026'}],totalKobo:'300052'}));
+ expect(await owned('select count(*)::text as n from bomedia.payments')).toEqual([{n:'1'}]);
+});
+
+it('refuses invalid typed service charges and stale permission, preserving fixed and approval-only prices',async()=>{
+ await owned("update bomedia.services set pricing='variable',unit_price_kobo=null");
+ const item={kind:'service',ref:service,description:'Delivery',quantity:'1',priceKobo:'125000'};
+ const payload={items:[item],totalKobo:'125000',initialPaymentKobo:'0'};
+ for(const priceKobo of ['0','-1','1.5','invalid']) {
+  await db.exec('savepoint invalid_amount');
+  await expect(call('invalid-'+priceKobo,{...payload,items:[{...item,priceKobo}],totalKobo:priceKobo})).rejects.toThrow();
+  await db.exec('rollback to savepoint invalid_amount');
+ }
+ await owned('update bomedia.services set visible=false');
+ await failure(()=>call('hidden-typed',payload));
+ await owned("update bomedia.services set visible=true,pricing='fixed',unit_price_kobo=10000");
+ await failure(()=>call('changed-to-fixed',payload));
+ await owned("update bomedia.services set pricing='per_job',unit_price_kobo=null");
+ await failure(()=>call('changed-to-approval',payload));
+ expect(await owned('select count(*)::text as n from bomedia.orders')).toEqual([{n:'0'}]);
+ expect(await owned('select count(*)::text as n from bomedia.payments')).toEqual([{n:'0'}]);
+});
+
+it('preserves a typed service amount through quote save, lookup and one-time conversion',async()=>{
+ await owned("update bomedia.services set pricing='variable',unit_price_kobo=null");
+ const payload={items:[{kind:'service',ref:service,description:'Delivery',quantity:'2',priceKobo:'150025'}],totalKobo:'300050',initialPaymentKobo:'0'};
+ const quote=await call('delivery-quote',{...payload,operation:'quote'});
+ const lookup=(await db.query<{r:{items:{unit_price_kobo:string}[]}}>('select bomedia.api_quote_lookup($1) r',[quote.quote_number])).rows[0].r;
+ expect(lookup.items[0].unit_price_kobo).toBe('150025');
+ expect(await owned('select count(*)::text as n from bomedia.jobs')).toEqual([{n:'0'}]);
+ const salePayload={...payload,quoteId:quote.estimate_id,customerId:quote.customer_id};
+ const sale=await call('delivery-convert',salePayload);
+ expect(sale.total_kobo).toBe('300050');
+ expect(await call('delivery-convert',salePayload)).toEqual(sale);
+ await failure(()=>call('delivery-convert-again',salePayload));
+});

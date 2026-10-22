@@ -86,6 +86,8 @@ export const settingsStyles = {
   removedHeading: {mt:2,fontWeight:700,letterSpacing:'0.08em'},
   removeZone: {display:'flex',flexDirection:'column',gap:1.25,borderTop:'1px solid',borderColor:'divider',pt:2},
   pricingToggle: {'& .MuiToggleButton-root.Mui-selected':{bgcolor:'primary.main',color:'primary.contrastText','&:hover':{bgcolor:'primary.dark'}}},
+  servicePricingOptions: {display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:1,
+    '& .MuiToggleButtonGroup-grouped':{minWidth:0,minHeight:44,m:0,border:'1px solid',borderColor:'divider',borderRadius:'8px !important'}},
 } as const;
 
 // Settings > Business details: form beside a live preview of what prints on invoices.

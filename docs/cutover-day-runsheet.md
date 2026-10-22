@@ -92,3 +92,6 @@ If every box is ticked, tell the cashiers. Monday 9:00. Keep the first trading d
 - **After reopening:** rolling back loses what was entered in the new app; those entries would go back into the Sheet by hand. The point of no return is the end of the first trading day.
 - Never switch off database guards to "fix" something.
 - A "too many authentication failures" message is Supabase's temporary connection block: stop, wait 5 minutes, then try once.
+
+### Service-pricing update added 22 October
+Before release, the live database must include `20261022184818_variable_service_prices.sql` (54 migrations total). It is applied to the sandbox only. Confirm the live schema is current before using **Enter amount** services. In the production smoke test, check a fixed-price service stays fixed and a staff-entered delivery charge records the exact amount without price approval or roll deductions.
