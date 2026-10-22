@@ -187,7 +187,7 @@ export function MetricCard({
             {subLabel || "Performance"}
           </Typography>
           {change && (
-            <Box color={isPositive ? "success.main" : "error.main"} sx={styles.change}>
+            <Box color={isPositive ? "success.dark" : "error.main"} sx={styles.change}>
               {trendIcon}
               {change}
             </Box>

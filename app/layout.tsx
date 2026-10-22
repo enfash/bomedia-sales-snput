@@ -80,6 +80,8 @@ export default async function RootLayout({
             <PresenceManager isAdmin={isAdmin} />
             <SyncManager />
             <ThemeWrapper>
+              {/* First thing a keyboard user reaches: jump past the menu to the page. Hidden until focused. */}
+              <a className="skip-link" href="#main-content">Skip to main content</a>
               {/* Desktop Sidebar */}
               <Sidebar isAdmin={isAdmin} />
 
@@ -95,6 +97,8 @@ export default async function RootLayout({
                 <MobileNav isAdmin={isAdmin} />
 
                 <main
+                  id="main-content"
+                  tabIndex={-1}
                   style={{ flex: 1, minHeight: "100vh", overflowX: "hidden" }}
                 >
                   <div

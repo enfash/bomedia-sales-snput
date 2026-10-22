@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Ruler, Package, Sparkles } from "lucide-react";
+import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Package, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
 
 import { quickCheckStyles as styles, stockBarStyles } from "@/app/theme";
 import { HomeBackLink } from "@/components/back-link";
 import { LoadingState } from "@/components/loading-state";
+import { SegmentedControl } from "@/components/segmented-control";
 import { StockBar } from "@/components/stock-bar";
 import { groupRolls } from "@/lib/estimator-view";
 
@@ -116,14 +115,14 @@ export default function QuickCheckPage() {
             </MenuItem>)}
           </TextField>
 
-          {selectedGroup && <StockBar remaining={selectedGroup.areaSqft} capacity={selectedGroup.capacitySqft} label={`${selectedGroup.label}: how much is left`} />}
+          {selectedGroup && <Box sx={styles.stockBlock}>
+            <StockBar remaining={selectedGroup.areaSqft} capacity={selectedGroup.capacitySqft} label={`${selectedGroup.label}: how much is left`} />
+            <Typography variant="body2" color="text.secondary">{selectedGroup.areaSqft.toFixed(0)} of {selectedGroup.capacitySqft.toFixed(0)} sq ft left</Typography>
+          </Box>}
+          <SegmentedControl label="Measure the job length in" value={lengthUnit} options={[{ value: "ft", label: "Feet" }, { value: "m", label: "Meters" }]} onChange={setLengthUnit} />
           <Box sx={styles.pair}>
-            <TextField fullWidth type="number" label="Job width (ft)" placeholder="e.g. 4" value={width} onChange={e => setWidth(e.target.value)}
-              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Ruler size={16} /></InputAdornment> } }} />
-            <Box sx={styles.lengthRow}>
-              <TextField fullWidth type="number" label={`Job length (${lengthUnit})`} placeholder="e.g. 10" value={length} onChange={e => setLength(e.target.value)} sx={styles.grow} />
-              <Button variant="outlined" color="inherit" onClick={() => setLengthUnit(u => u === "m" ? "ft" : "m")} sx={styles.unitButton} aria-label="Switch length unit">{lengthUnit}</Button>
-            </Box>
+            <TextField fullWidth type="number" label="Job width (ft)" placeholder="e.g. 4" value={width} onChange={e => setWidth(e.target.value)} />
+            <TextField fullWidth type="number" label={`Job length (${lengthUnit})`} placeholder="e.g. 10" value={length} onChange={e => setLength(e.target.value)} />
           </Box>
 
           <TextField fullWidth type="number" label="Waste buffer (%)" value={wasteFactor} onChange={e => setWasteFactor(e.target.value)} />

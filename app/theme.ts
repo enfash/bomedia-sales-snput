@@ -286,7 +286,7 @@ export const dashboardStyles = {
 
 const softShadow = (opacity: number) => (theme: Theme) => `0 8px 24px ${alpha(theme.palette.common.black, opacity)}`;
 const trendChip = (tone: "success" | "error") => ({
-  bgcolor: tint(tone, 0.1), color: `${tone}.main`, borderColor: tint(tone, 0.2),
+  bgcolor: tint(tone, 0.1), color: tone === "success" ? "success.dark" : "error.main", borderColor: tint(tone, 0.2),
 });
 
 // Dashboard KPI cards (components/dashboard-metrics.tsx).
@@ -757,8 +757,9 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
       },
       text: {
         primary:   mode === "light" ? "#0F172A" : "#F8FAFC",
-        secondary: mode === "light" ? "#64748B" : "#94A3B8",
-        disabled:  mode === "light" ? "#94A3B8" : "#64748B", // dark: readable as a placeholder dash or zero, still clearly dimmer than secondary
+        // Light: #64748B measured 4.1:1 on the tinted cards, under the 4.5:1 small text needs; this one measured 4.5:1 or better on every page checked, including the red-tinted tiles.
+        secondary: mode === "light" ? "#556275" : "#94A3B8",
+        disabled:  mode === "light" ? "#5F6E83" : "#64748B", // light: still used for real text (labels, dashes), so it must stay readable; dark: readable as a placeholder dash or zero, still clearly dimmer than secondary
       },
       divider: mode === "light" ? "rgba(15,23,42,0.1)" : "rgba(255,255,255,0.1)",
       ...(mode === "dark" && {
@@ -785,7 +786,7 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
       h5: { fontWeight: 600, fontSize: "1rem" },
       h6: { fontWeight: 600, fontSize: "0.875rem" },
       subtitle1: { fontWeight: 500, fontSize: "0.95rem", letterSpacing: "0.01em" },
-      subtitle2: { fontWeight: 500, fontSize: "0.875rem", color: mode === "light" ? "#64748B" : "#94A3B8" },
+      subtitle2: { fontWeight: 500, fontSize: "0.875rem", color: mode === "light" ? "#556275" : "#94A3B8" },
       body1:  { fontSize: "0.95rem" },
       body2:  { fontSize: "0.875rem" },
       caption: { fontSize: "0.75rem", letterSpacing: "0.02em" },
@@ -866,6 +867,8 @@ export function getAppTheme(mode: "light" | "dark", role: "admin" | "cashier") {
         styleOverrides: {
           root: {
             borderRadius: "10px",
+            // Hint text inside a field is lighter than what is typed, but still readable (the browser default is about 2.5:1).
+            "& input::placeholder, & textarea::placeholder": { color: mode === "light" ? "#556275" : "#94A3B8", opacity: 1 },
           },
         },
       },
@@ -1014,7 +1017,8 @@ export const materialsStyles = {
 // Radio choices drawn as bordered cards (roll unit and length). Used wherever one option must be picked from a few.
 // Segmented control (components/segmented-control.tsx) and the payment-method box (components/paid-by.tsx).
 export const segmentedStyles = {
-  group: { "& .MuiToggleButton-root": { minHeight: 44, textTransform: "none", fontWeight: 600, whiteSpace: "nowrap" } },
+  // The chosen option uses the accent colour, which is the brighter brand tone on the dark theme, so its label stays readable there.
+  group: { "& .MuiToggleButton-root": { minHeight: 44, textTransform: "none", fontWeight: 600, whiteSpace: "nowrap", "&.Mui-selected": { color: accent, bgcolor: tint("primary", 0.14), "&:hover": { bgcolor: tint("primary", 0.2) } } } },
 } as const;
 export const paidByStyles = {
   // Plain until a method is chosen, then outlined in the brand colour, so an empty box never looks already answered.
@@ -1463,6 +1467,10 @@ export const syncFailureStyles = {
 export const approvalInboxStyles = {
   page: { p: { xs: 2, md: 4 }, pb: { xs: 12, md: 12 }, minWidth: 0 },
   tabs: { display: "flex", gap: 1, mb: 2, flexWrap: "wrap" },
+  empty: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1, py: 6, px: 2, borderRadius: "16px", border: "1px dashed", borderColor: "divider", textAlign: "center" },
+  emptyIcon: { width: 56, height: 56, borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: tint("success", 0.14), color: toneText("success") },
+  emptyTitle: { fontWeight: 700 },
+  emptyText: { color: "text.secondary", maxWidth: 320 },
   list: { display: "flex", flexDirection: "column", gap: 1.5 },
   card: { p: { xs: 2, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 1.5 },
   top: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 },
@@ -1589,7 +1597,7 @@ export const customerStyles = {
   tag: { fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100, whiteSpace: "nowrap" },
   tagOwes: tonePill("error"),
   tagPaid: tonePill("success"),
-  ref: { fontFamily: "monospace", fontWeight: 400, color: "text.disabled" },
+  ref: { fontFamily: "monospace", fontWeight: 400, color: "text.secondary" },
   // Missing contact details are a to-do, not an alarm: red is kept for money owed.
   noPhone: { color: "text.secondary", fontStyle: "italic" },
   actions: { display: "flex", gap: 1, flexWrap: "wrap" },
@@ -1714,9 +1722,7 @@ export const quickCheckStyles = {
   stack: { display: "flex", flexDirection: "column", gap: 2 },
   form: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 3 },
   pair: { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" }, gap: 2 },
-  lengthRow: { display: "flex", gap: 1 },
-  grow: { flex: 1 },
-  unitButton: { minWidth: 56, fontWeight: 700 },
+  stockBlock: { display: "flex", flexDirection: "column", gap: 0.75 },
   resultOk: quickResult("success"),
   resultTight: quickResult("warning"),
   resultNo: quickResult("error"),

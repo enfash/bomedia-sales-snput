@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
+import { CheckCircle2 } from 'lucide-react';
 
 import { approvalInboxStyles as styles, approvalPromptStyles } from '@/app/theme';
 import { BackLink } from '@/components/back-link';
@@ -61,7 +62,7 @@ export function ApprovalsInbox() {
     <BackLink href="/bom03" label="Dashboard" />
     <Stack spacing={1} sx={{ mt: 2, mb: 3 }}>
       <Typography variant="h3" component="h1">Approvals</Typography>
-      <Typography color="text.secondary">{waiting.length ? `${waiting.length} ${waiting.length === 1 ? 'entry is' : 'entries are'} held until you decide.` : 'Nothing is waiting for you.'} Nothing is recorded, paid out or taken from stock before you approve.</Typography>
+      <Typography color="text.secondary">{waiting.length ? `${waiting.length} ${waiting.length === 1 ? 'entry is' : 'entries are'} held until you decide. ` : ''}Nothing is recorded, paid out or taken from stock before you approve.</Typography>
     </Stack>
     <Box sx={styles.tabs}>
       <Button variant={tab === 'waiting' ? 'contained' : 'outlined'} color={tab === 'waiting' ? 'primary' : 'inherit'} onClick={() => setTab('waiting')}>Waiting {waiting.length}</Button>
@@ -69,7 +70,13 @@ export function ApprovalsInbox() {
     </Box>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     {!rows && !error && <LoadingState pieces={[{ k: 'cards', n: 2 }]} label="Loading approvals" />}
-    {rows && !shown.length && <Typography color="text.secondary">{tab === 'waiting' ? 'Nothing is waiting.' : 'Nothing has been decided in the last 30 days.'}</Typography>}
+    {rows && !shown.length && <Box sx={styles.empty}>
+      <Box sx={styles.emptyIcon}><CheckCircle2 size={28} /></Box>
+      <Typography sx={styles.emptyTitle}>{tab === 'waiting' ? 'All caught up' : 'Nothing decided yet'}</Typography>
+      <Typography variant="body2" sx={styles.emptyText}>{tab === 'waiting'
+        ? 'When a cashier asks to change a sale or record an expense, it shows here for you to approve.'
+        : 'Entries you approve or decline in the last 30 days are listed here.'}</Typography>
+    </Box>}
     <Box sx={styles.list}>
       {shown.map((row) => <Paper key={row.id} variant="outlined" sx={styles.card}>
         <Box sx={styles.top}>
