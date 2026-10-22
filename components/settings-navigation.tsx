@@ -17,3 +17,15 @@ export const settingsSections = [
   {href:'/bom03/settings/system-status',title:'System status',description:'Check the database, recent activity and entries waiting on this phone.',icon:Activity},
   {href:'/bom03/settings/staff',title:'Staff Manager',description:'Manage staff accounts, access and performance.',icon:Users},
 ] as const;
+
+// Group the same destinations without duplicating their labels or descriptions.
+export const settingsGroups = [
+  { id: 'business', title: 'Business & pricing', paths: ['business-details', 'services', 'materials'] },
+  { id: 'money', title: 'Money & bookkeeping', paths: ['payment-methods', 'expense-categories', 'bookkeeping-period'] },
+  { id: 'team', title: 'Team & approvals', paths: ['staff', 'approvals', 'phone-alerts'] },
+  { id: 'system', title: 'Activity & system', paths: ['audit-log', 'system-status'] },
+].map(({ id, title, paths }) => ({
+  id,
+  title,
+  sections: paths.map(path => settingsSections.find(section => section.href === `/bom03/settings/${path}`)!),
+}));

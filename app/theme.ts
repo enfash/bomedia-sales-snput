@@ -64,6 +64,10 @@ export const chartCountBadgeStyles = {
 export const settingsStyles = {
   page: {p:{xs:2,md:4},pb:{xs:3,md:12},minWidth:0},
   heading: {mt:2,mb:3},
+  groups: {display:'grid',gridTemplateColumns:{xs:'minmax(0, 1fr)',lg:'repeat(2, minmax(0, 1fr))'},gap:{xs:3,lg:4},alignItems:'start'},
+  groupHeading: {mb:1.25,fontWeight:700},
+  itemHeading: {fontWeight:600},
+  chevron: {display:'flex',flexShrink:0,color:'text.secondary'},
   sections: {overflow:'hidden'},
   sectionLink: {display:'flex',alignItems:'center',gap:2,p:{xs:2,sm:3},textDecoration:'none',color:'text.primary',borderBottom:'1px solid',borderColor:'divider',
     '&:last-child':{borderBottom:0},'&:hover':{bgcolor:'action.hover'},'&:focus-visible':{outline:'2px solid',outlineColor:'primary.main',outlineOffset:-2}},
