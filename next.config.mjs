@@ -11,7 +11,7 @@ const nextConfig = {
   // from another device on the LAN (e.g. testing on a phone) instead of
   // localhost. Without this, the page still works — only live-reload-on-save
   // is blocked, logged as repeated "WebSocket connection ... failed" errors.
-  allowedDevOrigins: ['192.168.0.123', '192.168.100.30'],
+  allowedDevOrigins: ['127.0.0.1', '192.168.0.123', '192.168.100.30'],
 };
 
 export default nextConfig;

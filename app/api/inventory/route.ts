@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { legacyFeedResponse, legacyWriteBlocked } from '@/lib/server/legacy-feed';
 import { getDoc, ensureHeaders } from '@/lib/google-sheets';
 import { refreshMaterialProfile } from '@/lib/inventory-deduction';
 import { getCachedRows, invalidateSheet } from '@/lib/sheet-cache';
@@ -41,6 +42,8 @@ function computeStatus(remaining: number, threshold: number): string {
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET() {
+  const fromPostgres = await legacyFeedResponse('inventory');
+  if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_TITLE];
@@ -65,6 +68,8 @@ export async function GET() {
 // ─── POST — add a new roll ────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
+  const moved = legacyWriteBlocked();
+  if (moved) return moved;
   try {
     const body = await request.json();
     const doc = await getDoc();
@@ -214,6 +219,8 @@ export async function POST(request: Request) {
 // ─── PATCH — update a roll ────────────────────────────────────────────────────
 
 export async function PATCH(request: Request) {
+  const moved = legacyWriteBlocked();
+  if (moved) return moved;
   try {
     const body = await request.json();
     const { rowIndex, rollId, deductLength, wasteLength, adjustment, ...directUpdates } = body;

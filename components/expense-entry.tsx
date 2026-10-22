@@ -1,6 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { expenseFormStyles as styles, expenseStyles } from "@/app/theme";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { compressReceipt } from '@/lib/receipt-image';
+import { PaidBy } from './paid-by';
+import Alert from '@mui/material/Alert';
+import { paymentContext, type PaymentContext } from '@/lib/payment-outbox';
+import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
+import { expenseContract, type ExpenseItem } from '@/lib/expense-contract';
+import { expenseChanges, type ApprovalRuleRow, type EntryChange } from '@/lib/approvals-view';
+import { ApprovalReasonSheet } from '@/components/approval-reason-sheet';
+import { saveExpenseRequest } from '@/lib/expense-outbox';
+import { normalizePaymentMethod } from '@/lib/payment-methods';
 import { parseAmount } from "@/lib/financial-utils";
 import { toast } from "sonner";
 import { useSyncStore } from "@/lib/store";
@@ -24,6 +35,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Stack from "@mui/material/Stack";
+import { SegmentedControl } from "@/components/segmented-control";
 import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -40,7 +52,39 @@ type RecentExpense = {
 
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, STORAGE_KEYS, SYSTEM_DEFAULTS } from "@/lib/constants";
 
-export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
+export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => void; embedded?: boolean } = {}) {
+  const [context,setContext]=useState<PaymentContext|null>(null);
+  const [categories,setCategories]=useState<string[]>([]);
+  const [loadError,setLoadError]=useState('');
+  const [receiptSize,setReceiptSize]=useState('');
+  const [receiptError,setReceiptError]=useState('');
+  // The owner's approval rules, so a cashier is asked for a reason before sending an expense above the limit.
+  const [approvalRules,setApprovalRules]=useState<{rules:ApprovalRuleRow[];isOwner:boolean}|null>(null);
+  const [askReason,setAskReason]=useState<EntryChange[]|null>(null);
+  const saving=useRef(false);
+  const uploadRequest=useRef<{file:File;id:string}|null>(null);
+  const postgres=context?.backend==='postgres';
+  useEffect(()=>{
+    let active=true;
+    void paymentContext().then(async value=>{
+      if(!active)return;setContext(value);
+      if(value.backend==='postgres') {
+        try {
+          const rulesResponse=await fetch('/api/accounting/approval-rules?for=entry',{cache:'no-store'}),rules=await rulesResponse.json();
+          if(rulesResponse.ok&&Array.isArray(rules.rules)){if(active)setApprovalRules(rules);localStorage.setItem('bomedia-approval-rules',JSON.stringify(rules));}
+          else throw new Error();
+        }catch{
+          try {const saved=JSON.parse(localStorage.getItem('bomedia-approval-rules')||'null');if(active&&saved)setApprovalRules(saved);}catch{/* The server still decides. */}
+        }
+        const cacheKey=`bomedia-expense-categories:${value.staffId}`;
+        try {const r=await fetch('/api/accounting/records?resource=expense_categories',{cache:'no-store'}),body=await r.json();
+          if(!r.ok||!Array.isArray(body.data))throw new Error(body.error||'Categories unavailable.');
+          const names=body.data.map((c:{name:string})=>c.name);localStorage.setItem(cacheKey,JSON.stringify(names));if(active)setCategories(names);
+        }catch(e){const saved=JSON.parse(localStorage.getItem(cacheKey)||'null');if(active){if(Array.isArray(saved))setCategories(saved);else setLoadError(e instanceof Error?e.message:'Connect once to load expense categories.');}}
+      }
+    }).catch(e=>{if(active)setLoadError(e.message);});
+    return()=>{active=false;};
+  },[]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -48,12 +92,12 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   const [batchItems, setBatchItems] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: lagosBusinessDate(),
     amount: "",
     category: "",
     description: "",
     paidTo: "",
-    paymentMethod: PAYMENT_METHODS[0],
+    paymentMethod: "",
     receiptUrl: "",
     status: "Unpaid" as "Paid" | "Unpaid",
   });
@@ -73,31 +117,48 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > SYSTEM_DEFAULTS.MAX_UPLOAD_SIZE_BYTES) {
-      toast.error("File is too large. Max 5MB.");
+    if (file.size > (postgres?20*1024*1024:SYSTEM_DEFAULTS.MAX_UPLOAD_SIZE_BYTES)) {
+      toast.error(postgres?"Photo is too large. Max 20 MB before compression.":"File is too large. Max 5MB.");
       return;
     }
 
+    if(!context){toast.error('Wait for your account to load.');return;}
+    if(!uploadRequest.current||uploadRequest.current.file!==file)uploadRequest.current={file,id:crypto.randomUUID()};
+    setReceiptError('');setFormData(old=>({...old,receiptUrl:''}));
     setIsUploading(true);
     const uploadToast = toast.loading("Uploading receipt...");
 
     try {
+      const uploadFile=postgres?await compressReceipt(file):file;
+      if(context.backend==='postgres'){
+        const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await uploadFile.arrayBuffer()))).map(b=>b.toString(16).padStart(2,'0')).join('');
+        const uploadKey=`bomedia-receipt-upload:${context.staffId}:${hash}`;
+        const saved=localStorage.getItem(uploadKey)||crypto.randomUUID();
+        localStorage.setItem(uploadKey,saved);
+        uploadRequest.current={file,id:saved};
+      }
       const formDataUpload = new FormData();
-      formDataUpload.append("file", file);
+      formDataUpload.append("file", uploadFile);
+      if(context.backend==='postgres'){
+        formDataUpload.append('requestId',uploadRequest.current!.id);
+        formDataUpload.append('expectedStaffId',context.staffId);
+      }
 
-      const res = await fetch("/api/upload", {
+      const res = await fetch(postgres?"/api/accounting/receipts":"/api/upload", {
         method: "POST",
         body: formDataUpload,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
-
-      const { url } = await res.json();
+      const result=await res.json();
+      if (!res.ok) throw new Error(result.error||"Upload failed");
+      const { url } = result;
+      setReceiptSize(`${Math.ceil(file.size/1024)} KB → ${Math.ceil(uploadFile.size/1024)} KB`);
       setFormData((prev) => ({ ...prev, receiptUrl: url }));
       toast.success("Receipt uploaded successfully!", { id: uploadToast });
     } catch (err: any) {
+      setReceiptError(err instanceof Error?err.message:'Receipt upload failed.');
       toast.error(
-        "Failed to upload photo. You can try again or save without it.",
+        err instanceof Error?err.message:"Failed to upload receipt. Try again.",
         { id: uploadToast },
       );
       console.error(err);
@@ -106,7 +167,29 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     }
   };
 
+  function postgresItem(row:Record<string,string>):ExpenseItem {
+    const amount=nairaToKobo(row.AMOUNT), method=normalizePaymentMethod(row['PAYMENT METHOD']);
+    const receiptId=row['RECEIPT URL']?.match(/^\/api\/accounting\/receipts\/([a-f0-9-]+)$/)?.[1];
+    if(row['RECEIPT URL']&&!receiptId)throw new Error('This receipt belongs to an older backend. Upload it again for this expense.');
+    if(!amount||amount==='0')throw new Error('Enter a positive amount with at most two decimal places.');
+    if(row.STATUS==='Paid'&&!method)throw new Error('Choose a payment method for paid expenses.');
+    if(!categories.includes(row.CATEGORY))throw new Error('Choose an available expense category. Stock purchases use Restock.');
+    return {businessDate:row.DATE,amountKobo:amount,category:row.CATEGORY,description:row.DESCRIPTION,paidTo:row['PAID TO'],status:row.STATUS==='Paid'?'paid':'unpaid',
+      ...(row.STATUS==='Paid'?{paymentMethod:method!}:{}),...(receiptId?{receiptId}:{})};
+  }
+  const currentRow=()=>({DATE:formData.date,AMOUNT:formData.amount,CATEGORY:formData.category,DESCRIPTION:formData.description,'PAID TO':formData.paidTo,'PAYMENT METHOD':formData.paymentMethod,'RECEIPT URL':formData.receiptUrl,STATUS:formData.status});
+  function validCurrent() {
+    if(!context||isUploading||receiptError){toast.error('Wait for account checks and receipt upload to finish.');return false;}
+    if(postgres)try {postgresItem(currentRow());}catch(e){toast.error(e instanceof Error?e.message:'Check expense.');return false;}
+    return true;
+  }
   const handleReview = () => {
+    if(batchItems.length){
+      if(formData.amount||formData.description||formData.receiptUrl){toast.error('Add the current expense to the batch before reviewing it.');return;}
+      if(isUploading||receiptError||!context)return;
+      setShowConfirmModal(true);return;
+    }
+    if(!validCurrent())return;
     if (!formData.amount || !formData.category || !formData.description) {
       toast.error("Please fill in Amount, Category, and Description.");
       return;
@@ -115,6 +198,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
   };
 
   const handleAddToBatch = () => {
+    if(!validCurrent())return;
     if (!formData.amount || !formData.category || !formData.description) {
       toast.error("Please fill in Amount, Category, and Description.");
       return;
@@ -146,12 +230,12 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     toast.success(`Added ₦${Number(formData.amount).toLocaleString()} to batch`);
 
     setFormData({
-      date: new Date().toISOString().split("T")[0],
+      date: lagosBusinessDate(),
       amount: "",
       category: "",
       description: "",
       paidTo: formData.paidTo,
-      paymentMethod: PAYMENT_METHODS[0],
+      paymentMethod: "",
       receiptUrl: "",
       status: "Unpaid",
     });
@@ -163,6 +247,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       return;
     }
 
+    if(postgres){await savePostgres(batchItems);return;}
     try {
       const loggedBy = localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown";
       const items = batchItems.map((it) => ({ ...it, 'Logged By': loggedBy }));
@@ -191,7 +276,27 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     }
   };
 
+  async function savePostgres(rows:Record<string,string>[],reason?:string) {
+    if(saving.current||isUploading||receiptError)return;
+    saving.current=true;setIsSaving(true);
+    try {
+      const items=rows.map(postgresItem);
+      if(context?.backend!=='postgres')throw new Error('Account not ready.');
+      expenseContract({version:1,backend:'postgres',requestId:crypto.randomUUID(),expectedStaffId:context.staffId,operation:'log',items});
+      if(!reason&&approvalRules&&!approvalRules.isOwner){
+        const changes=expenseChanges(items,approvalRules.rules);
+        if(changes.length){setAskReason(changes);return;}
+      }
+      await saveExpenseRequest({operation:'log',items,...(reason?{approvalReason:reason}:{})});
+      toast.info(reason?'Sent to the owner for approval. It is recorded once approved.':'Expenses saved on this device. Wait for the confirmed EXP reference.');
+      setBatchItems([]);setRecentExpenses([]);setShowConfirmModal(false);setAskReason(null);
+      setFormData({date:lagosBusinessDate(),amount:'',category:'',description:'',paidTo:'',paymentMethod:'',receiptUrl:'',status:'Unpaid'});
+      onSaved?.();
+    }catch(e){toast.error(e instanceof Error?e.message:'Could not save. Your form is unchanged.');}
+    finally{saving.current=false;setIsSaving(false);}
+  }
   const handleSave = async () => {
+    if(postgres){await savePostgres([currentRow()]);return;}
     const loggedBy = localStorage.getItem(STORAGE_KEYS.USER_NAME) || "Unknown";
     const payload = {
       DATE: formData.date,
@@ -241,12 +346,12 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       onSaved?.();
 
       setFormData({
-        date: new Date().toISOString().split("T")[0],
+        date: lagosBusinessDate(),
         amount: "",
         category: "",
         description: "",
         paidTo: "",
-        paymentMethod: PAYMENT_METHODS[0],
+        paymentMethod: "",
         receiptUrl: "",
         status: "Unpaid",
       });
@@ -255,102 +360,74 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
     }
   };
 
-  const fieldLabelSx = {
-    fontSize: "0.625rem",
-    fontWeight: 900,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    color: "text.secondary",
-    mb: 0.5,
-    display: "block",
-  };
-
   return (
     <>
-      <Box sx={{ width: "100%", maxWidth: 672, mx: "auto", p: { xs: 1, md: 2 } }}>
-        <Card>
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              borderBottom: "1px solid",
-              borderColor: "divider",
-              bgcolor: "grey.50",
-            }}
-          >
-            <Typography variant="h6" sx={{ fontWeight: 900, color: "primary.main" }}>
+      <Box sx={embedded ? expenseStyles.entryWrapSheet : expenseStyles.entryWrap}>
+        <Card sx={embedded ? expenseStyles.entryCardSheet : undefined}>
+          {!embedded && <Box sx={styles.header}>
+            <Typography variant="h6" sx={styles.headerTitle}>
               Expense Entry
             </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
-              Record expenditures to the Expenses sheet.
+            <Typography variant="caption" sx={styles.headerCaption}>
+              Record business expenses and attach receipts.
             </Typography>
-          </Box>
+          </Box>}
 
           <CardContent>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-                gap: 2,
-              }}
-            >
-              <Box>
-                <Typography component="label" htmlFor="exp-date" sx={fieldLabelSx}>
-                  Date
-                </Typography>
-                <DatePicker
-                  value={formData.date ? dayjs(formData.date) : null}
-                  onChange={(val) => setFormData({ ...formData, date: val?.format("YYYY-MM-DD") ?? "" })}
-                  slotProps={{ textField: { size: "small", fullWidth: true, id: "exp-date" } }}
-                />
-              </Box>
+            {loadError&&<Alert severity="warning">{loadError}</Alert>}
+            {receiptError&&<Alert severity="warning" action={<Button color="inherit" onClick={()=>setReceiptError('')}>Continue without receipt</Button>}>{receiptError} Retry the upload, or explicitly continue without it.</Alert>}
+            {postgres&&embedded&&<Alert severity="info">Stock purchases belong in Restock. Equipment is recorded as an asset. Unpaid expenses receive a payment method when the owner pays them.</Alert>}
+            <Box sx={styles.grid}>
+              <DatePicker
+                label="Date"
+                format="DD/MM/YYYY"
+                value={formData.date ? dayjs(formData.date) : null}
+                onChange={(val) => setFormData({ ...formData, date: val?.format("YYYY-MM-DD") ?? "" })}
+                slotProps={{ textField: { size: "small", fullWidth: true, id: "exp-date" } }}
+              />
 
-              <Box>
-                <Typography component="label" htmlFor="exp-amount" sx={fieldLabelSx}>
-                  Amount (₦)
-                </Typography>
-                <TextField
-                  id="exp-amount"
-                  type="number"
-                  fullWidth
-                  size="small"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
-                />
-              </Box>
+              <TextField
+                id="exp-amount"
+                label="Amount (₦)"
+                type="number"
+                fullWidth
+                size="small"
+                placeholder="0.00"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                sx={styles.boldInput}
+              />
 
-              <Box>
-                <Typography component="label" sx={fieldLabelSx}>
-                  Category
-                </Typography>
-                <Autocomplete
-                  options={EXPENSE_CATEGORIES}
-                  value={formData.category || null}
-                  onChange={(_, newValue) =>
-                    setFormData({ ...formData, category: newValue ?? "" })
-                  }
-                  size="small"
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder="Select category..." />
-                  )}
-                />
-              </Box>
+              <Autocomplete
+                options={postgres?categories:EXPENSE_CATEGORIES}
+                value={formData.category || null}
+                onChange={(_, newValue) =>
+                  setFormData({ ...formData, category: newValue ?? "" })
+                }
+                size="small"
+                renderInput={(params) => (
+                  <TextField {...params} label="Category" />
+                )}
+              />
 
+              {postgres?<PaidBy value={normalizePaymentMethod(formData.paymentMethod)||''} onChange={paymentMethod=>setFormData({...formData,paymentMethod})} required={formData.status==='Paid'} disabled={formData.status==='Unpaid'} helperText="Choose a method when paying this expense. Unpaid expenses have no payment yet."/>:(
               <Box>
-                <Typography component="label" htmlFor="exp-method" sx={fieldLabelSx}>
-                  Method
-                </Typography>
                 <FormControl fullWidth size="small">
+                  <InputLabel id="exp-method-label" shrink>Method</InputLabel>
                   <Select
                     id="exp-method"
+                    labelId="exp-method-label"
+                    label="Method"
+                    notched
+                    disabled={postgres&&formData.status==='Unpaid'}
+                    displayEmpty
                     value={formData.paymentMethod}
                     onChange={(e) =>
                       setFormData({ ...formData, paymentMethod: e.target.value })
                     }
-                    sx={{ fontWeight: 700 }}
+                    sx={styles.methodSelect}
                   >
+                    <MenuItem value="">Select method</MenuItem>
                     {PAYMENT_METHODS.map((method) => (
                       <MenuItem key={method} value={method}>
                         {method}
@@ -358,66 +435,38 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
                     ))}
                   </Select>
                 </FormControl>
-              </Box>
+              </Box>)}
 
-              <Box>
-                <Typography component="label" sx={fieldLabelSx}>
-                  Payment Status
-                </Typography>
-                <Stack direction="row" sx={{ gap: 1, height: 40 }}>
-                  <Button
-                    fullWidth
-                    variant={formData.status === "Unpaid" ? "contained" : "outlined"}
-                    color={formData.status === "Unpaid" ? "primary" : "inherit"}
-                    onClick={() => setFormData({ ...formData, status: "Unpaid" })}
-                    sx={{ fontWeight: 900, fontSize: "0.85rem" }}
-                  >
-                    Unpaid
-                  </Button>
-                  <Button
-                    fullWidth
-                    variant={formData.status === "Paid" ? "contained" : "outlined"}
-                    color={formData.status === "Paid" ? "success" : "inherit"}
-                    onClick={() => setFormData({ ...formData, status: "Paid" })}
-                    sx={{ fontWeight: 900, fontSize: "0.85rem" }}
-                  >
-                    Paid
-                  </Button>
-                </Stack>
-              </Box>
+              <SegmentedControl label="Payment status" value={formData.status === "Paid" ? "Paid" : "Unpaid"}
+                options={[{ value: "Unpaid", label: "Unpaid" }, { value: "Paid", label: "Paid" }]}
+                onChange={(status) => setFormData({ ...formData, status })} />
 
-              <Box>
-                <Typography component="label" htmlFor="exp-paidto" sx={fieldLabelSx}>
-                  Paid To
-                </Typography>
-                <Autocomplete
-                  freeSolo
-                  options={uniqueVendors}
-                  value={formData.paidTo}
-                  onInputChange={(_, newValue) =>
-                    setFormData({ ...formData, paidTo: newValue })
-                  }
-                  onChange={(_, newValue) =>
-                    setFormData({ ...formData, paidTo: (newValue as string) ?? "" })
-                  }
-                  size="small"
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      id="exp-paidto"
-                      placeholder="Vendor/Person"
-                      sx={{ "& input": { fontWeight: 700 } }}
-                    />
-                  )}
-                />
-              </Box>
+              <Autocomplete
+                freeSolo
+                options={uniqueVendors}
+                value={formData.paidTo}
+                onInputChange={(_, newValue) =>
+                  setFormData({ ...formData, paidTo: newValue })
+                }
+                onChange={(_, newValue) =>
+                  setFormData({ ...formData, paidTo: (newValue as string) ?? "" })
+                }
+                size="small"
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    id="exp-paidto"
+                    label="Paid to"
+                    placeholder="Vendor or person"
+                    sx={styles.boldInput}
+                  />
+                )}
+              />
 
-              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-                <Typography component="label" htmlFor="exp-desc" sx={fieldLabelSx}>
-                  Description
-                </Typography>
+              <Box sx={styles.fullRow}>
                 <TextField
                   id="exp-desc"
+                  label="Description"
                   fullWidth
                   size="small"
                   placeholder="Reason for expense"
@@ -425,56 +474,35 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                  sx={styles.boldInput}
                 />
               </Box>
 
-              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-                <Typography component="label" htmlFor="exp-photo" sx={{ ...fieldLabelSx, color: "text.disabled" }}>
+              <Box sx={styles.fullRow}>
+                <Typography component="label" htmlFor="exp-photo" sx={styles.fieldLabelMuted}>
                   Receipt Photo (Optional)
                 </Typography>
-                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-                  <Box sx={{ position: "relative", flex: 1 }}>
-                    <input
+                <Stack direction="row" sx={styles.receiptRow}>
+                  <Box sx={styles.receiptPick}>
+                    <Box
+                      component="input"
                       id="exp-photo"
                       type="file"
                       accept="image/*"
                       {...({ capture: "environment" } as any)}
                       onChange={handleFileUpload}
-                      disabled={isUploading}
-                      style={{
-                        opacity: 0,
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        cursor: "pointer",
-                        zIndex: 1,
-                      }}
+                      disabled={isUploading||isSaving||!context}
+                      sx={styles.receiptInput}
                     />
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 1,
-                        border: "2px dashed",
-                        borderRadius: 2,
-                        p: 1.5,
-                        borderColor: formData.receiptUrl ? "success.light" : "divider",
-                        bgcolor: formData.receiptUrl ? "success.50" : "grey.50",
-                        color: formData.receiptUrl ? "success.main" : "text.secondary",
-                        transition: "all 0.2s",
-                      }}
-                    >
+                    <Box sx={[styles.receiptTile, formData.receiptUrl ? styles.receiptTileDone : styles.receiptTileEmpty]}>
                       {isUploading ? (
-                        <Loader2 style={{ width: 20, height: 20, animation: "spin 1s linear infinite" }} />
+                        <Box component={Loader2} size={20} sx={styles.receiptSpinner} />
                       ) : formData.receiptUrl ? (
-                        <Check style={{ width: 20, height: 20 }} />
+                        <Check size={20} />
                       ) : (
-                        <Camera style={{ width: 20, height: 20 }} />
+                        <Camera size={20} />
                       )}
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" sx={styles.receiptText}>
                         {isUploading
                           ? "Uploading..."
                           : formData.receiptUrl
@@ -483,6 +511,7 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
                       </Typography>
                     </Box>
                   </Box>
+                  {formData.receiptUrl && (<Stack spacing={1}><Typography variant="caption">{receiptSize}</Typography><Button component="a" href={formData.receiptUrl} target="_blank" rel="noopener noreferrer">Check receipt readability</Button></Stack>)}
                   {formData.receiptUrl && (
                     <Button
                       size="small"
@@ -497,29 +526,23 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
             </Box>
           </CardContent>
 
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              borderTop: "1px solid",
-              borderColor: "divider",
-              bgcolor: "grey.50",
-            }}
-          >
-            <Stack direction="row" sx={{ gap: 1.5 }}>
+          <Box sx={styles.footer}>
+            <Stack direction="row" sx={styles.footerButtons}>
               <Button
                 variant="outlined"
                 fullWidth
+                disabled={!context||isSaving||isUploading}
                 onClick={handleAddToBatch}
-                sx={{ height: 48, fontWeight: 700 }}
+                sx={styles.footerButton}
               >
                 Add to Batch
               </Button>
               <Button
                 variant="contained"
                 fullWidth
+                disabled={!context||isSaving||isUploading}
                 onClick={handleReview}
-                sx={{ height: 48, fontWeight: 700 }}
+                sx={styles.footerButton}
               >
                 Review & Save
               </Button>
@@ -529,27 +552,16 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
       </Box>
 
       {recentExpenses.length > 0 && (
-        <Box sx={{ width: "100%", maxWidth: 672, mx: "auto", px: { xs: 1, md: 2 }, pb: 4 }}>
+        <Box sx={styles.recent}>
           <Card>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                px: 2,
-                py: 1.5,
-                borderBottom: "1px solid",
-                borderColor: "divider",
-                bgcolor: "grey.50",
-              }}
-            >
-              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                <Receipt style={{ width: 14, height: 14, color: "#6B7480" }} />
-                <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
+            <Box sx={styles.recentHead}>
+              <Stack direction="row" sx={styles.recentTitleRow}>
+                <Box component="span" sx={expenseStyles.sessionIcon}><Receipt size={14} /></Box>
+                <Typography sx={styles.recentTitle}>
                   This Session
                 </Typography>
               </Stack>
-              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, color: "text.disabled" }}>
+              <Typography sx={styles.recentCount}>
                 {recentExpenses.length} logged
               </Typography>
             </Box>
@@ -557,25 +569,17 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
               {recentExpenses.map((exp, i) => (
                 <ListItem
                   key={exp.id}
-                  sx={{
-                    px: 2,
-                    py: 1.5,
-                    borderBottom: i < recentExpenses.length - 1 ? "1px solid" : "none",
-                    borderColor: "divider",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 1.5,
-                  }}
+                  sx={[styles.recentItem, i === recentExpenses.length - 1 && styles.recentItemLast]}
                 >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <Box sx={styles.itemMain}>
+                    <Typography sx={styles.itemTitle}>
                       {exp.category}
                     </Typography>
-                    <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
+                    <Typography sx={styles.itemSub}>
                       {exp.description}{exp.paidTo ? ` · ${exp.paidTo}` : ""} · {exp.paymentMethod}
                     </Typography>
                   </Box>
-                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main", flexShrink: 0 }}>
+                  <Typography sx={styles.recentAmount}>
                     ₦{Number(exp.amount).toLocaleString()}
                   </Typography>
                 </ListItem>
@@ -585,62 +589,49 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
         </Box>
       )}
 
+      <ApprovalReasonSheet open={askReason!==null} changes={askReason??[]} busy={isSaving} description="This expense is above the owner’s limit. It will not be recorded and no money counts as paid out until the owner approves it." backLabel="Change the amount"
+        onSend={(reason)=>{void savePostgres(batchItems.length?batchItems:[currentRow()],reason);}} onClose={()=>setAskReason(null)} />
+
       <Dialog
         open={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
+        onClose={() => {if(!isSaving)setShowConfirmModal(false);}}
         fullWidth
         maxWidth="sm"
-        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+        slotProps={{ paper: { sx: styles.dialogPaper } }}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 900,
-            color: "primary.main",
-            borderBottom: "1px solid",
-            borderColor: "divider",
-            bgcolor: "grey.50",
-            fontSize: "1.25rem",
-          }}
-        >
+        <DialogTitle sx={styles.dialogTitle}>
           {batchItems.length > 0 ? "Confirm Expenses" : "Confirm Expense"}
-          <Typography variant="caption" sx={{ display: "block", color: "text.secondary", fontWeight: 500 }}>
-            Review before pushing to Google Sheets.
+          <Typography variant="caption" sx={styles.dialogCaption}>
+            Review the details before saving your expense.
           </Typography>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 2, mt: 1 }}>
+        <DialogContent sx={styles.dialogBody}>
           {batchItems.length > 0 ? (
             <Box>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+              <Box sx={styles.batchHead}>
                 <Box>
-                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900 }}>Batch Preview</Typography>
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  <Typography sx={styles.batchTitle}>Batch Preview</Typography>
+                  <Typography variant="caption" sx={styles.batchCaption}>
                     {batchItems.length} items ready to save
                   </Typography>
                 </Box>
               </Box>
-              <List disablePadding sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+              <List disablePadding sx={styles.batchList}>
                 {batchItems.map((b, i) => (
                   <ListItem
                     key={i}
-                    sx={{
-                      px: 2,
-                      py: 1.5,
-                      borderBottom: i < batchItems.length - 1 ? "1px solid" : "none",
-                      borderColor: "divider",
-                      display: "flex",
-                      justifyContent: "space-between",
-                    }}
+                    sx={[styles.batchItem, i === batchItems.length - 1 && styles.batchItemLast]}
                   >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <Box sx={styles.itemMain}>
+                      <Typography sx={styles.itemTitle}>
                         {b.CATEGORY}
                       </Typography>
-                      <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
+                      <Typography sx={styles.itemSub}>
                         {b.DESCRIPTION}
                       </Typography>
                     </Box>
-                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
+                    <Typography sx={styles.batchAmount}>
                       ₦{parseAmount(b.AMOUNT).toLocaleString()}
                     </Typography>
                   </ListItem>
@@ -648,92 +639,55 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
               </List>
             </Box>
           ) : (
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 2,
-                bgcolor: "grey.50",
-                p: 2,
-                borderRadius: 2,
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
+            <Box sx={styles.summary}>
               <Box>
-                <Typography sx={fieldLabelSx}>Date</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.date}</Typography>
+                <Typography sx={styles.fieldLabel}>Date</Typography>
+                <Typography sx={styles.value}>{formData.date}</Typography>
               </Box>
               <Box>
-                <Typography sx={fieldLabelSx}>Category</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.category}</Typography>
+                <Typography sx={styles.fieldLabel}>Category</Typography>
+                <Typography sx={styles.value}>{formData.category}</Typography>
               </Box>
               <Box>
-                <Typography sx={fieldLabelSx}>Method</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.paymentMethod}</Typography>
+                <Typography sx={styles.fieldLabel}>Method</Typography>
+                <Typography sx={styles.value}>{formData.status==='Unpaid'?'Not paid yet':formData.paymentMethod}</Typography>
               </Box>
               <Box>
-                <Typography sx={fieldLabelSx}>Amount</Typography>
-                <Typography sx={{ fontWeight: 900, fontSize: "1.125rem", color: "error.main" }}>
+                <Typography sx={styles.fieldLabel}>Amount</Typography>
+                <Typography sx={styles.amountValue}>
                   ₦{Number(formData.amount).toLocaleString()}
                 </Typography>
               </Box>
-              <Box sx={{ gridColumn: "1 / 2", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-                <Typography sx={fieldLabelSx}>Paid To</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.paidTo || "—"}</Typography>
+              <Box sx={styles.cellLeft}>
+                <Typography sx={styles.fieldLabel}>Paid To</Typography>
+                <Typography sx={styles.value}>{formData.paidTo || "—"}</Typography>
               </Box>
-              <Box sx={{ gridColumn: "2 / 3", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-                <Typography sx={fieldLabelSx}>Status</Typography>
-                <Box
-                  component="span"
-                  sx={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    px: 1,
-                    py: 0.25,
-                    borderRadius: 10,
-                    fontSize: "0.75rem",
-                    fontWeight: 900,
-                    bgcolor: formData.status === "Paid" ? "success.50" : "primary.50",
-                    color: formData.status === "Paid" ? "success.main" : "primary.main",
-                  }}
-                >
+              <Box sx={styles.cellRight}>
+                <Typography sx={styles.fieldLabel}>Status</Typography>
+                <Box component="span" sx={[styles.statusChip, formData.status === "Paid" ? styles.statusChipPaid : styles.statusChipOpen]}>
                   {formData.status}
                 </Box>
               </Box>
-              <Box sx={{ gridColumn: "1 / -1", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-                <Typography sx={fieldLabelSx}>Description</Typography>
-                <Typography sx={{ fontWeight: 500, lineHeight: 1.6 }}>{formData.description}</Typography>
+              <Box sx={styles.cellFull}>
+                <Typography sx={styles.fieldLabel}>Description</Typography>
+                <Typography sx={styles.descriptionValue}>{formData.description}</Typography>
               </Box>
               {formData.receiptUrl && (
-                <Box sx={{ gridColumn: "1 / -1", borderTop: "1px solid", borderColor: "divider", pt: 1.5, textAlign: "center" }}>
-                  <Typography sx={{ ...fieldLabelSx, mb: 1 }}>Receipt Preview</Typography>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={formData.receiptUrl}
-                    alt="Receipt"
-                    style={{ maxHeight: 160, margin: "0 auto", display: "block", borderRadius: 8, border: "1px solid #ECE7E0" }}
-                  />
+                <Box sx={styles.cellReceipt}>
+                  <Typography sx={styles.fieldLabelSpaced}>Receipt Preview</Typography>
+                  <Box component="img" src={formData.receiptUrl} alt="Receipt" sx={expenseStyles.receiptPreview} />
                 </Box>
               )}
             </Box>
           )}
         </DialogContent>
 
-        <DialogActions
-          sx={{
-            px: 2,
-            py: 1.5,
-            borderTop: "1px solid",
-            borderColor: "divider",
-            bgcolor: "grey.50",
-            gap: 1,
-          }}
-        >
+        <DialogActions sx={styles.dialogActions}>
           <Button
             variant="outlined"
+            disabled={isSaving}
             onClick={() => setShowConfirmModal(false)}
-            sx={{ flex: 1, height: 48, fontWeight: 700 }}
+            sx={styles.dialogButton}
           >
             Edit
           </Button>
@@ -741,8 +695,8 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
             <Button
               variant="contained"
               onClick={handleSaveBatch}
-              disabled={isSaving}
-              sx={{ flex: 1, height: 48, fontWeight: 700 }}
+              disabled={isSaving||isUploading||!context}
+              sx={styles.dialogButton}
             >
               Save {batchItems.length} Items
             </Button>
@@ -750,8 +704,8 @@ export function ExpenseEntry({ onSaved }: { onSaved?: () => void } = {}) {
             <Button
               variant="contained"
               onClick={handleSave}
-              disabled={isSaving}
-              sx={{ flex: 1, height: 48, fontWeight: 700 }}
+              disabled={isSaving||isUploading||!context}
+              sx={styles.dialogButton}
             >
               Confirm Save
             </Button>

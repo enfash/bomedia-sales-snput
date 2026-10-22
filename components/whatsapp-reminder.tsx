@@ -76,7 +76,7 @@ export function WhatsAppReminder({
           startIcon={<MessageCircle size={14} />}
           sx={{
             height: 32,
-            fontSize: "10px",
+            fontSize: "12px",
             fontWeight: 900,
             borderRadius: 2,
             textTransform: "none",

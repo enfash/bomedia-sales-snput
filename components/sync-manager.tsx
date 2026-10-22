@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSyncStore } from "@/lib/store";
+import { PaymentSync } from './payment-sync';
+import { ExpenseSync } from './expense-sync';
+import { OrderSync } from './order-sync';
+import { ApprovalsWatcher } from './approvals-watcher';
+import { paymentContext, legacyQueueHold } from '@/lib/payment-outbox';
 import { toast } from "sonner";
+import { syncFailureStyles as styles } from "@/app/theme";
 import { CloudOff, RefreshCw, X } from "lucide-react";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -18,7 +24,7 @@ const MAX_RETRIES = 3;
  *
  * Everything else (429 rate limits, 5xx, network failures) stays retryable.
  */
-const FATAL_STATUSES = [400, 403, 404, 409];
+const FATAL_STATUSES = [400, 404, 409];
 
 /**
  * NOTE: classification keys off the HTTP status only — never the message text.
@@ -68,6 +74,7 @@ export function SyncManager() {
     updateEntryError,
   } = useSyncStore();
   const isSyncingRef = useRef(false);
+  const authPausedRef = useRef(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
@@ -85,6 +92,7 @@ export function SyncManager() {
   }, [exhaustedItems.length]);
 
   const handleForceRetry = () => {
+    authPausedRef.current = false;
     exhaustedItems.forEach((item) => updateEntryRetry(item.id, 0, 0));
     setBannerDismissed(true);
     window.dispatchEvent(new Event("online"));
@@ -93,7 +101,7 @@ export function SyncManager() {
 
   useEffect(() => {
     const handleSync = async () => {
-      if (isSyncingRef.current || pendingQueue.length === 0 || !navigator.onLine) {
+      if (authPausedRef.current || isSyncingRef.current || pendingQueue.length === 0 || !navigator.onLine) {
         return;
       }
 
@@ -107,6 +115,9 @@ export function SyncManager() {
           return;
         }
 
+        let backend: 'sheets' | 'postgres';
+        try { backend = (await paymentContext()).backend; }
+        catch (error) { setSyncStatus('error', (error as Error).message); return; }
         const now = Date.now();
         const itemsToSync = currentQueue.filter((item) => {
           if ((item.retryCount ?? 0) >= MAX_RETRIES) return false;
@@ -135,6 +146,13 @@ export function SyncManager() {
             continue;
           }
           try {
+            const holdReason = legacyQueueHold(item, backend);
+            if (holdReason) {
+              updateEntryError(item.id, holdReason);
+              updateEntryRetry(item.id, MAX_RETRIES, Date.now());
+              errorCount++;
+              continue;
+            }
             if (item.type === "payment_batch") {
               // A whole lump-sum distribution retried as one call. Replaying it
               // as individual payments would re-create the quota blowout that
@@ -155,7 +173,8 @@ export function SyncManager() {
                   // and drops it — with the balance still unpaid and nobody
                   // told. Surface it and stop retrying.
                   toast.error(errData.error, { duration: 30000 });
-                  removeEntry(item.id);
+                  updateEntryError(item.id, errData.error);
+                  updateEntryRetry(item.id, MAX_RETRIES, Date.now());
                   errorCount++;
                   continue;
                 }
@@ -244,7 +263,14 @@ export function SyncManager() {
           } catch (err: any) {
             console.error(`Failed to sync item ${item.id}:`, err);
             errorCount++;
-            
+            if (err.status === 401 || err.status === 403) {
+              authPausedRef.current = true;
+              const message = 'Sync paused. Sign in again or ask the administrator to restore access. Your pending entries are kept.';
+              updateEntryError(item.id, message);
+              setSyncStatus('error', message);
+              if (successCount > 0) setLastSyncTime(Date.now());
+              return;
+            }
             const msg = err.message || "";
             const isFatal = isFatalError(err.status);
 
@@ -306,76 +332,32 @@ export function SyncManager() {
   }, [pendingQueue.length, removeEntry, setSyncStatus, setLastSyncTime, updateEntryRetry, updateEntryError]);
 
   if (exhaustedItems.length > 0 && !bannerDismissed) {
-    return (
-      <Box
-        role="alert"
-        sx={{
-          position: "fixed",
-          bottom: { xs: 72 + 24 + 8, md: 16 },
-          left: { xs: 12, md: "auto" },
-          right: { xs: 12, md: 16 },
-          width: { md: 380 },
-          zIndex: 1400,
-          borderRadius: 4,
-          bgcolor: "#dc2626",
-          color: "#fff",
-          p: 2,
-          boxShadow: "0 20px 40px rgba(220,38,38,0.3)",
-        }}
-      >
-        <Stack direction="row" sx={{ alignItems: "flex-start", gap: 1.5 }}>
-          <Box sx={{ mt: 0.25, flexShrink: 0, opacity: 0.9 }}>
-            <CloudOff size={20} />
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="body2" sx={{ fontWeight: 900, lineHeight: 1.3, color: "inherit" }}>
+    return (<>
+      <PaymentSync /><OrderSync /><ExpenseSync /><ApprovalsWatcher />
+      <Box role="alert" sx={styles.card}>
+        <Box sx={styles.row}>
+          <Box sx={styles.icon}><CloudOff size={20} /></Box>
+          <Box sx={styles.body}>
+            <Typography variant="body2" sx={styles.title}>
               {exhaustedItems.length} entr{exhaustedItems.length === 1 ? "y" : "ies"} failed to sync
             </Typography>
-            
-            <Box sx={{ mt: 1, maxHeight: '80px', overflowY: 'auto' }}>
+
+            <Box sx={styles.errors}>
               {exhaustedItems.map((item, idx) => (
-                <Typography key={item.id} variant="caption" sx={{ color: "rgba(255,255,255,0.9)", display: "block", mb: 0.5, lineHeight: 1.2 }}>
-                  <strong style={{ opacity: 0.8 }}>Item {idx + 1}:</strong> {item.lastError || "Network error or unavailable"}
+                <Typography key={item.id} variant="caption" sx={styles.error}>
+                  <Box component="strong" sx={styles.errorLabel}>Item {idx + 1}:</Box> {item.lastError || "Network error or unavailable"}
                 </Typography>
               ))}
             </Box>
 
-            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)", display: "block", mt: 1, fontStyle: 'italic' }}>
-              These records are saved locally.
-            </Typography>
-            <Button
-              size="small"
-              onClick={handleForceRetry}
-              startIcon={<RefreshCw size={12} />}
-              sx={{
-                mt: 1.5,
-                height: 32,
-                px: 2,
-                borderRadius: 3,
-                bgcolor: "#fff",
-                color: "#dc2626",
-                fontWeight: 900,
-                fontSize: "0.6875rem",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                "&:hover": { bgcolor: "rgba(255,255,255,0.9)" },
-              }}
-            >
-              Tap to Retry
-            </Button>
+            <Typography variant="caption" sx={styles.note}>These records are saved locally.</Typography>
+            <Button size="small" onClick={handleForceRetry} startIcon={<RefreshCw size={12} />} sx={styles.retry}>Tap to Retry</Button>
           </Box>
-          <IconButton
-            onClick={() => setBannerDismissed(true)}
-            aria-label="Dismiss"
-            size="small"
-            sx={{ color: "#fff", flexShrink: 0, "&:hover": { bgcolor: "rgba(255,255,255,0.2)" } }}
-          >
-            <X size={16} />
-          </IconButton>
-        </Stack>
+          <IconButton onClick={() => setBannerDismissed(true)} aria-label="Dismiss" size="small" sx={styles.dismiss}><X size={16} /></IconButton>
+        </Box>
       </Box>
-    );
+    </>);
   }
 
-  return null;
+  return <><PaymentSync /><OrderSync /><ExpenseSync /><ApprovalsWatcher /></>;
 }

@@ -3,6 +3,8 @@
 import React, { useMemo } from "react";
 import Lottie from "lottie-react";
 import { usePathname } from "next/navigation";
+import { useTheme } from "@mui/material/styles";
+import { accent } from "@/app/theme";
 import animationData from "../public/loading.json";
 
 // Helper to recolor all fills and strokes in a Lottie JSON
@@ -42,13 +44,12 @@ interface LoadingAnimationProps {
 
 export function LoadingAnimation({ width = 120, height = 120, text }: LoadingAnimationProps) {
   const pathname = usePathname() || "";
+  const theme = useTheme();
 
   // Determine color based on route
-  const targetColor = pathname.startsWith("/bom03")
-    ? "#2E388E"
-    : pathname.startsWith("/cashier")
-    ? "#f76808"
-    : "#64748B"; // fallback
+  const targetColor = pathname.startsWith("/bom03") || pathname.startsWith("/cashier")
+    ? accent(theme)
+    : theme.palette.text.secondary; // fallback
 
   const coloredAnimation = useMemo(() => {
     return recolorLottie(animationData, targetColor);

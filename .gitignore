@@ -14,6 +14,7 @@
 /out/
 # scratch output dir for verification builds run while `next dev` is up
 /.next-verify/
+/.next-stage1/
 
 # production
 /build
@@ -29,6 +30,12 @@ yarn-error.log*
 
 # local env files
 .env*.local
+
+# Private workbook snapshots, exports and database backups.
+/migration-data/
+/supabase/.temp/
+/supabase/.branches/
+*.dump
 
 # vercel
 .vercel
@@ -48,3 +55,6 @@ scratch/
 # because git will not descend into an excluded directory to re-include a path.
 .agents/*
 !.agents/skills/
+
+/.next-stage2/
+/.next-prod/

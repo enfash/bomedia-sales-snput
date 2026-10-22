@@ -1,7 +1,8 @@
 "use client";
 
-import CustomersPage from "@/components/customers-manager";
+import { Suspense } from "react";
+import { CustomersPage } from "@/components/customers/customers-page";
 
-export default function AdminCustomersPage() {
-  return <CustomersPage isAdmin={true} />;
+export default function Page() {
+  return <Suspense><CustomersPage role="owner" /></Suspense>;
 }
