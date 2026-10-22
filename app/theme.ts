@@ -777,6 +777,72 @@ export const manageBatchStyles = {
   apply: { ...manageButtons, fontWeight: 900 },
 } as const;
 
+// The expense entry form, its session list and its confirm dialog (components/expense-entry.tsx).
+const expenseRuled = { borderTop: "1px solid", borderColor: "divider", pt: 1.5 } as const;
+const expenseRow = { px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider", display: "flex", justifyContent: "space-between" } as const;
+const expenseItemTitle = { fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
+const expenseItemSub = { fontSize: "0.75rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 } as const;
+const expenseBar = { px: 2, py: 1.5, bgcolor: "grey.50" } as const;
+export const expenseFormStyles = {
+  header: { ...expenseBar, borderBottom: "1px solid", borderColor: "divider" },
+  headerTitle: { fontWeight: 900, color: accent },
+  headerCaption: { color: "text.secondary", fontWeight: 500 },
+  grid: { display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 },
+  fullRow: { gridColumn: { xs: "1", md: "1 / -1" } },
+  boldInput: { "& input": { fontWeight: 700 } },
+  methodSelect: { fontWeight: 700 },
+  fieldLabel: { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em", color: "text.secondary", mb: 0.5, display: "block" },
+  fieldLabelMuted: { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em", color: "text.disabled", mb: 0.5, display: "block" },
+  fieldLabelSpaced: { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em", color: "text.secondary", mb: 1, display: "block" },
+  receiptRow: { alignItems: "center", gap: 1.5 },
+  receiptPick: { position: "relative", flex: 1 },
+  receiptInput: { opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 1 },
+  // The tile's two looks are kept apart (not layered), so each one resolves its colours exactly as written.
+  receiptTile: { display: "flex", alignItems: "center", justifyContent: "center", gap: 1, border: "2px dashed", borderRadius: 2, p: 1.5, transition: "all 0.2s" },
+  receiptTileEmpty: { borderColor: "divider", bgcolor: "grey.50", color: "text.secondary" },
+  receiptTileDone: { borderColor: "success.light", bgcolor: "success.50", color: "success.main" },
+  receiptSpinner: { animation: "spin 1s linear infinite" },
+  receiptText: { fontWeight: 500 },
+  footer: { ...expenseBar, borderTop: "1px solid", borderColor: "divider" },
+  footerButtons: { gap: 1.5 },
+  footerButton: { height: 48, fontWeight: 700 },
+  recent: { width: "100%", px: { xs: 1, md: 2 }, pb: 4 },
+  recentHead: { ...expenseBar, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid", borderColor: "divider" },
+  recentTitleRow: { alignItems: "center", gap: 1 },
+  recentTitle: { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" },
+  recentCount: { fontSize: "0.75rem", fontWeight: 900, color: "text.disabled" },
+  recentItem: { ...expenseRow, gap: 1.5 },
+  recentItemLast: { borderBottom: "none", borderColor: "divider" },
+  itemMain: { minWidth: 0 },
+  itemTitle: expenseItemTitle,
+  itemSub: expenseItemSub,
+  recentAmount: { fontSize: "0.875rem", fontWeight: 900, color: "error.main", flexShrink: 0 },
+  dialogPaper: { borderRadius: 3 },
+  dialogTitle: { fontWeight: 900, color: accent, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", fontSize: "1.25rem" },
+  dialogCaption: { display: "block", color: "text.secondary", fontWeight: 500 },
+  dialogBody: { p: 2, mt: 1 },
+  batchHead: { display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 },
+  batchTitle: { fontSize: "0.875rem", fontWeight: 900 },
+  batchCaption: { color: "text.secondary" },
+  batchList: { border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" },
+  batchItem: expenseRow,
+  batchItemLast: { borderBottom: "none", borderColor: "divider" },
+  batchAmount: { fontSize: "0.875rem", fontWeight: 900, color: "error.main" },
+  summary: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, bgcolor: "grey.50", p: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" },
+  value: { fontWeight: 700 },
+  amountValue: { fontWeight: 900, fontSize: "1.125rem", color: "error.main" },
+  cellLeft: { gridColumn: "1 / 2", ...expenseRuled },
+  cellRight: { gridColumn: "2 / 3", ...expenseRuled },
+  cellFull: { gridColumn: "1 / -1", ...expenseRuled },
+  cellReceipt: { gridColumn: "1 / -1", ...expenseRuled, textAlign: "center" },
+  statusChip: { display: "inline-flex", alignItems: "center", px: 1, py: 0.25, borderRadius: 10, fontSize: "0.75rem", fontWeight: 900 },
+  statusChipOpen: { bgcolor: "primary.50", color: "primary.main" },
+  statusChipPaid: { bgcolor: "success.50", color: "success.main" },
+  descriptionValue: { fontWeight: 500, lineHeight: 1.6 },
+  dialogActions: { px: 2, py: 1.5, borderTop: "1px solid", borderColor: "divider", bgcolor: "grey.50", gap: 1 },
+  dialogButton: { flex: 1, height: 48, fontWeight: 700 },
+} as const;
+
 // Phone header and menu drawer (components/mobile-nav.tsx).
 export const mobileNavStyles = {
   appBar: { display: { md: "none" }, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", paddingTop: "env(safe-area-inset-top)" },

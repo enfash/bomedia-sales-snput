@@ -1,6 +1,6 @@
 "use client";
 
-import { accent, expenseStyles } from "@/app/theme";
+import { expenseFormStyles as styles, expenseStyles } from "@/app/theme";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { compressReceipt } from '@/lib/receipt-image';
 import { PaidBy } from './paid-by';
@@ -360,33 +360,15 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
     }
   };
 
-  const fieldLabelSx = {
-    fontSize: "0.75rem",
-    fontWeight: 900,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    color: "text.secondary",
-    mb: 0.5,
-    display: "block",
-  };
-
   return (
     <>
       <Box sx={embedded ? expenseStyles.entryWrapSheet : expenseStyles.entryWrap}>
         <Card sx={embedded ? expenseStyles.entryCardSheet : undefined}>
-          {!embedded && <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              borderBottom: "1px solid",
-              borderColor: "divider",
-              bgcolor: "grey.50",
-            }}
-          >
-            <Typography variant="h6" sx={{ fontWeight: 900, color: accent }}>
+          {!embedded && <Box sx={styles.header}>
+            <Typography variant="h6" sx={styles.headerTitle}>
               Expense Entry
             </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
+            <Typography variant="caption" sx={styles.headerCaption}>
               Record business expenses and attach receipts.
             </Typography>
           </Box>}
@@ -395,13 +377,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
             {loadError&&<Alert severity="warning">{loadError}</Alert>}
             {receiptError&&<Alert severity="warning" action={<Button color="inherit" onClick={()=>setReceiptError('')}>Continue without receipt</Button>}>{receiptError} Retry the upload, or explicitly continue without it.</Alert>}
             {postgres&&embedded&&<Alert severity="info">Stock purchases belong in Restock. Equipment is recorded as an asset. Unpaid expenses receive a payment method when the owner pays them.</Alert>}
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-                gap: 2,
-              }}
-            >
+            <Box sx={styles.grid}>
               <DatePicker
                 label="Date"
                 format="DD/MM/YYYY"
@@ -419,7 +395,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                 placeholder="0.00"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                sx={styles.boldInput}
               />
 
               <Autocomplete
@@ -449,7 +425,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                     onChange={(e) =>
                       setFormData({ ...formData, paymentMethod: e.target.value })
                     }
-                    sx={{ fontWeight: 700 }}
+                    sx={styles.methodSelect}
                   >
                     <MenuItem value="">Select method</MenuItem>
                     {PAYMENT_METHODS.map((method) => (
@@ -482,12 +458,12 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                     id="exp-paidto"
                     label="Paid to"
                     placeholder="Vendor or person"
-                    sx={{ "& input": { fontWeight: 700 } }}
+                    sx={styles.boldInput}
                   />
                 )}
               />
 
-              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
+              <Box sx={styles.fullRow}>
                 <TextField
                   id="exp-desc"
                   label="Description"
@@ -498,56 +474,35 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  slotProps={{ htmlInput: { style: { fontWeight: 700 } } }}
+                  sx={styles.boldInput}
                 />
               </Box>
 
-              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-                <Typography component="label" htmlFor="exp-photo" sx={{ ...fieldLabelSx, color: "text.disabled" }}>
+              <Box sx={styles.fullRow}>
+                <Typography component="label" htmlFor="exp-photo" sx={styles.fieldLabelMuted}>
                   Receipt Photo (Optional)
                 </Typography>
-                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-                  <Box sx={{ position: "relative", flex: 1 }}>
-                    <input
+                <Stack direction="row" sx={styles.receiptRow}>
+                  <Box sx={styles.receiptPick}>
+                    <Box
+                      component="input"
                       id="exp-photo"
                       type="file"
                       accept="image/*"
                       {...({ capture: "environment" } as any)}
                       onChange={handleFileUpload}
                       disabled={isUploading||isSaving||!context}
-                      style={{
-                        opacity: 0,
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        cursor: "pointer",
-                        zIndex: 1,
-                      }}
+                      sx={styles.receiptInput}
                     />
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 1,
-                        border: "2px dashed",
-                        borderRadius: 2,
-                        p: 1.5,
-                        borderColor: formData.receiptUrl ? "success.light" : "divider",
-                        bgcolor: formData.receiptUrl ? "success.50" : "grey.50",
-                        color: formData.receiptUrl ? "success.main" : "text.secondary",
-                        transition: "all 0.2s",
-                      }}
-                    >
+                    <Box sx={[styles.receiptTile, formData.receiptUrl ? styles.receiptTileDone : styles.receiptTileEmpty]}>
                       {isUploading ? (
-                        <Loader2 style={{ width: 20, height: 20, animation: "spin 1s linear infinite" }} />
+                        <Box component={Loader2} size={20} sx={styles.receiptSpinner} />
                       ) : formData.receiptUrl ? (
-                        <Check style={{ width: 20, height: 20 }} />
+                        <Check size={20} />
                       ) : (
-                        <Camera style={{ width: 20, height: 20 }} />
+                        <Camera size={20} />
                       )}
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" sx={styles.receiptText}>
                         {isUploading
                           ? "Uploading..."
                           : formData.receiptUrl
@@ -571,22 +526,14 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
             </Box>
           </CardContent>
 
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              borderTop: "1px solid",
-              borderColor: "divider",
-              bgcolor: "grey.50",
-            }}
-          >
-            <Stack direction="row" sx={{ gap: 1.5 }}>
+          <Box sx={styles.footer}>
+            <Stack direction="row" sx={styles.footerButtons}>
               <Button
                 variant="outlined"
                 fullWidth
                 disabled={!context||isSaving||isUploading}
                 onClick={handleAddToBatch}
-                sx={{ height: 48, fontWeight: 700 }}
+                sx={styles.footerButton}
               >
                 Add to Batch
               </Button>
@@ -595,7 +542,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
                 fullWidth
                 disabled={!context||isSaving||isUploading}
                 onClick={handleReview}
-                sx={{ height: 48, fontWeight: 700 }}
+                sx={styles.footerButton}
               >
                 Review & Save
               </Button>
@@ -605,27 +552,16 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
       </Box>
 
       {recentExpenses.length > 0 && (
-        <Box sx={{ width: "100%", px: { xs: 1, md: 2 }, pb: 4 }}>
+        <Box sx={styles.recent}>
           <Card>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                px: 2,
-                py: 1.5,
-                borderBottom: "1px solid",
-                borderColor: "divider",
-                bgcolor: "grey.50",
-              }}
-            >
-              <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                <Box component="span" sx={expenseStyles.sessionIcon}><Receipt style={{ width: 14, height: 14 }} /></Box>
-                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
+            <Box sx={styles.recentHead}>
+              <Stack direction="row" sx={styles.recentTitleRow}>
+                <Box component="span" sx={expenseStyles.sessionIcon}><Receipt size={14} /></Box>
+                <Typography sx={styles.recentTitle}>
                   This Session
                 </Typography>
               </Stack>
-              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.disabled" }}>
+              <Typography sx={styles.recentCount}>
                 {recentExpenses.length} logged
               </Typography>
             </Box>
@@ -633,25 +569,17 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
               {recentExpenses.map((exp, i) => (
                 <ListItem
                   key={exp.id}
-                  sx={{
-                    px: 2,
-                    py: 1.5,
-                    borderBottom: i < recentExpenses.length - 1 ? "1px solid" : "none",
-                    borderColor: "divider",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 1.5,
-                  }}
+                  sx={[styles.recentItem, i === recentExpenses.length - 1 && styles.recentItemLast]}
                 >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <Box sx={styles.itemMain}>
+                    <Typography sx={styles.itemTitle}>
                       {exp.category}
                     </Typography>
-                    <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
+                    <Typography sx={styles.itemSub}>
                       {exp.description}{exp.paidTo ? ` · ${exp.paidTo}` : ""} · {exp.paymentMethod}
                     </Typography>
                   </Box>
-                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main", flexShrink: 0 }}>
+                  <Typography sx={styles.recentAmount}>
                     ₦{Number(exp.amount).toLocaleString()}
                   </Typography>
                 </ListItem>
@@ -669,57 +597,41 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
         onClose={() => {if(!isSaving)setShowConfirmModal(false);}}
         fullWidth
         maxWidth="sm"
-        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+        slotProps={{ paper: { sx: styles.dialogPaper } }}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 900,
-            color: accent,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-            bgcolor: "grey.50",
-            fontSize: "1.25rem",
-          }}
-        >
+        <DialogTitle sx={styles.dialogTitle}>
           {batchItems.length > 0 ? "Confirm Expenses" : "Confirm Expense"}
-          <Typography variant="caption" sx={{ display: "block", color: "text.secondary", fontWeight: 500 }}>
+          <Typography variant="caption" sx={styles.dialogCaption}>
             Review the details before saving your expense.
           </Typography>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 2, mt: 1 }}>
+        <DialogContent sx={styles.dialogBody}>
           {batchItems.length > 0 ? (
             <Box>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+              <Box sx={styles.batchHead}>
                 <Box>
-                  <Typography sx={{ fontSize: "0.875rem", fontWeight: 900 }}>Batch Preview</Typography>
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  <Typography sx={styles.batchTitle}>Batch Preview</Typography>
+                  <Typography variant="caption" sx={styles.batchCaption}>
                     {batchItems.length} items ready to save
                   </Typography>
                 </Box>
               </Box>
-              <List disablePadding sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+              <List disablePadding sx={styles.batchList}>
                 {batchItems.map((b, i) => (
                   <ListItem
                     key={i}
-                    sx={{
-                      px: 2,
-                      py: 1.5,
-                      borderBottom: i < batchItems.length - 1 ? "1px solid" : "none",
-                      borderColor: "divider",
-                      display: "flex",
-                      justifyContent: "space-between",
-                    }}
+                    sx={[styles.batchItem, i === batchItems.length - 1 && styles.batchItemLast]}
                   >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <Box sx={styles.itemMain}>
+                      <Typography sx={styles.itemTitle}>
                         {b.CATEGORY}
                       </Typography>
-                      <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", mt: 0.25 }}>
+                      <Typography sx={styles.itemSub}>
                         {b.DESCRIPTION}
                       </Typography>
                     </Box>
-                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
+                    <Typography sx={styles.batchAmount}>
                       ₦{parseAmount(b.AMOUNT).toLocaleString()}
                     </Typography>
                   </ListItem>
@@ -727,66 +639,42 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
               </List>
             </Box>
           ) : (
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 2,
-                bgcolor: "grey.50",
-                p: 2,
-                borderRadius: 2,
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
+            <Box sx={styles.summary}>
               <Box>
-                <Typography sx={fieldLabelSx}>Date</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.date}</Typography>
+                <Typography sx={styles.fieldLabel}>Date</Typography>
+                <Typography sx={styles.value}>{formData.date}</Typography>
               </Box>
               <Box>
-                <Typography sx={fieldLabelSx}>Category</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.category}</Typography>
+                <Typography sx={styles.fieldLabel}>Category</Typography>
+                <Typography sx={styles.value}>{formData.category}</Typography>
               </Box>
               <Box>
-                <Typography sx={fieldLabelSx}>Method</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.status==='Unpaid'?'Not paid yet':formData.paymentMethod}</Typography>
+                <Typography sx={styles.fieldLabel}>Method</Typography>
+                <Typography sx={styles.value}>{formData.status==='Unpaid'?'Not paid yet':formData.paymentMethod}</Typography>
               </Box>
               <Box>
-                <Typography sx={fieldLabelSx}>Amount</Typography>
-                <Typography sx={{ fontWeight: 900, fontSize: "1.125rem", color: "error.main" }}>
+                <Typography sx={styles.fieldLabel}>Amount</Typography>
+                <Typography sx={styles.amountValue}>
                   ₦{Number(formData.amount).toLocaleString()}
                 </Typography>
               </Box>
-              <Box sx={{ gridColumn: "1 / 2", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-                <Typography sx={fieldLabelSx}>Paid To</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formData.paidTo || "—"}</Typography>
+              <Box sx={styles.cellLeft}>
+                <Typography sx={styles.fieldLabel}>Paid To</Typography>
+                <Typography sx={styles.value}>{formData.paidTo || "—"}</Typography>
               </Box>
-              <Box sx={{ gridColumn: "2 / 3", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-                <Typography sx={fieldLabelSx}>Status</Typography>
-                <Box
-                  component="span"
-                  sx={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    px: 1,
-                    py: 0.25,
-                    borderRadius: 10,
-                    fontSize: "0.75rem",
-                    fontWeight: 900,
-                    bgcolor: formData.status === "Paid" ? "success.50" : "primary.50",
-                    color: formData.status === "Paid" ? "success.main" : "primary.main",
-                  }}
-                >
+              <Box sx={styles.cellRight}>
+                <Typography sx={styles.fieldLabel}>Status</Typography>
+                <Box component="span" sx={[styles.statusChip, formData.status === "Paid" ? styles.statusChipPaid : styles.statusChipOpen]}>
                   {formData.status}
                 </Box>
               </Box>
-              <Box sx={{ gridColumn: "1 / -1", borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-                <Typography sx={fieldLabelSx}>Description</Typography>
-                <Typography sx={{ fontWeight: 500, lineHeight: 1.6 }}>{formData.description}</Typography>
+              <Box sx={styles.cellFull}>
+                <Typography sx={styles.fieldLabel}>Description</Typography>
+                <Typography sx={styles.descriptionValue}>{formData.description}</Typography>
               </Box>
               {formData.receiptUrl && (
-                <Box sx={{ gridColumn: "1 / -1", borderTop: "1px solid", borderColor: "divider", pt: 1.5, textAlign: "center" }}>
-                  <Typography sx={{ ...fieldLabelSx, mb: 1 }}>Receipt Preview</Typography>
+                <Box sx={styles.cellReceipt}>
+                  <Typography sx={styles.fieldLabelSpaced}>Receipt Preview</Typography>
                   <Box component="img" src={formData.receiptUrl} alt="Receipt" sx={expenseStyles.receiptPreview} />
                 </Box>
               )}
@@ -794,21 +682,12 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
           )}
         </DialogContent>
 
-        <DialogActions
-          sx={{
-            px: 2,
-            py: 1.5,
-            borderTop: "1px solid",
-            borderColor: "divider",
-            bgcolor: "grey.50",
-            gap: 1,
-          }}
-        >
+        <DialogActions sx={styles.dialogActions}>
           <Button
             variant="outlined"
             disabled={isSaving}
             onClick={() => setShowConfirmModal(false)}
-            sx={{ flex: 1, height: 48, fontWeight: 700 }}
+            sx={styles.dialogButton}
           >
             Edit
           </Button>
@@ -817,7 +696,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
               variant="contained"
               onClick={handleSaveBatch}
               disabled={isSaving||isUploading||!context}
-              sx={{ flex: 1, height: 48, fontWeight: 700 }}
+              sx={styles.dialogButton}
             >
               Save {batchItems.length} Items
             </Button>
@@ -826,7 +705,7 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
               variant="contained"
               onClick={handleSave}
               disabled={isSaving||isUploading||!context}
-              sx={{ flex: 1, height: 48, fontWeight: 700 }}
+              sx={styles.dialogButton}
             >
               Confirm Save
             </Button>
