@@ -172,28 +172,28 @@ export function ExpenseCategoriesSettings() {
         <TextField label="Name staff see" value={name} disabled={busy === 'add'} error={Boolean(name) && Boolean(nameError)}
           helperText={(name && nameError) || 'Up to 100 characters. Must be different from the others.'}
           onChange={(event) => { addId.current = null; setName(event.target.value); }} slotProps={{ htmlInput: { maxLength: 120 } }} />
-        <Box component="fieldset" sx={{ border: 0, m: 0, p: 0 }}>
-          <Typography component="legend" variant="body2" sx={{ fontWeight: 600, mb: 1 }}>What kind of spending is it?</Typography>
+        <Box component="fieldset" sx={styles.fieldset}>
+          <Typography component="legend" variant="body2" sx={styles.legend}>What kind of spending is it?</Typography>
           <RadioGroup value={kind} onChange={(_, value) => { addId.current = null; setKind(value as Kind); }}>
             <Stack spacing={1}>
               {([['everyday', 'Used up as you work, such as ink, transport or utilities.'], ['capital', 'Things the business keeps and owns, such as a machine.']] as const).map(([value, help]) =>
-                <FormControlLabel key={value} value={value} disabled={busy === 'add'} sx={[styles.kindOption, ...(kind === value ? [styles.kindOptionOn] : [])]} control={<Radio sx={{ mt: -0.5 }} />}
-                  label={<Box><Typography variant="body2" sx={{ fontWeight: 700 }}>{KIND_LABEL[value]}</Typography><Typography variant="caption" color="text.secondary">{help}</Typography></Box>} />)}
+                <FormControlLabel key={value} value={value} disabled={busy === 'add'} sx={[styles.kindOption, ...(kind === value ? [styles.kindOptionOn] : [])]} control={<Radio sx={styles.radio} />}
+                  label={<Box><Typography variant="body2" sx={styles.optionTitle}>{KIND_LABEL[value]}</Typography><Typography variant="caption" color="text.secondary">{help}</Typography></Box>} />)}
             </Stack>
           </RadioGroup>
-          <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 1 }}>You cannot change this after saving, because it decides how the money is recorded.</Typography>
+          <Typography variant="caption" color="warning.main" sx={styles.hint}>You cannot change this after saving, because it decides how the money is recorded.</Typography>
         </Box>
-        <Box component="fieldset" sx={{ border: 0, m: 0, p: 0 }}>
-          <Typography component="legend" variant="body2" sx={{ fontWeight: 600, mb: 1 }}>Who can log it?</Typography>
+        <Box component="fieldset" sx={styles.fieldset}>
+          <Typography component="legend" variant="body2" sx={styles.legend}>Who can log it?</Typography>
           <RadioGroup value={addAccess} onChange={(_, value) => { addId.current = null; setAddAccess(value as Access); }}>
             <Stack spacing={1}>
               {([['everyone', 'Everyone'], ['chosen', 'Chosen staff'], ['owner', 'Owner only']] as const).map(([value, label]) =>
-                <FormControlLabel key={value} value={value} disabled={busy === 'add'} sx={[styles.kindOption, ...(addAccess === value ? [styles.kindOptionOn] : [])]} control={<Radio sx={{ mt: -0.5 }} />}
-                  label={<Box><Typography variant="body2" sx={{ fontWeight: 700 }}>{label}</Typography><Typography variant="caption" color="text.secondary">{ACCESS_HELP[value]}</Typography></Box>} />)}
+                <FormControlLabel key={value} value={value} disabled={busy === 'add'} sx={[styles.kindOption, ...(addAccess === value ? [styles.kindOptionOn] : [])]} control={<Radio sx={styles.radio} />}
+                  label={<Box><Typography variant="body2" sx={styles.optionTitle}>{label}</Typography><Typography variant="caption" color="text.secondary">{ACCESS_HELP[value]}</Typography></Box>} />)}
             </Stack>
           </RadioGroup>
-          {addAccess === 'chosen' && <Box sx={{ mt: 1.5 }}><StaffChecklist people={people} picked={addStaff} disabled={busy === 'add'} onChange={(ids) => { addId.current = null; setAddStaff(ids); }} /></Box>}
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>You can change this later.</Typography>
+          {addAccess === 'chosen' && <Box sx={styles.staffPick}><StaffChecklist people={people} picked={addStaff} disabled={busy === 'add'} onChange={(ids) => { addId.current = null; setAddStaff(ids); }} /></Box>}
+          <Typography variant="caption" color="text.secondary" sx={styles.hint}>You can change this later.</Typography>
         </Box>
       </Stack>
     </ResponsiveSheet>

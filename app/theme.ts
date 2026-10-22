@@ -843,6 +843,43 @@ export const expenseFormStyles = {
   dialogButton: { flex: 1, height: 48, fontWeight: 700 },
 } as const;
 
+// The owner dashboard page's own layout (app/bom03/page.tsx); its cards and widgets have their own styles.
+export const dashboardLayoutStyles = {
+  page: { p: { xs: 2, md: 4 }, minHeight: "100vh", bgcolor: "background.default", pb: { xs: 3, md: 12 } },
+  mobileControls: { display: { xs: "block", md: "none" }, mt: 2 },
+  below: { mt: 1.5 },
+  desktopBar: { display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "space-between", gap: 2, mt: 2, flexWrap: "wrap" },
+  desktopLeft: { alignItems: "center", gap: 1.5, flexWrap: "wrap" },
+  desktopRight: { gap: 1 },
+  alertTitleRow: { alignItems: "center", gap: 1.5 },
+  alertActions: { alignItems: "center", gap: 1 },
+  materialList: { gap: 1 },
+  materialHead: { display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 },
+  materialMain: { minWidth: 0, flex: 1 },
+  materialTitleRow: { alignItems: "center", gap: 1, flexWrap: "wrap" },
+  voiceRow: { alignItems: "center", gap: 2 },
+  section: { mt: 2 },
+  chartsWide: { display: "grid", gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, gap: 2.5, mt: 2 },
+  chartsEven: { display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2.5, mt: 2 },
+} as const;
+
+// The receipt preview dialog (components/receipt-modal.tsx).
+export const receiptModalStyles = {
+  paper: { borderRadius: 4, maxHeight: "90vh", display: "flex", flexDirection: "column", bgcolor: "grey.100" },
+  title: { p: { xs: 2, md: 3 }, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "grey.100", flexShrink: 0 },
+  titleRow: { alignItems: "center", justifyContent: "space-between" },
+  heading: { fontWeight: 900, color: "text.primary" },
+  caption: { color: "text.secondary", display: "block", mt: 0.5 },
+  spinner: { animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } },
+  downloadDesktop: { display: { xs: "none", md: "flex" }, borderRadius: 3 },
+  body: { p: 0, flexGrow: 1, overflowY: "auto", bgcolor: "grey.100" },
+  scroll: { p: { xs: 2, md: 4 }, minWidth: 0, overflowX: "auto" },
+  sheetWrap: { minWidth: 800 },
+  sheet: { width: 800, bgcolor: "background.paper", boxShadow: 6 },
+  footer: { p: 2, bgcolor: "background.paper", borderTop: "1px solid", borderColor: "grey.100", flexShrink: 0, display: { xs: "block", md: "none" } },
+  downloadMobile: { borderRadius: 3, height: 48, fontSize: "1rem", fontWeight: 700 },
+} as const;
+
 // Phone header and menu drawer (components/mobile-nav.tsx).
 export const mobileNavStyles = {
   appBar: { display: { md: "none" }, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", paddingTop: "env(safe-area-inset-top)" },
@@ -1349,6 +1386,12 @@ export const auditLogStyles = {
 } as const;
 
 export const expenseCategoryStyles = {
+  fieldset: { border: 0, m: 0, p: 0 },
+  legend: { fontWeight: 600, mb: 1 },
+  radio: { mt: -0.5 },
+  optionTitle: { fontWeight: 700 },
+  hint: { display: "block", mt: 1 },
+  staffPick: { mt: 1.5 },
   head: { display: "flex", alignItems: { xs: "stretch", sm: "flex-end" }, flexDirection: { xs: "column", sm: "row" }, justifyContent: "space-between", gap: 2 },
   list: { display: "flex", flexDirection: "column", gap: 1.5 },
   row: { px: { xs: 2, sm: 2.5 }, py: 2, display: "flex", flexDirection: "column", gap: 1.5 },

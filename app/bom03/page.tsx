@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import { dashboardStyles as styles } from "@/app/theme";
+import { dashboardLayoutStyles as layout, dashboardStyles as styles } from "@/app/theme";
 import Paper from "@mui/material/Paper";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -321,7 +321,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: "100vh", bgcolor: "background.default", pb: { xs: 3, md: 12 } }}>
+    <Box sx={layout.page}>
 
       <ApprovalsWaitingCard />
 
@@ -331,10 +331,10 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Mobile Time Range Selector */}
-      <Box sx={{ display: { xs: "block", md: "none" }, mt: 2 }}>
+      <Box sx={layout.mobileControls}>
         <PeriodSelector value={timeRange} onChange={setTimeRange} fullWidth />
         {timeRange === "custom" && (
-          <Box sx={{ mt: 1.5 }}>
+          <Box sx={layout.below}>
             <DateRangeFields start={customStart} end={customEnd} onStartChange={setCustomStart} onEndChange={setCustomEnd} />
           </Box>
         )}
@@ -344,15 +344,15 @@ export default function DashboardPage() {
           fullWidth
           onClick={() => setShowReport(true)}
           startIcon={<FileText size={14} />}
-          sx={{ mt: 1.5 }}
+          sx={layout.below}
         >
           Shift Report
         </Button>
       </Box>
 
       {/* Desktop Time Range + Controls */}
-      <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "space-between", gap: 2, mt: 2, flexWrap: "wrap" }}>
-        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+      <Box sx={layout.desktopBar}>
+        <Stack direction="row" sx={layout.desktopLeft}>
           <PeriodSelector value={timeRange} onChange={setTimeRange} />
           {timeRange === "custom" && (
             <DateRangeFields start={customStart} end={customEnd} onStartChange={setCustomStart} onEndChange={setCustomEnd} />
@@ -368,7 +368,7 @@ export default function DashboardPage() {
           </Button>
         </Stack>
 
-        <Stack direction="row" sx={{ gap: 1 }}>
+        <Stack direction="row" sx={layout.desktopRight}>
           <Button
             variant="outlined"
             size="small"
@@ -449,7 +449,7 @@ export default function DashboardPage() {
               <Card sx={styles.alertCard}>
                 {/* Header */}
                 <Box sx={styles.alertHeader}>
-                  <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+                  <Stack direction="row" sx={layout.alertTitleRow}>
                     <Box sx={styles.alertIcon}>
                       <Package size={16} />
                     </Box>
@@ -464,7 +464,7 @@ export default function DashboardPage() {
                       </Typography>
                     </Box>
                   </Stack>
-                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                  <Stack direction="row" sx={layout.alertActions}>
                     {alertCount > 0 && (
                       <Chip
                         label={`${alertCount} alert${alertCount !== 1 ? "s" : ""}`}
@@ -497,7 +497,7 @@ export default function DashboardPage() {
                       <Typography variant="caption" color="text.disabled">{cachedMaterials.length} material{cachedMaterials.length !== 1 ? "s" : ""} tracked</Typography>
                     </Stack>
                   ) : (
-                    <Stack sx={{ gap: 1 }}>
+                    <Stack sx={layout.materialList}>
                       {sortedMaterials.filter(m => m.status !== "Good").map(({ item, remaining, total, pct, status }) => {
                         const barColor = status === "Critical" ? "error" : status === "Low" ? "warning" : "success";
                         const materialName = item["Material Name"] || item["Material ID"] || "Unknown";
@@ -510,9 +510,9 @@ export default function DashboardPage() {
                             variant="outlined"
                             sx={styles.materialRow}
                           >
-                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-                              <Box sx={{ minWidth: 0, flex: 1 }}>
-                                <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                            <Box sx={layout.materialHead}>
+                              <Box sx={layout.materialMain}>
+                                <Stack direction="row" sx={layout.materialTitleRow}>
                                   <Typography variant="h6" component="p" noWrap>{materialName}</Typography>
                                   {width > 0 && (
                                     <Typography variant="caption" color="text.disabled">{width}ft wide</Typography>
@@ -570,7 +570,7 @@ export default function DashboardPage() {
       {/* Quick Actions Banner */}
       <motion.div variants={sectionVariants} custom={0.22} initial="hidden" animate="show">
         <Paper sx={styles.voiceBanner}>
-          <Stack direction="row" sx={{ alignItems: "center", gap: 2 }}>
+          <Stack direction="row" sx={layout.voiceRow}>
             <Box sx={styles.voiceIcon}>
               <Zap size={20} />
             </Box>
@@ -599,7 +599,7 @@ export default function DashboardPage() {
 
       {/* Charts Row 1: Sales vs Expenses + Recent Payments Pulse */}
       <motion.div variants={sectionVariants} custom={0.28} initial="hidden" animate="show">
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, gap: 2.5, mt: 2 }}>
+        <Box sx={layout.chartsWide}>
           <SalesExpenseChart data={chartData} />
           <RecentPaymentsPulse payments={cachedPayments} />
         </Box>
@@ -607,14 +607,14 @@ export default function DashboardPage() {
 
       {/* Charts Row 2: Outstanding Debt */}
       <motion.div variants={sectionVariants} custom={0.34} initial="hidden" animate="show">
-        <Box sx={{ mt: 2 }}>
+        <Box sx={layout.section}>
           <OutstandingDebtChart data={outstandingDebtChart} onClientClick={setSelectedDebtor} ageMap={debtAgeMap} />
         </Box>
       </motion.div>
 
       {/* Charts Row 3: Payment Status + Top Clients */}
       <motion.div variants={sectionVariants} custom={0.38} initial="hidden" animate="show">
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2.5, mt: 2 }}>
+        <Box sx={layout.chartsEven}>
           <PaymentStatusWidget
             paid={paymentStats.paid}
             partPaid={paymentStats.partPaid}
@@ -630,7 +630,7 @@ export default function DashboardPage() {
 
       {/* Material Profitability Widget */}
       <motion.div variants={sectionVariants} custom={0.42} initial="hidden" animate="show">
-        <Box sx={{ mt: 2 }}>
+        <Box sx={layout.section}>
           <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
         </Box>
       </motion.div>
