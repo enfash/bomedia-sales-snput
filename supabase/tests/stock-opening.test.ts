@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { testDatabase, insertId } from './helpers';
 import { activateOpening, buildOpeningPlan, postOpening, verifyOpening } from '../../scripts/migration/opening-balances.mjs';
-import { applyStock, buildStockPlan, diffStock, summarizeStock } from '../../scripts/migration/stock-opening.mjs';
+import { applyStock, buildStockPlan, diffStock, exportStockSheet, summarizeStock } from '../../scripts/migration/stock-opening.mjs';
 
 const MATERIAL_HEADER = 'material_id,name,width_ft,selling_price_naira_per_sqft,low_stock_threshold_ft\n';
 const ROLL_HEADER = 'roll_id,material_id,item_name,width_ft,raw_length_ft,total_length_ft,remaining_ft,purchase_cost_naira,selling_price_naira,date_added,note\n';
@@ -115,6 +115,29 @@ describe('opening stock', () => {
     await db.exec("update bomedia.inventory_rolls set status='Active' where legacy_roll_id='ROLL-1'");
     await db.exec("update bomedia.materials set width_ft = width_ft + 1 where id=(select material_id from bomedia.inventory_rolls where legacy_roll_id='ROLL-1')");
     await expect(activateOpening(db, plan)).rejects.toThrow(/cannot be sold/);
+  });
+
+  it('writes the count sheet from the database so that, unchanged, it matches what is stored; and owner edits show as recounts', async () => {
+    await imported();
+    const material = (await rows("select id from bomedia.materials where legacy_material_id='MAT-FLEX'"))[0].id;
+    // A roll the app made itself (no Sheet roll ID) and an empty roll: the first cannot be listed, the second is not listed.
+    await db.query(`insert into bomedia.inventory_rolls(material_id,item_name,width_ft,raw_length_ft,total_length_ft,remaining_length_ft,purchase_cost_kobo,low_stock_threshold_ft,status)
+      values($1,'Native roll',5,40,40,12.5,2000000,20,'Active')`, [material]);
+    await db.query(`insert into bomedia.inventory_rolls(material_id,legacy_roll_id,item_name,width_ft,raw_length_ft,total_length_ft,remaining_length_ft,purchase_cost_kobo,low_stock_threshold_ft,status)
+      values($1,'ROLL-EMPTY','Empty roll',5,50,50,0,2500000,20,'Out of Stock')`, [material]);
+    const sheet = await exportStockSheet(db);
+    expect(sheet).toMatchObject({ materials: 1, rolls: 1, withoutId: ['Native roll (12.5 ft)'] });
+    expect(sheet.rollsCsv).toContain('ROLL-1,MAT-FLEX,Flex Roll 1,5,110,100,100,50000.00');
+    expect(sheet.rollsCsv).not.toContain('ROLL-EMPTY');
+    // Unchanged, the sheet is the database: nothing to recount. (The app-made roll is not on it, so it is the only thing left uncounted.)
+    const plan = buildStockPlan({ materials: sheet.materialsCsv, rolls: sheet.rollsCsv }, DATE);
+    const same = await diffStock(db, plan, { zeroUnlisted: true });
+    expect(same).toMatchObject({ rollsNew: [], blocked: [], rollsUnchanged: 1 });
+    expect(same.rollsRecounted.map((r: { id: string }) => r.id)).toEqual(['database roll ' + (await rows("select id from bomedia.inventory_rolls where legacy_roll_id is null"))[0].id]);
+    // The owner types the feet really left: it shows as a recount of that one roll.
+    const edited = sheet.rollsCsv.replace('ROLL-1,MAT-FLEX,Flex Roll 1,5,110,100,100,', 'ROLL-1,MAT-FLEX,Flex Roll 1,5,110,100,72.5,');
+    const recount = await diffStock(db, buildStockPlan({ materials: sheet.materialsCsv, rolls: edited }, DATE), { zeroUnlisted: true });
+    expect(recount.rollsRecounted.find((r: { id: string }) => r.id === 'ROLL-1')).toMatchObject({ from: '100.000000', to: '72.500000' });
   });
 
   it('shows what would change, applies prices, the count and a new roll, and a second run changes nothing', async () => {

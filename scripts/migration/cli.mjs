@@ -12,7 +12,7 @@ import { importStockRecords } from './import-stock.mjs';
 import { importStaffRecords } from './import-staff.mjs';
 import { OpeningError, activateOpening, buildOpeningPlan, createOwner, postOpening, summarizeOpening, verifyOpening } from './opening-balances.mjs';
 import { HistoryError, buildHistoryPlan, importHistory, summarizeHistory, verifyHistory } from './sales-history.mjs';
-import { applyStock, buildStockPlan, diffStock, summarizeStock } from './stock-opening.mjs';
+import { applyStock, buildStockPlan, diffStock, exportStockSheet, summarizeStock } from './stock-opening.mjs';
 import { RehearsalError, rehearsalTargetFromFiles, resetRehearsal } from './rehearsal-reset.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -114,6 +114,17 @@ async function runOpening(command, name, options) {
 // Opening stock: current prices and the owner's physical count, from migration-data/<name>/materials.csv and rolls.csv. The count date is the opening date in
 // migration-data/opening-balances/1-start-date.csv. Run stock-apply BEFORE opening-post; the opening command values the counted stock.
 async function runStock(command, name, options) {
+  if (command === 'stock-sheet') {
+    // stock-sheet <new-folder> --confirm-project <ref>: writes materials.csv and rolls.csv from what the database holds. Reads only; never overwrites a folder.
+    if (options.length !== 2 || options[0] !== '--confirm-project') throw new CommandError('stock-sheet needs --confirm-project <project-ref>.');
+    const sheet = await withMigrationDatabase(options[1], db => exportStockSheet(db));
+    const folder = await privateDirectory(name, true);
+    await writeFile(join(folder, 'materials.csv'), sheet.materialsCsv, { mode: 0o600, flag: 'wx' });
+    await writeFile(join(folder, 'rolls.csv'), sheet.rollsCsv, { mode: 0o600, flag: 'wx' });
+    console.log(JSON.stringify({ folder: relative(root, folder), materials: sheet.materials, rollsListed: sheet.rolls, rollsWithoutSheetId: sheet.withoutId,
+      next: 'Type the feet really left on each roll in remaining_ft, delete rows for rolls that are gone, add rows for new rolls, then run stock-check and stock-diff.' }, null, 2));
+    return;
+  }
   const directory = await privateDirectory(name);
   const read = file => readFile(join(directory, file), 'utf8');
   // A preview (check or diff) may use --date <YYYY-MM-DD> before the opening date is decided. The real apply always uses the opening date in 1-start-date.csv.
@@ -161,10 +172,10 @@ async function runHistory(command, name, options) {
 async function main() {
   const [command, name, ...options] = process.argv.slice(2);
   if (command === 'help' || !command) {
-    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | rehearsal-reset --confirm-project <rehearsal-ref> | owner-create --confirm-project <ref> | history-check <name> | history-import|history-verify <name> --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted] [--start-from <folder>]');
+    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | rehearsal-reset --confirm-project <rehearsal-ref> | owner-create --confirm-project <ref> | history-check <name> | history-import|history-verify <name> --confirm-project <ref> | stock-sheet <new-folder> --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted] [--start-from <folder>]');
     return;
   }
-  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-diff', 'stock-apply', 'owner-create', 'rehearsal-reset', 'history-check', 'history-import', 'history-verify'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
+  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-sheet', 'stock-diff', 'stock-apply', 'owner-create', 'rehearsal-reset', 'history-check', 'history-import', 'history-verify'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
   if (command === 'apply') {
     if (name !== '--confirm-project' || options.length !== 1) throw new CommandError('Apply requires --confirm-project <project-ref>.');
     const directory = join(root, 'supabase/migrations');

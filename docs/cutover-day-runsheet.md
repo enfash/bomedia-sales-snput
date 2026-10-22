@@ -39,6 +39,8 @@ Claude builds the approved files from the final export and puts them in these ex
 
 `ignore-payments.csv` needs `sheet_row,sales_id,payment,expected_amount_naira,reason`; the `sales_id` must be the one on that Sheet row, so an exception can never land on a different row. Claude checks that Sheet rows 2762 and 2948 are still the intended rows and records the exact payment amount the owner approved ignoring. The file is required: with headers only, the owner approved no exceptions; a missing or empty file stops the import. An amount or Sales ID mismatch also stops it. Every input file must have its header row and whole records (a record with fewer cells than the header is refused). Sheet row N is the Nth record of `Sales.csv` (header = row 1, blank records count), the same number Google Sheets shows. A cell with a line break inside quotes is still one row, so file line numbers can be higher; error messages show both.
 
+**Stock count sheet.** To avoid typing the stock files from scratch, `node --env-file=.env.local scripts/migration/cli.mjs stock-sheet <new-folder> --confirm-project "$LIVE"` (read-only) writes `materials.csv` and `rolls.csv` from what the app holds now, one row per roll that still has stock. The owner types the feet really left in `remaining_ft`, deletes rolls that are gone and adds rolls that are new; the folder then replaces `migration-data/stock-opening/`. A draft made on 22 Oct is in `migration-data/stock-count-20261025/` (31 rolls, counted value ₦1,292,959.23 before any edits). Do the count after trading stops on the cutoff day and before the customer debts are loaded: the stock value must be in the books before `opening:post`, and it cannot be added after `opening:activate`. Rolls the app created itself (no Sheet roll ID) cannot be listed; the command prints them if any exist (none on 22 Oct).
+
 Owner reviews and approves: customers, total owing, the ₦670,000 loan, stock value. Nothing is loaded before this OK.
 
 ## 4. Load the data (O, in this order)
@@ -46,8 +48,8 @@ Owner reviews and approves: customers, total owing, the ₦670,000 loan, stock v
 Each command must succeed before the next. `--confirm-project "$LIVE"` is required on all.
 
 ```sh
-npm run stock:diff -- --confirm-project "$LIVE"            # shows what will change; blockers must be empty
-npm run stock:apply -- --confirm-project "$LIVE"           # (if --zero-unlisted is needed, add it to BOTH stock:diff and stock:apply; Claude confirms the flags with you)
+npm run stock:diff -- --zero-unlisted --confirm-project "$LIVE"   # shows what will change; blockers must be empty
+npm run stock:apply -- --zero-unlisted --confirm-project "$LIVE"  # same flag on BOTH; rolls missing from rolls.csv are recorded as gone (owner confirmed this on 22 Oct for the 19 Oct count: 22 rolls)
 npm run opening:check                                       # files only; totals match the approved report
 npm run opening:post -- --confirm-project "$LIVE"
 node --env-file=.env.local scripts/migration/cli.mjs history-check sheet-export-20261025
@@ -56,7 +58,7 @@ node --env-file=.env.local scripts/migration/cli.mjs history-verify sheet-export
 npm run opening:verify -- --confirm-project "$LIVE"         # every check must pass
 npm run opening:activate -- --confirm-project "$LIVE"       # point of no return for the books: they start 25 Oct
 ```
-Good: `history-verify` says verified; `opening:verify` shows `"ok": true` with every check passing; the activate result shows `"activated": true`. `stock:apply` records the approved stock fingerprint; opening-post refuses stock that has changed since that count. History import takes about a minute.
+`--zero-unlisted` zeroes every roll that is not in `rolls.csv`, so before running it Sunday, compare the diff's list of zeroed rolls with the shop one last time, because it is only correct for rolls that are really gone. Good: `history-verify` says verified; `opening:verify` shows `"ok": true` with every check passing; the activate result shows `"activated": true`. `stock:apply` records the approved stock fingerprint; opening-post refuses stock that has changed since that count. History import takes about a minute.
 
 ## 5. Release (O)
 

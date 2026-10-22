@@ -72,6 +72,32 @@ export function buildStockPlan(files, countDate) {
   return { countDate: date, materials, rolls, digest: sha(JSON.stringify({ date, materials, rolls })) };
 }
 
+const csvCell = value => { const text = String(value ?? ''); return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; };
+const csvLine = cells => cells.map(csvCell).join(',') + '\n';
+const trimNumber = text => String(text ?? '').replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+const naira = koboText => koboText == null ? '' : `${BigInt(koboText) / 100n}.${(BigInt(koboText) % 100n).toString().padStart(2, '0')}`;
+
+/**
+ * Writes the two stock files from what the database holds today, so the owner only has to type the feet really left on each roll
+ * (remaining_ft), delete rows for rolls that are gone and add rows for new ones. Reads only. Rolls with nothing left are not listed.
+ * Rolls the app created itself have no Sheet roll ID, so they cannot be listed in rolls.csv; they are returned in `withoutId` for the owner to see.
+ */
+export async function exportStockSheet(db) {
+  const q = async (text, params = []) => (await db.query(text, params)).rows;
+  const materials = await q(`select legacy_material_id, name, width_ft::text as width_ft, selling_price_per_sqft_kobo::text as price, low_stock_threshold_ft::text as threshold
+    from bomedia.materials where legacy_material_id is not null order by legacy_material_id`);
+  const rolls = await q(`select r.legacy_roll_id, m.legacy_material_id, r.item_name, r.width_ft::text as width_ft, r.raw_length_ft::text as raw, r.total_length_ft::text as total, r.remaining_length_ft::text as remaining,
+      r.purchase_cost_kobo::text as cost, r.selling_price_kobo::text as price, coalesce(r.business_date, r.created_at::date)::text as added, r.id::text as id, r.item_name as name
+    from bomedia.inventory_rolls r join bomedia.materials m on m.id=r.material_id where r.remaining_length_ft > 0 order by r.legacy_roll_id nulls last, r.id`);
+  const listed = rolls.filter(r => r.legacy_roll_id !== null && r.legacy_material_id !== null);
+  const withoutId = rolls.filter(r => r.legacy_roll_id === null || r.legacy_material_id === null).map(r => `${r.name} (${trimNumber(r.remaining)} ft)`);
+  const materialsCsv = csvLine(['material_id', 'name', 'width_ft', 'selling_price_naira_per_sqft', 'low_stock_threshold_ft'])
+    + materials.map(m => csvLine([m.legacy_material_id, m.name, trimNumber(m.width_ft), naira(m.price), trimNumber(m.threshold)])).join('');
+  const rollsCsv = csvLine(['roll_id', 'material_id', 'item_name', 'width_ft', 'raw_length_ft', 'total_length_ft', 'remaining_ft', 'purchase_cost_naira', 'selling_price_naira', 'date_added', 'note'])
+    + listed.map(r => csvLine([r.legacy_roll_id, r.legacy_material_id, r.item_name, trimNumber(r.width_ft), trimNumber(r.raw ?? r.total), trimNumber(r.total), trimNumber(r.remaining), naira(r.cost), naira(r.price), r.added, 'from the app: type the feet really left in remaining_ft'])).join('');
+  return { materialsCsv, rollsCsv, materials: materials.length, rolls: listed.length, withoutId };
+}
+
 const kobo = value => `₦${(BigInt(value) / 100n).toLocaleString('en-NG')}.${(BigInt(value) % 100n).toString().padStart(2, '0')}`;
 
 /** Compares the plan with what the database holds. Changes nothing. */
