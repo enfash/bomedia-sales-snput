@@ -714,6 +714,69 @@ export const sidebarStyles = {
   logout: { color: whiteTint(0.4), "&:hover": { color: "common.white", bgcolor: whiteTint(0.08) } },
 } as const;
 
+// The sale payment sheet (components/manage-sale-action.tsx) and the batch payment sheet (components/manage-batch-action.tsx).
+const manageLabel = { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "text.secondary", mb: 0.5, display: "block" } as const;
+const manageMoneyField = { "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } } as const;
+const manageFooter = { bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider" } as const;
+const manageButtons = { flex: 1, height: 48, borderRadius: 3 } as const;
+export const manageSaleStyles = {
+  iconTrigger: { color: accent, "&:hover": { bgcolor: "primary.main", color: "white" } },
+  lockedTrigger: { color: "grey.300" },
+  manageButton: { borderRadius: 2, fontSize: "0.75rem", fontWeight: 900, letterSpacing: "0.05em" },
+  body: { p: 3 },
+  stack: { gap: 3 },
+  whatsapp: { mt: 1, height: 28, px: 1, borderRadius: 2, bgcolor: "primary.main", color: "white", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", "&:hover": { bgcolor: "primary.dark" } },
+  summary: { gap: 2, pb: 2, borderBottom: "1px solid", borderColor: "divider" },
+  summaryCell: { flex: 1 },
+  label: manageLabel,
+  labelField: { ...manageLabel, mb: 0.75 },
+  totalValue: { fontSize: "1.125rem", fontWeight: 900, color: "text.primary" },
+  statusValue: { fontSize: "0.75rem", fontWeight: 700, color: accent },
+  fields: { gap: 2 },
+  paidBanner: { p: 2, bgcolor: "success.light", borderRadius: 3, border: "1px solid", borderColor: "success.main", display: "flex", alignItems: "center", justifyContent: "center" },
+  paidText: { fontSize: "0.75rem", fontWeight: 900, color: "success.dark", textTransform: "uppercase", letterSpacing: "0.05em" },
+  maxBanner: { p: 2, bgcolor: "warning.light", borderRadius: 3, border: "1px solid", borderColor: "warning.main" },
+  maxText: { fontSize: "0.75rem", fontWeight: 700, color: "warning.dark" },
+  moneyField: manageMoneyField,
+  statusLabel: { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em" },
+  statusSelect: { borderRadius: 3, fontWeight: 700 },
+  statusItem: { fontWeight: 700 },
+  footer: { p: 3, ...manageFooter, gap: 1.5 },
+  cancel: { ...manageButtons, fontWeight: 700 },
+  save: { ...manageButtons, fontWeight: 900 },
+} as const;
+export const manageBatchStyles = {
+  iconTrigger: manageSaleStyles.iconTrigger,
+  payButton: { height: 28, px: 1.5, borderRadius: 2, fontSize: "0.75rem", fontWeight: 900, letterSpacing: "0.08em", borderColor: accent, color: accent, whiteSpace: "nowrap", minWidth: "max-content", "&:hover": { bgcolor: "primary.main", color: "primary.contrastText" } },
+  body: { p: 3, display: "flex", flexDirection: "column", gap: 2.5 },
+  summaryGrid: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5 },
+  summaryCard: { bgcolor: "grey.100", borderRadius: 2.5, p: 1.5 },
+  summaryLabel: { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.5 },
+  summaryValue: { fontSize: "0.875rem", fontWeight: 900 },
+  summaryTotal: { color: "text.primary" },
+  summaryPaid: { color: "success.main" },
+  summaryRemaining: { color: "error.main" },
+  allPaid: { display: "flex", alignItems: "center", justifyContent: "center", gap: 1, p: 2, bgcolor: "success.light", borderRadius: 2.5, border: "1px solid", borderColor: "success.light" },
+  allPaidText: { fontSize: "0.875rem", fontWeight: 900, color: "success.dark", textTransform: "uppercase", letterSpacing: "0.08em" },
+  field: { display: "flex", flexDirection: "column", gap: 0.75 },
+  fieldLabel: { fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" },
+  moneyField: manageMoneyField,
+  overpay: { fontSize: "0.75rem", color: "success.main", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5 },
+  preview: { display: "flex", flexDirection: "column", gap: 1 },
+  previewList: { border: "1px solid", borderColor: "divider", borderRadius: 2.5, overflow: "hidden" },
+  previewRow: { display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, py: 1.5, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" },
+  previewRowLast: { borderBottom: "none", borderColor: "divider" },
+  previewLeft: { display: "flex", alignItems: "center", gap: 1.25 },
+  previewNumber: { width: 20, height: 20, borderRadius: "50%", bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  previewNumberText: { fontSize: "0.75rem", fontWeight: 900, color: "primary.contrastText" },
+  previewTitle: { fontSize: "0.75rem", fontWeight: 700, color: "text.primary", lineHeight: 1 },
+  previewSlot: { fontSize: "0.75rem", color: "text.secondary", mt: 0.5 },
+  previewAmount: { fontSize: "0.875rem", fontWeight: 900, color: "success.main" },
+  footer: { display: "flex", gap: 1.5, p: 3, ...manageFooter },
+  cancel: { ...manageButtons, fontWeight: 700 },
+  apply: { ...manageButtons, fontWeight: 900 },
+} as const;
+
 // Phone header and menu drawer (components/mobile-nav.tsx).
 export const mobileNavStyles = {
   appBar: { display: { md: "none" }, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider", color: "text.primary", paddingTop: "env(safe-area-inset-top)" },

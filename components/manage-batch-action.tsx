@@ -1,6 +1,6 @@
 "use client";
 
-import { accent } from "@/app/theme";
+import { manageBatchStyles as styles } from "@/app/theme";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 
 import { useState, useMemo, useRef, type ReactNode } from "react";
@@ -165,7 +165,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       size="small"
       onClick={() => setIsOpen(true)}
       title="Pay Batch"
-      sx={{ color: accent, "&:hover": { bgcolor: "primary.main", color: "white" } }}
+      sx={styles.iconTrigger}
     >
       <Wallet size={16} />
     </IconButton>
@@ -174,40 +174,28 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       onClick={() => setIsOpen(true)}
       variant="outlined"
       size="small"
-      sx={{
-        height: 28,
-        px: 1.5,
-        borderRadius: 2,
-        fontSize: "0.75rem",
-        fontWeight: 900,
-        letterSpacing: "0.08em",
-        borderColor: accent,
-        color: accent,
-        whiteSpace: "nowrap",
-        minWidth: "max-content",
-        "&:hover": { bgcolor: "primary.main", color: "primary.contrastText" },
-      }}
-      startIcon={<Wallet style={{ width: 12, height: 12 }} />}
+      sx={styles.payButton}
+      startIcon={<Wallet size={12} />}
     >
       Pay Batch
     </Button>
   );
 
   const summaryCards = [
-    { label: "Grand Total", value: grandTotal, color: "text.primary" },
-    { label: "Paid", value: totalPaid, color: "success.main" },
-    { label: "Remaining", value: totalBalance, color: "error.main" },
+    { label: "Grand Total", value: grandTotal, tone: styles.summaryTotal },
+    { label: "Paid", value: totalPaid, tone: styles.summaryPaid },
+    { label: "Remaining", value: totalBalance, tone: styles.summaryRemaining },
   ];
 
   const body = (
-    <Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2.5 }}>
-      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5 }}>
+    <Box sx={styles.body}>
+      <Box sx={styles.summaryGrid}>
         {summaryCards.map((m) => (
-          <Box key={m.label} sx={{ bgcolor: "grey.100", borderRadius: 2.5, p: 1.5 }}>
-            <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em", color: "text.secondary", mb: 0.5 }}>
+          <Box key={m.label} sx={styles.summaryCard}>
+            <Typography sx={styles.summaryLabel}>
               {m.label}
             </Typography>
-            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: m.color }}>
+            <Typography sx={[styles.summaryValue, m.tone]}>
               ₦{m.value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
             </Typography>
           </Box>
@@ -215,16 +203,16 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
       </Box>
 
       {totalBalance <= 0 ? (
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, p: 2, bgcolor: "success.light", borderRadius: 2.5, border: "1px solid", borderColor: "success.light" }}>
-          <CheckCircle2 style={{ width: 16, height: 16 }} />
-          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "success.dark", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        <Box sx={styles.allPaid}>
+          <CheckCircle2 size={16} />
+          <Typography sx={styles.allPaidText}>
             All items fully paid
           </Typography>
         </Box>
       ) : (
         <>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-            <Typography sx={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
+          <Box sx={styles.field}>
+            <Typography sx={styles.fieldLabel}>
               Lump-Sum Payment (₦)
             </Typography>
             <MoneyField
@@ -232,11 +220,11 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
               value={paymentInput}
               onChange={setPaymentInput}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
+              sx={styles.moneyField}
             />
             {lumpSum > totalBalance && (
-              <Typography sx={{ fontSize: "0.75rem", color: "success.main", fontWeight: 700, display: "flex", alignItems: "center", gap: 0.5 }}>
-                <CheckCircle2 style={{ width: 12, height: 12 }} />
+              <Typography sx={styles.overpay}>
+                <CheckCircle2 size={12} />
                 Overpayment of ₦{(lumpSum - totalBalance).toLocaleString()} will be applied as credit.
               </Typography>
             )}
@@ -245,52 +233,32 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
           <PaidBy value={paidBy} onChange={setPaidBy} disabled={isSubmitting} />
 
           {preview.length > 0 && (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <Typography sx={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.08em" }}>
+            <Box sx={styles.preview}>
+              <Typography sx={styles.fieldLabel}>
                 Distribution Preview
               </Typography>
-              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2.5, overflow: "hidden" }}>
+              <Box sx={styles.previewList}>
                 {preview.map((step, idx) => (
                   <Box
                     key={step.record.id}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      px: 2,
-                      py: 1.5,
-                      bgcolor: "background.paper",
-                      borderBottom: idx < preview.length - 1 ? "1px solid" : "none",
-                      borderColor: "divider",
-                    }}
+                    sx={[styles.previewRow, idx === preview.length - 1 && styles.previewRowLast]}
                   >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-                      <Box
-                        sx={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: "50%",
-                          bgcolor: "primary.main",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "primary.contrastText" }}>
+                    <Box sx={styles.previewLeft}>
+                      <Box sx={styles.previewNumber}>
+                        <Typography sx={styles.previewNumberText}>
                           {idx + 1}
                         </Typography>
                       </Box>
                       <Box>
-                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary", lineHeight: 1 }}>
+                        <Typography sx={styles.previewTitle}>
                           {step.record.description}
                         </Typography>
-                        <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mt: 0.5 }}>
+                        <Typography sx={styles.previewSlot}>
                           Slot {step.slot}{step.mode === "append" ? " · added to existing" : ""}
                         </Typography>
                       </Box>
                     </Box>
-                    <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "success.main" }}>
+                    <Typography sx={styles.previewAmount}>
                       +₦{step.toApply.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                     </Typography>
                   </Box>
@@ -304,12 +272,12 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
   );
 
   const footer = (
-    <Box sx={{ display: "flex", gap: 1.5, p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider" }}>
+    <Box sx={styles.footer}>
       <Button
         variant="outlined"
         onClick={() => setIsOpen(false)}
         disabled={isSubmitting}
-        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
+        sx={styles.cancel}
       >
         Cancel
       </Button>
@@ -317,7 +285,7 @@ export function ManageBatchAction({ records, salesId, onUpdate, variant = "butto
         variant="contained"
         disabled={isSubmitting || (totalBalance <= 0 && lumpSum <= 0)}
         onClick={handleSubmit}
-        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 900 }}
+        sx={styles.apply}
       >
         {isSubmitting ? "Processing…" : lumpSum > 0 ? "Apply Payment" : totalBalance <= 0 ? "All Paid" : "Review"}
       </Button>

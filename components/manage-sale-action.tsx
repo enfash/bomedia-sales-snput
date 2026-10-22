@@ -1,6 +1,6 @@
 "use client";
 
-import { accent } from "@/app/theme";
+import { manageSaleStyles as styles } from "@/app/theme";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 
 import { useState, useMemo, useRef, type ReactNode } from "react";
@@ -88,7 +88,7 @@ export function ManageSaleAction({
         disabled
         size="small"
         title={isLocked ? "Cannot edit records older than 24 hours" : ""}
-        sx={{ color: "grey.300" }}
+        sx={styles.lockedTrigger}
       >
         {isLocked ? <Lock size={12} /> : <MoreHorizontal size={16} />}
       </IconButton>
@@ -217,7 +217,7 @@ export function ManageSaleAction({
       <IconButton
         size="small"
         onClick={() => setIsOpen(true)}
-        sx={{ color: accent, "&:hover": { bgcolor: "primary.main", color: "white" } }}
+        sx={styles.iconTrigger}
       >
         <MoreHorizontal size={16} />
       </IconButton>
@@ -226,7 +226,7 @@ export function ManageSaleAction({
         variant="outlined"
         size="small"
         onClick={() => setIsOpen(true)}
-        sx={{ borderRadius: 2, fontSize: "0.75rem", fontWeight: 900, letterSpacing: "0.05em" }}
+        sx={styles.manageButton}
       >
         Manage
       </Button>
@@ -275,8 +275,8 @@ function ContentBody({
   const maxSlotsReached = hasAddl1 && hasAddl2 && (record.balance ?? 0) > 0;
 
   return (
-    <DialogContent sx={{ p: 3 }}>
-      <Stack sx={{ gap: 3 }}>
+    <DialogContent sx={styles.body}>
+      <Stack sx={styles.stack}>
           {(record.balance || 0) > 0 && record.contact && (
             <Button
               size="small"
@@ -295,126 +295,49 @@ function ContentBody({
                 );
               }}
               startIcon={<MessageCircle size={12} />}
-              sx={{
-                mt: 1,
-                height: 28,
-                px: 1,
-                borderRadius: 2,
-                bgcolor: "primary.main",
-                color: "white",
-                fontSize: "0.75rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                "&:hover": { bgcolor: "primary.dark" },
-              }}
+              sx={styles.whatsapp}
             >
               WhatsApp Reminder
             </Button>
           )}
-        <Stack
-          direction="row"
-          sx={{
-            gap: 2,
-            pb: 2,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Box sx={{ flex: 1 }}>
-            <Typography
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "text.secondary",
-                mb: 0.5,
-                display: "block",
-              }}
-            >
+        <Stack direction="row" sx={styles.summary}>
+          <Box sx={styles.summaryCell}>
+            <Typography sx={styles.label}>
               Total Amount
             </Typography>
-            <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "text.primary" }}>
+            <Typography sx={styles.totalValue}>
               ₦{record.amount.toLocaleString()}
             </Typography>
           </Box>
-          <Box sx={{ flex: 1 }}>
-            <Typography
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "text.secondary",
-                mb: 0.5,
-                display: "block",
-              }}
-            >
+          <Box sx={styles.summaryCell}>
+            <Typography sx={styles.label}>
               Current Status
             </Typography>
-            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: accent }}>
+            <Typography sx={styles.statusValue}>
               {record.status}
             </Typography>
           </Box>
         </Stack>
 
-        <Stack sx={{ gap: 2 }}>
+        <Stack sx={styles.fields}>
           {isFullyPaid && (
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: "success.light",
-                borderRadius: 3,
-                border: "1px solid",
-                borderColor: "success.main",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: "0.75rem",
-                  fontWeight: 900,
-                  color: "success.dark",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
+            <Box sx={styles.paidBanner}>
+              <Typography sx={styles.paidText}>
                 Paid Completed
               </Typography>
             </Box>
           )}
 
           {maxSlotsReached && !isFullyPaid && (
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: "warning.light",
-                borderRadius: 3,
-                border: "1px solid",
-                borderColor: "warning.main",
-              }}
-            >
-              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "warning.dark" }}>
+            <Box sx={styles.maxBanner}>
+              <Typography sx={styles.maxText}>
                 Maximum payment slots reached. Contact Admin to add more payments.
               </Typography>
             </Box>
           )}
 
           <Box>
-            <Typography
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "text.secondary",
-                mb: 0.75,
-                display: "block",
-              }}
-            >
+            <Typography sx={styles.labelField}>
               Additional Payment 1 (₦)
             </Typography>
             <MoneyField
@@ -424,22 +347,12 @@ function ContentBody({
               disabled={hasAddl1 || isFullyPaid || maxSlotsReached}
               fullWidth
               size="medium"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
+              sx={styles.moneyField}
             />
           </Box>
 
           <Box>
-            <Typography
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "text.secondary",
-                mb: 0.75,
-                display: "block",
-              }}
-            >
+            <Typography sx={styles.labelField}>
               Additional Payment 2 (₦)
             </Typography>
             <MoneyField
@@ -449,7 +362,7 @@ function ContentBody({
               disabled={!hasAddl1 || hasAddl2 || isFullyPaid || maxSlotsReached}
               fullWidth
               size="medium"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } }}
+              sx={styles.moneyField}
             />
           </Box>
 
@@ -459,24 +372,17 @@ function ContentBody({
           )}
 
           <FormControl fullWidth size="medium">
-            <InputLabel
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
+            <InputLabel sx={styles.statusLabel}>
               Job Status
             </InputLabel>
             <Select
               value={status}
               label="Job Status"
               onChange={(e) => setStatus(e.target.value)}
-              sx={{ borderRadius: 3, fontWeight: 700 }}
+              sx={styles.statusSelect}
             >
               {JOB_STATUSES.map((s) => (
-                <MenuItem key={s} value={s} sx={{ fontWeight: 700 }}>{s}</MenuItem>
+                <MenuItem key={s} value={s} sx={styles.statusItem}>{s}</MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -488,20 +394,12 @@ function ContentBody({
 
 function ContentFooter({ isSubmitting, handleUpdate, setIsOpen }: any) {
   return (
-    <DialogActions
-      sx={{
-        p: 3,
-        bgcolor: "grey.50",
-        borderTop: "1px solid",
-        borderColor: "divider",
-        gap: 1.5,
-      }}
-    >
+    <DialogActions sx={styles.footer}>
       <Button
         variant="outlined"
         onClick={() => setIsOpen(false)}
         disabled={isSubmitting}
-        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
+        sx={styles.cancel}
       >
         Cancel
       </Button>
@@ -509,7 +407,7 @@ function ContentFooter({ isSubmitting, handleUpdate, setIsOpen }: any) {
         variant="contained"
         disabled={isSubmitting}
         onClick={handleUpdate}
-        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 900 }}
+        sx={styles.save}
       >
         {isSubmitting ? "Updating..." : "Save Changes"}
       </Button>
