@@ -12,6 +12,7 @@ import { importStockRecords } from './import-stock.mjs';
 import { importStaffRecords } from './import-staff.mjs';
 import { OpeningError, activateOpening, buildOpeningPlan, createOwner, postOpening, summarizeOpening, verifyOpening } from './opening-balances.mjs';
 import { HistoryError, buildHistoryPlan, importHistory, summarizeHistory, verifyHistory } from './sales-history.mjs';
+import { buildOwingFile } from './owing-file.mjs';
 import { applyStock, buildStockPlan, diffStock, exportStockSheet, summarizeStock } from './stock-opening.mjs';
 import { RehearsalError, rehearsalTargetFromFiles, resetRehearsal } from './rehearsal-reset.mjs';
 
@@ -172,10 +173,10 @@ async function runHistory(command, name, options) {
 async function main() {
   const [command, name, ...options] = process.argv.slice(2);
   if (command === 'help' || !command) {
-    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | rehearsal-reset --confirm-project <rehearsal-ref> | owner-create --confirm-project <ref> | history-check <name> | history-import|history-verify <name> --confirm-project <ref> | stock-sheet <new-folder> --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted] [--start-from <folder>]');
+    console.log('Commands: apply --confirm-project <ref> | export <name> | inspect <name> | plan <name> | reconcile <name> | review <name> | verify-archive <name> | rehearse <name> | rehearse-independent <name> | rehearse-stock <name> | rehearse-staff <name> | stage <name> --confirm-project <ref> | import-independent <name> --confirm-project <ref> | import-stock <name> --confirm-project <ref> | import-staff <name> --confirm-project <ref> | opening-check <name> | opening-post|opening-verify|opening-activate <name> --confirm-project <ref> | rehearsal-reset --confirm-project <rehearsal-ref> | owner-create --confirm-project <ref> | owing-build <export-folder> <new-folder> | history-check <name> | history-import|history-verify <name> --confirm-project <ref> | stock-sheet <new-folder> --confirm-project <ref> | stock-check <name> | stock-diff|stock-apply <name> --confirm-project <ref> [--allow-uncounted | --zero-unlisted] [--start-from <folder>]');
     return;
   }
-  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-sheet', 'stock-diff', 'stock-apply', 'owner-create', 'rehearsal-reset', 'history-check', 'history-import', 'history-verify'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
+  if (!['apply', 'export', 'inspect', 'plan', 'reconcile', 'review', 'verify-archive', 'rehearse', 'rehearse-independent', 'rehearse-stock', 'rehearse-staff', 'stage', 'import-independent', 'import-stock', 'import-staff', 'opening-check', 'opening-post', 'opening-verify', 'opening-activate', 'stock-check', 'stock-sheet', 'stock-diff', 'stock-apply', 'owner-create', 'rehearsal-reset', 'owing-build', 'history-check', 'history-import', 'history-verify'].includes(command)) throw new CommandError('Unknown migration command. Run with help.');
   if (command === 'apply') {
     if (name !== '--confirm-project' || options.length !== 1) throw new CommandError('Apply requires --confirm-project <project-ref>.');
     const directory = join(root, 'supabase/migrations');
@@ -227,6 +228,21 @@ async function main() {
   }
   if (command.startsWith('stock-')) {
     try { await runStock(command, name, options); } catch (error) { throw error instanceof OpeningError ? new CommandError(error.message) : error; }
+    return;
+  }
+  if (command === 'owing-build') {
+    // owing-build <export-folder> <new-folder>: writes 3-customers-who-owe.csv from the Sheet's Sales export (+ the same name decisions and ignore-payments files the history uses). Files only.
+    if (options.length !== 1) throw new CommandError('owing-build needs the export folder and a NEW folder name for the result.');
+    try {
+      const directory = await privateDirectory(name);
+      const read = file => readFile(join(directory, file), 'utf8');
+      const built = buildOwingFile({ sales: await read('Sales.csv'), names: await read('2-name-decisions.csv'), ignore: await read('ignore-payments.csv') });
+      const target = await privateDirectory(options[0], true);
+      await writeFile(join(target, '3-customers-who-owe.csv'), built.csv, { mode: 0o600, flag: 'wx' });
+      console.log(JSON.stringify({ wrote: relative(root, join(target, '3-customers-who-owe.csv')), debts: built.debts, customers: built.customers, totalOwed: built.total, debtsWithoutSalesId: built.withoutSalesId,
+        debtsWithAPhone: built.withPhone, leftOutBecauseUnderOneNaira: built.underOneNaira, overpaidRowsIgnored: built.overpaid, paymentsIgnoredByTheOwner: built.ignored, rowsWithNoCustomerName: built.skippedNoName,
+        next: 'Review with the owner, then copy it into migration-data/opening-balances/ with the other four files and run opening-check.' }, null, 2));
+    } catch (error) { throw error instanceof HistoryError || error instanceof OpeningError ? new CommandError(error.message) : error; }
     return;
   }
   if (command.startsWith('history-')) {

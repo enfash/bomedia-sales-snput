@@ -67,7 +67,7 @@ export function buildHistoryPlan(files) {
     }
     const sizes = SIZE_COLUMNS.filter(c => clean(r[c])).map(c => `${c}: ${clean(r[c])}`).join(', ');
     const material = clean(r.MATERIAL), description = clean(r['JOB DESCRIPTION']) || material || 'Sale from the Google Sheet';
-    const row = { sheetRow, customerKey: key, saleDate: r.DATE, salesId: clean(r['Sales ID']) || null, transactionId: clean(r['TRANSACTION ID']) || null,
+    const row = { sheetRow, clientName: rawName, jobDescription: clean(r['JOB DESCRIPTION']), customerKey: key, saleDate: r.DATE, salesId: clean(r['Sales ID']) || null, transactionId: clean(r['TRANSACTION ID']) || null,
       description, material: material || null, quantity: clean(r.QTY) || null, amountKobo: amount.toString(), paidKobo: paid.toString(), owedKobo: (amount - paid).toString(),
       paymentStatus: clean(r['PAYMENT STATUS']) || null, jobStatus: clean(r['JOB STATUS']) || null, loggedBy: clean(r['Logged By']) || null, contact: clean(r.CONTACT) || null,
       note: sizes || null, source: Object.fromEntries(Object.entries(r).filter(([, v]) => v !== '')) };
