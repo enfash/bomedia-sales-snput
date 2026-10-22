@@ -2,15 +2,11 @@
 
 import { shellVisible } from "@/lib/session-view";
 import { clearSavedPages } from "@/components/session-guard";
-import Link from "next/link";
-import { ownerSettingsNav } from "@/components/settings-navigation";
+import { NavGroups } from "@/components/nav-groups";
+import { adminNavMenu, cashierNavMenu } from "@/lib/nav-groups";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  LayoutDashboard, PlusCircle, Receipt, BarChart3,
-  Cloud, CloudOff, LogOut, Users, KanbanSquare,
-  Ruler, Package, Calculator, ArrowLeftRight, Menu, ChevronLeft, ShieldCheck
-} from "lucide-react";
+import { Cloud, CloudOff, LogOut, ArrowLeftRight, Menu, ChevronLeft } from "lucide-react";
 import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
@@ -82,29 +78,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
   const isInCashierView = pathname.startsWith("/cashier") || !isAdmin;
 
-  const currentNavItems = isInCashierView
-    ? [
-        { href: "/cashier",           label: "Dashboard",   icon: LayoutDashboard },
-        { href: "/cashier/new-entry", label: "New Sale",    icon: PlusCircle },
-        { href: "/cashier/board",     label: "Job Board",   icon: KanbanSquare },
-        { href: "/cashier/customers", label: "Customers",   icon: Users },
-        { href: "/cashier/inventory", label: "Stock",       icon: Package },
-        { href: "/cashier/estimator", label: "Estimator",   icon: Calculator },
-        { href: "/cashier/quick-check", label: "Quick-Check", icon: Ruler },
-        { href: "/cashier/records",   label: "Records",     icon: BarChart3 },
-        { href: "/cashier/expenses",  label: "Expenses",    icon: Receipt },
-      ]
-    : [
-        { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
-        { href: "/bom03/new-entry", label: "New Sale",     icon: PlusCircle },
-        { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
-        { href: "/bom03/customers", label: "Customers",    icon: Users },
-        { href: "/bom03/quick-check", label: "Quick-Check",  icon: Ruler },
-        { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
-        { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
-        { href: "/bom03/approvals", label: "Approvals",    icon: ShieldCheck },
-        ownerSettingsNav,
-      ];
+  const menu = isInCashierView ? cashierNavMenu : adminNavMenu;
 
   const DRAWER_WIDTH = isCollapsed ? 80 : 240;
   const collapsed = isCollapsed;
@@ -139,24 +113,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
 
       {/* Nav links */}
       <List sx={styles.navList}>
-        {currentNavItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href === ownerSettingsNav.href && pathname.startsWith(`${href}/`));
-          return (
-            <Tooltip key={href} title={isCollapsed ? label : ""} placement="right" arrow disableHoverListener={!isCollapsed}>
-              <ListItemButton
-                component={Link}
-                href={href}
-                selected={active}
-                sx={[styles.navItem, active && styles.navItemActive, collapsed && styles.navItemCollapsed]}
-              >
-                <ListItemIcon sx={[styles.navIcon, collapsed && styles.navIconCollapsed]}>
-                  <Icon size={isCollapsed ? 22 : 16} />
-                </ListItemIcon>
-                {!isCollapsed && <ListItemText primary={label} sx={styles.navText} />}
-              </ListItemButton>
-            </Tooltip>
-          );
-        })}
+        <NavGroups menu={menu} pathname={pathname} variant="desktop" collapsed={isCollapsed} />
       </List>
 
       {/* Sync status */}

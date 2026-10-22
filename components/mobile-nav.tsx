@@ -4,14 +4,11 @@ import { shellVisible } from "@/lib/session-view";
 import { clearSavedPages } from "@/components/session-guard";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ownerSettingsNav } from "@/components/settings-navigation";
+import { NavGroups } from "@/components/nav-groups";
+import { adminNavMenu, cashierNavMenu } from "@/lib/nav-groups";
 import { headerHomeLinkStyles, mobileNavStyles as styles, syncIconStyles } from "@/app/theme";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Menu, LayoutDashboard, PlusCircle, Receipt, BarChart3,
-  Cloud, CloudOff, RefreshCw, LogOut, Users, KanbanSquare,
-  Package, Volume2, VolumeX, Ruler, ArrowLeftRight, Calculator, ShieldCheck,
-} from "lucide-react";
+import { Menu, Cloud, CloudOff, RefreshCw, LogOut, Volume2, VolumeX, ArrowLeftRight } from "lucide-react";
 import Tooltip from "@mui/material/Tooltip";
 import { useSyncStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
@@ -89,30 +86,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
 
   const isInCashierView = pathname.startsWith("/cashier") || !isAdmin;
 
-  const currentNavItems = isInCashierView
-    ? [
-        { href: "/cashier",             label: "Dashboard",   icon: LayoutDashboard },
-        { href: "/cashier/new-entry",   label: "New Sale",    icon: PlusCircle },
-        { href: "/cashier/board",       label: "Job Board",   icon: KanbanSquare },
-        { href: "/cashier/customers",   label: "Customers",   icon: Users },
-        { href: "/cashier/inventory",   label: "Stock",       icon: Package },
-        { href: "/cashier/estimator",   label: "Estimator",   icon: Calculator },
-        { href: "/cashier/quick-check", label: "Quick-Check", icon: Ruler },
-        { href: "/cashier/records",     label: "Records",     icon: BarChart3 },
-        { href: "/cashier/expenses",    label: "Expenses",    icon: Receipt },
-      ]
-    : [
-        { href: "/bom03",           label: "Dashboard",    icon: LayoutDashboard },
-        { href: "/bom03/new-entry", label: "New Sale",     icon: PlusCircle },
-        { href: "/bom03/board",     label: "Job Board",    icon: KanbanSquare },
-        { href: "/bom03/customers", label: "Customers",    icon: Users },
-        { href: "/bom03/quick-check", label: "Quick-Check",  icon: Ruler },
-        { href: "/bom03/records",   label: "Records",      icon: BarChart3 },
-        { href: "/bom03/expenses",  label: "Expenses",     icon: Receipt },
-        { href: "/bom03/inventory", label: "Inventory",    icon: Package },
-        { href: "/bom03/approvals", label: "Approvals",    icon: ShieldCheck },
-        ownerSettingsNav,
-      ];
+  const menu = isInCashierView ? cashierNavMenu : adminNavMenu;
 
   return (
     <>
@@ -168,24 +142,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
           </Box>
 
           <List sx={styles.navList}>
-            {currentNavItems.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || (href === ownerSettingsNav.href && pathname.startsWith(`${href}/`));
-              return (
-                <ListItemButton
-                  key={href}
-                  component={Link}
-                  href={href}
-                  onClick={() => setIsOpen(false)}
-                  selected={active}
-                  sx={[styles.navItem, active && styles.navItemActive]}
-                >
-                  <ListItemIcon sx={styles.navIcon}>
-                    <Icon size={20} />
-                  </ListItemIcon>
-                  <ListItemText primary={label} sx={styles.navText} />
-                </ListItemButton>
-              );
-            })}
+            <NavGroups menu={menu} pathname={pathname} variant="mobile" onNavigate={() => setIsOpen(false)} />
           </List>
 
           <Box sx={styles.foot}>

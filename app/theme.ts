@@ -720,6 +720,21 @@ export const sidebarStyles = {
   logout: { color: whiteTint(0.4), "&:hover": { color: "common.white", bgcolor: whiteTint(0.08) } },
 } as const;
 
+// Grouped navigation shared by the desktop sidebar and the phone menu (components/nav-groups.tsx).
+export const navGroupStyles = {
+  home: { mb: 0.5 },
+  group: { mb: 1, borderRadius: 3, px: 0.5, pb: 0.5, bgcolor: whiteTint(0.04) },
+  groupPlain: { mb: 0.5 },
+  header: { width: "100%", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between", px: 1.25, borderRadius: 2.5, color: whiteTint(0.75), "&:hover": { bgcolor: whiteTint(0.05), color: "common.white" } },
+  headerStatic: { minHeight: 28, pt: 0.5, display: "flex", alignItems: "center", px: 1.5, color: whiteTint(0.6) },
+  headerLabel: { fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" },
+  headerMeta: { display: "flex", alignItems: "center", gap: 1, color: whiteTint(0.6) },
+  headerCount: { fontSize: "0.75rem", fontWeight: 600 },
+  footer: { mt: 1, pt: 1, borderTop: "1px solid", borderTopColor: whiteTint(0.08) },
+  // Icon-only sidebar: one block per group, a thin line between blocks.
+  collapsedGroup: { pt: 0.5, mt: 0, borderTop: "1px solid", borderTopColor: whiteTint(0.08), "& .MuiListItemButton-root": { mb: 0 } },
+} as const;
+
 // The sale payment sheet (components/manage-sale-action.tsx) and the batch payment sheet (components/manage-batch-action.tsx).
 const manageLabel = { fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "text.secondary", mb: 0.5, display: "block" } as const;
 const manageMoneyField = { "& .MuiOutlinedInput-root": { borderRadius: 3, fontWeight: 700 } } as const;
