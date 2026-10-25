@@ -22,6 +22,10 @@ drop view if exists intelligence.customers, intelligence.orders, intelligence.jo
   intelligence.expenses, intelligence.daily_cost_of_goods_sold, intelligence.job_costs, intelligence.books,
   intelligence.last_change;
 
+-- The migration account hands the views to intelligence_owner, and PostgreSQL only allows that for a member of the
+-- role. The membership is removed again at the end of this migration.
+grant intelligence_owner to current_user;
+
 -- Column-level read access for the view owner. Nothing else in bomedia is visible to it (staff PINs, sessions,
 -- devices, approvals, audit events, receipts and inventory stay out).
 grant usage on schema bomedia to intelligence_owner;
@@ -169,7 +173,9 @@ select to_char(greatest(
          (select max(posted_at) from bomedia.journal_entries)
        ) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at;
 
--- The views run with the privileges of their owner, so each one is owned by intelligence_owner.
+-- The views run with the privileges of their owner, so each one is owned by intelligence_owner. Handing a view over
+-- needs CREATE on its schema, granted here only for the hand-over and removed again below.
+grant usage, create on schema intelligence to intelligence_owner;
 alter view intelligence.v_contract owner to intelligence_owner;
 alter view intelligence.v_customers owner to intelligence_owner;
 alter view intelligence.v_customer_contacts owner to intelligence_owner;
@@ -184,6 +190,8 @@ alter view intelligence.v_daily_cost owner to intelligence_owner;
 alter view intelligence.v_job_cost owner to intelligence_owner;
 alter view intelligence.v_books owner to intelligence_owner;
 alter view intelligence.v_freshness owner to intelligence_owner;
+revoke usage, create on schema intelligence from intelligence_owner;
+revoke intelligence_owner from current_user;
 
 -- The reader login can read these views and nothing else. It has no privilege on the bomedia schema.
 revoke all on schema intelligence from public;
