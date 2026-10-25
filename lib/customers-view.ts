@@ -4,15 +4,23 @@ import type { CustomerRow } from './server/customers';
 /** One customer as the list shows them. Money is whole kobo. `id` is only there when the customer is in the database. */
 export type CustomerItem = {
   id?: string; reference?: string; name: string; contact: string; notes: string; orders: number;
+  /** Everything the customer has spent (Sheet history plus the new app) when the database can say; otherwise what the books hold. */
   totalKobo: number; paidKobo: number; owedKobo: number; lastOrderDate: string | null; createdAt?: string;
+  /** The split of `totalKobo`: spent before the new app (Sheet history) and since. Only when the database can say. */
+  beforeKobo?: number; sinceKobo?: number;
 };
 export type CustomerSort = 'name' | 'orders' | 'spent' | 'owed';
 export type SortOrder = 'asc' | 'desc';
 
+/** Lifetime spend and orders when the row carries them, else what the books hold. */
+export const spentKobo = (row: CustomerRow) => Number(row.spent_kobo ?? row.total_kobo) || 0;
+export const lifetimeOrders = (row: CustomerRow) => Number(row.orders_lifetime ?? row.orders) || 0;
+
 export const fromApi = (row: CustomerRow): CustomerItem => ({
-  id: row.id, reference: row.reference, name: row.name, contact: row.contact ?? '', notes: row.notes ?? '', orders: Number(row.orders) || 0,
-  totalKobo: Number(row.total_kobo) || 0, paidKobo: Number(row.paid_kobo) || 0, owedKobo: Number(row.owed_kobo) || 0,
+  id: row.id, reference: row.reference, name: row.name, contact: row.contact ?? '', notes: row.notes ?? '', orders: lifetimeOrders(row),
+  totalKobo: spentKobo(row), paidKobo: Number(row.paid_kobo) || 0, owedKobo: Number(row.owed_kobo) || 0,
   lastOrderDate: row.last_order_date, createdAt: row.created_at,
+  ...(row.spent_before_kobo !== undefined && row.spent_since_kobo !== undefined ? { beforeKobo: Number(row.spent_before_kobo) || 0, sinceKobo: Number(row.spent_since_kobo) || 0 } : {}),
 });
 
 const naira = (value: unknown) => Math.round((parseFloat(String(value ?? '0').replace(/[^\d.-]/g, '')) || 0) * 100);

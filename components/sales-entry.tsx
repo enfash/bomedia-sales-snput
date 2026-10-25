@@ -37,7 +37,10 @@ import { ReviewSheet } from '@/components/new-sale/review-sheet';
 import { newSaleStyles as styles } from '@/app/theme';
 import { orderItemTotal, orderTotal, type OrderCatalog } from '@/lib/order-contract';
 import { cartOrderItem, quoteCart, type OrderCartRow, type ScreenQuote } from '@/lib/order-cart';
-import { ServiceOrderEntry } from '@/components/service-order-entry';
+import { ServiceOrderEntry, type ServiceEdit } from '@/components/service-order-entry';
+import { SplitJob, type SplitEdit } from '@/components/new-sale/split-job';
+import { groupCart } from '@/lib/split-job';
+import { usePathname } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -643,6 +646,55 @@ export function SalesEntry() {
     if (loadedQuote) { toast.error("Start a new order before changing quoted items."); return; }
     setCart((prev) => prev.filter((i) => i.id !== id));
   };
+  // The pencil: the item leaves the order and goes back into its form with everything filled in. Fix it and press Add again,
+  // so it passes the same checks (roll fit, stock, price approval) as any new item.
+  const [serviceEdit, setServiceEdit] = useState<(ServiceEdit & { key: number }) | null>(null);
+  const scrollToForm = (id: string) => requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  const editCartItem = (item: CartItem) => {
+    if (loadedQuote) { toast.error("Start a new order before changing quoted items."); return; }
+    const service = item.orderItem?.kind === "service";
+    const formHasSomething = !service && !!(jobWidth || jobHeight || jobDesc.trim());
+    const move = () => {
+      setCart((prev) => prev.filter((i) => i.id !== item.id));
+      if (service && item.orderItem) {
+        const order = item.orderItem;
+        setServiceEdit({ key: Date.now(), serviceId: order.ref, description: order.description, quantity: order.quantity, priceKobo: order.approvedUnitKobo || order.priceKobo || "0" });
+        setShowService(true); scrollToForm("add-service-form");
+      } else {
+        setTabValue(0); setSelectedMaterialId(item.materialId); setJobDesc(item.jobDescription); setJobWidth(String(item.jobWidth)); setJobHeight(String(item.jobHeight));
+        setDimUnit(item.dimUnit); setQty(String(item.qty)); setCostOverride(String(item.costPerSqft)); setFormTouched(false); scrollToForm("add-item-form");
+      }
+      toast.info(`${item.jobDescription || "The item"} is back in the form. Fix it, then press Add.`);
+    };
+    if (formHasSomething) { setAsk({ title: "Replace what is in the form?", message: "The form already has something typed. Editing this item will replace it.", yes: "Replace it", run: move }); return; }
+    move();
+  };
+  // One job on several materials: admin New Sale only (the server says who the owner is; the cashier route never shows this).
+  const onAdminPage = usePathname().startsWith("/bom03");
+  const canSplit = isOwner && onAdminPage && postgres && !!catalog && !loadedQuote;
+  const [addMode, setAddMode] = useState<"one" | "split">("one");
+  const [splitEdit, setSplitEdit] = useState<SplitEdit | null>(null);
+  // A new number gives the split form a clean start: after a job is added, so the next one does not begin with the last one's size and plan.
+  const [splitFresh, setSplitFresh] = useState(0);
+  const addSplitJob = (items: CartItem[]) => {
+    setCart((previous) => [...previous, ...items]);
+    setSplitEdit(null); setSplitFresh((n) => n + 1); setAddMode("one");
+    toast.success(`${items.length} materials added to the order`);
+  };
+  const removeJob = (groupId: string) => {
+    if (loadedQuote) { toast.error("Start a new order before changing quoted items."); return; }
+    setCart((previous) => previous.filter((item) => item.group?.id !== groupId));
+  };
+  // Edit puts the whole job back in the split form with each material's pieces filled in.
+  const editJob = (groupId: string) => {
+    const lines = cart.filter((item) => item.group?.id === groupId);
+    if (!lines.length || !lines[0].group) return;
+    setSplitEdit({ key: Date.now(), spec: lines[0].group.spec, shares: lines.map((line) => ({ id: line.materialId, pieces: line.qty })) });
+    setCart((previous) => previous.filter((item) => item.group?.id !== groupId));
+    setAddMode("split");
+    scrollToForm("add-item-form");
+    toast.info("The job is back in the form. Change it, then press Use this plan.");
+  };
   const reviewDisabled = cart.length === 0 || !meta.clientName.trim();
 
   const loadQuote = async (confirmed = false) => {
@@ -751,10 +803,13 @@ export function SalesEntry() {
           </Alert>}
 
           {tabValue === 0 ? (<>
-            <Paper variant="outlined" sx={styles.card}>
+            <Paper id="add-item-form" variant="outlined" sx={styles.card}>
               <Typography variant="h6" component="h2">Add an item</Typography>
+              {canSplit && <SegmentedControl label="How many materials" value={addMode} options={[{ value: "one", label: "One material" }, { value: "split", label: "Split across materials" }]} onChange={setAddMode} />}
 
-              <>
+              {/* The split form stays mounted while hidden, so what was typed and planned is still there when the admin comes back to it. */}
+              {canSplit && <Box sx={addMode === "split" ? undefined : styles.hidden}><SplitJob key={splitEdit?.key ?? `fresh-${splitFresh}`} materials={materials} catalog={catalog} postgres={postgres} initial={splitEdit ?? undefined} onUse={addSplitJob} /></Box>}
+              {canSplit && addMode === "split" ? null : <>
                 <Box>
                   <MaterialSelector
                     materials={materials}
@@ -819,9 +874,9 @@ export function SalesEntry() {
                   disabled={!selectedMaterialId || !jobWidth || !jobHeight || !widthCompatible}>
                   Add to order{totalAmount > 0 ? ` · ${fmtCurrency(totalAmount)}` : ""}
                 </Button>
-              </>
+              </>}
             </Paper>
-            {postgres && catalog && !loadedQuote && <Paper variant="outlined" sx={styles.card}>
+            {postgres && catalog && !loadedQuote && <Paper id="add-service-form" variant="outlined" sx={styles.card}>
               <Box component="button" type="button" sx={styles.collapseHead} aria-expanded={showService} onClick={() => setShowService((open) => !open)}>
                 <Box>
                   <Typography variant="h6" component="h2">Add a service</Typography>
@@ -829,7 +884,7 @@ export function SalesEntry() {
                 </Box>
                 {showService ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </Box>
-              {showService && <ServiceOrderEntry services={catalog.services} onAdd={(item) => { setCart((previous) => [...previous, item]); }} />}
+              {showService && <ServiceOrderEntry key={serviceEdit?.key ?? 0} initial={serviceEdit ?? undefined} services={catalog.services} onAdd={(item) => { setCart((previous) => [...previous, item]); setServiceEdit(null); }} />}
             </Paper>}
           </>) : (
             <Paper variant="outlined" sx={styles.card}>
@@ -866,7 +921,7 @@ export function SalesEntry() {
           )}
         </Box>
 
-        <OrderPanel cart={cart} total={grandTotal} client={meta.clientName} flagged={priceFlagged} onRemove={removeFromCart} onReview={handleReview} reviewDisabled={reviewDisabled} />
+        <OrderPanel cart={cart} total={grandTotal} client={meta.clientName} flagged={priceFlagged} onRemove={removeFromCart} onEdit={editCartItem} onEditJob={editJob} onRemoveJob={removeJob} onReview={handleReview} reviewDisabled={reviewDisabled} />
       </Box>
 
       <Dialog open={!!ask} onClose={() => setAsk(null)} aria-labelledby="ask-title">
@@ -878,7 +933,7 @@ export function SalesEntry() {
         </DialogActions>
       </Dialog>
 
-      <TotalBar count={cart.length} total={grandTotal} onReview={handleReview} disabled={reviewDisabled} />
+      <TotalBar count={groupCart(cart).length} total={grandTotal} onReview={handleReview} disabled={reviewDisabled} />
 
       <ReviewSheet
         key={String(showConfirm)}

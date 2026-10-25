@@ -1522,6 +1522,57 @@ export const expenseStyles = {
   receiptPreview: { maxHeight: 160, mx: "auto", display: "block", borderRadius: "8px", border: "1px solid", borderColor: "divider" },
 } as const;
 
+// Expenses saved on a phone under the old Sheets app and held when the new books took over (components/expenses/held-old-expenses.tsx).
+export const heldOldExpenseStyles = {
+  card: { borderRadius: "16px", borderColor: tint("warning", 0.4), bgcolor: tint("warning", 0.08), p: 1.75, display: "flex", flexDirection: "column", gap: 1.25 },
+  title: { fontWeight: 700 },
+  hint: { color: "text.secondary" },
+  row: { display: "flex", flexDirection: "column", gap: 1, pt: 1.25, borderTop: "1px solid", borderColor: "divider" },
+  lines: { display: "flex", flexDirection: "column", gap: 0.25 },
+  line: { fontWeight: 600, overflowWrap: "anywhere" },
+  actions: { display: "flex", gap: 1, flexWrap: "wrap" },
+  button: { minHeight: 44 },
+} as const;
+
+// One job on several materials (components/new-sale/split-job.tsx and the grouped job in the order list).
+export const splitColors = ["primary.main", "info.main", "success.main", "warning.main", "secondary.main", "grey.600"] as const;
+export const splitStyles = {
+  chips: { display: "flex", flexWrap: "wrap", gap: 1 },
+  chip: {
+    minHeight: 44, px: 1.75, display: "flex", alignItems: "center", gap: 1, borderRadius: "12px", border: "2px solid", borderColor: "divider", bgcolor: "background.paper",
+    fontFamily: "inherit", fontSize: "0.875rem", color: "text.primary", textAlign: "left",
+    "&.Mui-focusVisible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 },
+  },
+  chipOn: { borderColor: "primary.main", bgcolor: tint("primary", 0.08) },
+  chipBox: { width: 18, height: 18, borderRadius: "5px", border: "2px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "center", color: "primary.contrastText", flexShrink: 0 },
+  chipBoxOn: { borderColor: "primary.main", bgcolor: "primary.main" },
+  chipNarrow: { opacity: 0.55 },
+  planRow: { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr) auto", md: "1.2fr 1.6fr 1fr 1fr 1fr" }, gap: 1, alignItems: "center", py: 1, borderTop: "1px solid", borderColor: "divider" },
+  planHead: { display: { xs: "none", md: "grid" }, gridTemplateColumns: "1.2fr 1.6fr 1fr 1fr 1fr", gap: 1, color: "text.secondary", fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" },
+  material: { display: "flex", alignItems: "center", gap: 1, fontWeight: 600 },
+  swatch: { width: 12, height: 12, borderRadius: "4px", flexShrink: 0 },
+  stepper: { display: "flex", alignItems: "center", gap: 0.5 },
+  stepButton: { width: 40, height: 40, border: "1px solid", borderColor: "divider", borderRadius: "9px" },
+  piecesInput: { width: 84, "& input": { textAlign: "center", fontWeight: 700 } },
+  // On a phone the three figures sit on a line of their own under the material and its pieces; on a wide screen they join the row's columns.
+  figures: { gridColumn: "1 / -1", display: { xs: "grid", md: "contents" }, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1 },
+  figure: { fontSize: "0.875rem", color: "text.secondary" },
+  figureShort: { color: "error.main", fontWeight: 600 },
+  bar: { display: "flex", height: 14, borderRadius: 100, overflow: "hidden", bgcolor: "action.hover" },
+  barSmall: { height: 8 },
+  summary: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 1, flexWrap: "wrap", pt: 1.5, borderTop: "2px solid", borderColor: "divider", fontWeight: 700 },
+  ok: { color: "success.main" },
+  short: { color: "error.main" },
+  planBar: { display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" },
+  job: { py: 1.5, borderTop: "1px solid", borderColor: "divider", display: "flex", flexDirection: "column", gap: 1 },
+  jobHead: { display: "flex", justifyContent: "space-between", gap: 1.5 },
+  jobActions: { display: "flex", gap: 1 },
+  jobToggle: { alignSelf: "flex-start", minHeight: 44, fontWeight: 600, color: accent, gap: 0.5 },
+  jobChevron: { display: "flex", transition: "transform 150ms" },
+  jobChevronOpen: { transform: "rotate(180deg)" },
+  jobLines: { borderTop: "1px solid", borderColor: "divider" },
+} as const;
+
 // Material badge (components/material-badge.tsx): one hue per material family, readable on both surfaces.
 const hueBadge = (base: string) => ({
   bgcolor: alpha(base, 0.14),
@@ -1792,12 +1843,14 @@ export const heldSalesStyles = {
 
 // New Sale (cashier and owner share one page): cards, the order list, the floating total and the review sheet.
 export const newSaleStyles = {
-  screen: { p: { xs: 2, md: 4 }, pb: { xs: 24, lg: 12 }, minWidth: 0 },
+  // The bottom space clears the fixed Review bar. md is spelled out because the md padding above would otherwise set the bottom back to 32px.
+  screen: { p: { xs: 2, md: 4 }, pb: { xs: 24, md: 14, lg: 12 }, minWidth: 0 },
   heading: { mt: 2, mb: 3 },
   page: { minWidth: 0 },
   tabs: { display: "flex", gap: 1, mb: 2, flexWrap: "wrap" },
   layout: { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 380px" }, gap: 3, alignItems: "start" },
   stack: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
+  hidden: { display: "none" },
   card: { p: { xs: 2, sm: 2.5 }, display: "flex", flexDirection: "column", gap: 2, overflow: "visible" },
   cardHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" },
   customerGrid: { display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(3, minmax(0, 1fr))" }, gap: 1.5 },
@@ -1823,12 +1876,15 @@ export const newSaleStyles = {
   orderMain: { flex: 1, minWidth: 0 },
   orderName: { fontWeight: 600, overflowWrap: "anywhere" },
   orderEnd: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5, flexShrink: 0 },
+  orderActions: { display: "flex", gap: 0.5 },
   orderFlag: { ...tonePill("warning"), alignSelf: "flex-start", mt: 0.75, fontSize: "0.75rem", fontWeight: 700, px: 1.25, py: 0.25, borderRadius: 100 },
   orderFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid", borderColor: "divider" },
   orderTotal: { fontWeight: 700, fontFamily: "monospace", fontSize: "1.375rem" },
   reviewButtonDesktop: { display: { xs: "none", lg: "inline-flex" } },
   // Stuck to the bottom edge of the screen (the bottom menu is not shown on this page); the safe-area padding keeps it clear of a phone's home bar.
-  bar: { display: { xs: "flex", lg: "none" }, position: "fixed", left: 0, right: 0, bottom: 0, zIndex: "appBar", alignItems: "center", gap: 1.5, px: 2, pt: 1.25, pb: "calc(10px + env(safe-area-inset-bottom, 0px))", borderRadius: "16px 16px 0 0", border: "1px solid", borderBottom: 0, borderColor: "divider", bgcolor: "background.paper" },
+  // Fixed to the bottom of the screen, as on a phone. It spans the page area only: --bar-left and --bar-right are set from where the page content sits,
+  // so the side menu (open or folded) never covers it.
+  bar: { display: { xs: "flex", lg: "none" }, position: "fixed", left: "var(--bar-left, 0px)", right: "var(--bar-right, 0px)", bottom: 0, zIndex: "appBar", alignItems: "center", gap: 1.5, px: 2, pt: 1.25, pb: "calc(10px + env(safe-area-inset-bottom, 0px))", borderRadius: "16px 16px 0 0", border: "1px solid", borderBottom: 0, borderColor: "divider", bgcolor: "background.paper" },
   barMain: { flex: 1, minWidth: 0 },
   reviewBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
   reviewSummary: { p: 2, borderRadius: 2, bgcolor: "action.hover", display: "flex", flexDirection: "column", gap: 0.75 },
@@ -1874,6 +1930,8 @@ export const customerStyles = {
   tagOwes: tonePill("error"),
   tagPaid: tonePill("success"),
   ref: { fontFamily: "monospace", fontWeight: 400, color: "text.secondary" },
+  // What a customer has spent in all, shown under the owes / paid-up tag.
+  spent: { color: "text.secondary", whiteSpace: "nowrap" },
   // Missing contact details are a to-do, not an alarm: red is kept for money owed.
   noPhone: { color: "text.secondary", fontStyle: "italic" },
   actions: { display: "flex", gap: 1, flexWrap: "wrap" },
@@ -1896,6 +1954,22 @@ export const customerStyles = {
   note: { p: 1.5, borderRadius: 2, bgcolor: "action.hover", color: "text.secondary" },
   formBody: { p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 2 },
   formFooter: { p: 2, display: "flex", flexDirection: "column", gap: 1 },
+  // The Sales tab: one line per order that opens to list its items (components/customers/sale-accordion.tsx).
+  orders: { border: "1px solid", borderColor: "divider", borderRadius: "16px", overflow: "hidden" },
+  order: { borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
+  orderHead: {
+    width: "100%", minHeight: 64, p: "12px 14px", display: "flex", alignItems: "center", gap: 1.5, textAlign: "left", justifyContent: "flex-start",
+    "&.Mui-focusVisible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: -2 },
+  },
+  orderHeadOpen: { bgcolor: "action.hover" },
+  orderChevron: { display: "flex", color: "text.secondary", transition: "transform 150ms" },
+  orderChevronOpen: { transform: "rotate(180deg)" },
+  orderBody: { bgcolor: "action.hover", px: "14px", pb: 1.75, display: "flex", flexDirection: "column" },
+  orderItem: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" },
+  orderItemMain: { minWidth: 0 },
+  orderItemName: { fontWeight: 600, overflowWrap: "anywhere" },
+  orderLink: { mt: 1, minHeight: 44, display: "flex", alignItems: "center", fontWeight: 600, textDecoration: "none", color: accent },
+  ordersNote: { color: "text.secondary" },
 } as const;
 
 // Correct and cancel a sale: the "what this will do" box, the form body and the cancel warning.

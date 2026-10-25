@@ -11,6 +11,7 @@ import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { changeText, changeTitle, type EntryChange } from "@/lib/approvals-view";
 import { phoneProblem } from "@/lib/new-sale";
 import type { OrderCartRow } from "@/lib/order-cart";
+import { groupCart } from "@/lib/split-job";
 import type { PaymentMethod } from "@/lib/payment-methods";
 
 const money = (n: number) => `₦${n.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
@@ -45,6 +46,10 @@ export function ReviewSheet({ open, onClose, saving, meta, cart, grandTotal, bal
         {meta.contact && <Box sx={styles.reviewLine}><Typography color="text.secondary">Contact</Typography><Typography>{meta.contact}</Typography></Box>}
         <Box sx={styles.reviewLine}><Typography color="text.secondary">Date</Typography><Typography sx={{ fontWeight: 700 }}>{meta.date}</Typography></Box>
         <Box sx={styles.reviewLine}><Typography color="text.secondary">Items</Typography><Typography sx={{ fontWeight: 700 }}>{cart.length}</Typography></Box>
+        {groupCart(cart).map((entry) => entry.kind === "job" && <Box key={entry.id} sx={styles.reviewLine}>
+          <Typography color="text.secondary">{entry.spec.description || entry.items[0].itemName} · {entry.pieces.toLocaleString()} pieces on {entry.items.length} materials ({entry.items.map((i) => `${i.widthFt} ft`).join(", ")})</Typography>
+          <Typography sx={{ fontWeight: 700 }}>{money(entry.total)}</Typography>
+        </Box>)}
         <Box sx={[styles.reviewLine, styles.reviewTotal]}><Typography color="text.secondary">Total</Typography><Typography sx={styles.amount}>{money(grandTotal)}</Typography></Box>
       </Box>
 

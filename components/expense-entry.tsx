@@ -52,7 +52,8 @@ type RecentExpense = {
 
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, STORAGE_KEYS, SYSTEM_DEFAULTS } from "@/lib/constants";
 
-export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => void; embedded?: boolean } = {}) {
+/** `prefill` starts the form from expenses saved earlier on this phone: one row fills the form, several fill the batch. */
+export function ExpenseEntry({ onSaved, embedded = false, prefill }: { onSaved?: () => void; embedded?: boolean; prefill?: Record<string, string>[] } = {}) {
   const [context,setContext]=useState<PaymentContext|null>(null);
   const [categories,setCategories]=useState<string[]>([]);
   const [loadError,setLoadError]=useState('');
@@ -88,18 +89,23 @@ export function ExpenseEntry({ onSaved, embedded = false }: { onSaved?: () => vo
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>([]);
-  const [batchItems, setBatchItems] = useState<any[]>([]);
+  const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>(() => (prefill && prefill.length > 1
+    ? prefill.map((row, i) => ({ id: `prefill-${i}`, amount: row.AMOUNT, category: row.CATEGORY, description: row.DESCRIPTION, date: row.DATE, paymentMethod: row['PAYMENT METHOD'], paidTo: row['PAID TO'] }))
+    : []));
+  const [batchItems, setBatchItems] = useState<any[]>(() => (prefill && prefill.length > 1 ? prefill : []));
 
-  const [formData, setFormData] = useState({
-    date: lagosBusinessDate(),
-    amount: "",
-    category: "",
-    description: "",
-    paidTo: "",
-    paymentMethod: "",
-    receiptUrl: "",
-    status: "Unpaid" as "Paid" | "Unpaid",
+  const [formData, setFormData] = useState(() => {
+    const row = prefill?.length === 1 ? prefill[0] : null;
+    return {
+      date: row?.DATE || lagosBusinessDate(),
+      amount: row?.AMOUNT ?? "",
+      category: row?.CATEGORY ?? "",
+      description: row?.DESCRIPTION ?? "",
+      paidTo: row?.['PAID TO'] ?? "",
+      paymentMethod: row?.['PAYMENT METHOD'] ?? "",
+      receiptUrl: "",
+      status: (row?.STATUS === "Paid" ? "Paid" : "Unpaid") as "Paid" | "Unpaid",
+    };
   });
 
   const { cachedExpenses } = useSyncStore();

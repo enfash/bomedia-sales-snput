@@ -4,6 +4,7 @@ import { HomeBackLink } from "@/components/back-link";
 import { useState } from "react";
 import { ExpenseEntry } from "@/components/expense-entry";
 import { MyExpenses } from "@/components/expenses/my-expenses";
+import { HeldOldExpenses } from "@/components/expenses/held-old-expenses";
 import { Receipt } from "lucide-react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -25,6 +26,7 @@ export default function ExpensesPage() {
           Record business expenses directly to the Expenses sheet.
         </Typography>
       </Box>
+      <HeldOldExpenses onSaved={() => setSaved((n) => n + 1)} />
       <ExpenseEntry onSaved={() => setSaved((n) => n + 1)} />
       <MyExpenses refreshKey={saved} />
     </Box>

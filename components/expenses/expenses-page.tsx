@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { expenseStyles as styles } from '@/app/theme';
 import { BackLink } from '@/components/back-link';
 import { ExpenseEntry } from '@/components/expense-entry';
+import { HeldOldExpenses } from '@/components/expenses/held-old-expenses';
 import { ExpensePaymentSheet } from '@/components/expense-payment-sheet';
 import { ExpenseDetailsSheet, canMarkPaid } from '@/components/expenses/expense-details-sheet';
 import { ResponsiveSheet } from '@/components/responsive-sheet';
@@ -130,6 +131,8 @@ export function ExpensesPage() {
     </Box>
 
     <Button variant="contained" size="large" startIcon={<Plus size={18} />} onClick={() => setAdding(true)}>New expense</Button>
+
+    <HeldOldExpenses onSaved={() => void fetchExpenses()} />
 
     {loadFailed && <Alert severity="error" action={<Button color="inherit" onClick={() => { setLoading(true); void fetchExpenses(); }}>Try again</Button>}>
       Expenses could not be loaded. Check your connection. Nothing you logged has been lost.

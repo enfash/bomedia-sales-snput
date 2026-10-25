@@ -12,10 +12,11 @@ import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { StatTile } from '@/components/stat-tile';
 import { WhatsAppReminder } from '@/components/whatsapp-reminder';
 import { koboNaira } from '@/lib/approvals-view';
-import { FIELD_LABEL, dayLabel, shortNaira, timeLabel, type CustomerItem } from '@/lib/customers-view';
+import { FIELD_LABEL, dayLabel, lifetimeOrders, shortNaira, spentKobo, timeLabel, type CustomerItem } from '@/lib/customers-view';
 import type { CustomerHistory, CustomerProfile } from '@/lib/server/customers';
 import { LoadingState } from '@/components/loading-state';
 import { CustomerHistoryLimit } from './customer-history-limit';
+import { SaleAccordion } from './sale-accordion';
 
 type Tab = 'sales' | 'payments' | 'changes' | 'before';
 const HISTORY_PAGE = 50;
@@ -70,6 +71,11 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
   const refresh = () => { setVersion((v) => v + 1); onChanged(); };
   const c = profile?.customer;
   const shown = c ?? { ...customer, total_kobo: String(customer.totalKobo), owed_kobo: String(customer.owedKobo), orders: customer.orders, last_order_date: customer.lastOrderDate, created_at: customer.createdAt ?? '' };
+  // Lifetime spend: the Sheet history plus the new app (the list already carries it; the profile answers with it once loaded).
+  const spent = c ? spentKobo(c) : customer.totalKobo;
+  const orderCount = c ? lifetimeOrders(c) : customer.orders;
+  const before = c ? (c.spent_before_kobo === undefined ? undefined : Number(c.spent_before_kobo)) : customer.beforeKobo;
+  const since = c ? (c.spent_since_kobo === undefined ? undefined : Number(c.spent_since_kobo)) : customer.sinceKobo;
   const owed = Number(c ? c.owed_kobo : customer.owedKobo) || 0;
   const contact = (c?.contact ?? customer.contact) || '';
   const notes = (c?.notes ?? customer.notes) || '';
@@ -88,8 +94,8 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
 
         <Box sx={styles.tiles}>
           <StatTile tone={owed > 0 ? 'error' : 'neutral'} label="Owes" value={shortNaira(owed)} />
-          <StatTile label="Spent" value={shortNaira(Number(shown.total_kobo) || 0)} />
-          <StatTile label="Orders" value={shown.orders} />
+          <StatTile label="Spent" value={koboNaira(spent)} caption={before !== undefined && since !== undefined && before > 0 ? `${koboNaira(before)} before the new app · ${koboNaira(since)} since` : undefined} />
+          <StatTile label="Orders" value={orderCount} />
         </Box>
 
         <Box sx={styles.details}>
@@ -100,23 +106,15 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
         </Box>
 
         <Box role="group" aria-label="Show" sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {([['sales', `Sales · ${profile?.sales.length ?? shown.orders}`], ['payments', `Payments · ${profile?.payments.length ?? 0}`], ['changes', `Changes · ${profile?.changes.length ?? 0}`], ['before', 'Before the new app']] as [Tab, string][]).map(([id, label]) =>
+          {([['sales', `Sales · ${profile?.sales.length ?? '…'}`], ['payments', `Payments · ${profile?.payments.length ?? 0}`], ['changes', `Changes · ${profile?.changes.length ?? 0}`], ['before', 'Before the new app']] as [Tab, string][]).map(([id, label]) =>
             <Button key={id} variant={tab === id ? 'contained' : 'outlined'} color={tab === id ? 'primary' : 'inherit'} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</Button>)}
         </Box>
 
         {!profile && !error && <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Loading the customer" />}
-        {profile && tab === 'sales' && (profile.sales.length ? <Box>
-          {profile.sales.map((sale) => <ButtonBase key={sale.sales_id} component={NextLink} href={`${base}/records?open=${encodeURIComponent(sale.sales_id)}`} sx={[styles.line, { width: '100%', textAlign: 'left', justifyContent: 'space-between' }]}>
-            <Box sx={styles.lineMain}>
-              <Typography sx={styles.lineName}>{sale.what || 'Sale'}</Typography>
-              <Typography variant="body2" color="text.secondary"><Box component="span" sx={styles.ref}>{sale.sales_id}</Box> · {dayLabel(sale.date)} · {sale.jobs} item{sale.jobs === 1 ? '' : 's'}</Typography>
-            </Box>
-            <Box sx={styles.lineEnd}>
-              <Typography sx={{ fontWeight: 700 }}>{money(sale.total_kobo)}</Typography>
-              <Box component="span" sx={[styles.tag, Number(sale.owed_kobo) > 0 ? styles.tagOwes : styles.tagPaid]}>{Number(sale.owed_kobo) > 0 ? `Owes ${shortNaira(Number(sale.owed_kobo))}` : 'Paid'}</Box>
-            </Box>
-          </ButtonBase>)}
-        </Box> : <Typography color="text.secondary">No sales yet.</Typography>)}
+        {profile && tab === 'sales' && (profile.sales.length ? <>
+          <SaleAccordion sales={profile.sales} base={base} money={money} />
+          <Typography variant="body2" sx={styles.ordersNote}>Old orders show only the part still owed, because that is what the new books hold.</Typography>
+        </> : <Typography color="text.secondary">No sales yet.</Typography>)}
         {profile && tab === 'payments' && (profile.payments.length ? <Box>
           {profile.payments.map((payment, index) => <Box key={`${payment.reference}-${index}`} sx={styles.line}>
             <Box sx={styles.lineMain}>

@@ -4,10 +4,13 @@ import { Alert, Button, MenuItem, Stack, TextField, Typography } from '@mui/mate
 import type { OrderCatalog } from '@/lib/order-contract';
 import { serviceCartItem, type OrderCartRow } from '@/lib/order-cart';
 import { formatKobo } from '@/lib/accounting-money';
-import { serviceAmountKobo } from '@/lib/service-pricing';
+import { koboToAmountText, serviceAmountKobo } from '@/lib/service-pricing';
 /** The "Service" half of Add an item: pick a service, describe it, add it to the order. */
-export function ServiceOrderEntry({services,onAdd}:{services:OrderCatalog['services'];onAdd:(item:OrderCartRow)=>void}) {
- const [selected,setSelected]=useState(''),[description,setDescription]=useState(''),[quantity,setQuantity]=useState('1'),[amount,setAmount]=useState('');
+/** `initial` starts the form from a service taken back out of the order to be corrected; give the form a new `key` each time. */
+export type ServiceEdit={serviceId:string;description:string;quantity:string;priceKobo:string};
+export function ServiceOrderEntry({services,onAdd,initial}:{services:OrderCatalog['services'];onAdd:(item:OrderCartRow)=>void;initial?:ServiceEdit}) {
+ const typed=initial&&services.find(s=>s.id===initial.serviceId)?.pricing==='variable';
+ const [selected,setSelected]=useState(initial?.serviceId??''),[description,setDescription]=useState(initial?.description??''),[quantity,setQuantity]=useState(initial?.quantity??'1'),[amount,setAmount]=useState(typed&&initial?koboToAmountText(initial.priceKobo):'');
  const service=services.find(s=>s.id===selected);
  const variable=service?.pricing==='variable';
  const priceKobo=variable?serviceAmountKobo(amount):service?.priceKobo;
