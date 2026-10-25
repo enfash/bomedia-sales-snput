@@ -1,13 +1,17 @@
 import { callFinancial, type FinancialCall } from './financial-db';
 import { FinancialError, validUUID, type FinancialActor } from './financial-service';
+import type { SaleItemRaw } from '../customer-sale-items';
 
 export type CustomerRow = {
   id: string; reference: string; name: string; contact: string; notes: string; orders: number;
   total_kobo: string; paid_kobo: string; owed_kobo: string; last_order_date: string | null; created_at: string;
+  /** Lifetime figures (migration 55): the Sheet history plus sales made in the new app. Absent until that migration is applied. */
+  spent_kobo?: string; spent_before_kobo?: string; spent_since_kobo?: string; orders_lifetime?: number; orders_before?: number; orders_since?: number;
 };
 export type CustomerProfile = {
   customer: CustomerRow;
-  sales: { sales_id: string; date: string | null; jobs: number; what: string; total_kobo: string; paid_kobo: string; owed_kobo: string }[];
+  /** `items` is each item of the order (migration 56); absent until that migration is applied. */
+  sales: { sales_id: string; date: string | null; jobs: number; what: string; items?: SaleItemRaw[]; total_kobo: string; paid_kobo: string; owed_kobo: string }[];
   payments: { reference: string; date: string | null; amount_kobo: string; method: string; by: string }[];
   changes: { at: string; by: string; changes: Record<string, { from: string | null; to: string | null }> }[];
 };

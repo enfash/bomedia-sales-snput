@@ -1,8 +1,11 @@
 import { nairaToKobo } from './accounting-entry';
 import { orderItemTotal, type OrderCatalog, type OrderItem } from './order-contract';
+import type { SplitSpec } from './split-job';
 export type OrderCartRow = { id: string; materialId: string; rollLabel: string; itemName: string; widthFt: number;
  jobDescription: string; jobWidth: number; jobHeight: number; dimUnit: 'ft'|'in'; qty: number; costPerSqft: number;
- unitSqft: number; unitCost: number; totalAmount: number; jobLengthFt: number; remainingAfterJob: number; fromInventory: boolean; isFlipped: boolean; orderItem?: OrderItem };
+ unitSqft: number; unitCost: number; totalAmount: number; jobLengthFt: number; remainingAfterJob: number; fromInventory: boolean; isFlipped: boolean; orderItem?: OrderItem;
+ /** Set on each line of a job split across materials (admin New Sale). Screen-only: the saved order is just its items. */
+ group?: { id: string; spec: SplitSpec } };
 export function cartOrderItem(item: OrderCartRow, catalog?: OrderCatalog|null): OrderItem {
  if(item.orderItem)return item.orderItem;
  const price=nairaToKobo(String(item.costPerSqft));

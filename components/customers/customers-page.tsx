@@ -131,6 +131,7 @@ export function CustomersPage({ role }: { role: 'owner' | 'cashier' }) {
           </Box>
           <Box component="span" sx={styles.rowEnd}>
             <Box component="span" sx={[customerStyles.tag, c.owedKobo > 0 ? customerStyles.tagOwes : customerStyles.tagPaid]}>{c.owedKobo > 0 ? `Owes ${shortNaira(c.owedKobo)}` : 'Paid up'}</Box>
+            {c.totalKobo > 0 && <Typography variant="caption" component="span" sx={customerStyles.spent}>Spent {shortNaira(c.totalKobo)}</Typography>}
           </Box>
         </ButtonBase>
       </Box>)}

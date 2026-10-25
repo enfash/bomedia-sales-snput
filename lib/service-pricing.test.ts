@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { serviceAmountKobo } from './service-pricing';
+import { koboToAmountText, serviceAmountKobo } from './service-pricing';
 import { quoteCart } from './order-cart';
 import { orderTotal } from './order-contract';
 
@@ -18,4 +18,12 @@ it('loads the exact quoted charge for a service with no catalog price', () => {
     {customers:[],materials:[],services:[{id,name:'Delivery',pricing:'variable',priceKobo:null}]});
   expect(rows[0].orderItem?.priceKobo).toBe('150025');
   expect(orderTotal(rows.map(row=>row.orderItem!))).toBe('300050');
+});
+
+it('turns kobo back into the text the amount box takes, so an edited service shows what was typed', () => {
+  expect(koboToAmountText('150000')).toBe('1500');
+  expect(koboToAmountText('150050')).toBe('1500.50');
+  expect(koboToAmountText('5')).toBe('0.05');
+  expect(koboToAmountText('')).toBe('');
+  expect(serviceAmountKobo(koboToAmountText('150025'))).toBe('150025');
 });

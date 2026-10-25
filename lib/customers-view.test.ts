@@ -53,6 +53,10 @@ describe('sources', () => {
   it('reads the database row into numbers', () => {
     const item = fromApi({ id: 'x', reference: 'CUS-0001', name: 'N', contact: '', notes: '', orders: 2, total_kobo: '500', paid_kobo: '200', owed_kobo: '300', last_order_date: '2026-10-12', created_at: '2026-10-03' });
     expect(item).toMatchObject({ id: 'x', orders: 2, totalKobo: 500, owedKobo: 300, lastOrderDate: '2026-10-12' });
+    // With lifetime figures (Sheet history plus the new app) the list shows those, and keeps the split.
+    const lifetime = fromApi({ id: 'x', reference: 'CUS-0001', name: 'N', contact: '', notes: '', orders: 1, total_kobo: '500', paid_kobo: '200', owed_kobo: '300', last_order_date: null, created_at: '2026-10-03',
+      spent_kobo: '10500', spent_before_kobo: '10000', spent_since_kobo: '500', orders_lifetime: 9, orders_before: 8, orders_since: 1 });
+    expect(lifetime).toMatchObject({ orders: 9, totalKobo: 10500, owedKobo: 300, beforeKobo: 10000, sinceKobo: 500 });
   });
   it('groups sheet rows by name when there is no database, as before', () => {
     const sheet = [

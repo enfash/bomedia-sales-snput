@@ -62,6 +62,44 @@ it('shows what a customer has bought, paid and still owes, with their sales and 
   expect(p.changes).toEqual([]);
 });
 
+it('lists each item of an order on the profile, with its words, size and what it cost', async () => {
+  await sell('items');
+  const [grace] = await list();
+  const [order] = (await profile(grace.id)).sales;
+  expect(order.items).toHaveLength(1);
+  expect(order.items[0]).toMatchObject({ description: 'Banner', amount_kobo: '960000' });
+  expect(Number(order.items[0].quantity)).toBe(2);
+  expect(Number(order.items[0].width_ft)).toBe(8);
+  expect(Number(order.items[0].height_ft)).toBe(4);
+  // An order of several jobs lists each of them (the test's transaction gives every row one timestamp, so the order is not asserted).
+  const [orderRow] = await owned("select id from bomedia.orders where customer_id = $1", [grace.id]);
+  await owned(`insert into bomedia.jobs(order_id,customer_id,description,client_name_snapshot,quantity,unit_price_kobo,amount_kobo,job_status,business_date)
+    values ($1,$2,'Poster',$3,1,1000,1000,'Delivered',$4)`, [orderRow.id, grace.id, grace.name, today]);
+  const again = (await profile(grace.id)).sales[0];
+  expect(again.jobs).toBe(2);
+  expect(again.items.map((i: { description: string }) => i.description).sort()).toEqual(['Banner', 'Poster']);
+});
+
+it('adds the Sheet history to what a customer has spent, without counting an opening debt a second time', async () => {
+  await sell('new-sale');
+  const [grace] = await list();
+  // Two old sales (one of two items) from the Sheet, then the opening debt that restates the unpaid part of the first.
+  for (const [row, salesId, amount, paid] of [[2, 'S1', '500000', '0'], [3, 'S1', '220000', '0'], [4, 'S2', '100000', '100000']]) {
+    await owned(`insert into bomedia.legacy_sales(customer_id,sheet_row,sale_date,sales_id,description,amount_kobo,paid_kobo,owed_kobo,batch,source)
+      values ($1,$2,'2026-09-01',$3,'Old banner',$4,$5,$4::bigint-$5::bigint,'test','{}'::jsonb)`, [grace.id, row, salesId, amount, paid]);
+  }
+  const [orderRow] = await owned("insert into bomedia.orders(customer_id,legacy_sales_id,created_by) values ($1,'S1',$2) returning id", [grace.id, ada]);
+  await owned(`insert into bomedia.jobs(order_id,customer_id,description,client_name_snapshot,quantity,unit_price_kobo,amount_kobo,job_status,business_date,logged_by_snapshot)
+    values ($1,$2,'Opening balance',$3,1,432313,432313,'Delivered','2026-09-01','Sheet opening balance')`, [orderRow.id, grace.id, grace.name]);
+  const [after] = await list();
+  expect(after).toMatchObject({
+    spent_before_kobo: '820000', orders_before: 2, spent_since_kobo: '960000', orders_since: 1, spent_kobo: '1780000', orders_lifetime: 3,
+    // What is owed still comes only from the books: the new sale plus the opening debt.
+    total_kobo: '1392313', owed_kobo: '1392313',
+  });
+  expect((await profile(grace.id)).customer).toMatchObject({ spent_kobo: '1780000', orders_lifetime: 3 });
+});
+
 it('lets staff correct the phone and notes, keeping who changed what and when on the profile and in the audit log', async () => {
   await sell('s');
   const [grace] = await list();
