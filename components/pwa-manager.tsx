@@ -4,8 +4,15 @@ import { useEffect } from "react";
 
 export function PWAManager() {
   useEffect(() => {
-    // Register Service Worker
-    if ("serviceWorker" in navigator) {
+    // The service worker caches pages cache-first. In development that serves
+    // stale screens and races the dev server while it recompiles ("unknown
+    // error occurred when fetching the script"), so it is production-only and
+    // any worker left over from an earlier dev session is removed.
+    if ("serviceWorker" in navigator && process.env.NODE_ENV !== "production") {
+      void navigator.serviceWorker.getRegistrations()
+        .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+        .catch(() => undefined);
+    } else if ("serviceWorker" in navigator) {
       const registerSW = () => {
         navigator.serviceWorker
           .register("/sw.js")
@@ -24,12 +31,8 @@ export function PWAManager() {
       }
     }
 
-    // Request Notification Permissions
-    if ("Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission();
-      }
-    }
+    // Permission is asked only when someone taps "Turn on phone alerts" (Settings or the cashier's Phone alerts page): phones, iPhones
+    // especially, refuse a prompt that nobody asked for.
 
     // Listen for custom notification events
     const handleNotify = (event: any) => {

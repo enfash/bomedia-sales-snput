@@ -6,6 +6,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { GlobalStyles } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import "dayjs/locale/en-gb";
 import { getAppTheme } from "./theme";
 import { usePathname } from "next/navigation";
 
@@ -76,10 +77,17 @@ export function MuiProviders({
               "--primary": theme.palette.primary.main,
               "--destructive": theme.palette.error.main,
               "--muted-foreground": theme.palette.text.secondary,
-            }
+            },
+            // Skip link: off screen until a keyboard user tabs onto it. The page area it jumps to takes focus without an outline.
+            ".skip-link": {
+              position: "fixed", top: 8, left: 8, zIndex: theme.zIndex.tooltip + 1, padding: "12px 16px", borderRadius: 10, fontWeight: 700,
+              background: theme.palette.primary.main, color: theme.palette.primary.contrastText, textDecoration: "none",
+              transform: "translateY(-200%)", "&:focus": { transform: "translateY(0)", outline: `3px solid ${theme.palette.warning.main}`, outlineOffset: 2 },
+            },
+            "#main-content:focus": { outline: "none" },
           }}
         />
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           {children}
         </LocalizationProvider>
       </MuiThemeProvider>

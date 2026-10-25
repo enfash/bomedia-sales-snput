@@ -78,14 +78,17 @@ export async function signToken(payload: any, durationMs: number = 7 * 24 * 60 *
 export async function verifyToken(token: string): Promise<any | null> {
   if (!token) return null;
   try {
-    const [payloadB64, sigHex] = token.split(".");
-    if (!payloadB64 || !sigHex) return null;
+    if (token.length > 16384) return null;
+    const parts = token.split(".");
+    const [payloadB64, sigHex] = parts;
+    if (parts.length !== 2 || !payloadB64 || !/^[a-f0-9]{64}$/.test(sigHex || "")) return null;
 
     const payloadStr = decodeURIComponent(atob(payloadB64));
     const payload = JSON.parse(payloadStr);
 
     // Check expiration
-    if (payload.exp && Date.now() > payload.exp) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+      || typeof payload.exp !== "number" || !Number.isFinite(payload.exp) || Date.now() >= payload.exp) {
       return null;
     }
 

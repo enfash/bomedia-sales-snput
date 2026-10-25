@@ -1,8 +1,8 @@
 "use client";
 
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+
 import { useMemo, useState } from "react";
-import { Drawer } from "vaul";
-import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useSyncStore } from "@/lib/store";
 import { parseAmount } from "@/lib/financial-utils";
 import { format } from "date-fns";
@@ -12,9 +12,6 @@ import {
   ChevronDown, ChevronUp, Layers
 } from "lucide-react";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
@@ -75,11 +72,11 @@ function PersonChip({ name, label }: { name: string; label: string }) {
         justifyContent: "center",
         flexShrink: 0,
       }}>
-        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: "#fff" }}>
+        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "#fff" }}>
           {name[0]?.toUpperCase()}
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "text.secondary" }}>
+      <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.secondary" }}>
         <Box component="span" sx={{ fontWeight: 500, color: "text.disabled" }}>{label}: </Box>
         {name}
       </Typography>
@@ -88,7 +85,6 @@ function PersonChip({ name, label }: { name: string; label: string }) {
 }
 
 export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, onUpdate, theme = "brand" }: CustomerTimelineModalProps) {
-  const isMobile = useMediaQuery("(max-width: 768px)");
   const { cachedSales, cachedPayments } = useSyncStore();
   const [payOpen, setPayOpen] = useState(false);
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
@@ -224,7 +220,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
   }, [timelineEvents]);
 
   const body = (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "background.default" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: 0, bgcolor: "background.default" }}>
       <Box sx={{
         p: 2.5,
         borderBottom: "1px solid",
@@ -262,7 +258,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
           </Box>
           {stats.totalDebt > 0 ? (
             <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-              <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "error.light", mb: 0.25 }}>
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "error.light", mb: 0.25 }}>
                 Balance Due
               </Typography>
               <Typography sx={{ fontSize: "1.125rem", fontWeight: 900, color: "error.main", mb: 0.75 }}>
@@ -273,7 +269,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                 size="small"
                 onClick={() => setPayOpen(true)}
                 startIcon={<Wallet size={13} />}
-                sx={{ height: 30, px: 1.5, borderRadius: 2.5, fontWeight: 800, fontSize: "0.6875rem" }}
+                sx={{ height: 30, px: 1.5, borderRadius: 2.5, fontWeight: 800, fontSize: "0.75rem" }}
               >
                 Pay Debt
               </Button>
@@ -302,7 +298,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
             { label: "Paid", value: `₦${(stats.totalPaid / 1000).toFixed(0)}k`, color: "success.main" },
           ].map(({ label, value, color }) => (
             <Box key={label} sx={{ bgcolor: "grey.50", borderRadius: 2, p: 1.5, textAlign: "center" }}>
-              <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", mb: 0.5 }}>
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.disabled", mb: 0.5 }}>
                 {label}
               </Typography>
               <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color }}>
@@ -313,8 +309,8 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, overflowY: "auto", px: 2.5, py: 3 }}>
-        <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled", mb: 2.5 }}>
+      <Box sx={{ px: 2.5, py: 3 }}>
+        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled", mb: 2.5 }}>
           Activity Timeline · {timelineEvents.length} events
         </Typography>
 
@@ -371,7 +367,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                             label={isSale ? "Sale" : "Payment"}
                             size="small"
                             sx={{
-                              fontSize: "0.5625rem",
+                              fontSize: "0.75rem",
                               fontWeight: 900,
                               textTransform: "uppercase",
                               letterSpacing: "0.08em",
@@ -385,7 +381,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                               label={event.status === "Paid" ? "Settled" : "Has Balance"}
                               size="small"
                               sx={{
-                                fontSize: "0.5625rem",
+                                fontSize: "0.75rem",
                                 fontWeight: 900,
                                 textTransform: "uppercase",
                                 letterSpacing: "0.08em",
@@ -400,7 +396,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                               label={event.paymentType}
                               size="small"
                               sx={{
-                                fontSize: "0.5625rem",
+                                fontSize: "0.75rem",
                                 fontWeight: 900,
                                 textTransform: "uppercase",
                                 letterSpacing: "0.08em",
@@ -438,12 +434,12 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                       {!isSale && !event.subPayments && (
                         <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5, bgcolor: "grey.50", borderRadius: 2, px: 1.5, py: 1 }}>
                           <Box sx={{ textAlign: "center" }}>
-                            <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", mb: 0.25 }}>Before</Typography>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", mb: 0.25 }}>Before</Typography>
                             <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "error.main" }}>₦{(event.balanceBefore ?? 0).toLocaleString()}</Typography>
                           </Box>
                           <ArrowRight size={12} color="#d1d5db" />
                           <Box sx={{ textAlign: "center" }}>
-                            <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", mb: 0.25 }}>After</Typography>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", mb: 0.25 }}>After</Typography>
                             <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: (event.balanceAfter ?? 0) > 0 ? "#f59e0b" : "success.main" }}>
                               ₦{(event.balanceAfter ?? 0).toLocaleString()}
                             </Typography>
@@ -451,7 +447,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                           {(event.balanceAfter ?? 0) <= 0 && (
                             <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, ml: "auto", color: "success.main" }}>
                               <CheckCircle2 size={14} />
-                              <Typography sx={{ fontSize: "0.625rem", fontWeight: 900 }}>Cleared</Typography>
+                              <Typography sx={{ fontSize: "0.75rem", fontWeight: 900 }}>Cleared</Typography>
                             </Stack>
                           )}
                         </Stack>
@@ -470,7 +466,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                             }}
                           >
                             <Layers size={12} />
-                            <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, flex: 1, textAlign: "left" }}>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, flex: 1, textAlign: "left" }}>
                               {expandedBatches.has(event.id) ? "Hide" : "Show"} allocation{event.subPayments.length !== 1 ? "s" : ""}
                             </Typography>
                             {expandedBatches.has(event.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -487,7 +483,7 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                       {sub.description}
                                     </Typography>
-                                    <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", mt: 0.25 }}>
+                                    <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mt: 0.25 }}>
                                       {sub.paymentType}{sub.salesId ? ` · ${sub.salesId}` : ""}
                                       {" · balance "}₦{(sub.balanceBefore ?? 0).toLocaleString()} → ₦{(sub.balanceAfter ?? 0).toLocaleString()}
                                     </Typography>
@@ -520,12 +516,12 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                             <PersonChip name={event.collectedBy} label="Collected by" />
                           )}
                           {isSale && event.salesId && (
-                            <Typography sx={{ fontSize: "0.625rem", fontFamily: "monospace", color: "text.disabled" }}>
+                            <Typography sx={{ fontSize: "0.75rem", fontFamily: "monospace", color: "text.disabled" }}>
                               {event.salesId}
                             </Typography>
                           )}
                           {!isSale && event.notes && (
-                            <Typography sx={{ fontSize: "0.625rem", fontWeight: 500, color: "text.secondary", fontStyle: "italic" }}>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.secondary", fontStyle: "italic" }}>
                               {event.notes}
                             </Typography>
                           )}
@@ -533,14 +529,14 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
                         <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
                             <Calendar size={12} color="#9ca3af" />
-                            <Typography sx={{ fontSize: "0.625rem", fontWeight: 500, color: "text.secondary" }}>
+                            <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" }}>
                               {formattedDate}
                             </Typography>
                           </Stack>
                           {formattedTime && (
                             <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
                               <Clock size={12} color="#9ca3af" />
-                              <Typography sx={{ fontSize: "0.625rem", fontWeight: 500, color: "text.secondary" }}>
+                              <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" }}>
                                 {formattedTime}
                               </Typography>
                             </Stack>
@@ -561,96 +557,18 @@ export function CustomerTimelineModal({ clientName, isOpen, onClose, contact, on
   const payModal = (
     <DebtorPaymentModal
       clientName={clientName}
-      isOpen={payOpen}
+      isOpen={isOpen && payOpen}
       onClose={() => setPayOpen(false)}
       onUpdate={() => onUpdate?.()}
       theme={theme}
     />
   );
 
-  if (isMobile) {
-    return (
-      <>
-      <Dialog
-        fullScreen
-        open={isOpen}
-        onClose={onClose}
-
-        slotProps={{
-          paper: {
-            sx: {
-              mt: "10vh",
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-              bgcolor: "background.default",
-              display: "flex",
-              flexDirection: "column",
-            }
-          }
-        }}
-        sx={{
-          "& .MuiDialog-container": {
-            alignItems: "flex-end",
-          }
-        }}
-      >
-        <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 1, flexShrink: 0 }} />
-        <Button
-          variant="text"
-          onClick={onClose}
-          sx={{
-            position: "absolute",
-            right: 16,
-            top: 16,
-            minWidth: 0,
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            bgcolor: "action.hover",
-            "&:hover": { bgcolor: "action.selected" },
-            zIndex: 10,
-            p: 0,
-          }}
-        >
-          <X size={20} color="#6b7280" />
-        </Button>
-        <Box sx={{ flex: 1, overflow: "hidden", borderRadius: "2.5rem 2.5rem 0 0" }}>
-          {body}
-        </Box>
-      </Dialog>
-      {payModal}
-      </>
-    );
-  }
-
-  return (
-    <>
-    <Dialog
-      open={isOpen}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: 4,
-            overflow: "hidden",
-            height: "85vh",
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 201,
-          },
-        },
-      }}
-    >
-      <DialogTitle sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
-        Customer Timeline — {clientName}
-      </DialogTitle>
-      <DialogContent sx={{ p: 0, display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-        {body}
-      </DialogContent>
-    </Dialog>
+  return <>
+    <ResponsiveSheet open={isOpen} onClose={() => { setPayOpen(false); onClose(); }} maxWidth="md"
+      title="Customer Timeline" description={clientName ?? undefined}>
+      {body}
+    </ResponsiveSheet>
     {payModal}
-    </>
-  );
+  </>;
 }

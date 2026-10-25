@@ -1,28 +1,32 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+import { debtorModalStyles as styles, responsiveSheetStyles } from "@/app/theme";
+
+import { useState, useMemo, useRef } from "react";
 import { useSyncStore } from "@/lib/store";
 import { parseAmount, computeWaterfall } from "@/lib/financial-utils";
 import { collectableAmount } from "@/lib/balance-display";
-import { useMediaQuery } from "@/lib/useMediaQuery";
-import { Wallet, ChevronRight, CheckCircle2, AlertCircle, User, Loader2 } from "lucide-react";
+import { Wallet, ChevronRight, CheckCircle2, AlertCircle, User } from "lucide-react";
 import { toast } from "sonner";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
+import CircularProgress from "@mui/material/CircularProgress";
+import { MoneyField } from "@/components/money-field";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { type UnifiedRecord } from "@/components/manage-sale-action";
+import { paymentContext, savePostgresPayment } from '@/lib/payment-outbox';
+import { paymentKobo, rowDebtKobo } from '@/lib/payment-contract';
+import { PaidBy } from "@/components/paid-by";
+import type { PaymentMethod } from "@/lib/payment-methods";
 
 interface DebtorPaymentModalProps {
   clientName: string | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
+  /** Kept so existing callers compile. The active MUI theme now decides the accent (indigo for admin, orange for cashier). */
   theme?: "brand" | "amber";
 }
 
@@ -56,13 +60,18 @@ const mapSale = (r: any): UnifiedRecord => {
   };
 };
 
-export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, theme = "brand" }: DebtorPaymentModalProps) {
+export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate }: DebtorPaymentModalProps) {
+  const submitting = useRef(false);
   const { cachedSales, pendingQueue } = useSyncStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentInput, setPaymentInput] = useState("");
-  const isMobile = useMediaQuery("(max-width: 768px)");
-
-  const primaryColor = theme === "brand" ? "#3b56c8" : "#C0392B";
+  const [drafts, setDrafts] = useState<Record<string, { amount: string; method: PaymentMethod | "" }>>({});
+  const draftKey = clientName ?? "";
+  const paymentInput = drafts[draftKey]?.amount ?? "";
+  const paidBy = drafts[draftKey]?.method ?? "";
+  const setPaymentInput = (amount: string) => setDrafts(previous => ({ ...previous,
+    [draftKey]: { amount, method: previous[draftKey]?.method ?? "" } }));
+  const setPaidBy = (method: PaymentMethod | "") => setDrafts(previous => ({ ...previous,
+    [draftKey]: { amount: previous[draftKey]?.amount ?? "", method } }));
 
   const clientRecords = useMemo(() => {
     if (!clientName) return [];
@@ -70,8 +79,8 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
     const sales = (cachedSales || []).map(mapSale);
     const pending = pendingQueue
       .filter(item => item.type === "sale" && (item.data[1] || "").trim() === clientName.trim())
-      .map(item => ({
-        id: `pending-${Math.random()}`,
+      .map((item, index) => ({
+        id: `pending-${index}`,
         client: item.data[1],
         description: item.data[2],
         balance: parseAmount(item.data[11]),
@@ -88,7 +97,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
   // Sums only what is still collectable. An earlier overpayment is margin
   // from rounding the customer up, not credit held against future work, so
   // it must not reduce what they owe on a later job.
-  const totalBalance = clientRecords.reduce((s, r) => s + collectableAmount(r.balance), 0);
+  const totalBalance = clientRecords.reduce((s, r) => s + collectableAmount(r.balance, !!r.raw?._jobId), 0);
   const lumpSum = parseFloat(paymentInput) || 0;
 
   const preview = useMemo(
@@ -96,11 +105,27 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
     [clientRecords, lumpSum]
   );
 
-  const handleSubmit = async () => {
+  const submit = async () => {
     if (lumpSum <= 0) {
       toast.error("Please enter a valid payment amount.");
       return;
     }
+    if (!paidBy) {
+      toast.error("Choose how the customer paid: Cash, Transfer or POS");
+      return;
+    }
+    const context = await paymentContext();
+    if (context.backend === 'postgres') {
+      const jobs = clientRecords.filter(r => r.raw?._jobId ? rowDebtKobo(r.raw) > BigInt(0) : (r.balance || 0) > 0);
+      if (!jobs.length || jobs.some(r => !r.raw?._jobId)) throw new Error('Refresh the customer records before recording this payment.');
+      if (BigInt(paymentKobo(paymentInput)) > jobs.reduce((sum, r) => sum + rowDebtKobo(r.raw), BigInt(0))) throw new Error('The amount exceeds this customer’s selected debt. Keep any excess for owner review.');
+      await savePostgresPayment(context, { jobIds: jobs.map(r => r.raw._jobId), amountKobo: paymentKobo(paymentInput),
+        paymentMethod: paidBy, notes: 'Customer debt collection' }, `Payment for ${clientName}`);
+      toast.success('Payment saved on this device. Confirmation will appear after syncing.');
+      setPaymentInput(''); setPaidBy(''); onUpdate(); onClose();
+      return;
+    }
+    if (clientRecords.some(r => r.raw?._jobId)) throw new Error('These records belong to PostgreSQL. Refresh before recording a payment.');
     const steps = computeWaterfall(clientRecords, lumpSum);
     if (steps.length === 0) {
       toast.error("No eligible unpaid items found for this client.");
@@ -132,6 +157,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
       collectedBy: localStorage.getItem("userName") || "System",
       notes: "Auto-distributed lump sum",
       lumpSum,
+      paymentMethod: paidBy,
       steps: steps.map((step) => ({
         rowIndex: step.record.rowIndex,
         salesId: step.record.salesId || "",
@@ -145,6 +171,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
 
     const finish = () => {
       setPaymentInput("");
+      setPaidBy("");
       onUpdate();
       onClose();
     };
@@ -205,138 +232,91 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
     }
   };
 
+  const handleSubmit = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setIsSubmitting(true);
+    try { await submit(); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Payment could not be saved.'); }
+    finally { submitting.current = false; setIsSubmitting(false); }
+  };
+
   const body = (
-    <Box sx={{ p: 3 }}>
+    <Box sx={styles.body}>
       <Stack sx={{ gap: 2.5 }}>
-        <Box sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          p: 2,
-          bgcolor: "grey.50",
-          borderRadius: 3,
-          border: "1px solid",
-          borderColor: "grey.100",
-        }}>
-          <Box sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
-            bgcolor: primaryColor,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <User size={20} color="#fff" />
+        <Box sx={responsiveSheetStyles.customerSummary}>
+          <Box sx={styles.clientIcon}>
+            <User size={20} />
           </Box>
-          <Box>
-            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.secondary" }}>
+          <Box sx={styles.clientText}>
+            <Typography variant="overline" color="text.secondary" sx={{ display: "block" }}>
               Selected Client
             </Typography>
-            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
+            <Typography variant="h6" component="p" sx={styles.wrapName}>
               {clientName}
             </Typography>
           </Box>
-          <Box sx={{ ml: "auto", textAlign: "right" }}>
-            <Typography sx={{ fontSize: "0.625rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "error.main" }}>
+          <Box sx={styles.debtBlock}>
+            <Typography variant="overline" color="error.main" sx={{ display: "block" }}>
               Total Debt
             </Typography>
-            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "error.main" }}>
+            <Typography variant="h6" component="p" color="error.main">
               ₦{totalBalance.toLocaleString()}
             </Typography>
           </Box>
         </Box>
 
         {clientRecords.length === 0 ? (
-          <Box sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 1,
-            p: 3,
-            bgcolor: "#f0fdf4",
-            borderRadius: 3,
-            border: "1px solid #bbf7d0",
-          }}>
-            <CheckCircle2 size={20} color="#16a34a" />
-            <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#15803d", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          <Box sx={styles.cleared}>
+            <CheckCircle2 size={20} />
+            <Typography variant="h6" component="p">
               No payment slots available
             </Typography>
           </Box>
         ) : (
           <>
             <Box>
-              <Typography component="label" sx={{ display: "block", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.12em", mb: 0.75 }}>
+              <Typography variant="overline" component="label" htmlFor="debtor-payment-amount" sx={styles.label}>
                 Apply Payment (₦)
               </Typography>
-              <TextField
-                type="number"
+              <MoneyField
+                id="debtor-payment-amount"
                 placeholder="Enter amount to pay off"
                 value={paymentInput}
-                onChange={(e) => setPaymentInput(e.target.value)}
+                onChange={setPaymentInput}
                 fullWidth
-                slotProps={{ htmlInput: { style: { fontWeight: 700, fontSize: "1.125rem" } } }}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
+                sx={styles.amountInput}
               />
             </Box>
+            <PaidBy value={paidBy} onChange={setPaidBy} disabled={isSubmitting} />
 
             {preview.length > 0 && (
               <Box>
-                <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                  <Typography sx={{ fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 900, color: "text.secondary", letterSpacing: "0.12em" }}>
+                <Box sx={styles.previewHead}>
+                  <Typography variant="overline" color="text.secondary">
                     Auto-Distribution Preview
                   </Typography>
-                  <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "text.secondary" }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
                     {preview.length} item{preview.length !== 1 ? "s" : ""}
                   </Typography>
-                </Stack>
-                <Box sx={{
-                  maxHeight: 200,
-                  overflowY: "auto",
-                  border: "1px solid",
-                  borderColor: "grey.100",
-                  borderRadius: 3,
-                }}>
+                </Box>
+                <Box sx={styles.previewList}>
                   {preview.map((step, idx) => (
-                    <Box key={step.record.id} sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      px: 2,
-                      py: 1.5,
-                      bgcolor: "background.paper",
-                      borderBottom: "1px solid",
-                      borderColor: "grey.50",
-                      "&:last-child": { borderBottom: "none" },
-                    }}>
-                      <Stack direction="row" sx={{ alignItems: "center", gap: 1.25 }}>
-                        <Box sx={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: "50%",
-                          bgcolor: `${primaryColor}18`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}>
-                          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 900, color: primaryColor }}>
-                            {idx + 1}
-                          </Typography>
-                        </Box>
+                    <Box key={step.record.id} sx={styles.previewRow}>
+                      <Box sx={styles.previewLead}>
+                        <Box sx={styles.badge}>{idx + 1}</Box>
                         <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.primary", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <Typography variant="body2" sx={[styles.ellipsis, { fontWeight: 700 }]}>
                             {step.record.description}
                           </Typography>
-                          <Typography sx={{ fontSize: "0.5625rem", color: "text.secondary", mt: 0.5, textTransform: "uppercase", fontWeight: 700 }}>
+                          <Typography variant="caption" color="text.secondary">
                             {step.record.date?.split(',')[0]}
                             {step.mode === "append" ? " · added to existing payment" : ""}
                           </Typography>
                         </Box>
-                      </Stack>
-                      <Box sx={{ textAlign: "right", ml: 1, flexShrink: 0 }}>
-                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "success.main" }}>
+                      </Box>
+                      <Box sx={styles.previewAmount}>
+                        <Typography variant="body2" color="success.main" sx={{ fontWeight: 700 }}>
                           +₦{step.toApply.toLocaleString()}
                         </Typography>
                       </Box>
@@ -344,20 +324,20 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
                   ))}
                 </Box>
                 {lumpSum > totalBalance && totalBalance > 0 && (
-                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
-                    <CheckCircle2 size={12} color="#16a34a" />
-                    <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700 }}>
+                  <Box sx={styles.note}>
+                    <CheckCircle2 size={12} />
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
                       Extra of ₦{(lumpSum - totalBalance).toLocaleString()} will be recorded against the last item.
                     </Typography>
-                  </Stack>
+                  </Box>
                 )}
                 {totalBalance <= 0 && lumpSum > 0 && (
-                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1 }}>
-                    <CheckCircle2 size={12} color="#16a34a" />
-                    <Typography sx={{ fontSize: "0.625rem", color: "success.main", fontWeight: 700 }}>
+                  <Box sx={styles.note}>
+                    <CheckCircle2 size={12} />
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
                       ₦{lumpSum.toLocaleString()} will be recorded against the last item.
                     </Typography>
-                  </Stack>
+                  </Box>
                 )}
               </Box>
             )}
@@ -367,15 +347,13 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
     </Box>
   );
 
-  const footer = (drawer?: boolean) => (
-    <Box sx={drawer
-      ? { display: "flex", flexDirection: "column", gap: 1.5, mt: 2, px: 3, pb: 4 }
-      : { p: 3, bgcolor: "grey.50", display: "flex", gap: 1.5, borderTop: "1px solid", borderColor: "grey.100" }
-    }>
+  const footer = (
+    <Box sx={styles.footer}>
       <Button
         variant="outlined"
+        color="inherit"
         onClick={onClose}
-        sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
+        disabled={isSubmitting}
       >
         Close
       </Button>
@@ -384,94 +362,19 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate, them
           variant="contained"
           disabled={isSubmitting || lumpSum <= 0 || preview.length === 0}
           onClick={handleSubmit}
-          sx={{
-            flex: 1,
-            height: 48,
-            borderRadius: 3,
-            bgcolor: primaryColor,
-            fontWeight: 900,
-            "&:hover": { bgcolor: theme === "brand" ? "#2e45b0" : "#8b2a1f" },
-            "&:active": { transform: "scale(0.97)" },
-          }}
+          startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
-          {isSubmitting ? (
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-              <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
-                <Loader2 size={16} />
-              </Box>
-              Processing...
-            </Stack>
-          ) : "Apply Payment"}
+          {isSubmitting ? "Processing..." : "Apply Payment"}
         </Button>
       )}
     </Box>
   );
 
-  if (isMobile) {
-    return (
-      <Dialog
-        fullScreen
-        open={isOpen}
-        onClose={onClose}
-
-        slotProps={{
-          paper: {
-            sx: {
-              mt: "10vh",
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-              bgcolor: "background.default",
-              display: "flex",
-              flexDirection: "column",
-            }
-          }
-        }}
-        sx={{
-          "& .MuiDialog-container": {
-            alignItems: "flex-end",
-          }
-        }}
-      >
-        <Box sx={{ width: 48, height: 6, borderRadius: 3, bgcolor: "divider", mx: "auto", mt: 2, mb: 2, flexShrink: 0 }} />
-        <Box sx={{ flex: 1, overflowY: "auto" }}>
-          <Box sx={{ px: 3, py: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary", letterSpacing: "-0.02em" }}>Client Payment</Typography>
-          </Box>
-          {body}
-        </Box>
-        {footer(true)}
-      </Dialog>
-    );
-  }
-
   return (
-    <Dialog
-      open={isOpen}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      slotProps={{ paper: { sx: { borderRadius: 4, overflow: "hidden" } } }}
-    >
-      <DialogTitle sx={{
-        bgcolor: primaryColor,
-        color: "#fff",
-        pt: 3,
-        pb: 2,
-        px: 3,
-      }}>
-        <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "#fff", lineHeight: 1.2 }}>
-          Client Account Overlook
-        </Typography>
-        <Typography sx={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", mt: 0.5 }}>
-          Lump-sum Debt Recovery for {clientName}
-        </Typography>
-      </DialogTitle>
-      <DialogContent sx={{ p: 0 }}>
-        {body}
-      </DialogContent>
-      <DialogActions sx={{ p: 0 }}>
-        {footer()}
-      </DialogActions>
-    </Dialog>
+    <ResponsiveSheet open={isOpen} onClose={onClose} busy={isSubmitting}
+      title="Client Payment" description={`Payment for ${clientName ?? 'customer'}`}
+      footer={footer}>
+      {body}
+    </ResponsiveSheet>
   );
 }

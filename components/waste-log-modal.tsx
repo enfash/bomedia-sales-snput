@@ -1,10 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -14,12 +10,11 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
-import Drawer from "@mui/material/Drawer";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { toast } from "sonner";
 import { AlertTriangle, Scissors, FileText, CalendarDays } from "lucide-react";
-import { useMediaQuery } from "@/lib/useMediaQuery";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { WASTE_REASONS, STORAGE_KEYS } from "@/lib/constants";
 export interface InventoryRollForWaste {
   "Roll ID": string;
@@ -99,18 +94,18 @@ function ModalBody({
           <Scissors size={20} color="#e11d48" />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: "0.6rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "#e11d48" }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "#e11d48" }}>
             Logging waste against
           </Typography>
           <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {roll["Roll ID"]}
           </Typography>
-          <Typography sx={{ fontSize: "0.6rem", color: "text.disabled", fontWeight: 500 }}>
+          <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", fontWeight: 500 }}>
             {parseFloat(String(roll["Width (ft)"] || "0"))}ft wide · {remaining.toFixed(1)}ft remaining
           </Typography>
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-          <Typography sx={{ fontSize: "0.55rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled" }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.15em", color: "text.disabled" }}>
             Prev. waste
           </Typography>
           <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, color: "#e11d48" }}>
@@ -236,14 +231,21 @@ function ModalBody({
 }
 
 export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalProps) {
-  const isMobile = useMediaQuery("(max-width: 768px)");
-
-  const [wasteLength, setWasteLength] = useState("");
-  const [reason, setReason] = useState("");
-  const [description, setDescription] = useState("");
-  const [jobRef, setJobRef] = useState("");
-  const [responsiblePerson, setResponsiblePerson] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  type Draft = { wasteLength: string; reason: string; description: string; jobRef: string; responsiblePerson: string; date: string };
+  const [initialDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const rollId = roll["Roll ID"];
+  const empty: Draft = { wasteLength: "", reason: "", description: "", jobRef: "", responsiblePerson: "", date: initialDate };
+  const { wasteLength, reason, description, jobRef, responsiblePerson, date } = drafts[rollId] ?? empty;
+  const setField = (field: keyof Draft, value: string) => setDrafts(previous => ({
+    ...previous, [rollId]: { ...(previous[rollId] ?? empty), [field]: value },
+  }));
+  const setWasteLength = (value: string) => setField("wasteLength", value);
+  const setReason = (value: string) => setField("reason", value);
+  const setDescription = (value: string) => setField("description", value);
+  const setJobRef = (value: string) => setField("jobRef", value);
+  const setResponsiblePerson = (value: string) => setField("responsiblePerson", value);
+  const setDate = (value: string) => setField("date", value);
   const [saving, setSaving] = useState(false);
 
   const resetForm = () => {
@@ -255,7 +257,7 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
     setDate(new Date().toISOString().split("T")[0]);
   };
 
-  const handleClose = () => { resetForm(); onClose(); };
+  const handleClose = () => { if (!saving) onClose(); };
 
   const handleSave = async () => {
     if (!wasteLength || !reason || !responsiblePerson) {
@@ -322,19 +324,18 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
 
   const bodyProps = { roll, wasteLength, setWasteLength, reason, setReason, description, setDescription, jobRef, setJobRef, responsiblePerson, setResponsiblePerson, date, setDate };
 
-  const FooterButtons = ({ drawer = false }: { drawer?: boolean }) => (
+  const footer = (
     <Stack
       direction="row"
       sx={{
         gap: 1.5,
-        ...(drawer
-          ? { mt: 1, px: 3, pb: 5, flexDirection: "column" }
-          : { p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider" }),
+        p: 3, bgcolor: "grey.50", borderTop: "1px solid", borderColor: "divider",
       }}
     >
       <Button
         variant="outlined"
         onClick={handleClose}
+        disabled={saving}
         sx={{ flex: 1, height: 48, borderRadius: 3, fontWeight: 700 }}
       >
         Cancel
@@ -360,81 +361,11 @@ export function WasteLogModal({ roll, isOpen, onClose, onSaved }: WasteLogModalP
     </Stack>
   );
 
-  if (isMobile) {
-    return (
-      <Drawer
-        anchor="bottom"
-        open={isOpen}
-        onClose={handleClose}
-        slotProps={{
-          paper: {
-            sx: {
-              borderTopLeftRadius: 40,
-              borderTopRightRadius: 40,
-              maxHeight: "92vh",
-              display: "flex",
-              flexDirection: "column",
-            },
-          },
-        }}
-      >
-        <Box
-          sx={{
-            width: 48,
-            height: 6,
-            borderRadius: 3,
-            bgcolor: "grey.200",
-            mx: "auto",
-            mt: 2,
-            mb: 1,
-            flexShrink: 0,
-          }}
-        />
-        <Box sx={{ overflowY: "auto", flex: 1 }}>
-          <Box sx={{ px: 3, pb: 1, pt: 1 }}>
-            <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "text.primary" }}>
-              Log Waste Material
-            </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.25, display: "block" }}>
-              Deducts wasted length from the roll's live balance.
-            </Typography>
-          </Box>
-          <ModalBody {...bodyProps} />
-        </Box>
-        <FooterButtons drawer />
-      </Drawer>
-    );
-  }
-
   return (
-    <Dialog
-      open={isOpen}
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-      slotProps={{ paper: { sx: { borderRadius: 4, overflow: "hidden" } } }}
-    >
-      <DialogTitle
-        sx={{
-          p: 3,
-          bgcolor: "#dc2626",
-          color: "white",
-          "& .MuiDialogTitle-root": { p: 0 },
-        }}
-      >
-        <Typography sx={{ fontSize: "1.25rem", fontWeight: 900, color: "white", letterSpacing: "-0.02em" }}>
-          Log Waste Material
-        </Typography>
-        <Typography sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", mt: 0.5 }}>
-          Deducts wasted length from the roll's live balance.
-        </Typography>
-      </DialogTitle>
-      <DialogContent sx={{ p: 0, maxHeight: "65vh", overflowY: "auto" }}>
-        <ModalBody {...bodyProps} />
-      </DialogContent>
-      <DialogActions sx={{ p: 0 }}>
-        <FooterButtons />
-      </DialogActions>
-    </Dialog>
+    <ResponsiveSheet open={isOpen} onClose={handleClose} busy={saving}
+      title="Log Waste Material" description="Deducts wasted length from the roll’s live balance."
+      footer={footer}>
+      <ModalBody {...bodyProps} />
+    </ResponsiveSheet>
   );
 }

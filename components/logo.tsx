@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { alpha, type Theme } from "@mui/material/styles";
+import { accent } from "@/app/theme";
 
 interface LogoProps {
   showText?: boolean;
@@ -19,7 +21,7 @@ export function Logo({ showText = true }: LogoProps) {
           justifyContent: "center",
           borderRadius: 3,
           bgcolor: "background.paper",
-          boxShadow: "0 4px 14px rgba(200,71,46,.2)",
+          boxShadow: (theme: Theme) => `0 4px 14px ${alpha(theme.palette.primary.main, 0.2)}`,
           transition: "transform 0.2s",
           overflow: "hidden",
           border: 1,
@@ -41,9 +43,9 @@ export function Logo({ showText = true }: LogoProps) {
       {showText && (
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography sx={{ fontSize: "1.125rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-            <Box component="span" sx={{ color: "primary.main" }}>BOMedia</Box>
+            <Box component="span" sx={{ color: accent }}>BOMedia</Box>
           </Typography>
-          <Typography sx={{ fontSize: "0.5625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", lineHeight: 1, mt: 0.25 }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary", lineHeight: 1, mt: 0.25 }}>
             Sales Logs
           </Typography>
         </Box>

@@ -5,6 +5,8 @@ import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, AlertCircle, BarChar
 import { motion, animate } from "framer-motion";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { StatTile } from "@/components/stat-tile";
+import { metricsStyles as styles } from "@/app/theme";
 
 const cardContainerVariants = {
   hidden: {},
@@ -15,7 +17,7 @@ const cardItemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: string }) {
+function Sparkline({ data, color = "currentColor", classic = false }: { data: number[]; color?: string; classic?: boolean }) {
   const uid = useId();
   const gradId = `spark-fill-${uid.replace(/:/g, "")}`;
   if (!data || data.length < 2) return null;
@@ -24,16 +26,18 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
   const range = max - min || 1;
   const w = 100;
   const h = 32;
+  // Keep the line a few units inside the box, so its thickness is never cut off at the top or bottom.
+  const pad = 3;
   const pts = data.map((v, i) => {
     const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * h;
+    const y = pad + (1 - (v - min) / range) * (h - 2 * pad);
     return `${x},${y}`;
   });
   const polyline = pts.join(" ");
   const fill = `M${pts[0]} L${pts.join(" L")} L${w},${h} L0,${h} Z`;
 
   return (
-    <Box component="svg" viewBox={`0 0 ${w} ${h}`} sx={{ width: '100%', height: 32, overflow: 'visible' }} preserveAspectRatio="none">
+    <Box component="svg" viewBox={`0 0 ${w} ${h}`} sx={[styles.sparkSvg, classic && styles.sparkSvgClassic]} preserveAspectRatio="none">
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -41,7 +45,48 @@ function Sparkline({ data, color = "currentColor" }: { data: number[]; color?: s
         </linearGradient>
       </defs>
       <path d={fill} fill={`url(#${gradId})`} />
-      <polyline points={polyline} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={polyline} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </Box>
+  );
+}
+
+/** Counts a number up from zero, the same way the headline figure does. */
+function useCountUp(value: number) {
+  const [animated, setAnimated] = useState(0);
+  useEffect(() => {
+    const controls = animate(0, value, { duration: 0.8, ease: [0.16, 1, 0.3, 1], onUpdate: (v) => setAnimated(v) });
+    return () => controls.stop();
+  }, [value]);
+  return animated;
+}
+
+/** One of the small figures along the bottom of the headline card. */
+export interface HeroStat {
+  label: string;
+  value: number;
+  /** Shown instead of the money format, for example a percentage. */
+  displayValue?: string;
+  change?: string;
+  isPositive?: boolean;
+  hint?: string;
+}
+
+function StatFigure({ stat }: { stat: HeroStat }) {
+  const animated = useCountUp(stat.value);
+  const shown = stat.displayValue
+    ? (/^[\d.]+%$/.test(stat.displayValue) ? `${animated.toFixed(1)}%` : stat.displayValue)
+    : `₦${Math.round(animated).toLocaleString()}`;
+  return (
+    <Box sx={styles.stat}>
+      <Typography component="span" sx={styles.statLabel}>{stat.label}</Typography>
+      <Typography component="p" sx={styles.statValue}>{shown}</Typography>
+      {stat.change && (
+        <Box component="span" sx={[styles.statChange, stat.isPositive ? styles.statUp : styles.statDown]}>
+          {stat.isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+          {stat.change}
+        </Box>
+      )}
+      {stat.hint && <Typography component="span" sx={styles.statHint}>{stat.hint}</Typography>}
     </Box>
   );
 }
@@ -56,6 +101,10 @@ interface MetricCardProps {
   variant?: 'default' | 'hero' | 'alert';
   subLabel?: string;
   sparkData?: number[];
+  /** Small figures shown along the bottom of the headline card. */
+  stats?: HeroStat[];
+  /** The desktop look of the headline card: light tint, dark figures, no stats footer. */
+  classic?: boolean;
 }
 
 export function MetricCard({
@@ -68,103 +117,52 @@ export function MetricCard({
   variant = 'default',
   subLabel,
   sparkData,
+  stats,
+  classic = false,
 }: MetricCardProps) {
   const isHero = variant === 'hero';
+  const modern = isHero && !classic;
   const isAlert = variant === 'alert' && value > 0;
 
-  const [animatedNum, setAnimatedNum] = useState(0);
-  useEffect(() => {
-    const controls = animate(0, value, {
-      duration: 0.8,
-      ease: [0.16, 1, 0.3, 1],
-      onUpdate: (v) => setAnimatedNum(v),
-    });
-    return () => controls.stop();
-  }, [value]);
+  const animatedNum = useCountUp(value);
 
   const animatedDisplay = displayValue
     ? (/^[\d.]+%$/.test(displayValue) ? `${animatedNum.toFixed(1)}%` : displayValue)
     : `₦${Math.round(animatedNum).toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
-  return (
-    <Box
-      sx={{
-        position: 'relative',
-        overflow: 'hidden',
-        height: '100%',
-        bgcolor: isHero ? 'primary.main' : 'background.paper',
-        opacity: isHero ? 0.97 : 1, // approximate bg-primary/[0.03] -> wait, isHero in tailwind was bg-primary/[0.03] which is almost transparent. Let's use alpha.
-        backgroundColor: isHero ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.03)' : 'background.paper',
-        borderRadius: "16px",
-        boxShadow: 1,
-        border: '1px solid',
-        borderColor: isHero ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.2)' : (isAlert ? 'error.main' : 'divider'),
-        p: { xs: 1.5, sm: 2.5 },
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        transition: 'box-shadow 0.3s, transform 0.3s',
-        '&:hover': {
-          '@media (hover: hover)': {
-            boxShadow: 4,
-            transform: 'translateY(-4px)',
-          }
-        },
-        ...(isAlert && {
-          borderColor: 'error.main',
-          outline: '2px solid',
-          outlineColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.2)',
-        })
-      }}
-    >
-      {isHero && (
-        <Box sx={{
-          position: 'absolute', right: -16, top: -16, height: 112, width: 112,
-          borderRadius: '50%', bgcolor: 'rgba(var(--mui-palette-primary-mainChannel) / 0.05)',
-          filter: 'blur(24px)'
-        }} />
-      )}
+  const trendIcon = isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />;
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 1, sm: 2 }, gap: 0.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+  return (
+    <Box sx={[styles.card, modern && styles.cardHero, isHero && classic && styles.cardHeroClassic, isAlert && styles.cardAlert]}>
+      {isHero && <Box sx={[styles.glow, classic && styles.glowClassic]} />}
+
+      <Box sx={styles.header}>
+        <Box sx={styles.titleRow}>
           {isAlert && (
             <Box
               component={motion.div}
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ repeat: Infinity, duration: 1.2 }}
-              sx={{ width: { xs: 6, sm: 8 }, height: { xs: 6, sm: 8 }, borderRadius: '50%', bgcolor: 'error.main', boxShadow: '0 0 4px rgba(239,68,68,0.5)', flexShrink: 0 }}
+              sx={styles.alertDot}
             />
           )}
-          <Typography sx={{ fontSize: { xs: '9px', sm: '10px' }, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Typography variant="overline" sx={[styles.title, modern && styles.titleHero]}>
             {title}
           </Typography>
         </Box>
-        <Box
-          sx={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            borderRadius: { xs: 1.5, sm: 2 },
-            width: isHero ? 40 : { xs: 24, sm: 40 }, height: isHero ? 40 : { xs: 24, sm: 40 },
-            ...(isHero ? { bgcolor: 'primary.main', color: 'primary.contrastText', boxShadow: '0 4px 12px rgba(var(--mui-palette-primary-mainChannel) / 0.2)' }
-              : isAlert ? { bgcolor: 'rgba(var(--mui-palette-error-mainChannel) / 0.1)', color: 'error.main' }
-              : { bgcolor: 'action.hover', color: 'text.primary' })
-          }}
-        >
+        <Box sx={[styles.icon, modern ? styles.iconHero : isHero ? styles.iconHeroClassic : isAlert ? styles.iconAlert : styles.iconDefault]}>
           <Icon size={isHero ? 20 : 16} />
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Typography sx={{ fontWeight: 900, letterSpacing: '-0.02em', color: 'text.primary', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: isHero ? { xs: '1.5rem', sm: '2.25rem' } : { xs: '1rem', sm: '1.25rem', lg: '1.5rem' } }}>
+      <Box sx={styles.body}>
+        <Typography component="p" sx={[styles.value, isHero ? styles.valueHero : styles.valueDefault, isHero && classic && styles.valueHeroClassic]}>
           {animatedDisplay}
         </Typography>
         {(isHero && change) && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.5, sm: 1 } }}>
-            <Box sx={{
-              display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '10px', fontWeight: 700, px: 1, py: 0.25, borderRadius: 10, border: '1px solid',
-              ...(isPositive ? { bgcolor: 'rgba(16,185,129,0.1)', color: '#059669', borderColor: 'rgba(16,185,129,0.2)' }
-                : { bgcolor: 'rgba(239,68,68,0.1)', color: '#dc2626', borderColor: 'rgba(239,68,68,0.2)' })
-            }}>
-              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+          <Box sx={styles.trendRow}>
+            <Box sx={[styles.trendChip, isPositive ? styles.trendUp : styles.trendDown, modern && styles.trendHero]}>
+              {trendIcon}
               {change}
             </Box>
           </Box>
@@ -172,19 +170,25 @@ export function MetricCard({
       </Box>
 
       {isHero && sparkData && sparkData.length >= 2 && (
-        <Box sx={{ mt: 1.5, opacity: 0.6 }}>
-          <Sparkline data={sparkData} color="var(--primary)" />
+        <Box sx={[styles.spark, classic && styles.sparkClassic]}>
+          <Sparkline data={sparkData} classic={classic} />
+        </Box>
+      )}
+
+      {modern && stats && stats.length > 0 && (
+        <Box sx={styles.stats}>
+          {stats.map((stat) => <StatFigure key={stat.label} stat={stat} />)}
         </Box>
       )}
 
       {!isHero && (change || subLabel) && (
-        <Box sx={{ mt: { xs: 1, sm: 2 }, pt: { xs: 1, sm: 2 }, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontSize: { xs: '8px', sm: '10px' }, fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase' }}>
+        <Box sx={styles.footer}>
+          <Typography variant="overline" sx={styles.subLabel}>
             {subLabel || "Performance"}
           </Typography>
           {change && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 0.5 }, fontSize: { xs: '9px', sm: '0.75rem' }, fontWeight: 700, color: isPositive ? '#059669' : '#dc2626' }}>
-              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+            <Box color={isPositive ? "success.dark" : "error.main"} sx={styles.change}>
+              {trendIcon}
               {change}
             </Box>
           )}
@@ -193,6 +197,9 @@ export function MetricCard({
     </Box>
   );
 }
+
+const naira = (amount: number) => `₦${Math.round(amount).toLocaleString()}`;
+const customers = (count: number) => `${count} customer${count === 1 ? "" : "s"}`;
 
 interface DashboardMetricsProps {
   totalSales: number;
@@ -209,6 +216,9 @@ interface DashboardMetricsProps {
   grossMarginPct: number;
   prevGrossMarginPct: number;
   sparkData?: number[];
+  /** What is owed from today's jobs and from the last 7 days. */
+  owedToday: { amount: number; customers: number };
+  owedWeek: { amount: number; customers: number };
 }
 
 export function DashboardMetrics({
@@ -226,75 +236,71 @@ export function DashboardMetrics({
   grossMarginPct,
   prevGrossMarginPct,
   sparkData,
+  owedToday,
+  owedWeek,
 }: DashboardMetricsProps) {
   const marginChange = `${Math.abs(Math.round(grossMarginPct - prevGrossMarginPct))}pp`;
   const isMarginUp = grossMarginPct >= prevGrossMarginPct;
 
+  const marginHint = totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet";
+  const marginDisplay = totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%";
+  const marginDelta = totalSales > 0 ? marginChange : undefined;
+  const salesCard = (classic: boolean) => (
+    <MetricCard
+      variant="hero"
+      title="Total Sales"
+      value={totalSales}
+      change={salesChange}
+      isPositive={isSalesUp}
+      icon={ShoppingBag}
+      sparkData={sparkData}
+      classic={classic}
+      stats={classic ? undefined : [
+        { label: "Expenses", value: totalExpenses, change: expensesChange, isPositive: isExpensesDown },
+        { label: "Net profit", value: netProfit, change: profitChange, isPositive: isProfitUp },
+        { label: "Margin", value: grossMarginPct, displayValue: marginDisplay, change: marginDelta, isPositive: isMarginUp, hint: marginHint },
+      ]}
+    />
+  );
+
   return (
-    <Box
-      component={motion.div}
-      variants={cardContainerVariants}
-      initial="hidden"
-      animate="show"
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: 'repeat(2, 1fr)', lg: 'repeat(6, 1fr)' },
-        gap: { xs: 0.75, sm: 2 }
-      }}
-    >
-      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: { xs: 'span 2', lg: 'span 2' } }}>
-        <MetricCard
-          variant="hero"
-          title="Total Sales"
-          value={totalSales}
-          change={salesChange}
-          isPositive={isSalesUp}
-          icon={ShoppingBag}
-          sparkData={sparkData}
-        />
+    <>
+      {/* Below 1200px: the headline card with the owed row. */}
+      <Box sx={styles.compactOnly}>
+        <Box component={motion.div} variants={cardContainerVariants} initial="hidden" animate="show" sx={styles.grid}>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.heroCell}>{salesCard(false)}</Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.owedRow}>
+            <StatTile compact tone={outstandingDebt > 0 ? "error" : "neutral"} label="Total owed" value={naira(outstandingDebt)}
+              caption={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"} />
+            <StatTile compact tone={owedToday.amount > 0 ? "warning" : "neutral"} label="Owed today" value={naira(owedToday.amount)} caption={customers(owedToday.customers)} />
+            <StatTile compact tone={owedWeek.amount > 0 ? "error" : "neutral"} label="Owed 7 days" value={naira(owedWeek.amount)} caption={customers(owedWeek.customers)} />
+          </Box>
+        </Box>
       </Box>
 
-      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
-        <MetricCard
-          title="Expenses"
-          value={totalExpenses}
-          change={expensesChange}
-          isPositive={isExpensesDown}
-          icon={DollarSign}
-        />
+      {/* 1200px and up: the classic row of separate cards, with the two debt tiles under it. */}
+      <Box sx={styles.desktopOnly}>
+        <Box component={motion.div} variants={cardContainerVariants} initial="hidden" animate="show" sx={styles.classicGrid}>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicHeroCell}>{salesCard(true)}</Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard title="Expenses" value={totalExpenses} change={expensesChange} isPositive={isExpensesDown} icon={DollarSign} />
+          </Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard title="Net Profit" value={netProfit} change={profitChange} isPositive={isProfitUp} icon={BarChart2} />
+          </Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard variant="alert" title="Outstanding Debt" value={outstandingDebt} icon={AlertCircle}
+              subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"} />
+          </Box>
+          <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
+            <MetricCard title="Gross Margin" value={grossMarginPct} displayValue={marginDisplay} change={marginDelta} isPositive={isMarginUp} icon={Percent} subLabel={marginHint} />
+          </Box>
+        </Box>
+        <Box sx={styles.classicDebtTiles}>
+          <StatTile tone={owedToday.amount > 0 ? "warning" : "neutral"} label="Owed from today's jobs" value={naira(owedToday.amount)} caption={customers(owedToday.customers)} />
+          <StatTile tone={owedWeek.amount > 0 ? "error" : "neutral"} label="Owed from the last 7 days" value={naira(owedWeek.amount)} caption={customers(owedWeek.customers)} />
+        </Box>
       </Box>
-
-      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
-        <MetricCard
-          title="Net Profit"
-          value={netProfit}
-          change={profitChange}
-          isPositive={isProfitUp}
-          icon={BarChart2}
-        />
-      </Box>
-
-      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
-        <MetricCard
-          variant="alert"
-          title="Outstanding Debt"
-          value={outstandingDebt}
-          icon={AlertCircle}
-          subLabel={unpaidCount > 0 ? `${unpaidCount} unpaid jobs` : "All cleared ✓"}
-        />
-      </Box>
-
-      <Box component={motion.div} variants={cardItemVariants} sx={{ gridColumn: 'span 1' }}>
-        <MetricCard
-          title="Gross Margin"
-          value={grossMarginPct}
-          displayValue={totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%"}
-          change={totalSales > 0 ? marginChange : undefined}
-          isPositive={isMarginUp}
-          icon={Percent}
-          subLabel={totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet"}
-        />
-      </Box>
-    </Box>
+    </>
   );
 }

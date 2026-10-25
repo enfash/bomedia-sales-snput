@@ -8,9 +8,11 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
+import { receiptModalStyles as styles } from "@/app/theme";
 import { ReceiptTemplate } from "@/components/receipt-template";
 import { Download, Loader2 } from "lucide-react";
 import type { UnifiedRecord } from "@/components/manage-sale-action";
+import { useBusinessDetails } from "@/lib/business-details";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -24,6 +26,8 @@ interface ReceiptModalProps {
 export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModalProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  // Hold the download until the business details have loaded, so the PDF never captures stale payment details.
+  const { ready: detailsReady } = useBusinessDetails(isOpen);
 
   const handleDownload = async () => {
     if (!receiptRef.current) return;
@@ -99,66 +103,56 @@ export function ReceiptModal({ isOpen, onClose, records, salesId }: ReceiptModal
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      slotProps={{ paper: { sx: { borderRadius: 4, maxHeight: "90vh", display: "flex", flexDirection: "column", bgcolor: "grey.100" } } }}
+      slotProps={{ paper: { sx: styles.paper } }}
     >
-      <DialogTitle
-        component="div"
-        sx={{ p: { xs: 2, md: 3 }, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "grey.100", flexShrink: 0 }}
-      >
-        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+      <DialogTitle component="div" sx={styles.title}>
+        <Stack direction="row" sx={styles.titleRow}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 900, color: "text.primary" }}>
+            <Typography variant="h6" sx={styles.heading}>
               Receipt Preview
             </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
+            <Typography variant="caption" sx={styles.caption}>
               Preview your receipt before downloading.
             </Typography>
           </Box>
           <Button
             variant="contained"
             onClick={handleDownload}
-            disabled={isGenerating || records.length === 0}
+            disabled={isGenerating || records.length === 0 || !detailsReady}
             startIcon={isGenerating ? (
-              <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
+              <Box sx={styles.spinner}>
                 <Loader2 size={16} />
               </Box>
             ) : <Download size={16} />}
-            sx={{ display: { xs: "none", md: "flex" }, borderRadius: 3 }}
+            sx={styles.downloadDesktop}
           >
             {isGenerating ? "Generating PDF..." : "Download PDF"}
           </Button>
         </Stack>
       </DialogTitle>
 
-      <DialogContent
-        sx={{ p: 0, flexGrow: 1, overflowY: "auto", bgcolor: "grey.100" }}
-      >
-        <Box sx={{ p: { xs: 2, md: 4 }, minWidth: 0, overflowX: "auto" }}>
-          <Box sx={{ minWidth: 800 }}>
-            <Box
-              ref={receiptRef}
-              sx={{ width: 800, bgcolor: "background.paper", boxShadow: 6 }}
-            >
+      <DialogContent sx={styles.body}>
+        <Box sx={styles.scroll}>
+          <Box sx={styles.sheetWrap}>
+            <Box ref={receiptRef} sx={styles.sheet}>
               <ReceiptTemplate records={records} />
             </Box>
           </Box>
         </Box>
       </DialogContent>
 
-      <Box
-        sx={{ p: 2, bgcolor: "background.paper", borderTop: "1px solid", borderColor: "grey.100", flexShrink: 0, display: { xs: "block", md: "none" } }}
-      >
+      <Box sx={styles.footer}>
         <Button
           variant="contained"
           fullWidth
           onClick={handleDownload}
-          disabled={isGenerating || records.length === 0}
+          disabled={isGenerating || records.length === 0 || !detailsReady}
           startIcon={isGenerating ? (
-            <Box sx={{ animation: "spin 1s linear infinite", display: "flex", "@keyframes spin": { "100%": { transform: "rotate(360deg)" } } }}>
+            <Box sx={styles.spinner}>
               <Loader2 size={20} />
             </Box>
           ) : <Download size={20} />}
-          sx={{ borderRadius: 3, height: 48, fontSize: "1rem", fontWeight: 700 }}
+          sx={styles.downloadMobile}
         >
           {isGenerating ? "Generating PDF..." : "Download PDF"}
         </Button>

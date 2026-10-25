@@ -5,6 +5,9 @@ import { TrendingUp, TrendingDown, Minus, Package } from "lucide-react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import { profitabilityStyles as styles } from "@/app/theme";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,145 +116,104 @@ export function ProfitabilityWidget({ sales, inventory }: ProfitabilityWidgetPro
       .sort((a, b) => b.revenue - a.revenue);
   }, [sales, costMap]);
 
+  const title = (
+    <Box sx={styles.title}>
+      <TrendingUp size={16} />
+      <Typography variant="h5" component="h3" color="text.primary">Material Profitability</Typography>
+    </Box>
+  );
+
   if (materialStats.length === 0) {
     return (
-      <Box sx={{ bgcolor: "background.paper", borderRadius: 4, border: "1px solid", borderColor: "grey.100", boxShadow: 1, p: 2.5 }}>
-        <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 2 }}>
-          <TrendingUp size={16} style={{ color: "var(--mui-palette-primary-main)" }} />
-          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.primary" }}>
-            Material Profitability
-          </Typography>
-        </Stack>
-        <Box sx={{ textAlign: "center", py: 4 }}>
-          <Package size={32} style={{ color: "var(--mui-palette-grey-300)", margin: "0 auto 8px" }} />
-          <Typography sx={{ fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" }}>
-            No sales data to analyse
-          </Typography>
-        </Box>
-      </Box>
+      <Card sx={styles.card}>
+        <CardContent>
+          <Box sx={styles.header}>{title}</Box>
+          <Box sx={styles.empty}>
+            <Package size={32} aria-hidden />
+            <Typography variant="body2" sx={styles.emptyIcon}>No sales data to analyse</Typography>
+          </Box>
+        </CardContent>
+      </Card>
     );
   }
 
   const maxRevenue = Math.max(...materialStats.map((m) => m.revenue), 1);
 
   return (
-    <Box sx={{ bgcolor: "background.paper", borderRadius: 4, border: "1px solid", borderColor: "grey.100", boxShadow: 1, p: 2.5 }}>
-      {/* Header */}
-      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
-        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-          <TrendingUp size={16} style={{ color: "var(--mui-palette-primary-main)" }} />
-          <Typography sx={{ fontSize: "0.875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.primary" }}>
-            Material Profitability
+    <Card sx={styles.card}>
+      <CardContent>
+        <Box sx={styles.header}>
+          {title}
+          <Typography variant="overline" color="text.secondary">
+            {materialStats.reduce((s, m) => s + m.jobCount, 0)} jobs
           </Typography>
-        </Stack>
-        <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "text.secondary" }}>
-          {materialStats.reduce((s, m) => s + m.jobCount, 0)} jobs
-        </Typography>
-      </Stack>
+        </Box>
 
-      {/* Per-material rows */}
-      <Stack sx={{ gap: 2 }}>
-        {materialStats.map((mat) => {
-          const margin = mat.marginPct;
-          const isGood = margin !== null && margin >= 40;
-          const isOk = margin !== null && margin >= 20 && margin < 40;
-          const isBad = margin !== null && margin < 20;
-          const noData = margin === null || !mat.hasCostData;
+        <Box component="ul" sx={[styles.list, { listStyle: "none", m: 0, p: 0 }]}>
+          {materialStats.map((mat) => {
+            const margin = mat.marginPct;
+            const noData = margin === null || !mat.hasCostData;
+            const band = noData ? "none" : margin >= 40 ? "good" : margin >= 20 ? "ok" : "bad";
+            const tone = styles.tone[band];
+            const Icon = band === "good" ? TrendingUp : band === "bad" ? TrendingDown : Minus;
 
-          const barColor = noData
-            ? "grey.200"
-            : isGood
-            ? "success.main"
-            : isOk
-            ? "warning.main"
-            : "error.main";
-
-          const marginColor = noData
-            ? "text.disabled"
-            : isGood
-            ? "success.dark"
-            : isOk
-            ? "warning.dark"
-            : "error.dark";
-
-          const Icon = noData ? Minus : isGood ? TrendingUp : isBad ? TrendingDown : Minus;
-
-          return (
-            <Stack key={mat.name} sx={{ gap: 1 }}>
-              {/* Top row */}
-              <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                <Stack direction="row" sx={{ alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <Box sx={{ color: marginColor, display: "flex" }}>
-                    <Icon size={14} />
+            return (
+              <Box component="li" key={mat.name} sx={styles.item}>
+                <Box sx={styles.topRow}>
+                  <Box sx={styles.nameRow}>
+                    <Box sx={[styles.icon, { color: tone.text }]}><Icon size={14} aria-hidden /></Box>
+                    <Typography variant="subtitle2" sx={styles.name}>{mat.name}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={styles.noShrink}>
+                      {mat.jobCount} job{mat.jobCount !== 1 ? "s" : ""}
+                    </Typography>
                   </Box>
-                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {mat.name}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: "text.secondary", flexShrink: 0 }}>
-                    {mat.jobCount} job{mat.jobCount !== 1 ? "s" : ""}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexShrink: 0 }}>
-                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: "text.primary" }}>
-                    {fmtMoney(mat.revenue)}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, minWidth: 46, textAlign: "right", color: marginColor }}>
-                    {noData ? "—%" : `${margin!.toFixed(0)}%`}
-                  </Typography>
-                </Stack>
-              </Stack>
+                  <Box sx={styles.figures}>
+                    <Typography variant="subtitle2">{fmtMoney(mat.revenue)}</Typography>
+                    <Typography variant="subtitle2" sx={[styles.margin, { color: tone.text }]}>
+                      {noData ? "—%" : `${margin.toFixed(0)}%`}
+                    </Typography>
+                  </Box>
+                </Box>
 
-              {/* Revenue bar */}
-              <Box sx={{ height: 8, borderRadius: 99, bgcolor: "grey.100", overflow: "hidden" }}>
-                <Box
-                  sx={{
-                    height: "100%",
-                    borderRadius: 99,
-                    width: `${(mat.revenue / maxRevenue) * 100}%`,
-                    bgcolor: barColor,
-                    transition: "width 500ms ease-out",
-                  }}
-                />
+                <Box sx={styles.track}>
+                  <Box sx={[styles.fill, { width: `${(mat.revenue / maxRevenue) * 100}%`, bgcolor: tone.bar }]} />
+                </Box>
+
+                <Box sx={styles.detailRow}>
+                  <Typography variant="caption" color="text.secondary">
+                    {mat.sqftSold > 0 ? `${mat.sqftSold.toFixed(0)} sqft sold` : "no dimension data"}
+                    {mat.avgPricePerSqft > 0 && ` · ₦${mat.avgPricePerSqft.toFixed(0)}/sqft avg`}
+                  </Typography>
+                  {mat.hasCostData && mat.estimatedCost > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      est. cost {fmtMoney(mat.estimatedCost)} · profit {fmtMoney(mat.profit)}
+                    </Typography>
+                  )}
+                  {!mat.hasCostData && (
+                    <Typography variant="caption" color="text.secondary" sx={styles.hint}>
+                      add material cost to see margin
+                    </Typography>
+                  )}
+                </Box>
               </Box>
+            );
+          })}
+        </Box>
 
-              {/* Sub-row: sqft & cost detail */}
-              <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
-                <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
-                  {mat.sqftSold > 0 ? `${mat.sqftSold.toFixed(0)} sqft sold` : "no dimension data"}
-                  {mat.avgPricePerSqft > 0 && ` · ₦${mat.avgPricePerSqft.toFixed(0)}/sqft avg`}
-                </Typography>
-                {mat.hasCostData && mat.estimatedCost > 0 && (
-                  <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500 }}>
-                    est. cost {fmtMoney(mat.estimatedCost)} · profit {fmtMoney(mat.profit)}
-                  </Typography>
-                )}
-                {!mat.hasCostData && (
-                  <Typography sx={{ fontSize: "0.625rem", color: "text.secondary", fontWeight: 500, fontStyle: "italic" }}>
-                    add material cost to see margin
-                  </Typography>
-                )}
-              </Stack>
-            </Stack>
-          );
-        })}
-      </Stack>
-
-      {/* Legend */}
-      <Stack direction="row" sx={{ alignItems: "center", gap: 2, mt: 2.5, pt: 2, borderTop: "1px solid", borderColor: "grey.50" }}>
-        {[
-          { color: "success.main", label: "≥40% margin" },
-          { color: "warning.main", label: "20–40%" },
-          { color: "error.main", label: "<20%" },
-          { color: "grey.200", label: "No cost data" },
-        ].map(({ color, label }) => (
-          <Stack key={label} direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
-            <Typography sx={{ fontSize: "0.5625rem", color: "text.secondary", fontWeight: 500 }}>
-              {label}
-            </Typography>
-          </Stack>
-        ))}
-      </Stack>
-    </Box>
+        <Box sx={styles.legend}>
+          {[
+            { color: styles.tone.good.bar, label: "≥40% margin" },
+            { color: styles.tone.ok.bar, label: "20–40%" },
+            { color: styles.tone.bad.bar, label: "<20%" },
+            { color: styles.tone.none.bar, label: "No cost data" },
+          ].map(({ color, label }) => (
+            <Box key={label} sx={styles.legendItem}>
+              <Box sx={[styles.dot, { bgcolor: color }]} />
+              <Typography variant="caption" color="text.secondary">{label}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </CardContent>
+    </Card>
   );
 }

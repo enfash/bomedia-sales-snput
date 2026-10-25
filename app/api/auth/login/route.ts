@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { signToken } from "@/lib/auth-utils";
+import { adminAuthMode } from "@/lib/server/admin-auth";
+import { adminPasswordLogin } from "@/lib/server/admin-auth-routes";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  // With ADMIN_AUTH=supabase the owner signs in through Supabase (password, then a 6-digit code); the old password below is not accepted.
+  if (adminAuthMode() === "supabase") return adminPasswordLogin(request);
   try {
     const { email, password } = await request.json();
 

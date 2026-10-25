@@ -4,7 +4,7 @@ import { forwardRef } from "react";
 import { UnifiedRecord } from "./manage-sale-action";
 import { format } from "date-fns";
 import { RECEIPT_LOGO_DATA_URI, RECEIPT_LOGO_ASPECT } from "@/lib/receipt-logo";
-import { BUSINESS_DETAILS } from "@/lib/constants";
+import { useBusinessDetails } from "@/lib/business-details";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -18,6 +18,7 @@ interface ReceiptTemplateProps {
 
 export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
   ({ records }, ref) => {
+    const { details } = useBusinessDetails();
     if (!records || records.length === 0) return null;
 
     const primary = records[0];
@@ -209,15 +210,15 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           <Stack sx={{ gap: 0.75 }}>
             <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
               <Typography sx={{ color: "grey.500" }}>Account Name</Typography>
-              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>{BUSINESS_DETAILS.accountName}</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>{details.accountName}</Typography>
             </Stack>
             <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
               <Typography sx={{ color: "grey.500" }}>Account Number</Typography>
-              <Typography sx={{ fontWeight: 900, color: "grey.900", letterSpacing: "0.1em" }}>{BUSINESS_DETAILS.accountNumber}</Typography>
+              <Typography sx={{ fontWeight: 900, color: "grey.900", letterSpacing: "0.1em" }}>{details.accountNumber}</Typography>
             </Stack>
             <Stack direction="row" sx={{ justifyContent: "space-between", fontSize: "0.875rem" }}>
               <Typography sx={{ color: "grey.500" }}>Bank</Typography>
-              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>{BUSINESS_DETAILS.bank}</Typography>
+              <Typography sx={{ fontWeight: "bold", color: "grey.900" }}>{details.bank}</Typography>
             </Stack>
           </Stack>
         </Box>
@@ -230,12 +231,12 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           {/* The footer used to read "For inquiries, please contact us" with no
               way to actually do so. */}
           <Typography sx={{ fontSize: "0.75rem", color: "grey.600", fontWeight: 500 }}>
-            {BUSINESS_DETAILS.phone}
+            {details.phone}
             <Box component="span" sx={{ color: "grey.300", mx: 1 }}>|</Box>
-            {BUSINESS_DETAILS.email}
+            {details.email}
           </Typography>
           <Typography sx={{ fontSize: "0.75rem", color: "grey.500", mt: 0.5 }}>
-            {BUSINESS_DETAILS.address}
+            {details.address}
           </Typography>
         </Box>
       </Box>
