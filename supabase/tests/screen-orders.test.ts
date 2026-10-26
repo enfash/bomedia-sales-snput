@@ -6,6 +6,48 @@ const print=()=>({kind:'print',ref:material,description:'Banner',quantity:'2',wi
 const call=async(key:string,extra:Record<string,unknown>={})=>(await db.query<{result:Record<string,any>}>(
  'select bomedia.api_screen_order($1,$2::jsonb) as result',[key,JSON.stringify({actor_id:staff,operation:'sale',businessDate:'2026-10-08',clientName:'Grace Chapel',contact:'0803',jobStatus:'Printing',initialPaymentKobo:'500000',paymentMethod:'transfer',totalKobo:'960000',items:[print()],...extra})])).rows[0].result;
 const owned=async(sql:string)=>{await db.exec('reset role');const rows=(await db.query<Record<string,string>>(sql)).rows;await db.exec('set local role bomedia_financial_runtime');return rows;};
+
+it('records the screenshot amounts across five materials, with one full receipt and separate income that replays once',async()=>{
+ const items=[];
+ for (const width of [10,8,6,4,3]) {
+  const [m]=await owned(`insert into bomedia.materials(name,width_ft,selling_price_per_sqft_kobo) values ('Synthetic Flex ${width}',${width},15116150) returning id::text`);
+  await owned(`insert into bomedia.inventory_rolls(material_id,item_name,width_ft,total_length_ft,remaining_length_ft,purchase_cost_kobo,selling_price_kobo) values ('${m.id}','Synthetic roll',${width},100,100,0,15116150)`);
+  items.push({...print(),ref:m.id,quantity:'1',width:'2',height:'2',priceKobo:'15116150'});
+ }
+ const payload={items,totalKobo:'302323000',initialPaymentKobo:'302400000'};
+ const saved=await call('five-materials-extra',payload);
+ expect(saved.job_ids).toHaveLength(5);
+ expect(saved.initial_payment).toMatchObject({amount_kobo:'302400000',extra_income_kobo:'77000'});
+ expect(await owned('select sum(amount_kobo)::text n from bomedia.payment_allocations')).toEqual([{n:'302323000'}]);
+ expect(await owned('select sum(balance_kobo)::text n from bomedia.job_balances')).toEqual([{n:'0'}]);
+ expect(await owned("select account_code,sum(debit_kobo-credit_kobo)::text n from bomedia.journal_lines where account_code in ('1010','1100','4020','2100') group by account_code order by account_code"))
+   .toEqual([{account_code:'1010',n:'302400000'},{account_code:'1100',n:'0'},{account_code:'4020',n:'-77000'}]);
+ const profile=(await db.query<{r:{payments:unknown[]}}>('select bomedia.api_customer_profile($1) r',[saved.customer_id])).rows[0].r;
+ expect(profile.payments).toMatchObject([{amount_kobo:'302400000',extra_income_kobo:'77000'}]);
+ const feed=(await db.query<{r:Record<string,string>[]}>('select bomedia.api_legacy_feed($1) r',['sales'])).rows[0].r;
+ expect(feed.every(row=>Number(row['AMOUNT DIFFERENCES'])===0)).toBe(true);
+ expect(feed.reduce((sum,row)=>sum+Number(row['EXTRA INCOME (₦)']),0)).toBe(770);
+ const payments=(await db.query<{r:Record<string,string>[]}>('select bomedia.api_legacy_feed($1) r',['payments'])).rows[0].r;
+ expect(payments).toMatchObject([{'PAYMENT TYPE':'Extra income',AMOUNT:'770',DATE:'2026-10-08'}]);
+ const shift=(await db.query<{r:{payments:Record<string,string>[]}}>('select bomedia.api_shift_report($1,$2) r',['2026-10-08',JSON.stringify({actor_id:staff})])).rows[0].r;
+ expect(shift.payments).toMatchObject([{_amountKobo:'302400000'}]);
+ await owned('update bomedia.materials set selling_price_per_sqft_kobo=1');
+ expect(await call('five-materials-extra',payload)).toEqual(saved);
+ await failure(()=>call('five-materials-extra',{...payload,initialPaymentKobo:'302400001'}));
+ expect(await owned('select count(*)::text n from bomedia.payments')).toEqual([{n:'1'}]);
+ expect(await owned('select count(*)::text n from bomedia.payment_extra_income')).toEqual([{n:'1'}]);
+});
+
+it('rolls back sale, stock, payment and excess if the income account cannot be posted',async()=>{
+ await owned("update bomedia.ledger_accounts set active=false where code='4020'");
+ await db.exec('savepoint income_failure');
+ await expect(call('income-failure',{initialPaymentKobo:'960001'})).rejects.toThrow();
+ await db.exec('rollback to savepoint income_failure');
+ expect(await owned('select count(*)::text n from bomedia.orders')).toEqual([{n:'0'}]);
+ expect(await owned('select count(*)::text n from bomedia.payments')).toEqual([{n:'0'}]);
+ expect(await owned('select count(*)::text n from bomedia.payment_extra_income')).toEqual([{n:'0'}]);
+ expect(await owned('select remaining_length_ft::text n from bomedia.inventory_rolls')).toEqual([{n:'100.000000'}]);
+});
 async function failure(work:()=>Promise<unknown>,code='22023') {await db.exec('savepoint rejected');await expect(work()).rejects.toMatchObject({code});await db.exec('rollback to savepoint rejected');}
 beforeAll(async()=>{db=await testDatabase();},30000);afterAll(async()=>{await db?.close();});
 beforeEach(async()=>{
@@ -49,9 +91,8 @@ it('services consume no rolls; typed print prices are flagged',async()=>{
  await call('typed',{items:[{...print(),priceKobo:'12000'}],totalKobo:'768000',initialPaymentKobo:'0'});
  expect(await owned("select kind from bomedia.sale_reviews")).toEqual([{kind:'price'}]);
 });
-it('rejects changed totals, excess payments, unapproved service prices and changed request bodies without partial writes',async()=>{
+it('rejects changed totals, unapproved service prices and changed request bodies without partial writes',async()=>{
  await failure(()=>call('bad-total',{totalKobo:'960001'}));
- await failure(()=>call('too-much',{initialPaymentKobo:'960001'}));
  await failure(()=>call('bad-service',{items:[{kind:'service',ref:service,description:'Design',quantity:'1',priceKobo:'1'}],totalKobo:'1',initialPaymentKobo:'0'}));
  expect(await owned('select count(*)::text as n from bomedia.orders')).toEqual([{n:'0'}]);
  await call('stable');await failure(()=>call('stable',{initialPaymentKobo:'0'}));
@@ -74,7 +115,7 @@ it('records free catalog services with no receipt, stock movement or zero-value 
  expect(await owned('select remaining_length_ft::text as n from bomedia.inventory_rolls')).toEqual([{n:'100.000000'}]);
  const mixed=await call('free-and-print',{items:[free,print()],totalKobo:'960000'});
  expect(mixed.job_ids).toHaveLength(2);expect(mixed.journal_entry_ids).toHaveLength(1);expect(mixed.initial_payment.payment_id).toBeTruthy();
- await failure(()=>call('free-overpaid',{...payload,initialPaymentKobo:'1'}));
+ expect((await call('free-extra-income',{...payload,initialPaymentKobo:'1'})).initial_payment.extra_income_kobo).toBe('1');
  await failure(()=>call('free-print',{items:[{...print(),priceKobo:'0'}],totalKobo:'0',initialPaymentKobo:'0'}));
  await owned('update bomedia.services set visible=false');
  await failure(()=>call('hidden-free',payload));

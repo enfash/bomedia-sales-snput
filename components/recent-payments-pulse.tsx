@@ -18,6 +18,7 @@ const PAYMENT_TYPE_STYLES: Record<string, { tone: keyof typeof paymentTypeStyles
   "Additional Payment 2": { tone: "addl2", label: "Addl. 2" },
   "Settlement":           { tone: "settlement", label: "Settlement" },
   "Rounding":             { tone: "rounding", label: "Rounding" },
+  "Extra income":         { tone: "rounding", label: "Extra income" },
   "Lump Sum":             { tone: "lumpSum", label: "Lump Sum" },
 };
 

@@ -14,6 +14,17 @@ const id='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-8000-0
 const context={backend:'postgres' as const,staffId:id};
 const order=():ScreenOrder=>({version:3,backend:'postgres',operation:'sale',requestId:id,expectedStaffId:id,businessDate:'2026-10-08',clientName:'Ada',contact:'0803',jobStatus:'Quoted',initialPaymentKobo:'99',paymentMethod:'pos',totalKobo:'100',items:[{kind:'service',ref:id,description:'Design',quantity:'1',priceKobo:'100'}]});
 const result=()=>({request_id:id,actor_id:id,business_date:'2026-10-08',total_kobo:'100',initial_payment_kobo:'99',order_id:id,sales_id:'BOM-20261008-10000',job_ids:[id],journal_entry_ids:[id],initial_payment:{payment_id:id,journal_entry_id:id}});
+it('retains excess payments through a lost response and requires confirmation of the full amount and income split',async()=>{
+ const storage=new MemoryStorage(),extra={...order(),initialPaymentKobo:'101'},saved=persistOrder(storage,extra);
+ const receipt={...result(),initial_payment_kobo:'101',initial_payment:{payment_id:id,journal_entry_id:id,amount_kobo:'101',extra_income_kobo:'1'}};
+ const send=vi.fn<typeof fetch>().mockRejectedValueOnce(new Error('lost response')).mockResolvedValueOnce(Response.json({...receipt,initial_payment:{...receipt.initial_payment,extra_income_kobo:'0'}})).mockResolvedValueOnce(Response.json(receipt));
+ expect(await deliverOrder(storage,saved,context,send)).toBeNull();
+ expect(await deliverOrder(storage,readOrders(storage)[0],context,send)).toBeNull();
+ expect(readOrders(storage)).toHaveLength(1);
+ expect(await deliverOrder(storage,readOrders(storage)[0],context,send)).toEqual(receipt);
+ expect(new Set(send.mock.calls.map(call=>call[1]?.body)).size).toBe(1);
+ expect(readOrders(storage)).toEqual([]);
+});
 it('stores before sending and retries exactly the original payload after a lost confirmation and midnight restart',async()=>{
  const storage=new MemoryStorage(),saved=persistOrder(storage,order());
  const send=vi.fn<typeof fetch>().mockImplementationOnce(async()=>{expect(readOrders(storage)).toHaveLength(1);throw new Error('lost confirmation');}).mockImplementationOnce(async()=>Response.json(result()));
@@ -53,15 +64,15 @@ it('only removes entries after complete matching confirmations, including the sa
  }
  expect(confirmedOrder({...result(),estimate_id:id,quote_number:'QT-100000',initial_payment_kobo:'0'},{...order(),operation:'quote',initialPaymentKobo:'0'})).toBe(true);
 });
-it('rounds inch dimensions per piece in exact kobo and rejects missing method, fractional quantities and excess payment',()=>{
+it('rounds inch dimensions per piece in exact kobo and rejects missing method and fractional quantities',()=>{
  expect(orderItemTotal({kind:'print',ref:'Flex',description:'Print',width:'26',height:'26',unit:'in',quantity:'3',priceKobo:'15000'})).toBe('211251');
- for(const change of [{initialPaymentKobo:'101'},{paymentMethod:undefined},{totalKobo:'101'},{items:[{...order().items[0],quantity:'1.5'}]}])expect(()=>orderContract({...order(),...change})).toThrow();
+ for(const change of [{paymentMethod:undefined},{totalKobo:'101'},{items:[{...order().items[0],quantity:'1.5'}]}])expect(()=>orderContract({...order(),...change})).toThrow();
 });
-it('confirms a free service with a business record and no payment or journal, and refuses free print or excess money',()=>{
+it('confirms a free service with a business record and no payment or journal, and permits extra income but refuses free print',()=>{
  const free={...order(),initialPaymentKobo:'0',totalKobo:'0',items:[{...order().items[0],priceKobo:'0'}]};
  expect(orderContract(free)).toEqual(free);
  expect(confirmedOrder({...result(),total_kobo:'0',initial_payment_kobo:'0',initial_payment:null,journal_entry_ids:[]},free)).toBe(true);
- expect(()=>orderContract({...free,initialPaymentKobo:'1'})).toThrow();
+ expect(orderContract({...free,initialPaymentKobo:'1'}).initialPaymentKobo).toBe('1');
  expect(()=>orderContract({...free,items:[{kind:'print',ref:'Flex',description:'Not free',quantity:'1',width:'2',height:'3',unit:'ft',priceKobo:'0'}]})).toThrow();
 });
 it('hands a held sale to the server, clears the device queue and keeps a note of what happened',async()=>{

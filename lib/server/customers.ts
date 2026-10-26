@@ -12,7 +12,7 @@ export type CustomerProfile = {
   customer: CustomerRow;
   /** `items` is each item of the order (migration 56); absent until that migration is applied. */
   sales: { sales_id: string; date: string | null; jobs: number; what: string; items?: SaleItemRaw[]; total_kobo: string; paid_kobo: string; owed_kobo: string }[];
-  payments: { reference: string; date: string | null; amount_kobo: string; method: string; by: string }[];
+  payments: { reference: string; date: string | null; amount_kobo: string; extra_income_kobo?: string; method: string; by: string }[];
   changes: { at: string; by: string; changes: Record<string, { from: string | null; to: string | null }> }[];
 };
 

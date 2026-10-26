@@ -31,7 +31,7 @@ import { paymentContext, cachedPaymentContext } from '@/lib/payment-outbox';
 import { lagosBusinessDate, nairaToKobo } from '@/lib/accounting-entry';
 import { saveScreenOrder } from '@/lib/order-outbox';
 import { entryChanges, type ApprovalRuleRow, type EntryChange } from '@/lib/approvals-view';
-import { phoneProblem } from '@/lib/new-sale';
+import { paymentSummary, phoneProblem } from '@/lib/new-sale';
 import { OrderPanel, TotalBar } from '@/components/new-sale/order-panel';
 import { ReviewSheet } from '@/components/new-sale/review-sheet';
 import { newSaleStyles as styles } from '@/app/theme';
@@ -412,7 +412,9 @@ export function SalesEntry() {
   }, [materials,backendReady,postgres]);
 
   // ── Totals ───────────────────────────────────────────────────────────────
-  const grandTotal = useMemo(() => postgres ? Number(orderTotal(cart.map(i=>cartOrderItem(i,catalog))))/100 : cart.reduce((s, i) => s + i.totalAmount, 0), [cart, postgres, catalog]);
+  const totalKobo = useMemo(() => postgres ? orderTotal(cart.map(i=>cartOrderItem(i,catalog))) : Math.round(cart.reduce((s,i)=>s+i.totalAmount,0)*100).toString(), [cart, postgres, catalog]);
+  const grandTotal = Number(totalKobo)/100;
+  const payment = paymentSummary(meta.initialPayment,totalKobo,paidBy);
   const initialPaymentNum = parseFloat(meta.initialPayment) || 0;
   const balance = grandTotal - initialPaymentNum;
   const paymentStatus = useMemo(() => {
@@ -481,8 +483,7 @@ export function SalesEntry() {
     if (canonicalClient !== meta.clientName) setMetaField("clientName", canonicalClient);
     if (cart.length === 0) { toast.error("Add at least one job to the order"); return; }
     if (initialPaymentNum > 0 && !paidBy) { toast.error("Choose how the customer paid: Cash, Transfer or POS"); return; }
-    const paid = nairaToKobo(meta.initialPayment || '0');
-    if (paid === null || BigInt(paid) > BigInt(orderTotal(cart.map(i=>cartOrderItem(i,catalog))))) { toast.error('Enter a valid payment no greater than the order total.'); return; }
+    if (payment.problem) { toast.error(payment.problem); return; }
     setReviewChanges(approvalRules && !approvalRules.isOwner && catalog
       ? entryChanges({ businessDate: meta.date, today: lagosBusinessDate(), items: cart.map(i=>cartOrderItem(i,catalog)), materials: catalog.materials }, approvalRules.rules)
       : []);
@@ -491,6 +492,7 @@ export function SalesEntry() {
 
   const handleSave = async (reason?: string, acceptedRestoredPrices = false) => {
     if (savingRef.current) return;
+    if (payment.problem) { toast.error(payment.problem); return; }
     const contactProblem = phoneProblem(meta.contact, Math.round(balance * 100));
     if (contactProblem) { toast.error(contactProblem); return; }
     savingRef.current = true; setSaving(true);
@@ -517,6 +519,7 @@ export function SalesEntry() {
         return;
       }
       if (cart.some(i=>i.orderItem?.kind==='service') || loadedQuote) throw new Error('This order belongs to PostgreSQL. Reconnect before saving.');
+      if (initialPaymentNum > grandTotal) throw new Error('Extra income needs the current sales database. Reconnect before saving this payment.');
     } catch(error) { toast.error(error instanceof Error ? error.message : 'Order could not be saved.'); return; }
     finally { savingRef.current=false;setSaving(false); }
     savingRef.current=true;setSaving(true);
@@ -938,7 +941,7 @@ export function SalesEntry() {
       <ReviewSheet
         key={String(showConfirm)}
         open={showConfirm} onClose={() => setShowConfirm(false)} saving={saving}
-        meta={meta} cart={cart} grandTotal={grandTotal} balance={balance} paymentStatus={paymentStatus}
+        meta={meta} cart={cart} grandTotal={grandTotal} totalKobo={totalKobo} balance={balance} paymentStatus={paymentStatus}
         stages={JOB_STATUSES} onStage={(stage) => setMetaField("jobStatus", stage)} onPaid={(value) => setMetaField("initialPayment", value)} onContact={(value) => setMetaField("contact", value)}
         paidBy={paidBy} onPaidBy={setPaidBy} changes={reviewChanges} onSave={(reason) => void handleSave(reason)}
       />

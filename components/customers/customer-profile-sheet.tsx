@@ -120,6 +120,7 @@ export function CustomerProfileSheet({ customer, role, onClose, onChanged }: {
             <Box sx={styles.lineMain}>
               <Typography sx={styles.lineName}><Box component="span" sx={styles.ref}>{payment.reference}</Box></Typography>
               <Typography variant="body2" color="text.secondary">{dayLabel(payment.date)}{payment.method ? ` · ${payment.method}` : ''}{payment.by ? ` · ${payment.by}` : ''}</Typography>
+              {payment.extra_income_kobo && payment.extra_income_kobo !== '0' && <Typography variant="body2" color="text.secondary">Includes {money(payment.extra_income_kobo)} extra income · non-refundable</Typography>}
             </Box>
             <Typography sx={{ fontWeight: 700 }}>{money(payment.amount_kobo)}</Typography>
           </Box>)}

@@ -20,7 +20,7 @@ export function orderContract(value: unknown): ScreenOrder {
     || !isUUID(o.expectedStaffId) || !validBusinessDate(o.businessDate) || typeof o.clientName !== 'string' || !o.clientName.trim() || o.clientName.length > 200
     || typeof o.contact !== 'string' || o.contact.length > 100 || !['Quoted','Printing','Finishing','Ready','Delivered'].includes(o.jobStatus)
     || !integer(o.initialPaymentKobo) || !integer(o.totalKobo)
-    || BigInt(o.initialPaymentKobo) > BigInt(o.totalKobo) || (o.operation === 'quote' && o.initialPaymentKobo !== '0')
+    || (o.operation === 'quote' && o.initialPaymentKobo !== '0')
     || (o.initialPaymentKobo !== '0' && normalizePaymentMethod(o.paymentMethod) !== o.paymentMethod)
     || (o.initialPaymentKobo !== '0' && !o.paymentMethod)
     || (o.customerId !== undefined && !isUUID(o.customerId)) || (o.quoteId !== undefined && !isUUID(o.quoteId))
@@ -61,6 +61,9 @@ export function confirmedOrder(value: unknown, order: ScreenOrder): boolean {
     || !Array.isArray(r.job_ids) || r.job_ids.length !== order.items.length || !r.job_ids.every(isUUID)
     || !Array.isArray(r.journal_entry_ids) || r.journal_entry_ids.length !== order.items.filter(i=>orderItemTotal(i)!=='0').length || !r.journal_entry_ids.every(isUUID)) return false;
   const receipt = r.initial_payment as Record<string, unknown> | null;
+  if (BigInt(order.initialPaymentKobo) > BigInt(order.totalKobo)
+    && (!receipt || receipt.amount_kobo !== order.initialPaymentKobo
+      || receipt.extra_income_kobo !== (BigInt(order.initialPaymentKobo)-BigInt(order.totalKobo)).toString())) return false;
   return order.initialPaymentKobo === '0' || !!receipt && isUUID(receipt.payment_id) && isUUID(receipt.journal_entry_id);
 }
 

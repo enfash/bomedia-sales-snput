@@ -45,8 +45,8 @@ it('rolls back all sale/stock/journal writes when the initial receipt account is
   expect((await read('inventory'))[0].remaining_length_ft).toBe('100.000000');
   await db.exec('reset role');expect((await db.query("select * from bomedia.idempotency_requests where operation='api_sale' or operation='sale'")).rows).toHaveLength(0);
 });
-it('refuses stale quotes, excess receipt, impossible dimensions and insufficient stock without consuming anything',async()=>{
-  for(const body of [sale({jobs:[item({expectedUnitPriceKobo:'1'})]}),sale({initialPaymentKobo:'180001'}),
+it('refuses stale quotes, impossible dimensions and insufficient stock without consuming anything',async()=>{
+  for(const body of [sale({jobs:[item({expectedUnitPriceKobo:'1'})]}),
     sale({jobs:[item({widthFt:'5',heightFt:'6',expectedUnitPriceKobo:'300000'})]}),sale({jobs:[item({quantity:'10000'})]})]) {
     await failure(()=>service.sale({staffId:actor},body),{status:409});
   }
