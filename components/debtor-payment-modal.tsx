@@ -118,7 +118,6 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate }: De
     if (context.backend === 'postgres') {
       const jobs = clientRecords.filter(r => r.raw?._jobId ? rowDebtKobo(r.raw) > BigInt(0) : (r.balance || 0) > 0);
       if (!jobs.length || jobs.some(r => !r.raw?._jobId)) throw new Error('Refresh the customer records before recording this payment.');
-      if (BigInt(paymentKobo(paymentInput)) > jobs.reduce((sum, r) => sum + rowDebtKobo(r.raw), BigInt(0))) throw new Error('The amount exceeds this customer’s selected debt. Keep any excess for owner review.');
       await savePostgresPayment(context, { jobIds: jobs.map(r => r.raw._jobId), amountKobo: paymentKobo(paymentInput),
         paymentMethod: paidBy, notes: 'Customer debt collection' }, `Payment for ${clientName}`);
       toast.success('Payment saved on this device. Confirmation will appear after syncing.');
@@ -286,6 +285,7 @@ export function DebtorPaymentModal({ clientName, isOpen, onClose, onUpdate }: De
                 onChange={setPaymentInput}
                 fullWidth
                 sx={styles.amountInput}
+                helperText="Any amount above the selected debt is recorded as extra income, not customer credit."
               />
             </Box>
             <PaidBy value={paidBy} onChange={setPaidBy} disabled={isSubmitting} />

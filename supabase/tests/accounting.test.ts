@@ -162,9 +162,8 @@ it('allocates one receipt over multiple jobs without counting the receipt more t
   expect((await db.query('select id from bomedia.payments')).rows).toHaveLength(1);
 });
 
-it('refuses unestablished opening debt, excess money and a non-cash receiving account', async () => {
+it('refuses unestablished opening debt and a non-cash receiving account', async () => {
   const id = await job();
-  await expectFailure(() => call('record_accounted_payment', 'excess', receipt([id], '17345000')), 'explicit deposit or rounding');
   await expectFailure(() => call('record_accounted_payment', 'wrong-account', receipt([id], '100', { cash_account_code: '4000' })), 'cash or bank account');
   await db.query(`insert into bomedia.job_adjustments(job_id, amount_kobo, kind, reason)
     values ($1, -1, 'correction', 'Test unmatched change')`, [id]);

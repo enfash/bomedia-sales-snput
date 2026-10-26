@@ -18,5 +18,7 @@ export default defineConfig({
     // and can pass 5 seconds when the machine is busy. A real hang still fails, just later.
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // @mui/material imports react-transition-group by directory, which Node’s ESM loader rejects.
+    server: { deps: { inline: [/@mui\/material/] } },
   },
 });

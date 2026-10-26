@@ -9,7 +9,7 @@ import { MoneyField } from "@/components/money-field";
 import { PaidBy } from "@/components/paid-by";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { changeText, changeTitle, type EntryChange } from "@/lib/approvals-view";
-import { phoneProblem } from "@/lib/new-sale";
+import { paymentSummary, phoneProblem } from "@/lib/new-sale";
 import type { OrderCartRow } from "@/lib/order-cart";
 import { groupCart } from "@/lib/split-job";
 import type { PaymentMethod } from "@/lib/payment-methods";
@@ -18,10 +18,10 @@ const money = (n: number) => `₦${n.toLocaleString(undefined, { minimumFraction
 const MAX = 500;
 
 /** The last look before saving: totals, what was paid and how, the job stage, and, when the owner must approve, why. */
-export function ReviewSheet({ open, onClose, saving, meta, cart, grandTotal, balance, paymentStatus, stages, onStage, onPaid, onContact, paidBy, onPaidBy, changes, onSave }: {
+export function ReviewSheet({ open, onClose, saving, meta, cart, grandTotal, totalKobo, balance, paymentStatus, stages, onStage, onPaid, onContact, paidBy, onPaidBy, changes, onSave }: {
   open: boolean; onClose: () => void; saving: boolean;
   meta: { clientName: string; contact: string; date: string; initialPayment: string; jobStatus: string };
-  cart: OrderCartRow[]; grandTotal: number; balance: number; paymentStatus: string;
+  cart: OrderCartRow[]; grandTotal: number; totalKobo: string; balance: number; paymentStatus: string;
   stages: readonly string[]; onStage: (stage: string) => void; onPaid: (value: string) => void; onContact: (value: string) => void;
   paidBy: PaymentMethod | ""; onPaidBy: (method: PaymentMethod | "") => void;
   changes: EntryChange[]; onSave: (reason?: string) => void;
@@ -30,11 +30,12 @@ export function ReviewSheet({ open, onClose, saving, meta, cart, grandTotal, bal
   const trimmed = reason.trim();
   const needsApproval = changes.length > 0;
   const paid = parseFloat(meta.initialPayment) || 0;
+  const payment = paymentSummary(meta.initialPayment, totalKobo, paidBy);
   // Money still owed means we must be able to reach the customer.
   const contactProblem = phoneProblem(meta.contact, Math.round(balance * 100));
   return <ResponsiveSheet open={open} onClose={onClose} busy={saving} title="Review and save"
     footer={<Box sx={styles.reviewFooter}>
-      <Button variant="contained" size="large" disabled={saving || Boolean(contactProblem) || (needsApproval && !trimmed)}
+      <Button variant="contained" size="large" disabled={saving || Boolean(contactProblem) || Boolean(payment.problem) || (needsApproval && !trimmed)}
         startIcon={saving ? <RefreshCw size={16} /> : undefined} onClick={() => onSave(needsApproval ? trimmed : undefined)}>
         {saving ? "Saving…" : needsApproval ? "Send for approval" : "Save sale"}
       </Button>
@@ -55,7 +56,7 @@ export function ReviewSheet({ open, onClose, saving, meta, cart, grandTotal, bal
 
       {/* The saved value is "0" when nothing was paid, but the box starts empty so the cashier never has to delete a zero first. */}
       <MoneyField label="Paid now (₦)" value={meta.initialPayment === "0" ? "" : meta.initialPayment} onChange={onPaid}
-        helperText={`${paymentStatus} · balance left ${money(Math.max(0, balance))}`} slotProps={{ htmlInput: { placeholder: "0" } }} />
+        error={Boolean(payment.problem)} helperText={payment.problem || `${paymentStatus} · ${payment.helper}`} slotProps={{ htmlInput: { placeholder: "0" } }} />
       {balance > 0 && <TextField label="Customer phone number" required type="tel" value={meta.contact} onChange={(event) => onContact(event.target.value)}
         error={Boolean(contactProblem)} helperText={contactProblem || "Needed because a balance is left. We use it to remind them."} />}
       <PaidBy value={paidBy} onChange={onPaidBy} required={paid > 0} />

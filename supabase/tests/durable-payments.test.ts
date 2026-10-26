@@ -71,10 +71,26 @@ it('returns one receipt for concurrent duplicate dispatches on the local engine'
   expect(a).toEqual(b);
   expect(await owned('select count(*)::text n from bomedia.payments')).toEqual([{n:'1'}]);
 });
-it('keeps one kobo outstanding and refuses an excess collection', async () => {
+it('keeps one kobo outstanding and records an excess collection separately', async () => {
   await collect('short',{job_ids:[jobA],amount_kobo:'59999'});
   expect(await owned(`select balance_kobo::text b from bomedia.job_balances where job_id='${jobA}'`)).toEqual([{b:'1'}]);
-  await failure(()=>collect('too-much',{job_ids:[jobA],amount_kobo:'2'}),'22023');
+  const receipt=await collect('extra',{job_ids:[jobA],amount_kobo:'2'});
+  expect(receipt).toMatchObject({amount_kobo:'2',extra_income_kobo:'1'});
+  expect(await owned(`select balance_kobo::text b from bomedia.job_balances where job_id='${jobA}'`)).toEqual([{b:'0'}]);
+  expect(await owned(`select balance_kobo::text b from bomedia.job_balances where job_id='${jobB}'`)).toEqual([{b:'60000'}]);
+  expect(await collect('extra',{job_ids:[jobA],amount_kobo:'2'})).toEqual(receipt);
+  const extraOnly=await collect('extra-only',{job_ids:[jobA],amount_kobo:'77000'});
+  expect(extraOnly).toMatchObject({amount_kobo:'77000',extra_income_kobo:'77000',allocations:[]});
+  expect(await owned("select sum(credit_kobo)::text n from bomedia.journal_lines where account_code='4020'")).toEqual([{n:'77001'}]);
+});
+it('supports future Cash, Transfer and POS excess receipts while preventing direct access to the split records',async()=>{
+ for (const [index,method] of ['cash','transfer','pos'].entries()) {
+  const result=await collect('method-'+method,{job_ids:[jobA],amount_kobo:'60001',method});
+  expect(result).toMatchObject({amount_kobo:'60001',extra_income_kobo:index===0 ? '1' : '60001'});
+ }
+ expect(await owned("select account_code,sum(debit_kobo)::text n from bomedia.journal_lines where account_code in ('1000','1010','1020') group by account_code order by account_code"))
+   .toEqual([{account_code:'1000',n:'60001'},{account_code:'1010',n:'60001'},{account_code:'1020',n:'60001'}]);
+ await failure(()=>db.query('select * from bomedia.payment_extra_income'),'42501');
 });
 it('grows reference numbers beyond four digits for sales, payments and expenses', async () => {
   await db.exec('reset role');

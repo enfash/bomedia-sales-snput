@@ -68,7 +68,7 @@ export function ManageSaleAction({
   const submitting = useRef(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [addl1, setAddl1] = useState(record?.additionalPayment1 ? String(record.additionalPayment1) : "");
+  const [addl1, setAddl1] = useState(!record.raw?._jobId && record?.additionalPayment1 ? String(record.additionalPayment1) : "");
   const [addl2, setAddl2] = useState(record?.additionalPayment2 ? String(record.additionalPayment2) : "");
   const [status, setStatus] = useState(record?.jobStatus ?? JOB_STATUSES[0]);
   const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
@@ -105,7 +105,7 @@ export function ManageSaleAction({
         jobStatus: status,
       };
 
-      const hasAddl1 = (record.additionalPayment1 ?? 0) > 0;
+      const hasAddl1 = !record.raw?._jobId && (record.additionalPayment1 ?? 0) > 0;
       const hasAddl2 = (record.additionalPayment2 ?? 0) > 0;
 
       let newPaymentAmount = 0;
@@ -137,6 +137,7 @@ export function ManageSaleAction({
             paymentMethod: paidBy as PaymentMethod, jobStatus: status,
           }, `Payment for ${record.client}`);
           toast.success('Payment saved on this device. Confirmation will appear after syncing.');
+          setAddl1(''); setPaidBy('');
           setIsOpen(false);
           onUpdate();
           return;
@@ -320,6 +321,9 @@ function ContentBody({
         </Stack>
 
         <Stack sx={styles.fields}>
+          {Number(record.raw?.['EXTRA INCOME (₦)']) > 0 && <Typography variant="body2">
+            Extra payment income recorded: ₦{Number(record.raw['EXTRA INCOME (₦)']).toLocaleString()} · non-refundable
+          </Typography>}
           {isFullyPaid && (
             <Box sx={styles.paidBanner}>
               <Typography sx={styles.paidText}>
@@ -328,7 +332,7 @@ function ContentBody({
             </Box>
           )}
 
-          {maxSlotsReached && !isFullyPaid && (
+          {maxSlotsReached && !isFullyPaid && !record.raw?._jobId && (
             <Box sx={styles.maxBanner}>
               <Typography sx={styles.maxText}>
                 Maximum payment slots reached. Contact Admin to add more payments.
@@ -336,6 +340,11 @@ function ContentBody({
             </Box>
           )}
 
+          {record.raw?._jobId ? <Box>
+            <MoneyField label="Payment received (₦)" value={addl1} onChange={setAddl1} disabled={isSubmitting} fullWidth
+              helperText="Any amount above the remaining balance is recorded as non-refundable extra income." />
+            <PaidBy value={paidBy} onChange={setPaidBy} disabled={isSubmitting} required={Number(addl1)>0} />
+          </Box> : <>
           <Box>
             <Typography sx={styles.labelField}>
               Additional Payment 1 (₦)
@@ -348,6 +357,7 @@ function ContentBody({
               fullWidth
               size="medium"
               sx={styles.moneyField}
+              helperText={record.raw?._jobId ? 'Any excess is recorded as non-refundable extra income.' : undefined}
             />
           </Box>
 
@@ -363,6 +373,7 @@ function ContentBody({
               fullWidth
               size="medium"
               sx={styles.moneyField}
+              helperText={record.raw?._jobId ? 'Any excess is recorded as non-refundable extra income.' : undefined}
             />
           </Box>
 
@@ -370,6 +381,7 @@ function ContentBody({
             <PaidBy value={paidBy} onChange={setPaidBy} disabled={isSubmitting}
               required={Number(hasAddl1 ? addl2 : addl1) > 0} />
           )}
+          </>}
 
           <FormControl fullWidth size="medium">
             <InputLabel sx={styles.statusLabel}>

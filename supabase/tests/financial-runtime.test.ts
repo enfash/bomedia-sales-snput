@@ -35,8 +35,7 @@ it('records receipt and ledger through the restricted capability and keeps the e
   await service.collect({staffId:actor},payment({requestId:'collection-2',amountKobo:'44998'}));
   expect((await service.read('jobs',{})).data[0].balance_kobo).toBe('1');
 });
-it('rejects excess, wrong customer, changed retry payload and closed books without another receipt',async()=>{
-  await savepointFailure(()=>service.collect({staffId:actor},payment({amountKobo:'17345000'})),{status:409});
+it('rejects wrong customer, changed retry payload and closed books without another receipt',async()=>{
   await savepointFailure(()=>service.collect({staffId:actor},payment({customerId:'00000000-0000-4000-8000-000000000001'})),{status:409});
   await service.collect({staffId:actor},payment());
   await savepointFailure(()=>service.collect({staffId:actor},payment({amountKobo:'1'})),{status:409});
