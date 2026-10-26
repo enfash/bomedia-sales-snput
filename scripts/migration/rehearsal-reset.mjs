@@ -24,7 +24,7 @@ export async function rehearsalTargetFromFiles(confirmedRef, readConfig) {
 }
 
 const SCHEMAS = ['migration_control', 'migration', 'bomedia', 'intelligence'];
-const ROLES = ['bomedia_auth_server', 'bomedia_financial_server', 'bomedia_auth_runtime', 'bomedia_financial_runtime', 'bomedia_intelligence_read'];
+const ROLES = ['bomedia_auth_server', 'bomedia_financial_server', 'bomedia_auth_runtime', 'bomedia_financial_runtime', 'bomedia_intelligence_read', 'intelligence_owner'];
 
 /** The only project this may touch is the rehearsal project. Every other known project is refused, even if it was confirmed by mistake. */
 export function assertRehearsalTarget({ confirmedRef, rehearsalRef, protectedRefs }) {
