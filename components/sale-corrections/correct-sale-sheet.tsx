@@ -11,6 +11,7 @@ import { ResponsiveSheet } from '@/components/responsive-sheet';
 import { nairaToKobo } from '@/lib/accounting-entry';
 import type { CorrectionChanges, CorrectionPlan } from '@/lib/server/sale-corrections';
 import { LoadingState } from '@/components/loading-state';
+import { correctionDateProblem, type CorrectionDateRules } from '@/lib/sale-correction-dates';
 
 type Form = { description: string; quantity: string; width: string; height: string; price: string; materialId: string; date: string };
 type Material = { id: string; name: string; width: string };
@@ -31,6 +32,8 @@ export function CorrectSaleSheet({ jobId, description, owner, onClose, onDone }:
   const [form, setForm] = useState<Form | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [plans, setPlans] = useState<CorrectionPlan[] | null>(null);
+  const [dateRules, setDateRules] = useState<CorrectionDateRules | null>(null);
+  const [previewKey, setPreviewKey] = useState('');
   const [problem, setProblem] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [reason, setReason] = useState('');
   const requestId = useRef<string | null>(null);
 
@@ -43,6 +46,7 @@ export function CorrectSaleSheet({ jobId, description, owner, onClose, onDone }:
         const before = result.plans[0].before as Record<string, unknown>;
         if (!active) return;
         setBase(before);
+        setDateRules(result.dateRules);
         setForm({ description: text(before.description), quantity: text(before.quantity), width: text(before.width_ft), height: text(before.height_ft), price: naira(before.price_per_sqft_kobo), materialId: text(before.material_id), date: text(before.business_date) });
       } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'This sale could not be opened.'); }
       try {
@@ -68,21 +72,23 @@ export function CorrectSaleSheet({ jobId, description, owner, onClose, onDone }:
   }
   const changeKey = JSON.stringify(changes);
   const hasChanges = Object.keys(changes).length > 0;
+  const dateProblem = form ? correctionDateProblem(form.date, dateRules, base?.business_date) : '';
 
   // Check the change with the database, a moment after typing stops, so the person sees the effect first.
   useEffect(() => {
-    if (!hasChanges) return;
+    if (!hasChanges || dateProblem) return;
     let active = true;
     const timer = setTimeout(() => {
       void post({ mode: 'correct', jobId, changes: JSON.parse(changeKey) }, true)
-        .then((result) => { if (active) { setPlans(result.plans); setProblem(''); } })
+        .then((result) => { if (active) { setPlans(result.plans); setPreviewKey(changeKey); setDateRules(result.dateRules); setProblem(''); } })
         .catch((cause) => { if (active) { setPlans(null); setProblem(cause instanceof Error ? cause.message : 'This change cannot be made.'); } });
     }, 450);
     return () => { active = false; clearTimeout(timer); };
-  }, [changeKey, hasChanges, jobId]);
+  }, [changeKey, hasChanges, jobId, dateProblem]);
 
   const set = (key: keyof Form) => (event: { target: { value: string } }) => { requestId.current = null; setForm((f) => (f ? { ...f, [key]: event.target.value } : f)); };
-  const ready = hasChanges && !problem && !!plans && !!reason.trim() && !busy;
+  const currentPreview = previewKey === changeKey;
+  const ready = hasChanges && !problem && !dateProblem && currentPreview && !!plans && !!reason.trim() && !busy;
 
   async function save() {
     if (!ready) return;
@@ -114,14 +120,14 @@ export function CorrectSaleSheet({ jobId, description, owner, onClose, onDone }:
         </Box>
         {!service && <Box sx={styles.row2}>
           <TextField label="Price per sq ft (₦)" type="number" value={form.price} onChange={set('price')} />
-          <DateField label="Sale date" value={form.date} onChange={(date) => set('date')({ target: { value: date } })} />
+          <DateField label="Sale date" value={form.date} onChange={(date) => set('date')({ target: { value: date } })} minDate={dateRules?.available ? dateRules.minDate : undefined} error={!!dateProblem} helperText={dateProblem || undefined} />
         </Box>}
-        {service && <DateField label="Sale date" value={form.date} onChange={(date) => set('date')({ target: { value: date } })} />}
+        {service && <DateField label="Sale date" value={form.date} onChange={(date) => set('date')({ target: { value: date } })} minDate={dateRules?.available ? dateRules.minDate : undefined} error={!!dateProblem} helperText={dateProblem || undefined} />}
         {!service && materials.length > 0 && <TextField select label="Material" value={form.materialId} onChange={set('materialId')}>
           {materials.map((m) => <MenuItem key={m.id} value={m.id}>{materialLabel(m)}</MenuItem>)}
         </TextField>}
         {problem && <Alert severity="warning">{problem}</Alert>}
-        {hasChanges && !problem && (plans ? <EffectBox plans={plans} whoApproves={!owner} /> : <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Working out the effect" />)}
+        {hasChanges && !problem && !dateProblem && (plans && currentPreview ? <EffectBox plans={plans} whoApproves={!owner} /> : <LoadingState pieces={[{ k: 'cards', n: 1 }]} label="Working out the effect" />)}
         {!hasChanges && <Typography variant="body2" color="text.secondary">Change something above and the effect on the sale and the stock shows here.</Typography>}
         <TextField label="Why? (required)" multiline minRows={2} value={reason} onChange={(event) => { requestId.current = null; setReason(event.target.value.slice(0, 500)); }}
           helperText={`${reason.length} / 500`} />

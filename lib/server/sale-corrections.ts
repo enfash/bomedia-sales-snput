@@ -1,5 +1,6 @@
 import { callFinancial, type FinancialCall } from './financial-db';
 import { FinancialError, validUUID, type FinancialActor } from './financial-service';
+import { correctionDateProblem, correctionDateRules } from '../sale-correction-dates';
 
 export type CorrectionChanges = { description?: string; quantity?: string; width?: string; height?: string; unit?: 'ft' | 'in'; priceKobo?: string; materialId?: string; businessDate?: string };
 export type CorrectionPlan = {
@@ -15,6 +16,10 @@ const invalid = (message: string) => new FinancialError(message, 400, 'INVALID_I
 const CHANGE_KEYS = ['description', 'quantity', 'width', 'height', 'unit', 'priceKobo', 'materialId', 'businessDate'];
 function mapError(error: unknown): never {
   const code = (error as { code?: string }).code;
+  const message = error instanceof Error ? error.message : '';
+  if (code === '23514' && /New accounting requires active books|Opening date has not been configured|accounting period is closed/.test(message)) {
+    throw new FinancialError('The bookkeeping dates have changed or this date is outside the open books. Refresh the sale and choose an allowed date.', 409, 'CORRECTION_DATE_REQUIRED');
+  }
   if (code === '42501') throw new FinancialError('Account access is no longer available.', 403, 'ACTOR_DISABLED');
   if (code === 'P0002') throw new FinancialError(error instanceof Error ? error.message : 'That sale could not be found.', 404, 'NOT_FOUND');
   if (['22023', '23514', '22P02'].includes(code ?? '')) throw new FinancialError(error instanceof Error ? error.message : 'That change cannot be made.', 409, 'CORRECTION_REVIEW_REQUIRED');
@@ -41,7 +46,16 @@ export function createSaleCorrections(call: FinancialCall = callFinancial) {
   return {
     async preview(input: unknown) {
       const { body, changes } = target(input, false);
-      try { return (await call<{ plans: CorrectionPlan[] }>('api_sale_correction_preview', '', { mode: body.mode, ...targetFields(body), changes })).plans; } catch (error) { return mapError(error); }
+      try {
+        if (body.mode === 'cancel') return await call<{ plans: CorrectionPlan[] }>('api_sale_correction_preview', '', { mode: body.mode, ...targetFields(body), changes });
+        const dateRules = correctionDateRules(await call('api_bookkeeping_period', 'current', {}));
+        if (Object.hasOwn(changes, 'businessDate')) {
+          const problem = correctionDateProblem(changes.businessDate, dateRules);
+          if (problem) throw new FinancialError(problem, 409, 'CORRECTION_DATE_REQUIRED');
+        }
+        const result = await call<{ plans: CorrectionPlan[] }>('api_sale_correction_preview', '', { mode: body.mode, ...targetFields(body), changes });
+        return { ...result, dateRules };
+      } catch (error) { return mapError(error); }
     },
     // The server, never the browser, says whether the signed-in person is the owner.
     async request(actor: FinancialActor, isOwner: boolean, input: unknown) {
@@ -49,6 +63,8 @@ export function createSaleCorrections(call: FinancialCall = callFinancial) {
       if (!validUUID(actor.staffId)) throw new FinancialError('An enabled accounting identity is required.', 403, 'ACTOR_REQUIRED');
       if (typeof body.requestId !== 'string' || !body.requestId.trim() || body.requestId.length > 200) throw invalid('Request ID is required.');
       try {
+        // Keep the database's receipt lookup first: a retry must recover a saved
+        // correction even if its accounting period has closed since the save.
         return await call<Record<string, unknown>>('api_sale_correction', body.requestId.trim(), {
           actor_id: actor.staffId.toLowerCase(), mode: body.mode, ...targetFields(body), changes, reason: String(body.reason).trim(), ...(isOwner ? { byOwner: 'true' } : {}),
         });

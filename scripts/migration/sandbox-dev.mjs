@@ -9,7 +9,8 @@ try {
   for (const key of ['SUPABASE_AUTH_DATABASE_URL', 'SUPABASE_FINANCIAL_DATABASE_URL', 'SUPABASE_ADMIN_STAFF_ID']) {
     if (!sandbox[key]) throw new Error(`${key} is missing. Run npm run sandbox:setup first.`);
   }
-  const env = { ...process.env, ...sandbox, AUTH_BACKEND: 'postgres', POSTGRES_FINANCIAL_API_ENABLED: 'true',
+  // The app reads SUPABASE_URL before the project ref, and .env.local sets the live URL, so point sign-in at the sandbox project.
+  const env = { ...process.env, ...sandbox, SUPABASE_URL: `https://${sandbox.SUPABASE_PROJECT_REF}.supabase.co`, AUTH_BACKEND: 'postgres', POSTGRES_FINANCIAL_API_ENABLED: 'true',
     GOOGLE_SHEET_ID: 'sandbox-sheets-blocked', SUPABASE_DATABASE_URL: '', BOMEDIA_SANDBOX: 'true' };
   console.log('Sandbox: http://localhost:3001/bom03  ·  Google Sheets blocked  ·  live data untouched');
   const child = spawn(process.execPath, [join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', '3001'], { cwd: root, env, stdio: 'inherit' });

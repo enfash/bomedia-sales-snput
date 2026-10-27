@@ -156,7 +156,8 @@ export function SalesExpenseChart({ data }: { data: SalesExpenseData[] }) {
               description="New sales or expenses will populate this trend automatically."
             />
           ) : (
-            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+            // Recharts starts at -1 x -1 and logs a warning on its first render; a 1px start avoids it and the observer sets the real size at once.
+            <ResponsiveContainer width="100%" height="100%" minHeight={200} initialDimension={{ width: 1, height: 1 }}>
               <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -243,7 +244,7 @@ export function ExpenseCategorizationChart({ data, total }: { data: CategoryData
             />
           ) : (
             <>
-              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+              <ResponsiveContainer width="100%" height="100%" minHeight={200} initialDimension={{ width: 1, height: 1 }}>
                 <PieChart>
                   <Pie
                     data={data}
@@ -298,7 +299,7 @@ export function MaterialSalesChart({ data, total }: { data: CategoryData[]; tota
             />
           ) : (
             <>
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={200}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={200} initialDimension={{ width: 1, height: 1 }}>
                 <PieChart>
                   <Pie
                     data={data}
@@ -387,7 +388,7 @@ export function OutstandingDebtChart({ data, onClientClick, ageMap }: Outstandin
               description="No outstanding debt found in the current records. Excellent work!"
             />
           ) : (
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={200}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={200} initialDimension={{ width: 1, height: 1 }}>
               <BarChart
                 data={data}
                 layout="vertical"

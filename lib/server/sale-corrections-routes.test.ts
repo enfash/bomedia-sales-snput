@@ -31,11 +31,20 @@ it('marks the owner’s change as the owner’s, using the owner accounting iden
   expect(mocks.call).toHaveBeenCalledWith('api_sale_correction', 'r2', { actor_id: owner, mode: 'cancel', salesId: 'BOM-20261012-0001', changes: {}, reason: 'Customer cancelled', byOwner: 'true' });
 });
 
-it('previews without a reason and without writing', async () => {
-  mocks.call.mockResolvedValue({ plans: [{ new_amount_kobo: '1' }] });
+const books = { configured: true, state: 'active', starts_on: '2026-10-26', closed_through: null };
+it('previews without a reason and without writing, and sends the allowed sale dates', async () => {
+  mocks.call.mockImplementation(async (name: string) => (name === 'api_bookkeeping_period' ? books : { plans: [{ new_amount_kobo: '1' }] }));
   const res = await changeSale(post({ mode: 'correct', jobId: job, changes: { quantity: '1' } }, '?preview=1'));
-  expect(await res.json()).toEqual({ plans: [{ new_amount_kobo: '1' }] });
+  expect(await res.json()).toEqual({ plans: [{ new_amount_kobo: '1' }], dateRules: { available: true, minDate: '2026-10-26', closedThrough: null } });
   expect(mocks.call).toHaveBeenCalledWith('api_sale_correction_preview', '', { mode: 'correct', jobId: job, changes: { quantity: '1' } });
+});
+
+it('refuses a preview with a date before the open books, before the database check', async () => {
+  mocks.call.mockImplementation(async (name: string) => (name === 'api_bookkeeping_period' ? books : { plans: [] }));
+  const res = await changeSale(post({ mode: 'correct', jobId: job, changes: { businessDate: '2026-10-25' } }, '?preview=1'));
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toMatch(/on or after 2026-10-26/);
+  expect(mocks.call).not.toHaveBeenCalledWith('api_sale_correction_preview', expect.anything(), expect.anything());
 });
 
 it('rejects unclear requests before the database', async () => {
