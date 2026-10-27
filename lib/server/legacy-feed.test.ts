@@ -5,6 +5,35 @@ vi.mock('./postgres-auth-routes',()=>({verifiedAdminIdentity:mocks.admin}));
 vi.mock('./postgres-auth',()=>({postgresAuth:{session:mocks.session}}));
 import { expensesForViewer,lagosToday,legacyFeedEnabled,legacyFeedResponse,legacyWriteBlocked,materialsForViewer } from './legacy-feed';
 const id='00000000-0000-4000-8000-000000000001';
+it('provides the active books boundary to the owner without removing opening debts from the feed', async () => {
+  mocks.admin.mockResolvedValue('owner@example.test');
+  const rows = [{ DATE: '2026-10-25', 'Logged By': 'Sheet opening balance', 'AMOUNT (₦)': '20000' }];
+  const call = vi.fn().mockImplementation(async (method: string) => method === 'api_bookkeeping_period'
+    ? { configured: true, state: 'active', starts_on: '2026-10-26' } : rows);
+  const response = (await legacyFeedResponse('sales', call, { dashboard: true }))!;
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  expect(await response.json()).toEqual({ data: rows, reporting: { backend: 'postgres', startsOn: '2026-10-26' } });
+});
+
+it('refuses dashboard context to cashiers without reading the bookkeeping period', async () => {
+  mocks.session.mockResolvedValue({ staff_id: id });
+  const call = vi.fn();
+  expect((await legacyFeedResponse('sales', call, { dashboard: true }))!.status).toBe(403);
+  expect(call).not.toHaveBeenCalled();
+});
+
+it('fails closed when the books boundary is missing, inactive, malformed or unavailable', async () => {
+  mocks.admin.mockResolvedValue('owner@example.test');
+  for (const period of [{ configured: false }, { configured: true, state: 'setup', starts_on: '2026-10-26' },
+    { configured: true, state: 'active', starts_on: '2026-02-30' }]) {
+    const call = vi.fn().mockResolvedValue(period);
+    expect((await legacyFeedResponse('sales', call, { dashboard: true }))!.status).toBe(503);
+    expect(call).not.toHaveBeenCalledWith('api_legacy_feed', 'sales', {});
+  }
+  const call = vi.fn().mockRejectedValue(new Error('database unavailable'));
+  expect((await legacyFeedResponse('sales', call, { dashboard: true }))!.status).toBe(503);
+});
 beforeEach(()=>{vi.resetAllMocks();vi.stubEnv('POSTGRES_FINANCIAL_API_ENABLED','true');vi.stubEnv('AUTH_BACKEND','postgres');mocks.admin.mockResolvedValue(null);mocks.session.mockResolvedValue(null);});
 afterEach(()=>vi.unstubAllEnvs());
 it('leaves Sheets in charge while the switch is off',async()=>{

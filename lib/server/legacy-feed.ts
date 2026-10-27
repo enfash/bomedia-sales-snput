@@ -6,6 +6,8 @@ import { callFinancial, financialApiEnabled, type FinancialCall } from './financ
 import { financialIdentity } from './financial-routes';
 import { FinancialError } from './financial-service';
 import { OWNER_ONLY_MATERIAL_FEED, OWNER_ONLY_ROLL_FEED, withoutFields } from './owner-only-fields';
+import { readDashboardReporting } from '../dashboard-reporting';
+import type { BookkeepingPeriod } from './bookkeeping-period';
 
 export type LegacyResource = 'sales' | 'payments' | 'expenses' | 'inventory' | 'materials';
 export type LegacyRow = Record<string, string>;
@@ -53,16 +55,24 @@ export async function materialsForViewer(rows: LegacyRow[], includeUnavailable: 
 /** Cancelled sales and expenses are left out of every normal list; Records asks for them on their own with `cancelled: 'only'`. */
 export const salesByCancellation = (rows: LegacyRow[], mode: 'exclude' | 'only') => rows.filter(((row) => (row['JOB STATUS'] === 'Cancelled' || row['STATUS'] === 'Cancelled') === (mode === 'only')));
 
-export async function legacyFeedResponse(resource: LegacyResource, call: FinancialCall = callFinancial, options: { includeUnavailable?: boolean; cancelled?: 'only' } = {}): Promise<Response | null> {
+export async function legacyFeedResponse(resource: LegacyResource, call: FinancialCall = callFinancial, options: { includeUnavailable?: boolean; cancelled?: 'only'; dashboard?: boolean } = {}): Promise<Response | null> {
   if (!legacyFeedEnabled()) return null;
   try {
     const identity = await financialIdentity(false);
+    let reporting;
+    if (options.dashboard) {
+      if (identity) throw new FinancialError('Owner access is required for dashboard reporting.', 403, 'OWNER_REQUIRED');
+      const period = await call<BookkeepingPeriod>('api_bookkeeping_period', 'current', {});
+      reporting = readDashboardReporting(period.configured && period.state === 'active'
+        ? { backend: 'postgres', startsOn: period.starts_on } : null);
+      if (!reporting) throw new FinancialError('The active bookkeeping period is unavailable. Try again shortly.', 503, 'REPORTING_UNAVAILABLE');
+    }
     const rows = await legacyRows(resource, call);
     const data = resource === 'expenses' ? salesByCancellation(expensesForViewer(rows, identity ? identity.staffId : null), options.cancelled === 'only' ? 'only' : 'exclude')
       : resource === 'materials' ? await materialsForViewer(rows, Boolean(options.includeUnavailable), call, !identity)
       : resource === 'inventory' && identity ? withoutFields(rows, OWNER_ONLY_ROLL_FEED)
       : resource === 'sales' ? salesByCancellation(rows, options.cancelled === 'only' ? 'only' : 'exclude') : rows;
-    return NextResponse.json({ data }, { headers: noStore });
+    return NextResponse.json({ data, ...(options.dashboard ? { reporting } : {}) }, { headers: noStore });
   } catch (error) {
     if (error instanceof FinancialError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status, headers: noStore });
     return NextResponse.json({ error: 'Records are unavailable right now. Try again shortly.', code: 'ACCOUNTING_UNAVAILABLE' },
