@@ -5,6 +5,7 @@ import { createSalesService } from '../../lib/server/sales-service';
 import { createFinancialService } from '../../lib/server/financial-service';
 import { createExpenseService } from '../../lib/server/expense-service';
 import type { FinancialCall } from '../../lib/server/financial-db';
+import { dashboardTradingRows } from '../../lib/dashboard-reporting';
 let db:PGlite,staff:string,customer:string,material:string;
 const call:FinancialCall=async<T>(method:string,key:string,payload:Record<string,unknown>):Promise<T>=>{
   if(method==='api_legacy_feed')return (await db.query<{result:T}>('select bomedia.api_legacy_feed($1) as result',[key])).rows[0].result;
@@ -28,6 +29,23 @@ beforeEach(async()=>{
   await db.exec('set local role bomedia_financial_runtime');
 });
 afterEach(async()=>{await db.exec('rollback');});
+
+it('keeps the real opening-debt marker through the feed and excludes it from trading reports', async () => {
+  await db.exec('reset role');
+  const order = await insertId(db, 'insert into bomedia.orders(customer_id,created_by) values ($1,$2) returning id', [customer,staff]);
+  await db.query(`insert into bomedia.jobs(order_id,customer_id,description,quantity,unit_price_kobo,amount_kobo,
+    job_status,business_date,logged_by_snapshot) values ($1,$2,'Historical unpaid amount',1,2000000,2000000,
+    'Delivered','2026-09-30','Sheet opening balance')`, [order,customer]);
+  await db.exec('set local role bomedia_financial_runtime');
+  await sales.sale({staffId:staff},{requestId:'new-trading-sale',customerId:customer,businessDate:'2026-10-05',
+    jobs:[{materialId:material,description:'New banner',quantity:'1',widthFt:'2',heightFt:'2',expectedUnitPriceKobo:'60000'}]});
+  const rows = await feed('sales');
+  expect(rows).toHaveLength(2);
+  expect(rows.find(row => row['Logged By'] === 'Sheet opening balance')).toMatchObject({'AMOUNT (₦)':'20000'});
+  const trading = dashboardTradingRows(rows, [], {backend:'postgres',startsOn:'2026-10-01'});
+  expect(trading.sales).toHaveLength(1);
+  expect(trading.sales[0]).toMatchObject({'AMOUNT (₦)':'600','JOB DESCRIPTION':'New banner'});
+});
 
 it('serves jobs as old Sales rows: same-day money is the initial payment, later money is additional',async()=>{
   const sale=await sales.sale({staffId:staff},{requestId:'sale',customerId:customer,businessDate:'2026-10-05',initialPaymentKobo:'960000',paymentMethod:'Cash',

@@ -31,6 +31,8 @@ import { TodayBanner } from "@/components/today-banner";
 import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
 import { ShiftReportModal } from "@/components/shift-report-modal";
 import { ProfitabilityWidget } from "@/components/profitability-widget";
+import { dashboardExtraIncomeRows, dashboardTradingRows, extraIncomeNaira, readDashboardReporting, type DashboardReporting } from "@/lib/dashboard-reporting";
+import Alert from "@mui/material/Alert";
 
 import {
   format,
@@ -76,6 +78,7 @@ export default function DashboardPage() {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [reporting, setReporting] = useState<DashboardReporting | null>(null);
 
   const lastSalesIndex = useRef<number>(0);
   const lastExpensesIndex = useRef<number>(0);
@@ -87,7 +90,7 @@ export default function DashboardPage() {
 
     try {
       const [salesRes, expensesRes, inventoryRes, paymentsRes, materialsRes] = await Promise.all([
-        fetch("/api/sales"),
+        fetch("/api/sales?dashboard=1"),
         fetch("/api/expenses"),
         fetch("/api/inventory"),
         fetch("/api/payments"),
@@ -99,6 +102,8 @@ export default function DashboardPage() {
       }
 
       const salesJson = await salesRes.json();
+      const nextReporting = readDashboardReporting(salesJson.reporting);
+      if (!nextReporting) throw new Error("Dashboard reporting period is unavailable");
       const expensesJson = await expensesRes.json();
       const inventoryJson = await inventoryRes.json();
       const paymentsJson = await paymentsRes.json();
@@ -111,7 +116,9 @@ export default function DashboardPage() {
       const newMaterials = materialsJson.data ?? [];
 
       setCachedData(newSales, newExpenses, newInventory, newPayments, newMaterials);
+      setReporting(nextReporting);
     } catch (error) {
+      setReporting(null);
       console.error("Failed to fetch dashboard data:", error);
     } finally {
       setLoading(false);
@@ -151,6 +158,7 @@ export default function DashboardPage() {
 
   const allSales = [...pendingSales, ...cachedSales];
   const allExpenses = [...pendingExpenses, ...cachedExpenses];
+  const trading = dashboardTradingRows(allSales, allExpenses, reporting);
 
   const now = new Date();
 
@@ -186,10 +194,13 @@ export default function DashboardPage() {
       return d ? isWithinInterval(d, { start, end }) : false;
     });
 
-  const currentSales = filterByInterval(allSales, startDate, effectiveEnd);
-  const prevSales = filterByInterval(allSales, prevStartDate, startDate);
-  const currentExpenses = filterByInterval(allExpenses, startDate, effectiveEnd);
-  const prevExpenses = filterByInterval(allExpenses, prevStartDate, startDate);
+  const currentSales = filterByInterval(trading.sales, startDate, effectiveEnd);
+  const prevSales = filterByInterval(trading.sales, prevStartDate, startDate);
+  const currentExpenses = filterByInterval(trading.expenses, startDate, effectiveEnd);
+  const prevExpenses = filterByInterval(trading.expenses, prevStartDate, startDate);
+  const extraPayments = dashboardExtraIncomeRows(cachedPayments, reporting);
+  const extraIncome = extraIncomeNaira(filterByInterval(extraPayments,startDate,effectiveEnd));
+  const previousExtraIncome = extraIncomeNaira(filterByInterval(extraPayments,prevStartDate,startDate));
 
   const sumKey = (data: Row[], keys: string[]) =>
     data.reduce((acc, r) => {
@@ -202,11 +213,11 @@ export default function DashboardPage() {
   const prevSalesVal = sumKey(prevSales, ["AMOUNT (₦)", "Amount (₦)"]);
   const totalExpensesVal = sumKey(currentExpenses, ["Amount (₦)", "AMOUNT", "Amount"]);
   const prevExpensesVal = sumKey(prevExpenses, ["Amount (₦)", "AMOUNT", "Amount"]);
-  const netProfitVal = totalSalesVal - totalExpensesVal;
-  const prevProfitVal = prevSalesVal - prevExpensesVal;
+  const netProfitVal = totalSalesVal + extraIncome - totalExpensesVal;
+  const prevProfitVal = prevSalesVal + previousExtraIncome - prevExpensesVal;
 
   const grossMarginPct = totalSalesVal > 0 ? (netProfitVal / totalSalesVal) * 100 : 0;
-  const prevGrossMarginPct = prevSalesVal > 0 ? ((prevSalesVal - prevExpensesVal) / prevSalesVal) * 100 : 0;
+  const prevGrossMarginPct = prevSalesVal > 0 ? (prevProfitVal / prevSalesVal) * 100 : 0;
 
   // ── Payment status breakdown ───────────────────────────────────────────────
   const paymentStats = currentSales.reduce(
@@ -262,7 +273,7 @@ export default function DashboardPage() {
 
   // ── Today at a glance ──────────────────────────────────────────────────────
   const startOfToday = startOfDay(now);
-  const todaySalesItems = allSales.filter(r => {
+  const todaySalesItems = trading.sales.filter(r => {
     const d = parseSheetDate(r.DATE || r.Date);
     return d ? isSameDay(d, startOfToday) : false;
   });
@@ -274,7 +285,7 @@ export default function DashboardPage() {
     if (timeRange !== "all" && !(timeRange === "custom" && !customStart)) {
       return startDate;
     }
-    const allDates = [...allSales, ...allExpenses]
+    const allDates = [...trading.sales, ...trading.expenses]
       .map((r) => parseSheetDate(r.DATE || r.Date))
       .filter(Boolean) as Date[];
     if (allDates.length === 0) return startOfDay(now);
@@ -283,11 +294,11 @@ export default function DashboardPage() {
   })();
   const rangeInterval = eachDayOfInterval({ start: chartStartDate, end: effectiveEnd });
   const chartData = rangeInterval.map((day) => {
-    const daySales = allSales.filter((r) => {
+    const daySales = trading.sales.filter((r) => {
       const d = parseSheetDate(r.DATE || r.Date);
       return d ? isSameDay(d, day) : false;
     });
-    const dayExpenses = allExpenses.filter((r) => {
+    const dayExpenses = trading.expenses.filter((r) => {
       const d = parseSheetDate(r.DATE || r.Date);
       return d ? isSameDay(d, day) : false;
     });
@@ -300,7 +311,7 @@ export default function DashboardPage() {
 
   // ── Expense categories ─────────────────────────────────────────────────────
   const categories: Record<string, number> = {};
-  allExpenses.forEach((r) => {
+  currentExpenses.forEach((r) => {
     const cat = r.CATEGORY || r.Category || "Other";
     const amount = parseAmount(r["Amount (₦)"] || r.AMOUNT || r.Amount);
     categories[cat] = (categories[cat] || 0) + amount;
@@ -326,9 +337,9 @@ export default function DashboardPage() {
       <ApprovalsWaitingCard />
 
       {/* Today Banner */}
-      <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
+      {reporting && <motion.div variants={sectionVariants} custom={0} initial="hidden" animate="show">
         <TodayBanner jobCount={todayJobCount} revenue={todayRevenue} salesCount={todayJobCount} />
-      </motion.div>
+      </motion.div>}
 
       {/* Mobile Time Range Selector */}
       <Box sx={layout.mobileControls}>
@@ -390,6 +401,11 @@ export default function DashboardPage() {
       </Box>
 
       {/* Summary sentence */}
+      {!reporting && <Alert severity="warning">Sales and expense reports are unavailable. Reconnect and refresh to load the bookkeeping period.</Alert>}
+      {reporting?.backend === 'postgres' && <Alert severity="info">
+        Sales and expense reports cover the new books from {format(new Date(`${reporting.startsOn}T12:00:00`), 'd MMM yyyy')}.
+        {' '}Opening debts remain in outstanding balances. Earlier sales are in Customers → Before the new app.
+      </Alert>}
       {totalSalesVal > 0 && (
         <Paper sx={styles.summaryBanner}>
           <Box component="span" sx={styles.summaryEmoji}>📊</Box>
@@ -400,7 +416,8 @@ export default function DashboardPage() {
       )}
 
       {/* Metric cards */}
-      <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
+      {reporting && extraIncome > 0 && <Alert severity="info">Extra payment income: ₦{extraIncome.toLocaleString('en-NG',{minimumFractionDigits:2})}. Included in net profit and shown separately from sales.</Alert>}
+      {reporting && <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
         <DashboardMetrics
           totalSales={totalSalesVal}
           totalExpenses={totalExpensesVal}
@@ -419,7 +436,7 @@ export default function DashboardPage() {
           owedToday={{ amount: debtNow.today, customers: debtNow.todayCount }}
           owedWeek={{ amount: debtNow.week, customers: debtNow.weekCount }}
         />
-      </motion.div>
+      </motion.div>}
 
       {/* Inventory Alerts + Quick Actions */}
       <motion.div variants={sectionVariants} custom={0.16} initial="hidden" animate="show">
@@ -600,7 +617,7 @@ export default function DashboardPage() {
       {/* Charts Row 1: Sales vs Expenses + Recent Payments Pulse */}
       <motion.div variants={sectionVariants} custom={0.28} initial="hidden" animate="show">
         <Box sx={layout.chartsWide}>
-          <SalesExpenseChart data={chartData} />
+          {reporting && <SalesExpenseChart data={chartData} />}
           <RecentPaymentsPulse payments={cachedPayments} />
         </Box>
       </motion.div>
@@ -613,7 +630,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Charts Row 3: Payment Status + Top Clients */}
-      <motion.div variants={sectionVariants} custom={0.38} initial="hidden" animate="show">
+      {reporting && <motion.div variants={sectionVariants} custom={0.38} initial="hidden" animate="show">
         <Box sx={layout.chartsEven}>
           <PaymentStatusWidget
             paid={paymentStats.paid}
@@ -626,14 +643,14 @@ export default function DashboardPage() {
           />
           <TopClientsWidget clients={topClients} />
         </Box>
-      </motion.div>
+      </motion.div>}
 
       {/* Material Profitability Widget */}
-      <motion.div variants={sectionVariants} custom={0.42} initial="hidden" animate="show">
+      {reporting && <motion.div variants={sectionVariants} custom={0.42} initial="hidden" animate="show">
         <Box sx={layout.section}>
-          <ProfitabilityWidget sales={allSales} inventory={cachedInventory} />
+          <ProfitabilityWidget sales={currentSales} inventory={cachedInventory} />
         </Box>
-      </motion.div>
+      </motion.div>}
 
       <DebtorPaymentModal
         clientName={selectedDebtor}

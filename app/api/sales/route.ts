@@ -38,7 +38,9 @@ const INVENTORY_HEADERS = [
 ];
 
 export async function GET(request: Request) {
-  const fromPostgres = await legacyFeedResponse('sales', undefined, { cancelled: new URL(request.url).searchParams.get('cancelled') === 'only' ? 'only' : undefined });
+  const params = new URL(request.url).searchParams;
+  const dashboard = params.get('dashboard') === '1';
+  const fromPostgres = await legacyFeedResponse('sales', undefined, { cancelled: params.get('cancelled') === 'only' ? 'only' : undefined, dashboard });
   if (fromPostgres) return fromPostgres;
   try {
     const doc = await getDoc();
@@ -50,7 +52,7 @@ export async function GET(request: Request) {
       _rowIndex: row.rowNumber
     }));
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, ...(dashboard ? { reporting: { backend: 'sheets' } } : {}) });
   } catch (error: any) {
     console.error("GET Sales Error:", error);
     const status = error.status || 500;
