@@ -79,7 +79,8 @@ const fmtCurrency = (n: number) =>
 export function SalesEntry() {
   // ── Inventory/Materials state ───────────────────────────────────────────
   const { cachedMaterials, setCachedData, cachedSales, cachedExpenses, cachedInventory, cachedPayments } = useSyncStore();
-  const [materialsLoading, setMaterialsLoading] = useState(false);
+  // Starts true when nothing is cached, so the first load needs no synchronous state update in its effect.
+  const [materialsLoading, setMaterialsLoading] = useState(() => cachedMaterials.length === 0);
 
   const materials = cachedMaterials;
 
@@ -95,7 +96,6 @@ export function SalesEntry() {
 
   useEffect(() => {
     if (cachedSales.length === 0) fetchSalesForSuggestions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchMaterials = useCallback(async (silent = false) => {
@@ -116,8 +116,8 @@ export function SalesEntry() {
   }, [cachedSales, cachedExpenses, cachedInventory, cachedPayments, setCachedData]);
 
   useEffect(() => {
-    if (cachedMaterials.length === 0) fetchMaterials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deferred, so the first fetch's state updates happen after this effect returns.
+    if (cachedMaterials.length === 0) setTimeout(() => void fetchMaterials(true), 0);
   }, []);
 
   // ── Batch meta ───────────────────────────────────────────────────────────
@@ -356,8 +356,11 @@ export function SalesEntry() {
         if (data.quoteNumber) {
           if (!handoffLoading.current) {
             handoffLoading.current = true;
-            void loadPostgresQuote(data.quoteNumber).then(()=>{setQuoteInput(data.quoteNumber);localStorage.removeItem('estimatorCart');})
-              .catch(error=>toast.error(error.message)).finally(()=>{handoffLoading.current=false;});
+            // Start the load after this effect returns, so no state changes happen while the effect runs.
+            setTimeout(()=>{
+              void loadPostgresQuote(data.quoteNumber).then(()=>{setQuoteInput(data.quoteNumber);localStorage.removeItem('estimatorCart');})
+                .catch(error=>toast.error(error.message)).finally(()=>{handoffLoading.current=false;});
+            },0);
           }
           return;
         }

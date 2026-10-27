@@ -18,7 +18,7 @@ export function changeSale(request: Request) {
     const actor = await financialIdentity(true);
     if (!actor) throw new FinancialError('Accounting identity required.', 403, 'ACTOR_REQUIRED');
     const body = await bodyOf(request);
-    if (preview) return { plans: await saleCorrections.preview(body) };
+    if (preview) return saleCorrections.preview(body);
     return { success: true, owner, ...await saleCorrections.request(actor, owner, body) };
   });
 }

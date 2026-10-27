@@ -3,7 +3,7 @@
 import { manageSaleStyles as styles } from "@/app/theme";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 
-import { useState, useMemo, useRef, type ReactNode } from "react";
+import { useState, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { MoreHorizontal, MessageCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -73,14 +73,20 @@ export function ManageSaleAction({
   const [status, setStatus] = useState(record?.jobStatus ?? JOB_STATUSES[0]);
   const [paidBy, setPaidBy] = useState<PaymentMethod | "">("");
   const pathname = usePathname();
+  // The clock is state, refreshed each minute, so a record locks at 24 hours without a reload.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const isLocked = useMemo(() => {
     if (!pathname?.includes('/cashier')) return false;
     const rawDateStr = record.raw?.DATE || record.raw?.Date;
     const tsMs = record.timestamp ?? (rawDateStr ? new Date(rawDateStr).getTime() : NaN);
     if (isNaN(tsMs)) return false;
-    return (Date.now() - tsMs) > 24 * 60 * 60 * 1000;
-  }, [pathname, record.raw, record.timestamp]);
+    return (now - tsMs) > 24 * 60 * 60 * 1000;
+  }, [pathname, record.raw, record.timestamp, now]);
 
   if (!record || record.type === "Expense" || record.isPending || isLocked) {
     return variant === "icon" ? (
