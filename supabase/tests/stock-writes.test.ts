@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
 import { testDatabase, insertId } from './helpers';
 import { createStockService } from '../../lib/server/stock-service';
 import type { FinancialCall } from '../../lib/server/financial-db';
+import type { StockPurchase } from '../../lib/spending-list';
 let db: PGlite, actor: string, material: string;
 const call: FinancialCall = async <T>(method: string,key: string,payload: Record<string,unknown>): Promise<T> =>
   (await db.query<{result:T}>(`select bomedia.${method}($1,$2::jsonb) as result`,[key,JSON.stringify(payload)])).rows[0].result;
@@ -27,6 +28,27 @@ const ledger=()=>owner(async()=>Object.fromEntries((await db.query<{code:string;
 const rolls=()=>owner(async()=>(await db.query<{id:string;legacy_roll_id:string;remaining:string;waste:string;cost:string;status:string}>(
   `select id,legacy_roll_id,remaining_length_ft::text as remaining,waste_length_ft::text as waste,purchase_cost_kobo::text as cost,status
    from bomedia.inventory_rolls order by legacy_roll_id`)).rows);
+it('reads each posted purchase once without changing expense or profit records, with private paginated access',async()=>{
+  const saved=await stock.restock({staffId:actor},restock());
+  await stock.restock({staffId:actor},restock());
+  await stock.restock({staffId:actor},restock({requestId:'second',totalCostKobo:'400000'}));
+  const before=await ledger();
+  type Page={data:StockPurchase[];next_after_id:string|null};
+  const first=await call<Page>('api_stock_purchases','list',{limit:1});
+  const second=await call<Page>('api_stock_purchases','list',{limit:1,after_id:first.next_after_id});
+  expect(first.next_after_id).not.toBeNull();expect(second.next_after_id).toBeNull();
+  const purchases=[...first.data,...second.data];
+  expect(new Set(purchases.map(p=>p.id)).size).toBe(2);
+  expect(purchases.find(p=>p.id===saved.journal_entry_id)).toMatchObject({amount_kobo:'1000001',description:'Restock: 2 x SAV 5ft',reference:'INV-1',business_date:'2026-10-05',logged_by:'Owner'});
+  expect(await ledger()).toEqual(before);
+  await owner(async()=>{
+    expect((await db.query<{count:number}>('select count(*)::int as count from bomedia.expenses')).rows[0].count).toBe(0);
+    expect((await db.query<{profit:string}>("select bomedia.api_report('2026-10-05','2026-10-05')->>'period_profit_kobo' as profit")).rows[0].profit).toBe('0');
+    for(const role of ['anon','authenticated']) {
+      expect((await db.query<{allowed:boolean}>("select has_function_privilege($1,'bomedia.api_stock_purchases(text,jsonb)','EXECUTE') as allowed",[role])).rows[0].allowed).toBe(false);
+    }
+  });
+});
 async function refused(work:()=>Promise<unknown>,match:object) {
   await db.exec('savepoint bad');await expect(work()).rejects.toMatchObject(match);await db.exec('rollback to savepoint bad');
 }
