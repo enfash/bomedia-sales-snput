@@ -41,6 +41,20 @@ it('lets a cashier read only their own requests, under their own identity', asyn
   expect(mocks.call).toHaveBeenCalledWith('api_my_approvals', cashier, {});
 });
 
+it('answers the owner, who has no held sales of their own, with an empty list instead of an error', async () => {
+  mocks.admin.mockResolvedValue('owner@example.test');
+  const response = await readApprovals(get('?mine=1'));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ data: [] });
+  expect(mocks.call).not.toHaveBeenCalled();
+});
+
+it('still refuses a visitor who is neither the owner nor signed in as a cashier', async () => {
+  mocks.session.mockResolvedValue(null);
+  expect((await readApprovals(get('?mine=1'))).status).toBe(401);
+  expect(mocks.call).not.toHaveBeenCalled();
+});
+
 it('lets the owner read the list and the rules', async () => {
   mocks.admin.mockResolvedValue('owner@example.test');
   expect((await readApprovals(get())).status).toBe(200);

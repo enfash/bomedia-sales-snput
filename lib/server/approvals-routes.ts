@@ -16,7 +16,11 @@ export function readApprovals(request: Request) {
     const mine = new URL(request.url).searchParams.get('mine') === '1';
     if (!mine) { await ownerOnly('to see approvals'); await financialIdentity(false); return approvals.list(); }
     const actor = await financialIdentity(false);
-    if (!actor) throw new FinancialError('Sign in to see your approvals.', 403, 'ACTOR_REQUIRED');
+    if (!actor) {
+      // Held sales belong to cashiers, so the owner has none to list. An empty answer stops the held-sales list erroring every 30 seconds.
+      if (await verifiedAdminIdentity()) return { data: [] };
+      throw new FinancialError('Sign in to see your approvals.', 403, 'ACTOR_REQUIRED');
+    }
     return approvals.mine(actor);
   });
 }
