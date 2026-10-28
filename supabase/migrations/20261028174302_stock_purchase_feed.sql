@@ -1,7 +1,7 @@
 -- Read existing restock payments without adding expense rows or changing profit.
 -- The HTTP route verifies the owner. Only the private financial runtime can call this.
 begin;
-create function bomedia.api_stock_purchases(list_key text, filters jsonb) returns jsonb
+create or replace function bomedia.api_stock_purchases(list_key text, filters jsonb) returns jsonb
 language plpgsql stable security definer set search_path=pg_catalog,bomedia as $$
 declare result jsonb; take_value integer; after_value uuid;
 begin
