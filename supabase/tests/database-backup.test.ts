@@ -31,7 +31,7 @@ it('restores cyclic material links, immutable posted journals, exact bigints and
   expect(serialized).not.toContain('9007199254740993');
   const report=await restoreAndVerifyLocally(decryptArchive(JSON.parse(serialized),passphrase),files);
   expect(backup.tables.find((t:{name:string})=>t.name==='payment_extra_income')!.rows).toHaveLength(1);
-  expect(report).toMatchObject({verified:true,tables:53,foreignKeysValidated:true,exactValuesVerified:true,localRestoreOnly:true});
+  expect(report).toMatchObject({verified:true,tables:54,foreignKeysValidated:true,exactValuesVerified:true,localRestoreOnly:true});
 },30_000);
 it('rejects altered rows and mismatched migration history',async()=>{
   const bad=structuredClone(backup);bad.tables.find((t: {name:string})=>t.name==='staff')!.rows[0][1]='Changed';
@@ -45,7 +45,7 @@ it('validates foreign keys after trigger-free loading instead of accepting orpha
 },30_000);
 it('restores an older backup after new migrations are added without applying the later schema to it',async()=>{
   const newer=[...files,{name:'202612310001_future.sql',sql:'begin; create table bomedia.future_feature(id uuid primary key); commit;'}];
-  expect(await restoreAndVerifyLocally(backup,newer)).toMatchObject({verified:true,tables:53});
+  expect(await restoreAndVerifyLocally(backup,newer)).toMatchObject({verified:true,tables:54});
 },30_000);
 
 it('distinguishes SQL null from literal NULL text in the exported format',()=>{

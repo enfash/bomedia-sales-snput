@@ -11,7 +11,8 @@ export type FinancialMethod = 'api_collect' | 'api_read' | 'api_report' | 'api_s
   | 'api_approval_rules' | 'api_approval_rule_save' | 'api_approvals' | 'api_my_approvals' | 'api_approval_decision'
   | 'api_customers' | 'api_customer_profile' | 'api_customer_history' | 'api_customer_save' | 'api_sale_correction' | 'api_sale_correction_preview' | 'api_sale_history'
   | 'api_expense_correction' | 'api_expense_correction_preview' | 'api_expense_history' | 'api_expense_detail' | 'api_shift_report' | 'api_recent_customer_changes' | 'api_expense_recovery'
-  | 'api_push_subscribe' | 'api_push_unsubscribe' | 'api_push_state' | 'api_push_preference_save' | 'api_push_claim' | 'api_push_report' | 'api_push_test';
+  | 'api_push_subscribe' | 'api_push_unsubscribe' | 'api_push_state' | 'api_push_preference_save' | 'api_push_claim' | 'api_push_report' | 'api_push_test'
+  | 'api_data_revision';
 export type FinancialCall = <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>) => Promise<T>;
 let database: Promise<ReturnType<typeof postgres>> | undefined;
 export function financialApiEnabled(): boolean {
@@ -48,7 +49,7 @@ async function connect() {
   } catch (cause) { await sql.end({timeout:2}); throw new Error('Financial database is unavailable', { cause }); }
 }
 const callFinancialNow: FinancialCall = async <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>): Promise<T> => {
-  if (!['api_collect','api_read','api_report','api_sale','api_customer','api_customer_history','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_stock_purchases','api_restock','api_waste','api_stock_count','api_quote','api_quote_lookup','api_price_requests','api_price_decision','api_services','api_service_save','api_legacy_feed','api_job_status','api_legacy_sale','api_legacy_collect','api_durable_collect','api_screen_order','api_order_catalog','api_screen_expense','api_receipt','api_business_details','api_business_details_save','api_services_reorder','api_payment_methods_admin','api_payment_method_save','api_audit_log','api_system_status','api_bookkeeping_period','api_close_books','api_materials_admin','api_unavailable_materials','api_material_save','api_material_sales','api_expense_categories_admin','api_expense_category_save','api_approval_decision','api_customers','api_customer_profile','api_customer_save','api_sale_correction','api_sale_correction_preview','api_sale_history','api_expense_correction','api_expense_correction_preview','api_expense_history','api_expense_detail','api_shift_report','api_recent_customer_changes','api_expense_recovery','api_push_subscribe','api_push_unsubscribe','api_push_state','api_push_preference_save','api_push_claim','api_push_report','api_push_test','api_approval_rule_save','api_approval_rules','api_approvals','api_my_approvals'].includes(method)) throw new Error('Unknown financial operation');
+  if (!['api_collect','api_read','api_report','api_sale','api_customer','api_customer_history','api_payment_methods','api_expense','api_expense_payment','api_expense_categories','api_expenses_awaiting','api_stock_purchases','api_restock','api_waste','api_stock_count','api_quote','api_quote_lookup','api_price_requests','api_price_decision','api_services','api_service_save','api_legacy_feed','api_job_status','api_legacy_sale','api_legacy_collect','api_durable_collect','api_screen_order','api_order_catalog','api_screen_expense','api_receipt','api_business_details','api_business_details_save','api_services_reorder','api_payment_methods_admin','api_payment_method_save','api_audit_log','api_system_status','api_bookkeeping_period','api_close_books','api_materials_admin','api_unavailable_materials','api_material_save','api_material_sales','api_expense_categories_admin','api_expense_category_save','api_approval_decision','api_customers','api_customer_profile','api_customer_save','api_sale_correction','api_sale_correction_preview','api_sale_history','api_expense_correction','api_expense_correction_preview','api_expense_history','api_expense_detail','api_shift_report','api_recent_customer_changes','api_expense_recovery','api_push_subscribe','api_push_unsubscribe','api_push_state','api_push_preference_save','api_push_claim','api_push_report','api_push_test','api_approval_rule_save','api_approval_rules','api_approvals','api_my_approvals','api_data_revision'].includes(method)) throw new Error('Unknown financial operation');
   database ??= connect().catch(error => {database=undefined;throw error;});
   const sql = await database;
   if (method==='api_payment_methods') return (await sql`select bomedia.api_payment_methods() as result`)[0].result as T;
@@ -78,6 +79,7 @@ const callFinancialNow: FinancialCall = async <T>(method: FinancialMethod, key: 
   if (method==='api_services') return (await sql`select bomedia.api_services(${key==='all'}) as result`)[0].result as T;
   if (method==='api_legacy_feed') return (await sql`select bomedia.api_legacy_feed(${key}) as result`)[0].result as T;
   if (method==='api_quote_lookup') return (await sql`select bomedia.api_quote_lookup(${key}) as result`)[0].result as T;
+  if (method==='api_data_revision') return (await sql`select bomedia.api_data_revision() as result`)[0].result as T;
   const statement = method === 'api_report'
     ? "select bomedia.api_report($1::date,($2::jsonb->>'through')::date) as result"
     : `select bomedia.${method}($1,$2::jsonb) as result`;
@@ -90,6 +92,6 @@ const callFinancialNow: FinancialCall = async <T>(method: FinancialMethod, key: 
 // Sending itself (claim/report) must not trigger another send, but a test alert has to go out.
 export const callFinancial: FinancialCall = async <T>(method: FinancialMethod, key: string, payload: Record<string, unknown>): Promise<T> => {
   const result = await withConnectionRetry(() => callFinancialNow<T>(method, key, payload));
-  if (process.env.PUSH_VAPID_PRIVATE_KEY && (method === 'api_push_test' || !method.startsWith('api_push_'))) void import('./push').then((module) => module.queueDispatch()).catch(() => undefined);
+  if (process.env.PUSH_VAPID_PRIVATE_KEY && (method === 'api_push_test' || (!method.startsWith('api_push_') && method !== 'api_data_revision'))) void import('./push').then((module) => module.queueDispatch()).catch(() => undefined);
   return result;
 };

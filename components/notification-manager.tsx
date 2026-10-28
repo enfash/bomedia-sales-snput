@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSyncStore } from "@/lib/store";
 import { toast } from "sonner";
 import { Volume2, VolumeX, Package } from "lucide-react";
+import { REVISION_CHECK_MS, lagosDate, revisionKey, shouldDownload } from "@/lib/data-revision";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -21,11 +22,21 @@ export function NotificationManager() {
   const alertedInventoryRows = useRef<Set<string>>(new Set());
 
   const isFetching = useRef(false);
+  // The change counter and the time of the last full download. Reloading the page clears both, so the first check always downloads.
+  const lastKey = useRef<string | null>(null);
+  const lastDownloadAt = useRef(0);
 
   const fetchData = async () => {
     if (isFetching.current) return;
     isFetching.current = true;
     try {
+      // Read the counter before the feeds: a write that lands in between is caught by the next check, so nothing is missed.
+      const revisionRes = await fetch("/api/accounting/data-revision", { cache: "no-store" }).catch(() => null);
+      const revisionBody = revisionRes?.ok ? await revisionRes.json().catch(() => null) : null;
+      const key = revisionKey(revisionBody, lagosDate());
+      const now = Date.now();
+      if (!shouldDownload({ key, lastKey: lastKey.current, lastDownloadAt: lastDownloadAt.current }, now)) return;
+
       const [salesRes, expensesRes, inventoryRes, materialsRes] = await Promise.all([
         fetch("/api/sales"),
         fetch("/api/expenses"),
@@ -49,6 +60,8 @@ export function NotificationManager() {
       const newExpenses = expensesJson.data ?? [];
       const newInventory = inventoryJson.data ?? [];
       const newMaterials = materialsJson.data ?? [];
+      lastKey.current = key;
+      lastDownloadAt.current = now;
 
       // Update baseline on initial load
       if (isInitialLoad.current && newSales.length > 0) {
@@ -159,7 +172,7 @@ export function NotificationManager() {
 
     const timer = setTimeout(() => {
       fetchData();
-      interval = setInterval(fetchData, 30000);
+      interval = setInterval(fetchData, REVISION_CHECK_MS);
       window.addEventListener("online", fetchData);
     }, 25000);
 
