@@ -10,15 +10,17 @@ afterAll(async () => { await db?.close(); });
 beforeEach(async () => { await db.exec('begin'); });
 afterEach(async () => { await db.exec('rollback'); });
 
-it('moves once per write statement, however many rows it touches', async () => {
+it('moves once per relevant write statement, however many rows it touches', async () => {
   const before = await revision();
   await db.query("insert into bomedia.staff(display_name,login_name) select 'Staff '||g, 'staff'||g from generate_series(1,3) g");
   expect(await revision()).toBe(before + 1);
 });
 
-it('moves on updates and deletes too, not just inserts', async () => {
+it('ignores staff presence heartbeats but moves on a displayed staff name change', async () => {
   const staff = await insertId(db, "insert into bomedia.staff(display_name,login_name) values ('Ada','ada') returning id");
   const afterInsert = await revision();
+  await db.query("update bomedia.staff set last_active_at = clock_timestamp() where id = $1", [staff]);
+  expect(await revision()).toBe(afterInsert);
   await db.query("update bomedia.staff set display_name = 'Ada Obi' where id = $1", [staff]);
   expect(await revision()).toBe(afterInsert + 1);
   await db.query('delete from bomedia.staff where id = $1', [staff]);
