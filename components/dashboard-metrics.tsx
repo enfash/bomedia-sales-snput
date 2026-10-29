@@ -203,15 +203,17 @@ const customers = (count: number) => `${count} customer${count === 1 ? "" : "s"}
 
 interface DashboardMetricsProps {
   totalSales: number;
-  totalExpenses: number;
+  totalMoneyOut: number;
+  totalStockPurchases: number;
+  moneyOutAvailable: boolean;
   netProfit: number;
   outstandingDebt: number;
   unpaidCount: number;
   salesChange: string;
-  expensesChange: string;
+  moneyOutChange: string;
   profitChange: string;
   isSalesUp: boolean;
-  isExpensesDown: boolean;
+  isMoneyOutDown: boolean;
   isProfitUp: boolean;
   grossMarginPct: number;
   prevGrossMarginPct: number;
@@ -223,15 +225,17 @@ interface DashboardMetricsProps {
 
 export function DashboardMetrics({
   totalSales,
-  totalExpenses,
+  totalMoneyOut,
+  totalStockPurchases,
+  moneyOutAvailable,
   netProfit,
   outstandingDebt,
   unpaidCount,
   salesChange,
-  expensesChange,
+  moneyOutChange,
   profitChange,
   isSalesUp,
-  isExpensesDown,
+  isMoneyOutDown,
   isProfitUp,
   grossMarginPct,
   prevGrossMarginPct,
@@ -245,6 +249,7 @@ export function DashboardMetrics({
   const marginHint = totalSales > 0 ? (grossMarginPct >= 40 ? "Healthy margin" : grossMarginPct >= 20 ? "Watch expenses" : "Margin is tight") : "No sales yet";
   const marginDisplay = totalSales > 0 ? `${grossMarginPct.toFixed(1)}%` : "—%";
   const marginDelta = totalSales > 0 ? marginChange : undefined;
+  const moneyOutHint = moneyOutAvailable ? `Includes ${naira(totalStockPurchases)} stock` : "Stock purchases unavailable";
   const salesCard = (classic: boolean) => (
     <MetricCard
       variant="hero"
@@ -256,7 +261,7 @@ export function DashboardMetrics({
       sparkData={sparkData}
       classic={classic}
       stats={classic ? undefined : [
-        { label: "Expenses", value: totalExpenses, change: expensesChange, isPositive: isExpensesDown },
+        { label: "Money out", value: moneyOutAvailable ? totalMoneyOut : 0, displayValue: moneyOutAvailable ? undefined : "—", change: moneyOutAvailable ? moneyOutChange : undefined, isPositive: isMoneyOutDown, hint: moneyOutHint },
         { label: "Net profit", value: netProfit, change: profitChange, isPositive: isProfitUp },
         { label: "Margin", value: grossMarginPct, displayValue: marginDisplay, change: marginDelta, isPositive: isMarginUp, hint: marginHint },
       ]}
@@ -283,7 +288,8 @@ export function DashboardMetrics({
         <Box component={motion.div} variants={cardContainerVariants} initial="hidden" animate="show" sx={styles.classicGrid}>
           <Box component={motion.div} variants={cardItemVariants} sx={styles.classicHeroCell}>{salesCard(true)}</Box>
           <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
-            <MetricCard title="Expenses" value={totalExpenses} change={expensesChange} isPositive={isExpensesDown} icon={DollarSign} />
+            <MetricCard title="Money Out" value={moneyOutAvailable ? totalMoneyOut : 0} displayValue={moneyOutAvailable ? undefined : "—"}
+              change={moneyOutAvailable ? moneyOutChange : undefined} isPositive={isMoneyOutDown} icon={DollarSign} subLabel={moneyOutHint} />
           </Box>
           <Box component={motion.div} variants={cardItemVariants} sx={styles.classicCell}>
             <MetricCard title="Net Profit" value={netProfit} change={profitChange} isPositive={isProfitUp} icon={BarChart2} />
