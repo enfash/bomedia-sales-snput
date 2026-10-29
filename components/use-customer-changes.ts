@@ -14,6 +14,7 @@ export function useCustomerChanges(enabled: boolean) {
     if (!enabled) return;
     let active = true;
     const load = async () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
       try {
         const response = await fetch('/api/accounting/customer-changes', { cache: 'no-store' }), result = await response.json();
         if (active && response.ok && Array.isArray(result.data)) setChanges(result.data);
@@ -21,7 +22,8 @@ export function useCustomerChanges(enabled: boolean) {
     };
     void Promise.resolve().then(() => { try { setSeenAt(localStorage.getItem(SEEN_KEY)); } catch { /* No saved time: everything counts as new. */ } return load(); });
     const timer = setInterval(() => void load(), 60_000);
-    return () => { active = false; clearInterval(timer); };
+    document.addEventListener('visibilitychange', load);
+    return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', load); };
   }, [enabled]);
   const markSeen = useCallback(() => {
     const now = new Date().toISOString();

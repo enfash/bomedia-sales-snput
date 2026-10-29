@@ -15,6 +15,7 @@ export function HeldSales() {
   const [dismissed, setDismissed] = useState<string[]>([]);
 
   const load = useCallback(async () => {
+    if (document.visibilityState !== 'visible' || !navigator.onLine) return;
     try {
       const response = await fetch('/api/accounting/approvals?mine=1', { cache: 'no-store' });
       const result = await response.json().catch(() => null);
@@ -25,7 +26,8 @@ export function HeldSales() {
     void Promise.resolve().then(load);
     const timer = setInterval(() => void load(), 30000);
     window.addEventListener('bomedia-data-changed', load);
-    return () => { clearInterval(timer); window.removeEventListener('bomedia-data-changed', load); };
+    document.addEventListener('visibilitychange', load);
+    return () => { clearInterval(timer); window.removeEventListener('bomedia-data-changed', load); document.removeEventListener('visibilitychange', load); };
   }, [load]);
 
   const shown = rows.filter((r) => (r.status === 'pending' || r.status === 'declined' || r.status === 'expired') && !dismissed.includes(r.id));

@@ -27,7 +27,7 @@ export function NotificationManager() {
   const lastDownloadAt = useRef(0);
 
   const fetchData = async () => {
-    if (isFetching.current) return;
+    if (isFetching.current || document.visibilityState !== "visible" || !navigator.onLine) return;
     isFetching.current = true;
     try {
       // Read the counter before the feeds: a write that lands in between is caught by the next check, so nothing is missed.
@@ -174,12 +174,14 @@ export function NotificationManager() {
       fetchData();
       interval = setInterval(fetchData, REVISION_CHECK_MS);
       window.addEventListener("online", fetchData);
+      document.addEventListener("visibilitychange", fetchData);
     }, 25000);
 
     return () => {
       clearTimeout(timer);
       if (interval) clearInterval(interval);
       window.removeEventListener("online", fetchData);
+      document.removeEventListener("visibilitychange", fetchData);
     };
   }, []);
 
