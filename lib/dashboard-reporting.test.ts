@@ -1,8 +1,21 @@
 import { expect, it } from 'vitest';
-import { dashboardExtraIncomeRows, dashboardTradingRows, extraIncomeNaira, readDashboardReporting, type DashboardRow } from './dashboard-reporting';
+import { dashboardExtraIncomeRows, dashboardStockPurchaseRows, dashboardTradingRows, extraIncomeNaira, readDashboardReporting, stockPurchasesNaira, type DashboardRow } from './dashboard-reporting';
 import { processDebtData } from './financial-utils';
 
 const context = { backend: 'postgres', startsOn: '2026-10-26' } as const;
+it('counts stock purchases as cash out only inside the PostgreSQL books', () => {
+  const rows = [
+    { business_date: '2026-10-28', amount_kobo: '110200000' },
+    { business_date: '2026-10-25', amount_kobo: '5000000' },
+    { business_date: '2026-10-29', amount_kobo: 'wrong' },
+  ];
+  const purchases = dashboardStockPurchaseRows(rows, context);
+  expect(purchases).toEqual([rows[0]]);
+  expect(stockPurchasesNaira(purchases)).toBe(1_102_000);
+  expect(220_000 + stockPurchasesNaira(purchases)).toBe(1_322_000);
+  expect(dashboardStockPurchaseRows(rows, { backend: 'sheets' })).toEqual([]);
+});
+
 it('counts extra income only from dated confirmed receipts, separately from sales and old rounding',()=>{
   const extra={DATE:'2026-10-26','PAYMENT TYPE':'Extra income',_extraIncomeKobo:'77000'};
   const rows=dashboardExtraIncomeRows([extra,{...extra,DATE:'2026-10-25'},{...extra,'PAYMENT TYPE':'Rounding'},{...extra,_extraIncomeKobo:'wrong'}],context);

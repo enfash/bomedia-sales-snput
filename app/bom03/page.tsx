@@ -31,7 +31,8 @@ import { TodayBanner } from "@/components/today-banner";
 import { ApprovalsWaitingCard } from "@/components/approvals-waiting-card";
 import { ShiftReportModal } from "@/components/shift-report-modal";
 import { ProfitabilityWidget } from "@/components/profitability-widget";
-import { dashboardExtraIncomeRows, dashboardTradingRows, extraIncomeNaira, readDashboardReporting, type DashboardReporting } from "@/lib/dashboard-reporting";
+import { dashboardExtraIncomeRows, dashboardStockPurchaseRows, dashboardTradingRows, extraIncomeNaira, readDashboardReporting, stockPurchasesNaira, type DashboardReporting } from "@/lib/dashboard-reporting";
+import { fetchStockPurchases, type StockPurchase } from "@/lib/spending-list";
 import Alert from "@mui/material/Alert";
 
 import {
@@ -79,6 +80,8 @@ export default function DashboardPage() {
   const [selectedDebtor, setSelectedDebtor] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [reporting, setReporting] = useState<DashboardReporting | null>(null);
+  const [stockPurchases, setStockPurchases] = useState<StockPurchase[]>([]);
+  const [stockPurchasesAvailable, setStockPurchasesAvailable] = useState(false);
 
   const lastSalesIndex = useRef<number>(0);
   const lastExpensesIndex = useRef<number>(0);
@@ -89,12 +92,15 @@ export default function DashboardPage() {
     else if (cachedSales.length === 0) setLoading(true);
 
     try {
-      const [salesRes, expensesRes, inventoryRes, paymentsRes, materialsRes] = await Promise.all([
+      const [salesRes, expensesRes, inventoryRes, paymentsRes, materialsRes, stockPurchaseResult] = await Promise.all([
         fetch("/api/sales?dashboard=1"),
         fetch("/api/expenses"),
         fetch("/api/inventory"),
         fetch("/api/payments"),
         fetch("/api/materials"),
+        fetchStockPurchases()
+          .then(data => ({ data, available: true }))
+          .catch(() => ({ data: [] as StockPurchase[], available: false })),
       ]);
 
       if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok || !paymentsRes.ok) {
@@ -117,6 +123,8 @@ export default function DashboardPage() {
 
       setCachedData(newSales, newExpenses, newInventory, newPayments, newMaterials);
       setReporting(nextReporting);
+      setStockPurchases(stockPurchaseResult.data);
+      setStockPurchasesAvailable(stockPurchaseResult.available);
     } catch (error) {
       setReporting(null);
       console.error("Failed to fetch dashboard data:", error);
@@ -198,6 +206,13 @@ export default function DashboardPage() {
   const prevSales = filterByInterval(trading.sales, prevStartDate, startDate);
   const currentExpenses = filterByInterval(trading.expenses, startDate, effectiveEnd);
   const prevExpenses = filterByInterval(trading.expenses, prevStartDate, startDate);
+  const dashboardPurchases = dashboardStockPurchaseRows(stockPurchases, reporting);
+  const filterPurchasesByInterval = (purchases: StockPurchase[], start: Date, end: Date) => purchases.filter((purchase) => {
+    const date = parseSheetDate(purchase.business_date);
+    return date ? isWithinInterval(date, { start, end }) : false;
+  });
+  const currentStockPurchases = filterPurchasesByInterval(dashboardPurchases, startDate, effectiveEnd);
+  const prevStockPurchases = filterPurchasesByInterval(dashboardPurchases, prevStartDate, startDate);
   const extraPayments = dashboardExtraIncomeRows(cachedPayments, reporting);
   const extraIncome = extraIncomeNaira(filterByInterval(extraPayments,startDate,effectiveEnd));
   const previousExtraIncome = extraIncomeNaira(filterByInterval(extraPayments,prevStartDate,startDate));
@@ -213,6 +228,10 @@ export default function DashboardPage() {
   const prevSalesVal = sumKey(prevSales, ["AMOUNT (₦)", "Amount (₦)"]);
   const totalExpensesVal = sumKey(currentExpenses, ["Amount (₦)", "AMOUNT", "Amount"]);
   const prevExpensesVal = sumKey(prevExpenses, ["Amount (₦)", "AMOUNT", "Amount"]);
+  const totalStockPurchasesVal = stockPurchasesNaira(currentStockPurchases);
+  const prevStockPurchasesVal = stockPurchasesNaira(prevStockPurchases);
+  const totalMoneyOutVal = totalExpensesVal + totalStockPurchasesVal;
+  const prevMoneyOutVal = prevExpensesVal + prevStockPurchasesVal;
   const netProfitVal = totalSalesVal + extraIncome - totalExpensesVal;
   const prevProfitVal = prevSalesVal + previousExtraIncome - prevExpensesVal;
 
@@ -420,15 +439,17 @@ export default function DashboardPage() {
       {reporting && <motion.div variants={sectionVariants} custom={0.08} initial="hidden" animate="show">
         <DashboardMetrics
           totalSales={totalSalesVal}
-          totalExpenses={totalExpensesVal}
+          totalMoneyOut={totalMoneyOutVal}
+          totalStockPurchases={totalStockPurchasesVal}
+          moneyOutAvailable={reporting.backend !== 'postgres' || stockPurchasesAvailable}
           netProfit={netProfitVal}
           outstandingDebt={outstandingDebtTotal}
           unpaidCount={unpaidCount}
           salesChange={calculateChange(totalSalesVal, prevSalesVal)}
-          expensesChange={calculateChange(totalExpensesVal, prevExpensesVal)}
+          moneyOutChange={calculateChange(totalMoneyOutVal, prevMoneyOutVal)}
           profitChange={calculateChange(netProfitVal, prevProfitVal)}
           isSalesUp={totalSalesVal >= prevSalesVal}
-          isExpensesDown={totalExpensesVal <= prevExpensesVal}
+          isMoneyOutDown={totalMoneyOutVal <= prevMoneyOutVal}
           isProfitUp={netProfitVal >= prevProfitVal}
           grossMarginPct={grossMarginPct}
           prevGrossMarginPct={prevGrossMarginPct}

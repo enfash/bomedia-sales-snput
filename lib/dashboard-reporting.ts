@@ -1,5 +1,6 @@
 export type DashboardRow = Record<string, string>;
 export type DashboardReporting = { backend: 'sheets' } | { backend: 'postgres'; startsOn: string };
+export type DashboardStockPurchase = { business_date: string; amount_kobo: string };
 
 /** Extra income follows the receipt date, even when the associated sale is later cancelled. */
 export function dashboardExtraIncomeRows(payments: DashboardRow[], reporting: DashboardReporting | null) {
@@ -8,6 +9,16 @@ export function dashboardExtraIncomeRows(payments: DashboardRow[], reporting: Da
     && row.DATE >= reporting.startsOn && /^[1-9][0-9]*$/.test(row._extraIncomeKobo || ''));
 }
 export const extraIncomeNaira = (payments: DashboardRow[]) => Number(payments.reduce((sum,row) => sum + BigInt(row._extraIncomeKobo),BigInt(0)))/100;
+
+/** Stock purchases are cash out, but not immediate profit expenses. */
+export function dashboardStockPurchaseRows<T extends DashboardStockPurchase>(purchases: T[], reporting: DashboardReporting | null): T[] {
+  if (reporting?.backend !== 'postgres') return [];
+  return purchases.filter(row => isDate(row.business_date) && row.business_date >= reporting.startsOn
+    && /^[0-9]+$/.test(row.amount_kobo));
+}
+
+export const stockPurchasesNaira = (purchases: DashboardStockPurchase[]) =>
+  Number(purchases.reduce((sum, row) => sum + BigInt(row.amount_kobo), BigInt(0))) / 100;
 
 function isDate(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
