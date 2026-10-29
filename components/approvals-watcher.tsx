@@ -22,6 +22,7 @@ export function ApprovalsWatcher() {
     if (!owner) return;
     let active = true;
     const check = async () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
       try {
         const response = await fetch('/api/accounting/approvals', { cache: 'no-store' });
         if (!response.ok) return;
@@ -46,7 +47,8 @@ export function ApprovalsWatcher() {
     const timer = setInterval(() => void check(), 30000);
     window.addEventListener(APPROVALS_CHANGED, check);
     window.addEventListener('focus', check);
-    return () => { active = false; clearInterval(timer); window.removeEventListener(APPROVALS_CHANGED, check); window.removeEventListener('focus', check); };
+    document.addEventListener('visibilitychange', check);
+    return () => { active = false; clearInterval(timer); window.removeEventListener(APPROVALS_CHANGED, check); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check); };
   }, [owner]);
 
   useFloatingNotice('approvals-new', owner && !onInbox && text ? { tone: 'warning', text, action: { label: 'Review', run: open } } : null);
