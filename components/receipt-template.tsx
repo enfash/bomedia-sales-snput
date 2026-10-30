@@ -8,6 +8,7 @@ import { useBusinessDetails } from "@/lib/business-details";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { recordSaleItem } from "@/lib/customer-sale-items";
 
 /** Rendered logo width on the 800px-wide receipt. */
 const LOGO_WIDTH = 157.5;
@@ -148,13 +149,15 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
               </tr>
             </Box>
             <Box component="tbody" sx={{ "& tr:not(:last-of-type)": { borderBottom: "1px solid", borderColor: "grey.100" } }}>
-              {records.map((r, idx) => (
-                <tr key={r.id ?? idx}>
+              {records.map((r, idx) => {
+                const job = recordSaleItem(r);
+                return <tr key={r.id ?? idx}>
                   <Box component="td" sx={{ px: 2, py: 1.5, textAlign: "center", color: "grey.400", fontSize: "0.75rem", fontWeight: "bold" }}>
                     {idx + 1}
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5, fontWeight: 500, color: "grey.900" }}>
-                    {r.description}
+                    <Typography component="div" sx={{ fontSize: "0.875rem", fontWeight: 600, color: "grey.900" }}>{job.name}</Typography>
+                    {job.size && <Typography component="div" sx={{ mt: 0.25, fontSize: "0.75rem", color: "grey.600" }}>{job.size}</Typography>}
                   </Box>
                   {hasMaterial && (
                     <Box component="td" sx={{ px: 2, py: 1.5, color: "grey.600", fontSize: "0.75rem" }}>
@@ -172,8 +175,8 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
                   <Box component="td" sx={{ px: 2, py: 1.5, textAlign: "right", fontWeight: "bold", color: (r.balance ?? 0) > 0 ? "error.main" : "success.main" }}>
                     ₦{(r.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </Box>
-                </tr>
-              ))}
+                </tr>;
+              })}
             </Box>
           </Box>
         </Box>
