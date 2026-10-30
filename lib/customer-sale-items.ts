@@ -4,6 +4,7 @@ import { koboNaira } from './approvals-view';
 /** One item as the profile feed sends it. */
 export type SaleItemRaw = { description: string; material?: string | null; quantity?: string | null; width_ft?: string | null; height_ft?: string | null; amount_kobo: string };
 export type SaleItem = { name: string; size: string; amount: string };
+export type RecordSaleItem = { description: string; amount: number; raw?: Record<string, string> };
 
 const PLAIN_NUMBER = /^\d+(\.\d+)?$/;
 const trimNumber = (value: string) => (PLAIN_NUMBER.test(value) ? String(Number(value)) : value);
@@ -32,6 +33,20 @@ export function saleItem(raw: SaleItemRaw): SaleItem {
   const fromJob = width && height && Number(width) > 0 && Number(height) > 0 ? `${width} × ${height} ft` : '';
   const quantity = Number(raw.quantity) > 1 ? `${trimNumber(String(raw.quantity))} pieces` : '';
   return { name, size: [bracketSize || fromJob, quantity].filter(Boolean).join(' · '), amount: koboNaira(Number(raw.amount_kobo) || 0) };
+}
+
+/** Use the same item wording on Records and invoices that the customer Sales history uses. */
+export function recordSaleItem(record: RecordSaleItem): SaleItem {
+  const raw = record.raw ?? {};
+  const custom = String(raw.custom ?? raw.CUSTOM ?? '').trim();
+  const dimensions = custom.match(/^(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
+  return saleItem({
+    description: record.description,
+    quantity: raw.QTY ?? raw.Qty ?? raw.Quantity ?? null,
+    width_ft: dimensions?.[1] ?? null,
+    height_ft: dimensions?.[2] ?? null,
+    amount_kobo: String(Math.round((record.amount || 0) * 100)),
+  });
 }
 
 /** Opening debts were created together, so the database cannot tell their order apart: put them back in the Sheet's row order. New sales keep the order they were made in. */

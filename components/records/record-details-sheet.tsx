@@ -21,6 +21,7 @@ import { SaleHistory } from '@/components/sale-corrections/sale-history';
 import { useCorrectionAccess } from '@/components/sale-corrections/use-correction-access';
 import { lagosBusinessDate } from '@/lib/accounting-entry';
 import { canChangeSale } from '@/lib/sale-corrections-view';
+import { recordSaleItem } from '@/lib/customer-sale-items';
 
 function Fact({ label, children, muted = false }: { label: string; children: string; muted?: boolean }) {
   return <Box>
@@ -46,6 +47,7 @@ export function RecordDetailsSheet({ record, onClose, onUpdate, onReceipt }: {
   const [changing, setChanging] = useState<'correct' | 'cancel' | null>(null);
   const [changes, setChanges] = useState(0);
   const cancelled = record?.jobStatus === 'Cancelled';
+  const job = record && sale ? recordSaleItem(record) : null;
   const mayChange = !!record && sale && !record.isPending && !cancelled && !!record.raw?._jobId && canChangeSale(access, record.raw?.DATE, lagosBusinessDate());
   return <ResponsiveSheet open={!!record} onClose={onClose} title={record?.client || 'Record'} description={record ? `${record.date}${record.salesId ? ` · ${record.salesId}` : ''}` : undefined}
     footer={<Box sx={settingsStyles.footer}><Button color="inherit" onClick={onClose}>Close</Button></Box>}>
@@ -85,7 +87,8 @@ export function RecordDetailsSheet({ record, onClose, onUpdate, onReceipt }: {
 
       <Box>
         <Typography variant="overline" sx={styles.factLabel}>{sale ? 'JOB' : 'NOTE'}</Typography>
-        <Typography>{record.description}</Typography>
+        <Typography sx={sale ? { fontWeight: 600 } : undefined}>{job?.name ?? record.description}</Typography>
+        {job?.size && <Typography variant="body2" color="text.secondary">{job.size}</Typography>}
       </Box>
 
       {sale && (cancelled ? <Box component="span" sx={changeStyles.cancelled}>Cancelled</Box> : changes > 0 && <Box component="span" sx={changeStyles.corrected}>Corrected {changes === 1 ? '1 time' : `${changes} times`}</Box>)}
@@ -150,11 +153,12 @@ export function BatchDetailsSheet({ items, salesId, onClose, onUpdate, onReceipt
         <Box sx={styles.group}>
           {items.map((item) => {
             const itemBalance = describeBalance(item.balance, false, exact(item));
+            const job = recordSaleItem(item);
             return <Box key={item.id} sx={styles.itemRow}>
               <Box sx={styles.rowMain}>
-                <Typography sx={styles.category}>{item.description || 'No description'}</Typography>
+                <Typography sx={styles.category}>{job.name || 'No description'}</Typography>
                 <Typography variant="body2" component="span" sx={styles.meta}>
-                  {item.material || 'No material'}{itemBalance.tone === 'debt' && <> · <Box component="span" sx={styles.owes}>Owes {naira(item.balance || 0)}</Box></>}
+                  {[job.size, item.material || 'No material'].filter(Boolean).join(' · ')}{itemBalance.tone === 'debt' && <> · <Box component="span" sx={styles.owes}>Owes {naira(item.balance || 0)}</Box></>}
                 </Typography>
               </Box>
               <Box component="span" sx={styles.rowEnd}>
