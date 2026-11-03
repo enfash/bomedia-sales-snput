@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import NextLink from 'next/link';
-import { Alert, Box, Button, LinearProgress, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Collapse, LinearProgress, Paper, TextField, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { ChevronDown } from 'lucide-react';
 import { LoadingState } from '@/components/loading-state';
 
 import { materialsStyles, inventoryStyles as styles, settingsStyles, statTileStyles, systemStatusStyles as status } from '@/app/theme';
@@ -27,6 +28,8 @@ export function InventoryPage() {
   const [error, setError] = useState(''), [search, setSearch] = useState(''), [open, setOpen] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null), [sheetKey, setSheetKey] = useState(0), [refreshing, setRefreshing] = useState(false);
   const stock = useStockEntry(staffId);
+  const [usedOpen, setUsedOpen] = useState<string | null>(null);
+  const theme = useTheme(), twoColumns = useMediaQuery(theme.breakpoints.up('lg'));
 
   const load = useCallback(async () => {
     const [materialsResponse, rollsResponse] = await Promise.all([fetch('/api/materials?all=1', { cache: 'no-store' }), fetch('/api/inventory', { cache: 'no-store' })]);
@@ -92,8 +95,8 @@ export function InventoryPage() {
         <Typography variant="overline" sx={styles.label}>Materials</Typography>
         {materials.length === 0 && <Alert severity="info">There are no materials yet. Add one in Settings → Materials.</Alert>}
         {materials.length > 0 && shown.length === 0 && <Alert severity="info">No material matches &ldquo;{search}&rdquo;.</Alert>}
-        <Box sx={styles.cards}>
-          {shown.map((row) => {
+        {(() => {
+          const renderCard = (row: FeedRow) => {
             const code = row['Material ID'], isOpen = open === code, off = row.Available === 'No', name = `${row['Material Name']} ${Number(row['Width (ft)'])} ft`;
             const sizeRolls = rollsOfMaterial(rolls, code);
             const stockMaterial = matchStockMaterial(stock.materials, row);
@@ -111,7 +114,10 @@ export function InventoryPage() {
                 </Box>
                 <Typography variant="overline" sx={styles.label}>Rolls</Typography>
                 {sizeRolls.length === 0 && <Typography variant="body2" color="text.secondary">No rolls yet. Add one below.</Typography>}
-                {sizeRolls.map((roll) => {
+                {sizeRolls.length > 0 && (() => {
+                  const isLive = (roll: FeedRow) => { const stockRoll = matchStockRoll(stock.rolls, roll); return stockRoll ? inStock(stockRoll) : false; };
+                  const liveRolls = sizeRolls.filter(isLive), usedRolls = sizeRolls.filter((roll) => !isLive(roll)), showUsed = usedOpen === code;
+                  const renderRoll = (roll: FeedRow) => {
                   const stockRoll = matchStockRoll(stock.rolls, roll), live = stockRoll ? inStock(stockRoll) : false;
                   return <Box key={roll['Roll ID']} sx={[styles.roll, !live && styles.rollOut]}>
                     <Box sx={styles.rollHead}>
@@ -128,12 +134,28 @@ export function InventoryPage() {
                       <Button color="inherit" variant="outlined" sx={styles.rollButton} onClick={() => openSheet({ kind: 'count', rollId: stockRoll.id })}>Count</Button>
                     </Box>}
                   </Box>;
-                })}
+                  };
+                  return <>
+                    {liveRolls.length === 0 && <Typography variant="body2" color="text.secondary">No roll in stock. Add one below.</Typography>}
+                    {liveRolls.length > 0 && <Box sx={[styles.rollList, liveRolls.length > 5 && styles.rollListCapped]}>{liveRolls.map(renderRoll)}</Box>}
+                    {usedRolls.length > 0 && <Box>
+                      <Button fullWidth color="inherit" aria-expanded={showUsed} onClick={() => setUsedOpen(showUsed ? null : code)} endIcon={<Box component={ChevronDown} size={18} sx={[styles.chevron, showUsed && styles.chevronOpen]} />} sx={styles.usedToggle}>
+                        Used rolls ({usedRolls.length})
+                      </Button>
+                      <Collapse in={showUsed} unmountOnExit>
+                        <Box sx={[styles.rollList, styles.usedList, usedRolls.length > 5 && styles.rollListCapped]}>{usedRolls.map(renderRoll)}</Box>
+                      </Collapse>
+                    </Box>}
+                  </>;
+                })()}
                 <Button variant="contained" disabled={!stockMaterial} onClick={() => stockMaterial && openSheet({ kind: 'restock', materialId: stockMaterial.id })}>Add a {name} roll</Button>
               </>}
             </Paper>;
-          })}
-        </Box>
+          };
+          // Two independent stacks on wide screens, so opening a card only lengthens its own column.
+          const columns = twoColumns ? [shown.filter((_, i) => i % 2 === 0), shown.filter((_, i) => i % 2 === 1)] : [shown];
+          return <Box sx={styles.cards}>{columns.map((column, i) => <Box key={i} sx={styles.cardColumn}>{column.map(renderCard)}</Box>)}</Box>;
+        })()}
       </>}
     </Box>
 
