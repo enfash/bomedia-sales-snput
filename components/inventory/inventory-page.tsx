@@ -115,7 +115,7 @@ export function InventoryPage() {
                 <Typography variant="overline" sx={styles.label}>Rolls</Typography>
                 {sizeRolls.length === 0 && <Typography variant="body2" color="text.secondary">No rolls yet. Add one below.</Typography>}
                 {sizeRolls.length > 0 && (() => {
-                  const isLive = (roll: FeedRow) => { const stockRoll = matchStockRoll(stock.rolls, roll); return stockRoll ? inStock(stockRoll) : roll.Status !== 'Out of Stock'; };
+                  const isLive = (roll: FeedRow) => { const stockRoll = matchStockRoll(stock.rolls, roll); return stockRoll ? inStock(stockRoll) : false; };
                   const liveRolls = sizeRolls.filter(isLive), usedRolls = sizeRolls.filter((roll) => !isLive(roll)), showUsed = usedOpen === code;
                   const renderRoll = (roll: FeedRow) => {
                   const stockRoll = matchStockRoll(stock.rolls, roll), live = stockRoll ? inStock(stockRoll) : false;
