@@ -65,6 +65,7 @@ function JobLine({ job, showClient = true }: { job: UnifiedRecord; showClient?: 
       <Box component="span" sx={[styles.pill, payPill(status)]}>{status === "Unpaid" && (job.balance ?? 0) > 0 ? `Owes ${money(job.balance ?? 0)}` : status}</Box>
       <Box component="span" sx={[styles.pill, styles.pillNeutral]}>{job.jobStatus}</Box>
     </Box>
+    <Box sx={styles.chevronSlot} aria-hidden />
   </Box>;
 }
 
@@ -85,15 +86,17 @@ function JobList({ orders }: { orders: CashierOrder[] }) {
       const isOpen = open === key, panel = `jobs-${key}`;
       return <Box key={key} sx={styles.order}>
         <ButtonBase onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen} aria-controls={panel} sx={[styles.orderHead, isOpen && styles.orderHeadOpen]}>
-          <Box sx={styles.jobMain}>
+          <Box sx={[styles.jobMain, styles.orderMain]}>
             <Typography noWrap sx={styles.strong}>{order.client}</Typography>
             <Typography noWrap variant="body2" color="text.secondary">{order.salesId} · {itemCount(order.jobs.length)}</Typography>
           </Box>
-          <Box sx={styles.jobEnd}>
-            <Typography sx={styles.money}>{money(order.total)}</Typography>
-            <Box component="span" sx={[styles.pill, orderPillStyle(order.pill)]}>{orderPillLabel(order)}</Box>
+          <Box sx={styles.orderEnd}>
+            <Box sx={styles.jobEnd}>
+              <Typography sx={styles.money}>{money(order.total)}</Typography>
+              <Box component="span" sx={[styles.pill, orderPillStyle(order.pill)]}>{orderPillLabel(order)}</Box>
+            </Box>
+            <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>
           </Box>
-          <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>
         </ButtonBase>
         <Collapse in={isOpen} unmountOnExit>
           <Box id={panel} sx={styles.orderBody}>
@@ -119,14 +122,16 @@ function CollectList({ orders, onCollect }: { orders: CashierOrder[]; onCollect:
             aria-expanded={single ? undefined : isOpen}
             aria-controls={single ? undefined : panel}
             sx={[styles.orderHead, isOpen && styles.orderHeadOpen]}>
-            <Box sx={styles.jobMain}>
+            <Box sx={[styles.jobMain, styles.orderMain]}>
               <Typography noWrap sx={styles.strong}>{order.client}</Typography>
               <Typography noWrap variant="body2" color="text.secondary">
                 {single ? [order.jobs[0].description, order.jobs[0].material].filter(Boolean).join(" · ") : `${order.salesId} · ${itemCount(order.jobs.length)}`}
               </Typography>
             </Box>
             <Typography sx={styles.money}>{money(order.owed)}</Typography>
-            {!single && <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>}
+            {single
+              ? <Box sx={styles.chevronSlot} aria-hidden />
+              : <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>}
           </ButtonBase>
           <Box sx={styles.orderActions}>
             <Button size="small" variant="contained" onClick={(event) => { event.stopPropagation(); onCollect(order.client); }}>Collect</Button>
