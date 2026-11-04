@@ -3,16 +3,19 @@ import { ScreenLoading } from "@/components/screen-loading";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { ChevronRight, Plus, Receipt, RefreshCw, Ruler, MessageCircle, ShoppingBag } from "lucide-react";
-import { Box, Button, IconButton, LinearProgress, Paper, Typography } from "@mui/material";
+import { ChevronDown, ChevronRight, Plus, Receipt, RefreshCw, Ruler, MessageCircle, ShoppingBag } from "lucide-react";
+import { Box, Button, ButtonBase, Collapse, IconButton, LinearProgress, Paper, Typography } from "@mui/material";
 import { isSameDay, subDays, isWithinInterval, format } from "date-fns";
 
 import { cashierHomeStyles as styles } from "@/app/theme";
+import type { UnifiedRecord } from "@/components/manage-sale-action";
 import { DebtorPaymentModal } from "@/components/debtor-payment-modal";
 import { HeldSales } from "@/components/records/held-sales";
 import { StockBar } from "@/components/stock-bar";
+import { buildCashierOrders, owingOrders, reminderText, type CashierOrder, type OrderPill } from "@/lib/cashier-home-view";
 import { collectionLook } from "@/lib/collection-status";
 import { processDebtData } from "@/lib/financial-utils";
+import { itemCount } from "@/lib/customer-sale-items";
 import { useSyncStore } from "@/lib/store";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -44,8 +47,31 @@ const LINKS = [
 
 // ─── Pieces ───────────────────────────────────────────────────────────────────
 
-function JobList({ jobs }: { jobs: any[] }) {
-  if (jobs.length === 0) {
+const orderKey = (order: CashierOrder) => order.salesId || order.jobs[0].id;
+const orderPillStyle = (pill: OrderPill) =>
+  pill === "Paid" ? styles.pillPaid : pill === "Part-payment" ? styles.pillPart : pill === "Owes" ? styles.pillUnpaid : styles.pillNeutral;
+const orderPillLabel = (order: CashierOrder) => (order.pill === "Owes" ? `Owes ${money(order.owed)}` : order.pill);
+
+/** One job, styled as the job row. Inside an expanded order the client name is left off, since the header has it. */
+function JobLine({ job, showClient = true }: { job: UnifiedRecord; showClient?: boolean }) {
+  const status = job.raw["PAYMENT STATUS"] || "Unpaid";
+  return <Box sx={styles.jobRow}>
+    <Box sx={styles.jobMain}>
+      {showClient && <Typography noWrap sx={styles.strong}>{job.client}</Typography>}
+      <Typography noWrap variant="body2" color="text.secondary">{[job.description, job.material].filter(Boolean).join(" · ")}</Typography>
+    </Box>
+    <Box sx={styles.jobEnd}>
+      <Typography sx={styles.money}>{money(job.amount)}</Typography>
+      <Box component="span" sx={[styles.pill, payPill(status)]}>{status === "Unpaid" && (job.balance ?? 0) > 0 ? `Owes ${money(job.balance ?? 0)}` : status}</Box>
+      <Box component="span" sx={[styles.pill, styles.pillNeutral]}>{job.jobStatus}</Box>
+    </Box>
+  </Box>;
+}
+
+/** Today's jobs, one row per order. A single-job order is a plain row; a bigger order opens to show its jobs. */
+function JobList({ orders }: { orders: CashierOrder[] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  if (orders.length === 0) {
     return <Box sx={styles.empty}>
       <ShoppingBag size={32} />
       <Typography>No jobs logged today yet</Typography>
@@ -53,27 +79,72 @@ function JobList({ jobs }: { jobs: any[] }) {
     </Box>;
   }
   return <>
-    {jobs.slice(0, 8).map((job, i) => {
-      const client = job["CLIENT NAME"] || job["Client Name"] || "—";
-      const desc = job["JOB DESCRIPTION"] || job["Job Description"] || "—";
-      const material = job["MATERIAL"] || job["Material"] || "";
-      const amount = parseAmount(job["AMOUNT (₦)"] || job["Amount (₦)"]);
-      const balance = parseAmount(job["AMOUNT DIFFERENCES"] || job["Amount Differences"]);
-      const status = job["PAYMENT STATUS"] || "Unpaid";
-      const jobStatus = job["JOB STATUS"] || job["Job Status"] || "Quoted";
-      return <Box key={i} sx={styles.jobRow}>
-        <Box sx={styles.jobMain}>
-          <Typography noWrap sx={styles.strong}>{client}</Typography>
-          <Typography noWrap variant="body2" color="text.secondary">{[desc, material].filter(Boolean).join(" · ")}</Typography>
-        </Box>
-        <Box sx={styles.jobEnd}>
-          <Typography sx={styles.money}>{money(amount)}</Typography>
-          <Box component="span" sx={[styles.pill, payPill(status)]}>{status === "Unpaid" && balance > 0 ? `Owes ${money(balance)}` : status}</Box>
-          <Box component="span" sx={[styles.pill, styles.pillNeutral]}>{jobStatus}</Box>
-        </Box>
+    {orders.slice(0, 8).map((order) => {
+      const key = orderKey(order);
+      if (order.jobs.length === 1) return <JobLine key={key} job={order.jobs[0]} />;
+      const isOpen = open === key, panel = `jobs-${key}`;
+      return <Box key={key} sx={styles.order}>
+        <ButtonBase onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen} aria-controls={panel} sx={[styles.orderHead, isOpen && styles.orderHeadOpen]}>
+          <Box sx={styles.jobMain}>
+            <Typography noWrap sx={styles.strong}>{order.client}</Typography>
+            <Typography noWrap variant="body2" color="text.secondary">{order.salesId} · {itemCount(order.jobs.length)}</Typography>
+          </Box>
+          <Box sx={styles.jobEnd}>
+            <Typography sx={styles.money}>{money(order.total)}</Typography>
+            <Box component="span" sx={[styles.pill, orderPillStyle(order.pill)]}>{orderPillLabel(order)}</Box>
+          </Box>
+          <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>
+        </ButtonBase>
+        <Collapse in={isOpen} unmountOnExit>
+          <Box id={panel} sx={styles.orderBody}>
+            {order.jobs.map((job) => <JobLine key={job.id} job={job} showClient={false} />)}
+          </Box>
+        </Collapse>
       </Box>;
     })}
   </>;
+}
+
+/** Orders that still owe, one row each, with the order's balance. Collect opens the payment sheet for the customer. */
+function CollectList({ orders, onCollect }: { orders: CashierOrder[]; onCollect: (client: string) => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return <Paper variant="outlined" sx={styles.card}>
+    {orders.map((order) => {
+      const key = orderKey(order), single = order.jobs.length === 1;
+      const isOpen = !single && open === key, panel = `collect-${key}`;
+      return <Box key={key} sx={styles.order}>
+        <Box sx={styles.orderRow}>
+          <ButtonBase
+            onClick={() => (single ? onCollect(order.client) : setOpen(isOpen ? null : key))}
+            aria-expanded={single ? undefined : isOpen}
+            aria-controls={single ? undefined : panel}
+            sx={[styles.orderHead, isOpen && styles.orderHeadOpen]}>
+            <Box sx={styles.jobMain}>
+              <Typography noWrap sx={styles.strong}>{order.client}</Typography>
+              <Typography noWrap variant="body2" color="text.secondary">
+                {single ? [order.jobs[0].description, order.jobs[0].material].filter(Boolean).join(" · ") : `${order.salesId} · ${itemCount(order.jobs.length)}`}
+              </Typography>
+            </Box>
+            <Typography sx={styles.money}>{money(order.owed)}</Typography>
+            {!single && <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>}
+          </ButtonBase>
+          <Box sx={styles.orderActions}>
+            <Button size="small" variant="contained" onClick={(event) => { event.stopPropagation(); onCollect(order.client); }}>Collect</Button>
+            {order.contact && <IconButton size="small" aria-label={`Send ${order.client} a WhatsApp reminder`} sx={styles.reminder} onClick={(event) => {
+              event.stopPropagation();
+              const phone = order.contact.replace(/\D/g, "").replace(/^0/, "234");
+              window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderText(order, money))}`, "_blank");
+            }}><MessageCircle size={16} /></IconButton>}
+          </Box>
+        </Box>
+        {!single && <Collapse in={isOpen} unmountOnExit>
+          <Box id={panel} sx={styles.orderBody}>
+            {order.jobs.map((job) => <JobLine key={job.id} job={job} showClient={false} />)}
+          </Box>
+        </Collapse>}
+      </Box>;
+    })}
+  </Paper>;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -139,6 +210,7 @@ export default function CashierDashboardPage() {
         "AMOUNT DIFFERENCES": "0",
         "PAYMENT STATUS": "Unpaid",
         "JOB STATUS": i.data[20] || "Quoted",
+        "SALES ID": i.data[22] || "",
         "LOGGED BY": i.data[21] || cashierName,
         __isPending: "true",
       }));
@@ -210,22 +282,8 @@ export default function CashierDashboardPage() {
       .sort((a, b) => b.balance - a.balance);
   }, [weekSales]);
 
-  const todayDebtors = useMemo(() => {
-    return todaySales
-      .filter((r) => {
-        const bal = parseAmount(
-          r["AMOUNT DIFFERENCES"] || r["Amount Differences"]
-        );
-        return bal > 0;
-      })
-      .map((r) => ({
-        client: (r["CLIENT NAME"] || r["Client Name"] || "—").trim(),
-        amount: parseAmount(r["AMOUNT DIFFERENCES"] || r["Amount Differences"]),
-        description: (r["JOB DESCRIPTION"] || r["Job Description"] || "—").trim(),
-        contact: (r["CONTACT"] || r["Contact"] || "").trim(),
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [todaySales]);
+  const todayOrders = useMemo(() => buildCashierOrders(todaySales), [todaySales]);
+  const owingToday = useMemo(() => owingOrders(todayOrders), [todayOrders]);
 
   if (loading) {
     return <ScreenLoading screen="dashboard" role="cashier" label="Loading today" />;
@@ -309,31 +367,12 @@ export default function CashierDashboardPage() {
 
       <Box sx={styles.columns}>
         <Box sx={styles.column}>
-          {todayDebtors.length > 0 && <Box>
+          {owingToday.length > 0 && <Box>
             <Box sx={styles.sectionHead}>
               <Typography variant="h6" component="h2">Collect today</Typography>
-              <Typography variant="body2" color="text.secondary">{todayDebtors.length} customer{todayDebtors.length === 1 ? "" : "s"}</Typography>
+              <Typography variant="body2" color="text.secondary">{owingToday.length} order{owingToday.length === 1 ? "" : "s"}</Typography>
             </Box>
-            <Paper variant="outlined" sx={styles.card}>
-              {todayDebtors.map((d, i) => (
-                <Box key={i} sx={styles.collectRow} role="button" tabIndex={0} onClick={() => setSelectedDebtor(d.client)}
-                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedDebtor(d.client); } }}>
-                  <Box sx={styles.jobMain}>
-                    <Typography noWrap sx={styles.strong}>{d.client}</Typography>
-                    <Typography noWrap variant="body2" color="text.secondary">{d.description}</Typography>
-                  </Box>
-                  <Box sx={styles.headingActions}>
-                    <Typography sx={styles.money}>{money(d.amount)}</Typography>
-                    {d.contact && <IconButton size="small" aria-label={`Send ${d.client} a WhatsApp reminder`} sx={styles.reminder} onClick={(event) => {
-                      event.stopPropagation();
-                      const phone = d.contact.replace(/\D/g, "").replace(/^0/, "234");
-                      const message = `Hello *${d.client}*, this is a reminder from *BOMedia*. You have an outstanding balance of *${money(d.amount)}* on your order: ${d.description}. Kindly settle at your earliest convenience. Thank you!`;
-                      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
-                    }}><MessageCircle size={16} /></IconButton>}
-                  </Box>
-                </Box>
-              ))}
-            </Paper>
+            <CollectList orders={owingToday} onCollect={(client) => setSelectedDebtor(client)} />
           </Box>}
 
           <Box>
@@ -341,7 +380,7 @@ export default function CashierDashboardPage() {
               <Typography variant="h6" component="h2">Today&apos;s jobs</Typography>
               <Typography component={Link} href="/cashier/records" sx={styles.sectionLink}>See all</Typography>
             </Box>
-            <Paper variant="outlined" sx={styles.card}><JobList jobs={todaySales} /></Paper>
+            <Paper variant="outlined" sx={styles.card}><JobList orders={todayOrders} /></Paper>
           </Box>
         </Box>
 
