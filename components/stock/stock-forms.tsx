@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import NextLink from 'next/link';
-import { Alert, Box, Button, Link, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Link, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { DateField } from '@/components/date-field';
 import { PaidBy } from '@/components/paid-by';
 import { StockBar } from '@/components/stock-bar';
@@ -23,9 +23,25 @@ export function StockNotices({ stock }: { stock: StockEntryState }) {
     {stock.success && <Alert severity="success">{stock.success}</Alert>}
     {stock.pending && <Alert severity="warning">
       <Typography>{stock.pending.summary}</Typography>
-      <Typography variant="body2">Saved on this device, not yet confirmed. Retry it before recording anything else. It will not be counted twice.</Typography>
-      <Button disabled={stock.busy} onClick={stock.retryPending}>Retry saved entry</Button>
+      {stock.rejected ? <>
+        <Typography variant="body2">The server refused this entry, so nothing was recorded. Retrying will not help. Discard it, then record it again if it is still needed.</Typography>
+        <Button color="error" variant="contained" disabled={stock.busy} onClick={stock.discardPending}>Discard saved entry</Button>
+      </> : <>
+        <Typography variant="body2">Saved on this device, not yet confirmed. Retry it before recording anything else. It will not be counted twice.</Typography>
+        <Button disabled={stock.busy} onClick={stock.retryPending}>Retry saved entry</Button>
+      </>}
     </Alert>}
+    <Dialog open={stock.discardOpen} onClose={stock.cancelDiscard}>
+      <DialogTitle>Discard this entry?</DialogTitle>
+      <DialogContent>
+        <Typography>{stock.pending?.summary}</Typography>
+        <Typography variant="body2" color="text.secondary">Nothing was recorded for it. Record it again afterwards if it is still needed.</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button color="inherit" onClick={stock.cancelDiscard}>Keep it</Button>
+        <Button color="error" variant="contained" onClick={stock.confirmDiscard}>Discard</Button>
+      </DialogActions>
+    </Dialog>
     {!stock.ready && !stock.pending && <Button disabled={stock.busy} onClick={() => void stock.reload().catch((cause) => stock.setError(cause instanceof Error ? cause.message : 'The stock list could not load.'))}>Reload stock</Button>}
   </>;
 }
