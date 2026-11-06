@@ -2190,8 +2190,15 @@ export const cashierHomeStyles = {
   oweName: { fontWeight: 700, minWidth: 0 },
   oweTrack: { height: 8, borderRadius: 100, bgcolor: "action.hover" },
   oweNote: { px: 2, py: 1.5, color: "text.secondary" },
-  collectRow: { p: 1.75, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 }, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } },
-  reminder: { color: "success.main", bgcolor: tint("success", 0.1), "&:hover": { bgcolor: tint("success", 0.2) } },
+  // Collect today rows: [name] [WhatsApp] [Collect] [amount] [chevron]. The cover button fills the row; the icons sit above it.
+  collectRow: { position: "relative", p: 1.75, display: "flex", alignItems: "center", gap: 1, minWidth: 0 },
+  collectCover: { position: "absolute", inset: 0, borderRadius: 0, justifyContent: "flex-start", "&:hover": { bgcolor: "action.hover" } },
+  collectIcons: { position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 1, flexShrink: 0 },
+  collectEnd: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 },
+  collectAmount: { minWidth: 72, textAlign: "right", fontFamily: "monospace", fontWeight: 700, fontVariantNumeric: "tabular-nums" },
+  collectButton: { width: 40, height: 40, color: "#B84A08", bgcolor: "#FDEBDD", borderRadius: "12px", "&:hover": { bgcolor: "#FBDCC6" } },
+  iconSpacer: { width: 40, height: 40, flexShrink: 0 },
+  reminder: { width: 40, height: 40, color: "success.main", bgcolor: tint("success", 0.1), "&:hover": { bgcolor: tint("success", 0.2) } },
   order: { borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   // Order rows fill the card. The header is a full-width button; its left side takes the spare width and its right side
   // (amount, pill, chevron) is a fixed group. Single-job and expanded job rows reserve the same chevron slot, so every
