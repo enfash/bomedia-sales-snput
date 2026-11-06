@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { FULL_REFRESH_MS, lagosDate, revisionKey, shouldDownload } from './data-revision';
+import { FALLBACK_REFRESH_MS, FULL_REFRESH_MS, retryDelay, lagosDate, revisionKey, shouldDownload } from './data-revision';
 
 const MINUTE = 60_000;
 
@@ -35,6 +35,17 @@ it('refreshes after 30 minutes even if nothing changed, as a safety net', () => 
   expect(shouldDownload({ key: '42|2026-10-28', lastKey: '42|2026-10-28', lastDownloadAt }, lastDownloadAt + FULL_REFRESH_MS)).toBe(true);
 });
 
-it('downloads every time when the counter cannot be read, which is how the poll always worked', () => {
-  expect(shouldDownload({ key: null, lastKey: '42|2026-10-28', lastDownloadAt: 1_000 }, 31_000)).toBe(true);
+it('bounds fallback downloads when the counter cannot be read', () => {
+  const state = { key: null, lastKey: '42|2026-10-28', lastDownloadAt: 1_000 };
+  expect(shouldDownload(state, 31_000)).toBe(false);
+  expect(shouldDownload(state, 1_000 + FALLBACK_REFRESH_MS)).toBe(true);
+  expect(shouldDownload({ ...state, lastDownloadAt: 0 }, 31_000)).toBe(true);
+});
+
+it.each(['', 'invalid', -1, NaN, Infinity, 1.5, {}, true])('rejects malformed revision %s', revision => {
+  expect(revisionKey({ revision }, '2026-10-28')).toBeNull();
+});
+
+it('backs off from 30 seconds to a bounded five minutes', () => {
+  expect([1, 2, 3, 4, 5, 100].map(retryDelay)).toEqual([30_000, 60_000, 120_000, 240_000, 300_000, 300_000]);
 });
