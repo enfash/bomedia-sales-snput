@@ -44,7 +44,12 @@ async function execute(call:FinancialCall,method:'api_restock'|'api_waste'|'api_
   try {return await call<StockResult>(method,key,payload);}
   catch(error) {
     const code=(error as {code?:string}).code;
+    const detail=(error as {message?:string}).message || '';
     if(code==='42501')throw new FinancialError('Account access is no longer available.',403,'ACTOR_DISABLED');
+    if(code==='23514' && /New accounting requires active books/.test(detail))throw new FinancialError(
+      'Stock was not changed. This date is before your books start. Discard this entry and record it again with a later date.',409,'STOCK_DATE_BEFORE_BOOKS');
+    if(code==='23514' && /This accounting period is closed/.test(detail))throw new FinancialError(
+      'Stock was not changed. This accounting period is closed. Discard this entry and record it again in an open period.',409,'STOCK_PERIOD_CLOSED');
     if(['22023','23514','23503','22P02','22003','22007','22008'].includes(code || ''))throw new FinancialError(
       'Stock was not changed. Check the roll, length, cost, accounting period and request ID. Keep this entry for review.',409,'STOCK_REVIEW_REQUIRED');
     throw error;

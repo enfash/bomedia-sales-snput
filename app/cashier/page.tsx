@@ -16,6 +16,7 @@ import { buildCashierOrders, owingOrders, reminderText, type CashierOrder, type 
 import { collectionLook } from "@/lib/collection-status";
 import { processDebtData } from "@/lib/financial-utils";
 import { itemCount } from "@/lib/customer-sale-items";
+import { CollectIcon } from "@/components/icons/collect-icon";
 import { useSyncStore } from "@/lib/store";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ function JobLine({ job, showClient = true }: { job: UnifiedRecord; showClient?: 
       <Box component="span" sx={[styles.pill, payPill(status)]}>{status === "Unpaid" && (job.balance ?? 0) > 0 ? `Owes ${money(job.balance ?? 0)}` : status}</Box>
       <Box component="span" sx={[styles.pill, styles.pillNeutral]}>{job.jobStatus}</Box>
     </Box>
+    <Box sx={styles.chevronSlot} aria-hidden />
   </Box>;
 }
 
@@ -85,15 +87,17 @@ function JobList({ orders }: { orders: CashierOrder[] }) {
       const isOpen = open === key, panel = `jobs-${key}`;
       return <Box key={key} sx={styles.order}>
         <ButtonBase onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen} aria-controls={panel} sx={[styles.orderHead, isOpen && styles.orderHeadOpen]}>
-          <Box sx={styles.jobMain}>
+          <Box sx={[styles.jobMain, styles.orderMain]}>
             <Typography noWrap sx={styles.strong}>{order.client}</Typography>
             <Typography noWrap variant="body2" color="text.secondary">{order.salesId} · {itemCount(order.jobs.length)}</Typography>
           </Box>
-          <Box sx={styles.jobEnd}>
-            <Typography sx={styles.money}>{money(order.total)}</Typography>
-            <Box component="span" sx={[styles.pill, orderPillStyle(order.pill)]}>{orderPillLabel(order)}</Box>
+          <Box sx={styles.orderEnd}>
+            <Box sx={styles.jobEnd}>
+              <Typography sx={styles.money}>{money(order.total)}</Typography>
+              <Box component="span" sx={[styles.pill, orderPillStyle(order.pill)]}>{orderPillLabel(order)}</Box>
+            </Box>
+            <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>
           </Box>
-          <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>
         </ButtonBase>
         <Collapse in={isOpen} unmountOnExit>
           <Box id={panel} sx={styles.orderBody}>
@@ -105,36 +109,44 @@ function JobList({ orders }: { orders: CashierOrder[] }) {
   </>;
 }
 
-/** Orders that still owe, one row each, with the order's balance. Collect opens the payment sheet for the customer. */
+/** Orders that still owe, one row each. A single job opens the payment sheet, several jobs expand. The WhatsApp and Collect icons sit on top of the row. */
 function CollectList({ orders, onCollect }: { orders: CashierOrder[]; onCollect: (client: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   return <Paper variant="outlined" sx={styles.card}>
     {orders.map((order) => {
       const key = orderKey(order), single = order.jobs.length === 1;
       const isOpen = !single && open === key, panel = `collect-${key}`;
+      const owes = money(order.owed);
+      const detail = single ? [order.jobs[0].description, order.jobs[0].material].filter(Boolean).join(" · ") : `${order.salesId} · ${itemCount(order.jobs.length)}`;
       return <Box key={key} sx={styles.order}>
-        <Box sx={styles.orderRow}>
+        <Box sx={styles.collectRow}>
+          {/* The cover button is the row. The icons are siblings above it, so no button sits inside another. */}
           <ButtonBase
             onClick={() => (single ? onCollect(order.client) : setOpen(isOpen ? null : key))}
+            aria-label={single ? `${order.client}, owes ${owes}. Take a payment` : `${order.client}, ${detail}, owes ${owes}`}
             aria-expanded={single ? undefined : isOpen}
             aria-controls={single ? undefined : panel}
-            sx={[styles.orderHead, isOpen && styles.orderHeadOpen]}>
-            <Box sx={styles.jobMain}>
-              <Typography noWrap sx={styles.strong}>{order.client}</Typography>
-              <Typography noWrap variant="body2" color="text.secondary">
-                {single ? [order.jobs[0].description, order.jobs[0].material].filter(Boolean).join(" · ") : `${order.salesId} · ${itemCount(order.jobs.length)}`}
-              </Typography>
-            </Box>
-            <Typography sx={styles.money}>{money(order.owed)}</Typography>
-            {!single && <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>}
-          </ButtonBase>
-          <Box sx={styles.orderActions}>
-            <Button size="small" variant="contained" onClick={(event) => { event.stopPropagation(); onCollect(order.client); }}>Collect</Button>
-            {order.contact && <IconButton size="small" aria-label={`Send ${order.client} a WhatsApp reminder`} sx={styles.reminder} onClick={(event) => {
-              event.stopPropagation();
-              const phone = order.contact.replace(/\D/g, "").replace(/^0/, "234");
-              window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderText(order, money))}`, "_blank");
-            }}><MessageCircle size={16} /></IconButton>}
+            sx={[styles.collectCover, isOpen && styles.orderHeadOpen]} />
+          <Box sx={styles.orderMain}>
+            <Typography noWrap sx={styles.strong}>{order.client}</Typography>
+            <Typography noWrap variant="body2" color="text.secondary">{detail}</Typography>
+          </Box>
+          <Box sx={styles.collectIcons}>
+            {order.contact
+              ? <IconButton aria-label={`Send ${order.client} a WhatsApp reminder`} sx={styles.reminder} onClick={() => {
+                  const phone = order.contact.replace(/\D/g, "").replace(/^0/, "234");
+                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderText(order, money))}`, "_blank");
+                }}><MessageCircle size={18} /></IconButton>
+              : <Box sx={styles.iconSpacer} aria-hidden />}
+            <IconButton aria-label={`Collect payment from ${order.client}`} title="Collect" sx={styles.collectButton} onClick={() => onCollect(order.client)}>
+              <CollectIcon size={22} />
+            </IconButton>
+          </Box>
+          <Box sx={styles.collectEnd}>
+            <Typography sx={styles.collectAmount}>{owes}</Typography>
+            {single
+              ? <Box sx={styles.chevronSlot} aria-hidden />
+              : <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>}
           </Box>
         </Box>
         {!single && <Collapse in={isOpen} unmountOnExit>

@@ -1,5 +1,5 @@
 import { beforeEach,expect,it,vi } from 'vitest';
-import { readPendingAccounting,sendAccountingEntry,type PendingAccountingEntry,type PendingStorage } from './accounting-pending';
+import { AccountingRejectedError,discardPendingAccounting,readPendingAccounting,sendAccountingEntry,type PendingAccountingEntry,type PendingStorage } from './accounting-pending';
 let values:Map<string,string>,storage:PendingStorage;
 const entry:PendingAccountingEntry={version:1,staffId:'staff-one',operation:'payments',requestId:'request-one',summary:'Synthetic collection',payload:{method:'pos',amountKobo:'17300000'}};
 beforeEach(()=>{values=new Map();storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>{values.set(key,value);},removeItem:key=>{values.delete(key);}};});
@@ -16,6 +16,24 @@ it('persists before sending and retains method, amount, actor and request ID aft
 it.each([401,403,409,503])('keeps the saved request after status %s for reauthentication or review',async status=>{
   await expect(sendAccountingEntry(storage,entry,async()=>Response.json({error:'Review required'},{status}))).rejects.toThrow('Review required');
   expect(readPendingAccounting(storage,entry.staffId)).toEqual(entry);
+});
+it.each([
+  [409,'STOCK_REVIEW_REQUIRED',true],[409,'STOCK_DATE_BEFORE_BOOKS',true],[409,'STOCK_PERIOD_CLOSED',true],[400,'INVALID_INPUT',true],
+  [409,'ACTOR_CHANGED',false],[403,'OWNER_REQUIRED',false],[503,'STOCK_REVIEW_REQUIRED',false],[409,'',false],
+])('marks status %s with code %s discardable only for the listed codes: %s',async(status,code,discardable)=>{
+  const refused=await sendAccountingEntry(storage,entry,async()=>Response.json({error:'Refused',code},{status})).catch(error=>error);
+  expect(refused).toBeInstanceOf(AccountingRejectedError);
+  expect((refused as AccountingRejectedError).discardable).toBe(discardable);
+  expect(readPendingAccounting(storage,entry.staffId)).toEqual(entry);
+});
+it('discards only the exact saved entry, and only when asked',async()=>{
+  await expect(sendAccountingEntry(storage,entry,async()=>Response.json({error:'Refused',code:'STOCK_DATE_BEFORE_BOOKS'},{status:409}))).rejects.toBeInstanceOf(AccountingRejectedError);
+  const changed={...entry,payload:{...entry.payload,method:'cash'}};
+  expect(discardPendingAccounting(storage,changed)).toBe(false);
+  expect(readPendingAccounting(storage,entry.staffId)).toEqual(entry);
+  expect(discardPendingAccounting(storage,entry)).toBe(true);
+  expect(readPendingAccounting(storage,entry.staffId)).toBeNull();
+  expect(discardPendingAccounting(storage,entry)).toBe(false);
 });
 it('does not submit a replacement payload over an unresolved entry, even from another tab',async()=>{
   await expect(sendAccountingEntry(storage,entry,async()=>{throw Error('Lost');})).rejects.toThrow();

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { records } from '@/lib/accounting-records';
-import { readPendingAccounting, sendAccountingEntry, type PendingAccountingEntry } from '@/lib/accounting-pending';
+import { AccountingRejectedError, discardPendingAccounting, readPendingAccounting, sendAccountingEntry, type PendingAccountingEntry } from '@/lib/accounting-pending';
 import type { PaymentMethodOption, StockEntryDraft, StockMaterial, StockRoll } from '@/lib/stock-forms';
 
 const message = (error: unknown) => (error instanceof Error ? error.message : 'The entry is saved on this device. Retry when connected.');
@@ -15,6 +15,8 @@ export function useStockEntry(staffId: string | null) {
   const [materials, setMaterials] = useState<StockMaterial[]>([]), [rolls, setRolls] = useState<StockRoll[]>([]), [methods, setMethods] = useState<PaymentMethodOption[]>([]);
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [pending, setPending] = useState<PendingAccountingEntry | null>(null);
   const [error, setError] = useState(''), [success, setSuccess] = useState('');
+  // `rejected`: the server refused the saved entry for good, so only discarding it helps. Not stored; a reload retries first.
+  const [rejected, setRejected] = useState(false), [discardOpen, setDiscardOpen] = useState(false);
   const requestId = useRef<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -35,7 +37,7 @@ export function useStockEntry(staffId: string | null) {
 
   const dispatch = useCallback(async (entry: PendingAccountingEntry, onSaved?: () => void) => {
     if (!navigator.locks) { setError('This browser cannot safely submit entries. Use an updated browser on this device.'); return; }
-    setBusy(true); setError(''); setSuccess('');
+    setBusy(true); setError(''); setSuccess(''); setRejected(false);
     try {
       await navigator.locks.request(`bomedia-accounting:${entry.staffId}`, async () => {
         await sendAccountingEntry(localStorage, entry);
@@ -46,6 +48,7 @@ export function useStockEntry(staffId: string | null) {
       });
     } catch (cause) {
       setError(message(cause));
+      setRejected(cause instanceof AccountingRejectedError && cause.discardable);
       try { setPending(staffId ? readPendingAccounting(localStorage, staffId) : null); } catch { setReady(false); }
     } finally { setBusy(false); }
   }, [reload, staffId]);
@@ -58,9 +61,25 @@ export function useStockEntry(staffId: string | null) {
   }, [staffId, ready, locked, dispatch]);
 
   const retryPending = useCallback(() => { if (pending) void dispatch(pending); }, [pending, dispatch]);
+  const discardPending = useCallback(() => { if (pending && rejected) setDiscardOpen(true); }, [pending, rejected]);
+  const cancelDiscard = useCallback(() => setDiscardOpen(false), []);
+  /** Removes only the exact entry shown, then tells staff what was not recorded. Nothing is sent to the server. */
+  const confirmDiscard = useCallback(() => {
+    setDiscardOpen(false);
+    if (!pending) return;
+    try {
+      if (!discardPendingAccounting(localStorage, pending)) {
+        setError('The saved entry changed on this device, so it was not discarded. Reload the page and check it.');
+        return;
+      }
+      setPending(null); setRejected(false); requestId.current = null; setError('');
+      setSuccess(`Discarded. Nothing was recorded for: ${pending.summary}`);
+    } catch (cause) { setError(message(cause)); }
+  }, [pending]);
   const resetRequest = useCallback(() => { requestId.current = null; setSuccess(''); }, []);
   const methodLabel = useCallback((value: string) => methods.find((method) => method.method === value)?.label ?? '…', [methods]);
 
-  return { materials, rolls, methods, ready, busy, pending, locked, error, success, setError, reload, submit, retryPending, resetRequest, methodLabel };
+  return { materials, rolls, methods, ready, busy, pending, locked, error, success, rejected, discardOpen, setError, reload, submit, retryPending,
+    discardPending, cancelDiscard, confirmDiscard, resetRequest, methodLabel };
 }
 export type StockEntryState = ReturnType<typeof useStockEntry>;
