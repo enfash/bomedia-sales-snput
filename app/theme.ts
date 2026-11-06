@@ -2179,7 +2179,7 @@ export const cashierHomeStyles = {
   jobRow: { p: 1.75, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   jobMain: { minWidth: 0 },
   jobEnd: { textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 },
-  money: { fontFamily: "monospace", fontWeight: 700 },
+  money: { fontFamily: "monospace", fontWeight: 700, fontVariantNumeric: "tabular-nums" },
   pill: { fontSize: "0.75rem", fontWeight: 700, px: 1, py: 0.25, borderRadius: 100, whiteSpace: "nowrap" },
   pillPaid: tonePill("success"),
   pillPart: tonePill("warning"),
