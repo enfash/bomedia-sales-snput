@@ -2190,7 +2190,7 @@ export const cashierHomeStyles = {
   oweName: { fontWeight: 700, minWidth: 0 },
   oweTrack: { height: 8, borderRadius: 100, bgcolor: "action.hover" },
   oweNote: { px: 2, py: 1.5, color: "text.secondary" },
-  // Collect today rows: [name] [WhatsApp] [Collect] [amount] [chevron]. The cover button fills the row; the icons sit above it.
+  // Collect today rows: [name] [WhatsApp] [Collect] [chevron] [amount]. The cover button fills the row; the icons sit above it.
   collectRow: { position: "relative", p: 1.75, display: "flex", alignItems: "center", gap: 1, minWidth: 0 },
   collectCover: { position: "absolute", inset: 0, borderRadius: 0, justifyContent: "flex-start", "&:hover": { bgcolor: "action.hover" } },
   collectIcons: { position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 1, flexShrink: 0 },
@@ -2201,8 +2201,7 @@ export const cashierHomeStyles = {
   reminder: { width: 40, height: 40, color: "success.main", bgcolor: tint("success", 0.1), "&:hover": { bgcolor: tint("success", 0.2) } },
   order: { borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   // Order rows fill the card. The header is a full-width button; its left side takes the spare width and its right side
-  // (amount, pill, chevron) is a fixed group. Single-job and expanded job rows reserve the same chevron slot, so every
-  // amount in the list lines up on one right edge.
+  // keeps the chevron before the amount so single and grouped totals share the card's right edge.
   orderRow: { display: "flex", alignItems: "center", gap: 1, pr: 1.5, width: "100%", minWidth: 0 },
   orderHead: { flex: 1, minWidth: 0, width: "100%", boxSizing: "border-box", p: 1.75, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, textAlign: "left", fontFamily: "inherit", color: "text.primary", "&:hover": { bgcolor: "action.hover" } },
   orderHeadOpen: { bgcolor: "action.hover" },
@@ -2212,7 +2211,7 @@ export const cashierHomeStyles = {
   orderChevronOpen: { transform: "rotate(180deg)" },
   chevronSlot: { width: 18, flexShrink: 0 },
   orderActions: { display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0 },
-  orderBody: { px: 1.75, borderTop: "1px solid", borderColor: "divider" },
+  orderBody: { pl: 1.75, borderTop: "1px solid", borderColor: "divider" },
   links: { display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1 },
   lowRow: { p: 1.75, display: "flex", flexDirection: "column", gap: 0.75, borderBottom: "1px solid", borderColor: "divider", "&:last-child": { borderBottom: 0 } },
   lowTop: { display: "flex", justifyContent: "space-between", gap: 1 },
