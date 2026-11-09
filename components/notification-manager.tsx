@@ -50,7 +50,7 @@ export function NotificationManager() {
       if (freshSales.length > 0) {
         hasNewActivity = true;
         freshSales.forEach((sale: any) => {
-          const total = parseAmount(sale["TOTAL"] || sale["Total"]);
+          const total = parseAmount(sale["AMOUNT (₦)"] ?? sale["Amount (₦)"] ?? sale["TOTAL"] ?? sale["Total"]);
           const paid = parseAmount(sale["INITIAL PAYMENT (₦)"] || sale["INITIAL PAYMENT"] || sale["Initial Payment"]);
           const client = sale["CLIENT NAME"] || sale["Client Name"] || "New Client";
           const cashier = sale["LOGGED BY"] || sale["Logged By"] || "Staff";

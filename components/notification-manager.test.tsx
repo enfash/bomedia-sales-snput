@@ -55,6 +55,17 @@ it('announces the first new sale and expense after an empty baseline and retains
   expect(toast.success).toHaveBeenCalledTimes(1);
 });
 
+it('announces the PostgreSQL sale amount rather than zero, the payment, or the balance', async () => {
+  NotificationManager();
+  await vi.advanceTimersByTimeAsync(25_000);
+  revision++;
+  sales = [{ _rowIndex: '233', 'CLIENT NAME': 'Test customer', 'AMOUNT (₦)': '10000',
+    'INITIAL PAYMENT (₦)': '4000', 'AMOUNT DIFFERENCES': '6000', 'Logged By': 'Test cashier' }];
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(toast.success).toHaveBeenCalledWith('New Sale: ₦10,000 - Test customer',
+    expect.objectContaining({ description: 'Paid: ₦4,000 | Logged by Test cashier' }));
+});
+
 it('preserves low-stock alerts after a healthy baseline', async () => {
   materials = [{ 'Material ID': 'm1', 'Material Name': 'Vinyl', 'Total Remaining (ft)': '50', 'Low Stock Threshold (ft)': '20' }];
   NotificationManager(); await vi.advanceTimersByTimeAsync(25_000);
