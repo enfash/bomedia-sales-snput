@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useSyncStore } from "@/lib/store";
 import { toast } from "sonner";
-import { Volume2, VolumeX, Package } from "lucide-react";
-import { REVISION_CHECK_MS, lagosDate, revisionKey, shouldDownload } from "@/lib/data-revision";
+import { Package } from "lucide-react";
+import { createNotificationPoller, type NotificationFeeds } from "@/lib/notification-polling";
+import { shellVisible } from "@/lib/session-view";
 
 const parseAmount = (val: any): number => {
   if (val === undefined || val === null) return 0;
@@ -13,81 +15,42 @@ const parseAmount = (val: any): number => {
 };
 
 export function NotificationManager() {
-  const { cachedSales, cachedExpenses, cachedPayments, cachedMaterials, setCachedData } = useSyncStore();
-  
-  const lastSalesIndex = useRef<number>(0);
-  const lastExpensesIndex = useRef<number>(0);
-  const isInitialLoad = useRef<boolean>(true);
-  const [inventoryData, setInventoryData] = useState<any[]>([]);
-  const alertedInventoryRows = useRef<Set<string>>(new Set());
+  const pathname = usePathname();
+  const enabled = shellVisible(pathname) && !pathname.includes('/login');
+  const area = pathname.startsWith('/bom03') ? 'owner' : 'cashier';
 
-  const isFetching = useRef(false);
-  // The change counter and the time of the last full download. Reloading the page clears both, so the first check always downloads.
-  const lastKey = useRef<string | null>(null);
-  const lastDownloadAt = useRef(0);
-
-  const fetchData = async () => {
-    if (isFetching.current || document.visibilityState !== "visible" || !navigator.onLine) return;
-    isFetching.current = true;
-    try {
-      // Read the counter before the feeds: a write that lands in between is caught by the next check, so nothing is missed.
-      const revisionRes = await fetch("/api/accounting/data-revision", { cache: "no-store" }).catch(() => null);
-      const revisionBody = revisionRes?.ok ? await revisionRes.json().catch(() => null) : null;
-      const key = revisionKey(revisionBody, lagosDate());
-      const now = Date.now();
-      if (!shouldDownload({ key, lastKey: lastKey.current, lastDownloadAt: lastDownloadAt.current }, now)) return;
-
-      const [salesRes, expensesRes, inventoryRes, materialsRes] = await Promise.all([
-        fetch("/api/sales"),
-        fetch("/api/expenses"),
-        fetch("/api/inventory"),
-        fetch("/api/materials"),
-      ]);
-
-      if (!salesRes.ok || !expensesRes.ok || !inventoryRes.ok || !materialsRes.ok) {
-        if (salesRes.status === 429 || expensesRes.status === 429 || inventoryRes.status === 429 || materialsRes.status === 429) {
-          console.warn("NotificationManager: Rate limit hit, skipping poll.");
-        }
-        return;
-      }
-
-      const salesJson = await salesRes.json();
-      const expensesJson = await expensesRes.json();
-      const inventoryJson = await inventoryRes.json();
-      const materialsJson = await materialsRes.json();
-
-      const newSales = salesJson.data ?? [];
-      const newExpenses = expensesJson.data ?? [];
-      const newInventory = inventoryJson.data ?? [];
-      const newMaterials = materialsJson.data ?? [];
-      lastKey.current = key;
-      lastDownloadAt.current = now;
-
+  useEffect(() => {
+    if (!enabled) return;
+    let lastSalesIndex = 0;
+    let lastExpensesIndex = 0;
+    let isInitialLoad = true;
+    const alertedInventoryRows = new Set<string>();
+    const apply = ([newSales, newExpenses, newInventory, newMaterials]: NotificationFeeds) => {
       // Update baseline on initial load
-      if (isInitialLoad.current && newSales.length > 0) {
-        lastSalesIndex.current = Math.max(0, ...newSales.map((r: any) => r._rowIndex || 0));
-        lastExpensesIndex.current = Math.max(0, ...newExpenses.map((r: any) => r._rowIndex || 0));
-        isInitialLoad.current = false;
+      if (isInitialLoad) {
+        lastSalesIndex = Math.max(0, ...newSales.map((r: any) => r._rowIndex || 0));
+        lastExpensesIndex = Math.max(0, ...newExpenses.map((r: any) => r._rowIndex || 0));
+        isInitialLoad = false;
         
         // Baseline: mark already-low materials so we don't alert on first load
         newMaterials.forEach((mat: any) => {
           const remaining = parseFloat(mat["Total Remaining (ft)"]?.toString() || "0") || 0;
           const threshold = parseFloat(mat["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
-          if (remaining <= threshold) alertedInventoryRows.current.add(mat["Material ID"]);
+          if (remaining <= threshold) alertedInventoryRows.add(mat["Material ID"]);
         });
 
-        setCachedData(newSales, newExpenses, newInventory, cachedPayments, newMaterials);
+        useSyncStore.getState().setCachedData(newSales, newExpenses, newInventory, undefined, newMaterials);
         return;
       }
 
       let hasNewActivity = false;
 
       // 1. Check for new sales
-      const freshSales = newSales.filter((r: any) => (r._rowIndex || 0) > lastSalesIndex.current);
+      const freshSales = newSales.filter((r: any) => (r._rowIndex || 0) > lastSalesIndex);
       if (freshSales.length > 0) {
         hasNewActivity = true;
         freshSales.forEach((sale: any) => {
-          const total = parseAmount(sale["TOTAL"] || sale["Total"]);
+          const total = parseAmount(sale["AMOUNT (₦)"] ?? sale["Amount (₦)"] ?? sale["TOTAL"] ?? sale["Total"]);
           const paid = parseAmount(sale["INITIAL PAYMENT (₦)"] || sale["INITIAL PAYMENT"] || sale["Initial Payment"]);
           const client = sale["CLIENT NAME"] || sale["Client Name"] || "New Client";
           const cashier = sale["LOGGED BY"] || sale["Logged By"] || "Staff";
@@ -97,11 +60,11 @@ export function NotificationManager() {
             duration: 5000,
           });
         });
-        lastSalesIndex.current = Math.max(lastSalesIndex.current, ...newSales.map((r: any) => r._rowIndex || 0));
+        lastSalesIndex = Math.max(lastSalesIndex, ...newSales.map((r: any) => r._rowIndex || 0));
       }
 
       // 2. Check for new expenses
-      const freshExpenses = newExpenses.filter((r: any) => (r._rowIndex || 0) > lastExpensesIndex.current);
+      const freshExpenses = newExpenses.filter((r: any) => (r._rowIndex || 0) > lastExpensesIndex);
       if (freshExpenses.length > 0) {
         hasNewActivity = true;
         freshExpenses.forEach((expense: any) => {
@@ -113,7 +76,7 @@ export function NotificationManager() {
             duration: 5000,
           });
         });
-        lastExpensesIndex.current = Math.max(lastExpensesIndex.current, ...newExpenses.map((r: any) => r._rowIndex || 0));
+        lastExpensesIndex = Math.max(lastExpensesIndex, ...newExpenses.map((r: any) => r._rowIndex || 0));
       }
 
       // 3. Check for Low Stock at the material level (aggregate across all rolls)
@@ -122,21 +85,21 @@ export function NotificationManager() {
         const remaining = parseFloat(mat["Total Remaining (ft)"]?.toString() || "0") || 0;
         const threshold = parseFloat(mat["Low Stock Threshold (ft)"]?.toString() || "20") || 20;
 
-        if (remaining <= threshold && !alertedInventoryRows.current.has(matId)) {
+        if (remaining <= threshold && !alertedInventoryRows.has(matId)) {
           toast.error(`Low Stock: ${mat["Material Name"]}`, {
             description: `Only ${remaining.toFixed(1)} ft remaining across all rolls.`,
             icon: <Package size={16} />,
             duration: 8000,
           });
-          alertedInventoryRows.current.add(matId);
+          alertedInventoryRows.add(matId);
           hasNewActivity = true;
         } else if (remaining > threshold) {
-          alertedInventoryRows.current.delete(matId);
+          alertedInventoryRows.delete(matId);
         }
       });
 
       // Update Store Cache
-      setCachedData(newSales, newExpenses, newInventory, cachedPayments, newMaterials);
+      useSyncStore.getState().setCachedData(newSales, newExpenses, newInventory, undefined, newMaterials);
 
       // Sound Notification
       if (hasNewActivity) {
@@ -155,35 +118,38 @@ export function NotificationManager() {
         }));
       }
 
-    } catch (error) {
-      // A dropped connection (offline, phone asleep, dev server restarting) is normal for a background poll: skip it, the next poll retries.
-      if (error instanceof TypeError || (typeof navigator !== "undefined" && !navigator.onLine)) console.warn("NotificationManager: server not reachable, skipping poll.");
-      else console.error("NotificationManager Sync Error:", error);
-    } finally {
-      isFetching.current = false;
-    }
-  };
-
-  useEffect(() => {
-    // Delay the first poll so it doesn't race with the page's own initial fetch.
-    // The dashboard populates the store on mount; NotificationManager only needs
-    // to watch for *new* activity after that settles.
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    const timer = setTimeout(() => {
-      fetchData();
-      interval = setInterval(fetchData, REVISION_CHECK_MS);
-      window.addEventListener("online", fetchData);
-      document.addEventListener("visibilitychange", fetchData);
-    }, 25000);
-
-    return () => {
-      clearTimeout(timer);
-      if (interval) clearInterval(interval);
-      window.removeEventListener("online", fetchData);
-      document.removeEventListener("visibilitychange", fetchData);
     };
-  }, []);
+    let storage: Storage | undefined;
+    try { storage = window.localStorage; } catch { /* Poll independently if storage is unavailable. */ }
+    const poller = createNotificationPoller({
+      send: (...args) => window.fetch(...args),
+      storage,
+      locks: navigator.locks,
+      scope: () => {
+        try { return JSON.stringify([area, storage?.getItem('userName'), storage?.getItem('bomedia-payment-context-v1')]); }
+        catch { return area; }
+      },
+      enabled: () => document.visibilityState === 'visible' && navigator.onLine,
+      cacheVersion: () => useSyncStore.getState(),
+      apply,
+    });
+    poller.start();
+    window.addEventListener('online', poller.wake);
+    window.addEventListener('focus', poller.wake);
+    document.addEventListener('visibilitychange', poller.wake);
+    window.addEventListener('pointerdown', poller.activity, { passive: true });
+    window.addEventListener('keydown', poller.activity);
+    window.addEventListener('bomedia-data-changed', poller.changed);
+    return () => {
+      poller.stop();
+      window.removeEventListener('online', poller.wake);
+      window.removeEventListener('focus', poller.wake);
+      document.removeEventListener('visibilitychange', poller.wake);
+      window.removeEventListener('pointerdown', poller.activity);
+      window.removeEventListener('keydown', poller.activity);
+      window.removeEventListener('bomedia-data-changed', poller.changed);
+    };
+  }, [enabled, area]);
 
   return null;
 }

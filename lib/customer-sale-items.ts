@@ -27,26 +27,33 @@ export function plainDescription(description: string): string {
   return stripped || description.trim();
 }
 
-export function saleItem(raw: SaleItemRaw): SaleItem {
+type ItemDisplayOptions = { showSingleQuantity?: boolean };
+
+function formatSaleItem(raw: SaleItemRaw, { showSingleQuantity = false }: ItemDisplayOptions = {}): SaleItem {
   const { name, size: bracketSize } = splitBracketSize(plainDescription(raw.description));
   const width = raw.width_ft ? trimNumber(raw.width_ft) : '', height = raw.height_ft ? trimNumber(raw.height_ft) : '';
   const fromJob = width && height && Number(width) > 0 && Number(height) > 0 ? `${width} × ${height} ft` : '';
-  const quantity = Number(raw.quantity) > 1 ? `${trimNumber(String(raw.quantity))} pieces` : '';
+  const count = Number(raw.quantity);
+  const quantity = count === 1 && showSingleQuantity ? '1 piece' : count > 1 ? `${trimNumber(String(raw.quantity))} pieces` : '';
   return { name, size: [bracketSize || fromJob, quantity].filter(Boolean).join(' · '), amount: koboNaira(Number(raw.amount_kobo) || 0) };
 }
 
+export function saleItem(raw: SaleItemRaw): SaleItem {
+  return formatSaleItem(raw);
+}
+
 /** Use the same item wording on Records and invoices that the customer Sales history uses. */
-export function recordSaleItem(record: RecordSaleItem): SaleItem {
+export function recordSaleItem(record: RecordSaleItem, options?: ItemDisplayOptions): SaleItem {
   const raw = record.raw ?? {};
   const custom = String(raw.custom ?? raw.CUSTOM ?? '').trim();
   const dimensions = custom.match(/^(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
-  return saleItem({
+  return formatSaleItem({
     description: record.description,
     quantity: raw.QTY ?? raw.Qty ?? raw.Quantity ?? null,
     width_ft: dimensions?.[1] ?? null,
     height_ft: dimensions?.[2] ?? null,
     amount_kobo: String(Math.round((record.amount || 0) * 100)),
-  });
+  }, options);
 }
 
 /** Opening debts were created together, so the database cannot tell their order apart: put them back in the Sheet's row order. New sales keep the order they were made in. */

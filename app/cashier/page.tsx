@@ -15,7 +15,7 @@ import { StockBar } from "@/components/stock-bar";
 import { buildCashierOrders, owingOrders, reminderText, type CashierOrder, type OrderPill } from "@/lib/cashier-home-view";
 import { collectionLook } from "@/lib/collection-status";
 import { processDebtData } from "@/lib/financial-utils";
-import { itemCount } from "@/lib/customer-sale-items";
+import { itemCount, recordSaleItem } from "@/lib/customer-sale-items";
 import { CollectIcon } from "@/components/icons/collect-icon";
 import { useSyncStore } from "@/lib/store";
 
@@ -53,20 +53,27 @@ const orderPillStyle = (pill: OrderPill) =>
   pill === "Paid" ? styles.pillPaid : pill === "Part-payment" ? styles.pillPart : pill === "Owes" ? styles.pillUnpaid : styles.pillNeutral;
 const orderPillLabel = (order: CashierOrder) => (order.pill === "Owes" ? `Owes ${money(order.owed)}` : order.pill);
 
+function JobDescription({ job }: { job: UnifiedRecord }) {
+  const { name, size } = recordSaleItem(job, { showSingleQuantity: true });
+  return <>
+    <Typography noWrap variant="body2" color="text.secondary">{[name, job.material].filter(Boolean).join(" · ")}</Typography>
+    {size && <Typography variant="body2" color="text.secondary">{size}</Typography>}
+  </>;
+}
+
 /** One job, styled as the job row. Inside an expanded order the client name is left off, since the header has it. */
 function JobLine({ job, showClient = true }: { job: UnifiedRecord; showClient?: boolean }) {
   const status = job.raw["PAYMENT STATUS"] || "Unpaid";
   return <Box sx={styles.jobRow}>
     <Box sx={styles.jobMain}>
       {showClient && <Typography noWrap sx={styles.strong}>{job.client}</Typography>}
-      <Typography noWrap variant="body2" color="text.secondary">{[job.description, job.material].filter(Boolean).join(" · ")}</Typography>
+      <JobDescription job={job} />
     </Box>
     <Box sx={styles.jobEnd}>
       <Typography sx={styles.money}>{money(job.amount)}</Typography>
       <Box component="span" sx={[styles.pill, payPill(status)]}>{status === "Unpaid" && (job.balance ?? 0) > 0 ? `Owes ${money(job.balance ?? 0)}` : status}</Box>
       <Box component="span" sx={[styles.pill, styles.pillNeutral]}>{job.jobStatus}</Box>
     </Box>
-    <Box sx={styles.chevronSlot} aria-hidden />
   </Box>;
 }
 
@@ -92,11 +99,11 @@ function JobList({ orders }: { orders: CashierOrder[] }) {
             <Typography noWrap variant="body2" color="text.secondary">{order.salesId} · {itemCount(order.jobs.length)}</Typography>
           </Box>
           <Box sx={styles.orderEnd}>
+            <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>
             <Box sx={styles.jobEnd}>
               <Typography sx={styles.money}>{money(order.total)}</Typography>
               <Box component="span" sx={[styles.pill, orderPillStyle(order.pill)]}>{orderPillLabel(order)}</Box>
             </Box>
-            <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>
           </Box>
         </ButtonBase>
         <Collapse in={isOpen} unmountOnExit>
@@ -117,7 +124,7 @@ function CollectList({ orders, onCollect }: { orders: CashierOrder[]; onCollect:
       const key = orderKey(order), single = order.jobs.length === 1;
       const isOpen = !single && open === key, panel = `collect-${key}`;
       const owes = money(order.owed);
-      const detail = single ? [order.jobs[0].description, order.jobs[0].material].filter(Boolean).join(" · ") : `${order.salesId} · ${itemCount(order.jobs.length)}`;
+      const detail = `${order.salesId} · ${itemCount(order.jobs.length)}`;
       return <Box key={key} sx={styles.order}>
         <Box sx={styles.collectRow}>
           {/* The cover button is the row. The icons are siblings above it, so no button sits inside another. */}
@@ -129,7 +136,7 @@ function CollectList({ orders, onCollect }: { orders: CashierOrder[]; onCollect:
             sx={[styles.collectCover, isOpen && styles.orderHeadOpen]} />
           <Box sx={styles.orderMain}>
             <Typography noWrap sx={styles.strong}>{order.client}</Typography>
-            <Typography noWrap variant="body2" color="text.secondary">{detail}</Typography>
+            {single ? <JobDescription job={order.jobs[0]} /> : <Typography noWrap variant="body2" color="text.secondary">{detail}</Typography>}
           </Box>
           <Box sx={styles.collectIcons}>
             {order.contact
@@ -143,10 +150,10 @@ function CollectList({ orders, onCollect }: { orders: CashierOrder[]; onCollect:
             </IconButton>
           </Box>
           <Box sx={styles.collectEnd}>
-            <Typography sx={styles.collectAmount}>{owes}</Typography>
             {single
               ? <Box sx={styles.chevronSlot} aria-hidden />
               : <Box component="span" sx={[styles.orderChevron, isOpen && styles.orderChevronOpen]} aria-hidden="true"><ChevronDown size={18} /></Box>}
+            <Typography sx={styles.collectAmount}>{owes}</Typography>
           </Box>
         </Box>
         {!single && <Collapse in={isOpen} unmountOnExit>
